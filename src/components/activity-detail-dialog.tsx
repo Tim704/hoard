@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { ImageOff, Loader2, Star, Trash2 } from 'lucide-react';
+import { ImageOff, Layers, Loader2, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { RatingControl } from '@/components/rating-control';
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { assignFranchise } from '@/lib/actions/franchise';
 import { removeActivity, updateActivity } from '@/lib/actions/media';
 import { STATUSES, statusLabel, type Status } from '@/lib/status';
 import type { ActivityWithMedia, MediaItem } from '@/lib/types';
@@ -30,7 +31,12 @@ import { cn } from '@/lib/utils';
 interface ActivityDetailDialogProps {
   activity: ActivityWithMedia | null;
   onClose: () => void;
+  /** The user's franchises, for moving this title into one by hand. */
+  franchises?: { id: string; name: string }[];
 }
+
+const NO_FRANCHISE = '__none';
+const NEW_FRANCHISE = '__new';
 
 /** A single "Label: value" row of media metadata. */
 function ExtraRow({ label, value }: { label: string; value: string }) {
@@ -116,7 +122,11 @@ function MediaExtras({ media }: { media: MediaItem }) {
  * Controlled detail dialog: edit status / rating / favorite / notes, or remove
  * the item entirely. Open when `activity` is non-null.
  */
-export function ActivityDetailDialog({ activity, onClose }: ActivityDetailDialogProps) {
+export function ActivityDetailDialog({
+  activity,
+  onClose,
+  franchises = [],
+}: ActivityDetailDialogProps) {
   const router = useRouter();
 
   const [status, setStatus] = useState<Status>('PLANNED');
@@ -124,10 +134,14 @@ export function ActivityDetailDialog({ activity, onClose }: ActivityDetailDialog
   const [favorite, setFavorite] = useState(false);
   const [notes, setNotes] = useState('');
 
+  const [franchiseId, setFranchiseId] = useState<string>(NO_FRANCHISE);
+
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [moving, setMoving] = useState(false);
 
-  // Re-sync local editable state whenever a new activity is selected.
+  // Re-sync local editable state whenever a different activity is selected.
+  // Keyed on the id so a background refresh doesn't wipe unsaved edits.
   useEffect(() => {
     if (activity) {
       setStatus(activity.status);
@@ -135,7 +149,13 @@ export function ActivityDetailDialog({ activity, onClose }: ActivityDetailDialog
       setFavorite(activity.favorite);
       setNotes(activity.notes ?? '');
     }
-  }, [activity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activity?.id]);
+
+  // The franchise saves immediately, so always mirror the server's value.
+  useEffect(() => {
+    setFranchiseId(activity?.franchise?.id ?? NO_FRANCHISE);
+  }, [activity?.id, activity?.franchise?.id]);
 
   if (!activity) {
     // Render a closed, controlled dialog so transitions stay mounted.
@@ -143,7 +163,29 @@ export function ActivityDetailDialog({ activity, onClose }: ActivityDetailDialog
   }
 
   const { media } = activity;
-  const busy = saving || removing;
+  const busy = saving || removing || moving;
+
+  // Franchise changes apply immediately (independent of Save) and are locked
+  // so automatic detection never undoes them.
+  async function changeFranchise(value: string) {
+    if (!activity) return;
+    const previous = franchiseId;
+    setFranchiseId(value);
+    setMoving(true);
+    try {
+      const target = value === NO_FRANCHISE ? null : value === NEW_FRANCHISE ? 'new' : value;
+      const res = await assignFranchise(activity.id, target);
+      if (res.ok) {
+        toast.success(target ? 'Franchise updated.' : 'Removed from franchise.');
+        router.refresh();
+      } else {
+        setFranchiseId(previous);
+        toast.error(res.error ?? 'Could not change the franchise.');
+      }
+    } finally {
+      setMoving(false);
+    }
+  }
 
   async function save() {
     if (!activity) return;
@@ -263,6 +305,32 @@ export function ActivityDetailDialog({ activity, onClose }: ActivityDetailDialog
                 )}
               </div>
               <RatingControl value={rating} onChange={(v) => setRating(v)} />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-sm font-medium">
+                <Layers className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                Franchise
+              </label>
+              <Select value={franchiseId} onValueChange={changeFranchise} disabled={busy}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_FRANCHISE}>No franchise</SelectItem>
+                  {franchises.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={NEW_FRANCHISE}>+ New franchise from this title</SelectItem>
+                </SelectContent>
+              </Select>
+              {activity.franchiseLocked && (
+                <p className="text-xs text-muted-foreground">
+                  Set by hand. Automatic detection leaves it alone.
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">

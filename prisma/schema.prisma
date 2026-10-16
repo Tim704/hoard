@@ -49,6 +49,7 @@ model User {
 
   sessions   Session[]
   activities UserMediaActivity[]
+  franchises Franchise[]
 }
 
 model Session {
@@ -79,6 +80,11 @@ model Book {
   isbn        String?
   createdAt   DateTime @default(now())
 
+  // Franchise detection, computed once per catalogue row (null = not resolved
+  // yet). franchiseKey is a provider id like "anilist:123" / "tmdb-col:10".
+  franchiseKey  String?
+  franchiseName String?
+
   activities UserMediaActivity[]
 }
 
@@ -94,6 +100,11 @@ model Movie {
   tmdbRating  Float?
   createdAt   DateTime @default(now())
 
+  // Franchise detection, computed once per catalogue row (null = not resolved
+  // yet). franchiseKey is a provider id like "anilist:123" / "tmdb-col:10".
+  franchiseKey  String?
+  franchiseName String?
+
   activities UserMediaActivity[]
 }
 
@@ -108,6 +119,11 @@ model TvShow {
   seasonCount  Int?
   tmdbRating   Float?
   createdAt    DateTime @default(now())
+
+  // Franchise detection, computed once per catalogue row (null = not resolved
+  // yet). franchiseKey is a provider id like "anilist:123" / "tmdb-col:10".
+  franchiseKey  String?
+  franchiseName String?
 
   activities UserMediaActivity[]
 
@@ -126,6 +142,11 @@ model Anime {
   studio      String?
   createdAt   DateTime @default(now())
 
+  // Franchise detection, computed once per catalogue row (null = not resolved
+  // yet). franchiseKey is a provider id like "anilist:123" / "tmdb-col:10".
+  franchiseKey  String?
+  franchiseName String?
+
   activities UserMediaActivity[]
 }
 
@@ -141,6 +162,11 @@ model Manga {
   malScore    Float?
   createdAt   DateTime @default(now())
 
+  // Franchise detection, computed once per catalogue row (null = not resolved
+  // yet). franchiseKey is a provider id like "anilist:123" / "tmdb-col:10".
+  franchiseKey  String?
+  franchiseName String?
+
   activities UserMediaActivity[]
 }
 
@@ -155,6 +181,11 @@ model VideoGame {
   igdbRating  Float?
   createdAt   DateTime @default(now())
 
+  // Franchise detection, computed once per catalogue row (null = not resolved
+  // yet). franchiseKey is a provider id like "anilist:123" / "tmdb-col:10".
+  franchiseKey  String?
+  franchiseName String?
+
   activities UserMediaActivity[]
 }
 
@@ -168,6 +199,11 @@ model MusicAlbum {
   artist      String?
   trackCount  Int?
   createdAt   DateTime @default(now())
+
+  // Franchise detection, computed once per catalogue row (null = not resolved
+  // yet). franchiseKey is a provider id like "anilist:123" / "tmdb-col:10".
+  franchiseKey  String?
+  franchiseName String?
 
   activities UserMediaActivity[]
 }
@@ -198,7 +234,13 @@ model UserMediaActivity {
   videoGameId  String?
   musicAlbumId String?
 
+  // Franchise / IP grouping. `franchiseLocked` = the user set this by hand, so
+  // automatic detection must never move it.
+  franchiseId     String?
+  franchiseLocked Boolean @default(false)
+
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  franchise  Franchise?  @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
   book       Book?       @relation(fields: [bookId], references: [id], onDelete: Cascade)
   movie      Movie?      @relation(fields: [movieId], references: [id], onDelete: Cascade)
   tvShow     TvShow?     @relation(fields: [tvShowId], references: [id], onDelete: Cascade)
@@ -218,4 +260,30 @@ model UserMediaActivity {
   @@index([userId, category])
   @@index([userId, category, rating])
   @@index([userId, category, rankOrder])
+  @@index([franchiseId])
+}
+
+// ── Franchises ───────────────────────────────────────────────────────────────
+//  A per-user grouping of titles from one IP (e.g. every Haikyuu season, movie
+//  and the manga). Carries its OWN rating and ranking, independent of the
+//  members' individual ratings.
+
+model Franchise {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  matchName String // normalised name used for automatic matching
+  imageUrl  String?
+  rating    Int? // the user's rating of the IP as a whole, 1–10
+  elo       Float    @default(1200)
+  rankOrder Float?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activities UserMediaActivity[]
+
+  @@unique([userId, matchName])
+  @@index([userId])
 }

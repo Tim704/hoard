@@ -9,6 +9,7 @@ import {
   Clapperboard,
   Disc3,
   Gamepad2,
+  Layers,
   LayoutDashboard,
   Library,
   Sparkles,
@@ -84,6 +85,17 @@ export function NavLinks({ onNavigate, collapsed = false }: NavLinksProps) {
         {/* Icon stays the same muted gray regardless of active state. */}
         <LayoutDashboard className="h-4 w-4 shrink-0 text-muted-foreground" />
         {!collapsed && <span>Dashboard</span>}
+      </Link>
+
+      <Link
+        href="/franchises"
+        onClick={onNavigate}
+        title={collapsed ? 'Franchises' : undefined}
+        aria-label={collapsed ? 'Franchises' : undefined}
+        className={linkClass('/franchises')}
+      >
+        <Layers className="h-4 w-4 shrink-0 text-muted-foreground" />
+        {!collapsed && <span>Franchises</span>}
       </Link>
 
       {NAV_ORDER.map((slug) => {

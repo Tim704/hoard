@@ -40,8 +40,8 @@ interface AniListMedia {
   studios?: { nodes?: Array<{ name?: string | null }> | null } | null;
 }
 
-interface AniListResponse {
-  data?: { Page?: { media?: AniListMedia[] | null } | null } | null;
+interface AniListResponse<T> {
+  data?: { Page?: { media?: T[] | null } | null } | null;
   errors?: Array<{ message?: string }> | null;
 }
 
@@ -50,12 +50,13 @@ interface AniListResponse {
  * per-attempt timeouts with exponential backoff. Throws with `label` in the
  * message if all attempts fail so the caller can surface a meaningful error.
  */
-async function anilistQuery(
+export async function anilistQuery<T = AniListMedia>(
   query: string,
   variables: Record<string, unknown>,
   label: string,
-): Promise<AniListMedia[]> {
+): Promise<T[]> {
   let lastStatus = 0;
+  let retryAfterMs = 0;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
@@ -72,7 +73,7 @@ async function anilistQuery(
       });
 
       if (res.ok) {
-        const json = (await res.json()) as AniListResponse;
+        const json = (await res.json()) as AniListResponse<T>;
         if (json.errors?.length) {
           throw new Error(`${label} failed (${json.errors[0]?.message ?? 'GraphQL error'})`);
         }
@@ -80,6 +81,11 @@ async function anilistQuery(
       }
 
       lastStatus = res.status;
+      // On 429, AniList says how long to back off; honour it (capped at 10s).
+      retryAfterMs =
+        res.status === 429
+          ? Math.min(10, Number(res.headers.get('retry-after')) || 5) * 1000
+          : 0;
       if (!RETRYABLE.has(res.status) || attempt === MAX_ATTEMPTS) {
         throw new Error(`${label} failed (${res.status})`);
       }
@@ -94,7 +100,8 @@ async function anilistQuery(
     }
 
     // Backoff: 400ms, 800ms before the next attempt.
-    await sleep(400 * attempt);
+    await sleep(Math.max(retryAfterMs, 400 * attempt));
+    retryAfterMs = 0;
   }
 
   throw new Error(`${label} failed (${lastStatus || 'unknown'})`);

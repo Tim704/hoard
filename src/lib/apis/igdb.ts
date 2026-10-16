@@ -66,6 +66,41 @@ interface IgdbGame {
   platforms?: Array<{ name?: string | null }> | null;
 }
 
+/**
+ * The franchise (or, failing that, the collection/series) an IGDB game belongs
+ * to, for franchise grouping. Returns null when IGDB lists neither.
+ */
+export async function fetchGameFranchise(
+  externalId: string,
+): Promise<{ key: string; name: string } | null> {
+  const creds = requireCredentials();
+  const token = await getAccessToken(creds);
+  const id = Number(externalId);
+  if (!Number.isFinite(id)) return null;
+
+  const res = await fetch(IGDB_GAMES_URL, {
+    method: 'POST',
+    headers: {
+      'Client-ID': creds.clientId,
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    },
+    body: `where id = ${id}; fields franchises.name,collections.name; limit 1;`,
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`IGDB franchise lookup failed (${res.status})`);
+
+  const [game] = (await res.json()) as Array<{
+    franchises?: Array<{ id: number; name?: string }> | null;
+    collections?: Array<{ id: number; name?: string }> | null;
+  }>;
+  const fr = game?.franchises?.find((f) => f.name);
+  if (fr?.name) return { key: `igdb-fr:${fr.id}`, name: fr.name };
+  const col = game?.collections?.find((c) => c.name);
+  if (col?.name) return { key: `igdb-col:${col.id}`, name: col.name };
+  return null;
+}
+
 export async function searchGames(query: string): Promise<NormalizedResult[]> {
   const q = query.trim();
   if (!q) return [];

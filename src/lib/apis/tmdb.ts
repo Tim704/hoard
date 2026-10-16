@@ -88,19 +88,28 @@ export async function searchMovies(query: string): Promise<NormalizedResult[]> {
 }
 
 /**
- * Fetch movie detail enrichment (runtime in minutes). Best-effort: the caller
- * wraps this and falls back to the un-enriched result on any failure.
+ * Fetch movie detail enrichment: runtime in minutes, plus the TMDB collection
+ * the film belongs to (e.g. "Dune Collection"), used for franchise grouping.
+ * Best-effort: the caller wraps this and falls back on any failure.
  */
-export async function fetchMovieDetails(
-  externalId: string,
-): Promise<{ runtime: number | null }> {
+export async function fetchMovieDetails(externalId: string): Promise<{
+  runtime: number | null;
+  collection: { id: number; name: string } | null;
+}> {
   const key = requireKey();
   const url = `${TMDB_BASE}/movie/${externalId}?api_key=${key}`;
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`TMDB movie details failed (${res.status})`);
 
-  const data = (await res.json()) as { runtime?: number | null };
-  return { runtime: data.runtime ?? null };
+  const data = (await res.json()) as {
+    runtime?: number | null;
+    belongs_to_collection?: { id?: number; name?: string } | null;
+  };
+  const col = data.belongs_to_collection;
+  return {
+    runtime: data.runtime ?? null,
+    collection: col?.id && col.name ? { id: col.id, name: col.name } : null,
+  };
 }
 
 /**

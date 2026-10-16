@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ListOrdered, ListTree } from 'lucide-react';
+import { Layers, ListOrdered, ListTree } from 'lucide-react';
 
 import { ActivityDetailDialog } from '@/components/activity-detail-dialog';
 import { MediaCompact } from '@/components/media-compact';
@@ -30,13 +30,15 @@ import {
   statusLabel,
   type Status,
 } from '@/lib/status';
-import type { ActivityWithMedia, ViewMode } from '@/lib/types';
+import { toDisplayUnits, type ActivityWithMedia, type ViewMode } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface CategoryClientProps {
   slug: CategorySlug;
   config: CategoryConfig;
   activities: ActivityWithMedia[];
+  /** The user's franchises, for the detail dialog's franchise picker. */
+  franchises: { id: string; name: string }[];
 }
 
 type SortMode = 'status' | 'recent' | 'rating' | 'ranking' | 'title';
@@ -49,6 +51,9 @@ const isSortMode = (v: unknown): v is SortMode =>
 const isBool = (v: unknown): v is boolean => typeof v === 'boolean';
 const isStatusList = (v: unknown): v is Status[] =>
   Array.isArray(v) && v.every((x) => typeof x === 'string' && isStatus(x));
+
+/** Which section a franchise with mixed statuses lands in, best first. */
+const FRANCHISE_SECTION_PRIORITY: Status[] = ['CONSUMING', 'COMPLETED', 'ON_HOLD', 'PLANNED', 'DROPPED'];
 
 /** Section order when grouping by status: in progress first, dropped last. */
 const SECTION_ORDER = [...STATUSES].sort((a, b) => STATUS_ORDER[a] - STATUS_ORDER[b]);
@@ -65,7 +70,7 @@ const SORT_LABEL: Record<SortMode, string> = {
  * The interactive shell for a category page: search/add, filter, sort, switch
  * between grid and table views, and open the detail dialog for any item.
  */
-export function CategoryClient({ slug, config, activities }: CategoryClientProps) {
+export function CategoryClient({ slug, config, activities, franchises }: CategoryClientProps) {
   // View preferences persist per category across visits.
   const key = (name: string) => `hoard:${slug}:${name}`;
   const [viewMode, setViewMode] = usePersistentState<ViewMode>(key('view'), 'grid', isViewMode);
@@ -76,9 +81,25 @@ export function CategoryClient({ slug, config, activities }: CategoryClientProps
     [],
     isStatusList,
   );
+  const [groupFranchises, setGroupFranchises] = usePersistentState<boolean>(
+    key('franchises'),
+    true,
+    isBool,
+  );
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const toggleGroup = (id: string) =>
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
-  const [selected, setSelected] = useState<ActivityWithMedia | null>(null);
+  // Track the selection by id so the dialog always shows fresh server data.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = activities.find((a) => a.id === selectedId) ?? null;
+  const setSelected = (a: ActivityWithMedia | null) => setSelectedId(a?.id ?? null);
 
   const toggleSection = (status: Status) =>
     setCollapsed((prev) =>
@@ -137,14 +158,44 @@ export function CategoryClient({ slug, config, activities }: CategoryClientProps
     return new Map(ranked.map((a, i) => [a.id, i + 1]));
   }, [activities]);
 
-  const renderView = (items: ActivityWithMedia[]) =>
-    viewMode === 'grid' ? (
-      <MediaGrid activities={items} onSelect={setSelected} />
+  // Title filtering shows matching titles individually, so you can find one
+  // without having to expand its franchise.
+  const groupingOn = groupFranchises && !filter.trim();
+
+  // With both groupings on, a franchise is shown whole in ONE status section:
+  // wherever you are in the IP (anything in progress, else anything finished…).
+  const franchiseSection = useMemo(() => {
+    const map = new Map<string, Status>();
+    if (!groupingOn) return map;
+    const members = new Map<string, Status[]>();
+    for (const a of visible) {
+      if (!a.franchise) continue;
+      const list = members.get(a.franchise.id) ?? [];
+      list.push(a.status);
+      members.set(a.franchise.id, list);
+    }
+    for (const [id, statuses] of members) {
+      if (statuses.length < 2) continue;
+      const best = FRANCHISE_SECTION_PRIORITY.find((s) => statuses.includes(s));
+      if (best) map.set(id, best);
+    }
+    return map;
+  }, [visible, groupingOn]);
+
+  const sectionOf = (a: ActivityWithMedia): Status =>
+    (a.franchise && franchiseSection.get(a.franchise.id)) || a.status;
+
+  const renderView = (items: ActivityWithMedia[]) => {
+    const units = toDisplayUnits(items, groupingOn);
+    const common = { units, onSelect: setSelected, expanded: expandedGroups, onToggleGroup: toggleGroup };
+    return viewMode === 'grid' ? (
+      <MediaGrid {...common} />
     ) : viewMode === 'compact' ? (
-      <MediaCompact activities={items} slug={slug} onSelect={setSelected} />
+      <MediaCompact {...common} slug={slug} />
     ) : (
-      <MediaTable activities={items} onSelect={setSelected} ranks={sort === 'ranking' ? ranks : undefined} />
+      <MediaTable {...common} ranks={sort === 'ranking' ? ranks : undefined} />
     );
+  };
 
   return (
     <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
@@ -230,6 +281,21 @@ export function CategoryClient({ slug, config, activities }: CategoryClientProps
             type="button"
             variant="outline"
             size="icon"
+            aria-label="Group franchises"
+            title="Group franchises"
+            aria-pressed={groupFranchises}
+            onClick={() => setGroupFranchises(!groupFranchises)}
+            className={cn(
+              'h-10 w-10 md:h-9 md:w-9',
+              groupFranchises && 'bg-accent text-accent-foreground',
+            )}
+          >
+            <Layers className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
             aria-label="Group by status"
             title="Group by status"
             aria-pressed={grouped}
@@ -260,7 +326,7 @@ export function CategoryClient({ slug, config, activities }: CategoryClientProps
       ) : grouped ? (
         <div className="space-y-8">
           {SECTION_ORDER.map((status) => {
-            const items = visible.filter((a) => a.status === status);
+            const items = visible.filter((a) => sectionOf(a) === status);
             if (items.length === 0) return null;
             return (
               <StatusSection
@@ -280,7 +346,11 @@ export function CategoryClient({ slug, config, activities }: CategoryClientProps
         renderView(visible)
       )}
 
-      <ActivityDetailDialog activity={selected} onClose={() => setSelected(null)} />
+      <ActivityDetailDialog
+        activity={selected}
+        onClose={() => setSelected(null)}
+        franchises={franchises}
+      />
     </div>
   );
 }

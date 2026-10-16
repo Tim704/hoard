@@ -20,6 +20,7 @@ import {
 } from '@/lib/categories';
 import { requireUser } from '@/lib/session';
 import { searchProvider, enrichResult } from '@/lib/apis';
+import { autoGroupAfterAdd } from '@/lib/franchise/auto';
 import type {
   NormalizedResult,
   SearchResponse,
@@ -90,9 +91,12 @@ export async function addToList(
         } as any,
       });
       activityId = created.id;
+      // Group the new title with the rest of its franchise (best-effort).
+      await autoGroupAfterAdd(user.id, slug, media);
     }
 
     revalidatePath('/' + slug);
+    revalidatePath('/franchises');
     return { ok: true, activityId };
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Failed to add item.';

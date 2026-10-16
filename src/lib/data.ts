@@ -19,7 +19,16 @@ import {
   type CategoryConfig,
 } from '@/lib/categories';
 import { getCurrentUser } from '@/lib/session';
-import type { ActivityWithMedia, MediaItem, Matchup } from '@/lib/types';
+import type {
+  ActivityWithMedia,
+  FranchiseRef,
+  FranchiseWithMembers,
+  MediaItem,
+  Matchup,
+} from '@/lib/types';
+
+/** Prisma select for the franchise info flattened onto each activity. */
+const FRANCHISE_REF = { select: { id: true, name: true, imageUrl: true, rating: true } };
 
 /**
  * Flatten a Prisma `UserMediaActivity` row (queried with the matching media
@@ -47,6 +56,8 @@ function flattenActivity(
     rankOrder: row.rankOrder ?? null,
     favorite: row.favorite,
     notes: row.notes,
+    franchise: (row.franchise as FranchiseRef | undefined) ?? null,
+    franchiseLocked: row.franchiseLocked ?? false,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     media: media as MediaItem,
@@ -68,7 +79,7 @@ export async function getCategoryActivities(
 
   const rows = await prisma.userMediaActivity.findMany({
     where: { userId: user.id, category: cat.dbCategory },
-    include: { [cat.prismaModel]: true } as any,
+    include: { [cat.prismaModel]: true, franchise: FRANCHISE_REF } as any,
     orderBy: { createdAt: 'desc' },
   });
 
@@ -330,4 +341,47 @@ export async function getNowConsuming(limit = 12): Promise<ActivityWithMedia[]> 
       return cat ? flattenActivity(row, cat) : null;
     })
     .filter((a): a is ActivityWithMedia => a !== null);
+}
+
+/** The current user's franchises (id + name only), alphabetical. */
+export async function getFranchiseOptions(): Promise<{ id: string; name: string }[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+  return prisma.franchise.findMany({
+    where: { userId: user.id },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+}
+
+/**
+ * Every franchise of the current user with its member titles (all domains),
+ * members in release order. Manually ranked franchises come first.
+ */
+export async function getFranchises(): Promise<FranchiseWithMembers[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  const include = Object.fromEntries(CATEGORY_LIST.map((c) => [c.prismaModel, true]));
+  const rows = await prisma.franchise.findMany({
+    where: { userId: user.id },
+    include: { activities: { include: include as any } },
+    orderBy: [{ rankOrder: { sort: 'asc', nulls: 'last' } }, { name: 'asc' }],
+  });
+
+  return rows.map((f) => ({
+    id: f.id,
+    name: f.name,
+    imageUrl: f.imageUrl,
+    rating: f.rating,
+    notes: f.notes,
+    rankOrder: f.rankOrder,
+    members: (f.activities as any[])
+      .map((row) => {
+        const cat = CATEGORY_LIST.find((c) => c.dbCategory === row.category);
+        return cat ? flattenActivity({ ...row, franchise: null }, cat) : null;
+      })
+      .filter((a): a is ActivityWithMedia => a !== null)
+      .sort((a, b) => (a.media.year ?? 9999) - (b.media.year ?? 9999)),
+  }));
 }
