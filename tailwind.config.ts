@@ -6,6 +6,10 @@ const config: Config = {
     './src/pages/**/*.{ts,tsx}',
     './src/components/**/*.{ts,tsx}',
     './src/app/**/*.{ts,tsx}',
+    // Status and category colour maps live in lib/ — without this they are
+    // never compiled and every status renders uncoloured.
+    './src/lib/**/*.{ts,tsx}',
+    './src/hooks/**/*.{ts,tsx}',
   ],
   theme: {
     container: {

@@ -1,8 +1,9 @@
 'use client';
 
 import Image from 'next/image';
-import { ImageOff } from 'lucide-react';
+import { ImageOff, Star } from 'lucide-react';
 
+import { RatingControl } from '@/components/rating-control';
 import { StatusBadge } from '@/components/status-badge';
 import {
   Table,
@@ -12,16 +13,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { mediaSubtitle } from '@/lib/media-meta';
 import type { ActivityWithMedia } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 interface MediaTableProps {
   activities: ActivityWithMedia[];
   onSelect: (a: ActivityWithMedia) => void;
-  /** Show a leading rank `#` column (used for the elo-sorted ranking view). */
+  /** Show a leading rank `#` column (used for the ranking sort). */
   showRank?: boolean;
 }
 
-/** Dense, sortable-looking table view of a category's activities. */
+/** List view: large covers with title, subtitle, status and rating. */
 export function MediaTable({ activities, onSelect, showRank }: MediaTableProps) {
   return (
     <div className="rounded-lg border border-border">
@@ -31,16 +34,17 @@ export function MediaTable({ activities, onSelect, showRank }: MediaTableProps) 
         <TableHeader>
           <TableRow>
             {showRank && <TableHead className="w-12 text-center">#</TableHead>}
-            <TableHead className="w-12" />
+            <TableHead className="w-20" />
             <TableHead>Title</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead className="w-36">Status</TableHead>
             <TableHead className="w-24">Rating</TableHead>
-            <TableHead className="w-20 text-right">Elo</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {activities.map((activity, index) => {
             const { media } = activity;
+            const subtitle = mediaSubtitle(media, activity.category);
+            const dropped = activity.status === 'DROPPED';
             return (
               <TableRow
                 key={activity.id}
@@ -48,45 +52,46 @@ export function MediaTable({ activities, onSelect, showRank }: MediaTableProps) 
                 className="cursor-pointer"
               >
                 {showRank && (
-                  <TableCell className="text-center text-sm font-semibold text-muted-foreground">
+                  <TableCell className="text-center text-base font-semibold tabular-nums text-muted-foreground">
                     {index + 1}
                   </TableCell>
                 )}
-                <TableCell>
-                  <div className="relative h-12 w-8 overflow-hidden rounded bg-muted">
+                <TableCell className="py-2.5">
+                  <div className="relative h-24 w-16 overflow-hidden rounded-md bg-muted shadow-sm ring-1 ring-border">
                     {media.imageUrl ? (
                       <Image
                         src={media.imageUrl}
                         alt={media.title}
                         fill
-                        sizes="32px"
-                        className="object-cover"
+                        sizes="64px"
+                        className={cn('object-cover', dropped && 'opacity-60 grayscale')}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                        <ImageOff className="h-3.5 w-3.5" aria-hidden />
+                        <ImageOff className="h-5 w-5" aria-hidden />
                       </div>
                     )}
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="font-medium leading-tight">{media.title}</div>
-                  {media.year != null && (
-                    <div className="text-xs text-muted-foreground">{media.year}</div>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base font-medium leading-tight">{media.title}</span>
+                    {activity.favorite && (
+                      <Star
+                        className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400"
+                        aria-label="Favorite"
+                      />
+                    )}
+                  </div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    {[media.year, subtitle].filter(Boolean).join(' · ')}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={activity.status} slug={activity.category} />
                 </TableCell>
-                <TableCell className="text-sm">
-                  {activity.rating != null ? (
-                    <span className="font-medium text-amber-300">{activity.rating}/10</span>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right text-sm text-muted-foreground">
-                  {Math.round(activity.elo)}
+                <TableCell>
+                  <RatingControl value={activity.rating} readOnly />
                 </TableCell>
               </TableRow>
             );

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Swords } from 'lucide-react';
+import { ListTree, Swords } from 'lucide-react';
 
 import { ActivityDetailDialog } from '@/components/activity-detail-dialog';
 import { MediaCompact } from '@/components/media-compact';
@@ -10,8 +10,10 @@ import { MediaGrid } from '@/components/media-grid';
 import { MediaTable } from '@/components/media-table';
 import { RoastButton } from '@/components/roast-button';
 import { SearchDialog } from '@/components/search-dialog';
+import { StatusSection } from '@/components/status-section';
 import { ViewToggle } from '@/components/view-toggle';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { usePersistentState } from '@/hooks/use-persistent-state';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -21,7 +23,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { CategoryConfig, CategorySlug } from '@/lib/categories';
-import { STATUS_ORDER, STATUSES, statusLabel, type Status } from '@/lib/status';
+import {
+  isStatus,
+  STATUS_ORDER,
+  STATUSES,
+  statusLabel,
+  type Status,
+} from '@/lib/status';
 import type { ActivityWithMedia, ViewMode } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -33,6 +41,17 @@ interface CategoryClientProps {
 
 type SortMode = 'status' | 'recent' | 'rating' | 'ranking' | 'title';
 type StatusFilter = 'ALL' | Status;
+
+const isViewMode = (v: unknown): v is ViewMode =>
+  v === 'grid' || v === 'list' || v === 'compact';
+const isSortMode = (v: unknown): v is SortMode =>
+  typeof v === 'string' && v in SORT_LABEL;
+const isBool = (v: unknown): v is boolean => typeof v === 'boolean';
+const isStatusList = (v: unknown): v is Status[] =>
+  Array.isArray(v) && v.every((x) => typeof x === 'string' && isStatus(x));
+
+/** Section order when grouping by status: in progress first, dropped last. */
+const SECTION_ORDER = [...STATUSES].sort((a, b) => STATUS_ORDER[a] - STATUS_ORDER[b]);
 
 const SORT_LABEL: Record<SortMode, string> = {
   status: 'Status',
@@ -47,11 +66,24 @@ const SORT_LABEL: Record<SortMode, string> = {
  * between grid and table views, and open the detail dialog for any item.
  */
 export function CategoryClient({ slug, config, activities }: CategoryClientProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  // View preferences persist per category across visits.
+  const key = (name: string) => `hoard:${slug}:${name}`;
+  const [viewMode, setViewMode] = usePersistentState<ViewMode>(key('view'), 'grid', isViewMode);
+  const [sort, setSort] = usePersistentState<SortMode>(key('sort'), 'status', isSortMode);
+  const [grouped, setGrouped] = usePersistentState<boolean>(key('grouped'), true, isBool);
+  const [collapsed, setCollapsed] = usePersistentState<Status[]>(
+    key('collapsed'),
+    [],
+    isStatusList,
+  );
   const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
-  const [sort, setSort] = useState<SortMode>('status');
   const [selected, setSelected] = useState<ActivityWithMedia | null>(null);
+
+  const toggleSection = (status: Status) =>
+    setCollapsed((prev) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status],
+    );
 
   const visible = useMemo(() => {
     const text = filter.trim().toLowerCase();
@@ -90,6 +122,15 @@ export function CategoryClient({ slug, config, activities }: CategoryClientProps
     }
     return sorted;
   }, [activities, filter, statusFilter, sort]);
+
+  const renderView = (items: ActivityWithMedia[]) =>
+    viewMode === 'grid' ? (
+      <MediaGrid activities={items} onSelect={setSelected} />
+    ) : viewMode === 'compact' ? (
+      <MediaCompact activities={items} slug={slug} onSelect={setSelected} />
+    ) : (
+      <MediaTable activities={items} onSelect={setSelected} showRank={sort === 'ranking'} />
+    );
 
   return (
     <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
@@ -170,11 +211,24 @@ export function CategoryClient({ slug, config, activities }: CategoryClientProps
           </SelectContent>
         </Select>
 
-        <ViewToggle
-          value={viewMode}
-          onChange={setViewMode}
-          className="order-3 md:order-none"
-        />
+        <div className="order-3 flex items-center gap-2 md:order-none">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Group by status"
+            title="Group by status"
+            aria-pressed={grouped}
+            onClick={() => setGrouped(!grouped)}
+            className={cn(
+              'h-10 w-10 md:h-9 md:w-9',
+              grouped && 'bg-accent text-accent-foreground',
+            )}
+          >
+            <ListTree className="h-4 w-4" />
+          </Button>
+          <ViewToggle value={viewMode} onChange={setViewMode} />
+        </div>
       </div>
 
       {/* Body */}
@@ -189,16 +243,27 @@ export function CategoryClient({ slug, config, activities }: CategoryClientProps
         <div className="rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
           Nothing matches your filters.
         </div>
-      ) : viewMode === 'grid' ? (
-        <MediaGrid activities={visible} onSelect={setSelected} />
-      ) : viewMode === 'compact' ? (
-        <MediaCompact activities={visible} slug={slug} onSelect={setSelected} />
+      ) : grouped ? (
+        <div className="space-y-8">
+          {SECTION_ORDER.map((status) => {
+            const items = visible.filter((a) => a.status === status);
+            if (items.length === 0) return null;
+            return (
+              <StatusSection
+                key={status}
+                status={status}
+                slug={slug}
+                count={items.length}
+                collapsed={collapsed.includes(status)}
+                onToggle={() => toggleSection(status)}
+              >
+                {renderView(items)}
+              </StatusSection>
+            );
+          })}
+        </div>
       ) : (
-        <MediaTable
-          activities={visible}
-          onSelect={setSelected}
-          showRank={sort === 'ranking'}
-        />
+        renderView(visible)
       )}
 
       <ActivityDetailDialog activity={selected} onClose={() => setSelected(null)} />

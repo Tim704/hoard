@@ -49,33 +49,41 @@ const NAV_ORDER: CategorySlug[] = [
 interface NavLinksProps {
   /** Fired on any link click — lets the mobile drawer close itself on navigate. */
   onNavigate?: () => void;
+  /** Icon-only rail mode (collapsed desktop sidebar). */
+  collapsed?: boolean;
 }
 
 /**
  * The Dashboard + seven-category link list shared by the desktop sidebar and
  * the mobile drawer, with active-route highlighting.
  */
-export function NavLinks({ onNavigate }: NavLinksProps) {
+export function NavLinks({ onNavigate, collapsed = false }: NavLinksProps) {
   const pathname = usePathname();
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
+
+  const linkClass = (href: string) =>
+    cn(
+      'flex items-center gap-3 rounded-md py-2 text-sm font-medium transition-colors',
+      collapsed ? 'justify-center px-0' : 'px-3',
+      isActive(href)
+        ? 'bg-accent text-accent-foreground'
+        : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+    );
 
   return (
     <>
       <Link
         href="/dashboard"
         onClick={onNavigate}
-        className={cn(
-          'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-          isActive('/dashboard')
-            ? 'bg-accent text-accent-foreground'
-            : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-        )}
+        title={collapsed ? 'Dashboard' : undefined}
+        aria-label={collapsed ? 'Dashboard' : undefined}
+        className={linkClass('/dashboard')}
       >
         {/* Icon stays the same muted gray regardless of active state. */}
-        <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
-        <span>Dashboard</span>
+        <LayoutDashboard className="h-4 w-4 shrink-0 text-muted-foreground" />
+        {!collapsed && <span>Dashboard</span>}
       </Link>
 
       {NAV_ORDER.map((slug) => {
@@ -87,16 +95,13 @@ export function NavLinks({ onNavigate }: NavLinksProps) {
             key={config.slug}
             href={href}
             onClick={onNavigate}
-            className={cn(
-              'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              isActive(href)
-                ? 'bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-            )}
+            title={collapsed ? config.label : undefined}
+            aria-label={collapsed ? config.label : undefined}
+            className={linkClass(href)}
           >
             {/* Every nav icon is the same muted gray (active highlights via bg/label). */}
-            <Icon className="h-4 w-4 text-muted-foreground" />
-            <span>{config.label}</span>
+            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            {!collapsed && <span>{config.label}</span>}
           </Link>
         );
       })}

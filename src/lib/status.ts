@@ -8,6 +8,15 @@
 //  colour (theme-aware: tuned for both light and dark).
 // ───────────────────────────────────────────────────────────────────────────
 
+import {
+  Check,
+  Clock3,
+  Pause,
+  Play,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
+
 import type { CategorySlug } from './categories';
 
 export const STATUSES = [
@@ -63,24 +72,36 @@ export const STATUS_ORDER: Record<Status, number> = {
   DROPPED: 4,
 };
 
-/** Badge styling per status — readable in both light and dark themes. */
+/**
+ * Badge styling per status — readable in both light and dark themes. In-progress
+ * gets the strongest fill so it pops; the rest stay a muted tint.
+ */
 export const STATUS_BADGE_CLASS: Record<Status, string> = {
   CONSUMING:
-    'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  PLANNED: 'border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300',
+    'border-emerald-500/60 bg-emerald-500/25 text-emerald-700 dark:text-emerald-200',
+  PLANNED: 'border-sky-500/50 bg-sky-500/10 text-sky-700 dark:text-sky-300',
   COMPLETED:
-    'border-violet-500/40 bg-violet-500/15 text-violet-700 dark:text-violet-300',
-  ON_HOLD: 'border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300',
-  DROPPED: 'border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300',
+    'border-violet-500/50 bg-violet-500/20 text-violet-700 dark:text-violet-300',
+  ON_HOLD: 'border-amber-500/50 bg-amber-500/20 text-amber-700 dark:text-amber-300',
+  DROPPED: 'border-rose-500/50 bg-rose-500/20 text-rose-700 dark:text-rose-300',
 };
 
-/** A solid status dot colour (used by the compact view). */
-export const STATUS_DOT_CLASS: Record<Status, string> = {
-  CONSUMING: 'bg-emerald-500',
-  PLANNED: 'bg-sky-500',
-  COMPLETED: 'bg-violet-500',
-  ON_HOLD: 'bg-amber-500',
-  DROPPED: 'bg-rose-500',
+/** One icon per status, so states differ by shape as well as by tint. */
+export const STATUS_ICON: Record<Status, LucideIcon> = {
+  CONSUMING: Play,
+  PLANNED: Clock3,
+  COMPLETED: Check,
+  ON_HOLD: Pause,
+  DROPPED: X,
+};
+
+/** Text colour for a bare status icon (compact rows, section headers). */
+export const STATUS_TEXT_CLASS: Record<Status, string> = {
+  CONSUMING: 'text-emerald-600 dark:text-emerald-400',
+  PLANNED: 'text-sky-600 dark:text-sky-400',
+  COMPLETED: 'text-violet-600 dark:text-violet-400',
+  ON_HOLD: 'text-amber-600 dark:text-amber-400',
+  DROPPED: 'text-rose-600 dark:text-rose-400',
 };
 
 export function isStatus(value: string): value is Status {

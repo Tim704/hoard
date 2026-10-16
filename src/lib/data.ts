@@ -276,3 +276,27 @@ export async function getRanking(slug: CategorySlug): Promise<ActivityWithMedia[
     .map((row) => flattenActivity(row, cat))
     .filter((a): a is ActivityWithMedia => a !== null);
 }
+
+/**
+ * Everything the current user is actively consuming, across all domains,
+ * most recently touched first. Powers the dashboard's "Now consuming" tile.
+ */
+export async function getNowConsuming(limit = 12): Promise<ActivityWithMedia[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  const include = Object.fromEntries(CATEGORY_LIST.map((c) => [c.prismaModel, true]));
+  const rows = await prisma.userMediaActivity.findMany({
+    where: { userId: user.id, status: 'CONSUMING' },
+    include: include as any,
+    orderBy: { updatedAt: 'desc' },
+    take: limit,
+  });
+
+  return rows
+    .map((row) => {
+      const cat = CATEGORY_LIST.find((c) => c.dbCategory === row.category);
+      return cat ? flattenActivity(row, cat) : null;
+    })
+    .filter((a): a is ActivityWithMedia => a !== null);
+}
