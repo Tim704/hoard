@@ -1,0 +1,54 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  HOARD — docker-compose
+#
+#  Two services: a PostgreSQL database and the Next.js app. Compose reads the
+#  sibling `.env` file automatically, so copy `.env.example` → `.env` and fill in
+#  your keys before running `docker compose up -d --build`.
+#
+#  On a Raspberry Pi (or any arm64 host) both images build and run natively as
+#  arm64 — no QEMU emulation required. The Prisma schema already declares the
+#  `linux-arm64-openssl-3.0.x` engine target.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Wait until Postgres is actually accepting connections before starting app.
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # The app talks to the `db` service over the compose network.
+      DATABASE_URL: ${DATABASE_URL}
+      TMDB_API_KEY: ${TMDB_API_KEY}
+      IGDB_CLIENT_ID: ${IGDB_CLIENT_ID}
+      IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET}
+      LASTFM_API_KEY: ${LASTFM_API_KEY}
+      GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL}
+      NODE_ENV: production
+    ports:
+      # Local dev exposes 3000 on all interfaces. On the Pi (behind the
+      # Cloudflare Tunnel) .env sets HOARD_PUBLISH to a unique localhost port,
+      # e.g. 127.0.0.1:3010:3000 — so only cloudflared can reach it.
+      - "${HOARD_PUBLISH:-3000:3000}"
+
+volumes:
+  pgdata: {}

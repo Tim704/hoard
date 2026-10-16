@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Hoard">
+  <rect width="100" height="100" rx="22" fill="#7c3aed"/>
+  <g fill="none" stroke="#ffffff" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M50 21 L79 36 L50 51 L21 36 Z"/>
+    <path d="M21 50 L50 65 L79 50"/>
+    <path d="M21 64 L50 79 L79 64"/>
+  </g>
+</svg>

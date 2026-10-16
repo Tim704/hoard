@@ -1,0 +1,41 @@
+# ── Dependencies & build output (reinstalled / rebuilt inside the image) ─────
+node_modules
+.next
+out
+
+# ── Version control & local tooling ──────────────────────────────────────────
+.git
+.gitignore
+.vscode
+.idea
+
+# ── Secrets & local env (provided at runtime via compose, never baked in) ────
+.env
+.env.local
+.env.*.local
+
+# ── Logs & local database data ───────────────────────────────────────────────
+npm-install.log
+npm-debug.log*
+*.log
+pgdata
+
+# ── Project scaffolding not needed in the image ──────────────────────────────
+_BUILD_CONTRACT.md
+docker-compose.yml
+.dockerignore
+Dockerfile
+
+# ── Misc docs / screenshots (keep README.md so it ships with the image) ──────
+# Scope image excludes to docs/screenshots dirs only, so any real static asset
+# added under public/ (e.g. favicon.png, og-image) still ships in the image.
+docs
+screenshots
+docs/**/*.png
+docs/**/*.jpg
+docs/**/*.jpeg
+docs/**/*.gif
+screenshots/**/*.png
+screenshots/**/*.jpg
+screenshots/**/*.jpeg
+screenshots/**/*.gif

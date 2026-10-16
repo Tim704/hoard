@@ -1,0 +1,176 @@
+'use server';
+
+// ───────────────────────────────────────────────────────────────────────────
+//  Media server actions — search providers and mutate the user's library.
+//
+//  Every mutating action: authenticates (requireUser), scopes to that user,
+//  performs the write, then revalidates the affected category page so server
+//  components re-render with fresh data. Failures are caught and returned as a
+//  serializable `ActionResult` rather than thrown (these are called from forms).
+// ───────────────────────────────────────────────────────────────────────────
+
+import { revalidatePath } from 'next/cache';
+
+import { prisma } from '@/lib/prisma';
+import {
+  getCategory,
+  CATEGORY_LIST,
+  type CategorySlug,
+  type DbCategory,
+} from '@/lib/categories';
+import { requireUser } from '@/lib/session';
+import { searchProvider, enrichResult } from '@/lib/apis';
+import type {
+  NormalizedResult,
+  SearchResponse,
+  ActionResult,
+} from '@/lib/types';
+import type { Status } from '@/lib/status';
+
+/**
+ * Search the external provider for a category. Pure delegation — the provider
+ * layer owns query trimming, fetching, and error wrapping.
+ */
+export async function searchMedia(
+  slug: CategorySlug,
+  query: string,
+): Promise<SearchResponse> {
+  return searchProvider(slug, query);
+}
+
+/** Resolve the URL slug for a stored DB category enum value (e.g. BOOK → books). */
+function slugForDbCategory(dbCategory: DbCategory): CategorySlug | undefined {
+  return CATEGORY_LIST.find((c) => c.dbCategory === dbCategory)?.slug;
+}
+
+/**
+ * Add a search result to the current user's library:
+ *  1. Upsert the canonical media row (keyed by its provider `externalId`).
+ *  2. Create a PLANNED activity linking the user to that media — unless one
+ *     already exists (idempotent; adding twice is a no-op).
+ */
+export async function addToList(
+  slug: CategorySlug,
+  result: NormalizedResult,
+): Promise<{ ok: boolean; error?: string; activityId?: string }> {
+  const cat = getCategory(slug);
+  if (!cat) return { ok: false, error: 'Unknown category.' };
+
+  try {
+    const user = await requireUser();
+
+    // Best-effort enrich the result with extra provider detail (runtime,
+    // episode counts, …) before persisting, so dashboard metrics have data.
+    result = await enrichResult(slug, result);
+
+    // Upsert the shared media row. `result.fields` is the exact column payload
+    // for this category's table (per the provider contract).
+    const media = await (prisma as any)[cat.prismaModel].upsert({
+      where: { externalId: result.externalId },
+      update: result.fields,
+      create: result.fields,
+    });
+
+    // Only create the join row if the user hasn't already added this item.
+    const existing = await prisma.userMediaActivity.findFirst({
+      where: { userId: user.id, [cat.fkField]: media.id } as any,
+    });
+
+    // Reuse the pre-existing activity id when present, else the newly created one.
+    let activityId: string;
+    if (existing) {
+      activityId = existing.id;
+    } else {
+      const created = await prisma.userMediaActivity.create({
+        data: {
+          userId: user.id,
+          category: cat.dbCategory,
+          status: 'PLANNED',
+          [cat.fkField]: media.id,
+        } as any,
+      });
+      activityId = created.id;
+    }
+
+    revalidatePath('/' + slug);
+    return { ok: true, activityId };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : 'Failed to add item.';
+    return { ok: false, error };
+  }
+}
+
+/**
+ * Update per-user state on an activity (status / rating / favorite / notes).
+ * Verifies ownership first. When the status transitions to COMPLETED and no
+ * finish date is recorded yet, stamps `finishedAt` with the current time.
+ */
+export async function updateActivity(
+  id: string,
+  data: {
+    status?: Status;
+    rating?: number | null;
+    favorite?: boolean;
+    notes?: string;
+  },
+): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+
+    const activity = await prisma.userMediaActivity.findUnique({ where: { id } });
+    if (!activity || activity.userId !== user.id) {
+      return { ok: false, error: 'Not found.' };
+    }
+
+    // Build the patch from only the provided fields.
+    const patch: {
+      status?: Status;
+      rating?: number | null;
+      favorite?: boolean;
+      notes?: string;
+      finishedAt?: Date;
+    } = {};
+
+    if (data.status !== undefined) patch.status = data.status;
+    if (data.rating !== undefined) patch.rating = data.rating;
+    if (data.favorite !== undefined) patch.favorite = data.favorite;
+    if (data.notes !== undefined) patch.notes = data.notes;
+
+    // Stamp completion the first time an item is marked COMPLETED.
+    if (data.status === 'COMPLETED' && !activity.finishedAt) {
+      patch.finishedAt = new Date();
+    }
+
+    await prisma.userMediaActivity.update({ where: { id }, data: patch as any });
+
+    const slug = slugForDbCategory(activity.category as DbCategory);
+    if (slug) revalidatePath('/' + slug);
+    return { ok: true };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : 'Failed to update item.';
+    return { ok: false, error };
+  }
+}
+
+/**
+ * Remove an activity from the current user's library (verifies ownership).
+ */
+export async function removeActivity(id: string): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+
+    const activity = await prisma.userMediaActivity.findUnique({ where: { id } });
+    if (!activity || activity.userId !== user.id) {
+      return { ok: false, error: 'Not found.' };
+    }
+
+    await prisma.userMediaActivity.delete({ where: { id } });
+
+    const slug = slugForDbCategory(activity.category as DbCategory);
+    if (slug) revalidatePath('/' + slug);
+    return { ok: true };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : 'Failed to remove item.';
+    return { ok: false, error };
+  }
+}

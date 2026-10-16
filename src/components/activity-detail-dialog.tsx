@@ -1,0 +1,324 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { ImageOff, Loader2, Star, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { RatingControl } from '@/components/rating-control';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { removeActivity, updateActivity } from '@/lib/actions/media';
+import { STATUSES, statusLabel, type Status } from '@/lib/status';
+import type { ActivityWithMedia, MediaItem } from '@/lib/types';
+import { cn } from '@/lib/utils';
+
+interface ActivityDetailDialogProps {
+  activity: ActivityWithMedia | null;
+  onClose: () => void;
+}
+
+/** A single "Label: value" row of media metadata. */
+function ExtraRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2 text-sm">
+      <span className="shrink-0 text-muted-foreground">{label}:</span>
+      <span className="font-medium">{value}</span>
+    </div>
+  );
+}
+
+/** Reads a possibly-present field off the loosely-typed media object. */
+function num(media: MediaItem, key: string): number | null {
+  const v = media[key];
+  return typeof v === 'number' ? v : null;
+}
+function str(media: MediaItem, key: string): string | null {
+  const v = media[key];
+  return typeof v === 'string' && v.length > 0 ? v : null;
+}
+function strArr(media: MediaItem, key: string): string[] {
+  const v = media[key];
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+}
+
+/**
+ * Renders whichever category-specific extras are present on the media object.
+ * Reads everything defensively so it works for any of the seven domains.
+ */
+function MediaExtras({ media }: { media: MediaItem }) {
+  const rows: React.ReactNode[] = [];
+
+  const authors = strArr(media, 'authors');
+  if (authors.length) rows.push(<ExtraRow key="authors" label="Authors" value={authors.join(', ')} />);
+
+  const artist = str(media, 'artist');
+  if (artist) rows.push(<ExtraRow key="artist" label="Artist" value={artist} />);
+
+  const studio = str(media, 'studio');
+  if (studio) rows.push(<ExtraRow key="studio" label="Studio" value={studio} />);
+
+  const platforms = strArr(media, 'platforms');
+  if (platforms.length) rows.push(<ExtraRow key="platforms" label="Platforms" value={platforms.join(', ')} />);
+
+  const runtime = num(media, 'runtime');
+  if (runtime != null) rows.push(<ExtraRow key="runtime" label="Runtime" value={`${runtime} min`} />);
+
+  const episodes = num(media, 'episodes');
+  if (episodes != null) rows.push(<ExtraRow key="episodes" label="Episodes" value={String(episodes)} />);
+
+  const episodeCount = num(media, 'episodeCount');
+  if (episodeCount != null) rows.push(<ExtraRow key="episodeCount" label="Episodes" value={String(episodeCount)} />);
+
+  const seasonCount = num(media, 'seasonCount');
+  if (seasonCount != null) rows.push(<ExtraRow key="seasonCount" label="Seasons" value={String(seasonCount)} />);
+
+  const chapters = num(media, 'chapters');
+  if (chapters != null) rows.push(<ExtraRow key="chapters" label="Chapters" value={String(chapters)} />);
+
+  const volumes = num(media, 'volumes');
+  if (volumes != null) rows.push(<ExtraRow key="volumes" label="Volumes" value={String(volumes)} />);
+
+  const pageCount = num(media, 'pageCount');
+  if (pageCount != null) rows.push(<ExtraRow key="pageCount" label="Pages" value={String(pageCount)} />);
+
+  const trackCount = num(media, 'trackCount');
+  if (trackCount != null) rows.push(<ExtraRow key="trackCount" label="Tracks" value={String(trackCount)} />);
+
+  const tmdbRating = num(media, 'tmdbRating');
+  if (tmdbRating != null) rows.push(<ExtraRow key="tmdbRating" label="TMDB" value={tmdbRating.toFixed(1)} />);
+
+  const malScore = num(media, 'malScore');
+  if (malScore != null) rows.push(<ExtraRow key="malScore" label="MAL" value={malScore.toFixed(1)} />);
+
+  const igdbRating = num(media, 'igdbRating');
+  if (igdbRating != null) rows.push(<ExtraRow key="igdbRating" label="IGDB" value={String(igdbRating)} />);
+
+  if (!rows.length) return null;
+  return <div className="space-y-1">{rows}</div>;
+}
+
+/**
+ * Controlled detail dialog: edit status / rating / favorite / notes, or remove
+ * the item entirely. Open when `activity` is non-null.
+ */
+export function ActivityDetailDialog({ activity, onClose }: ActivityDetailDialogProps) {
+  const router = useRouter();
+
+  const [status, setStatus] = useState<Status>('PLANNED');
+  const [rating, setRating] = useState<number | null>(null);
+  const [favorite, setFavorite] = useState(false);
+  const [notes, setNotes] = useState('');
+
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  // Re-sync local editable state whenever a new activity is selected.
+  useEffect(() => {
+    if (activity) {
+      setStatus(activity.status);
+      setRating(activity.rating);
+      setFavorite(activity.favorite);
+      setNotes(activity.notes ?? '');
+    }
+  }, [activity]);
+
+  if (!activity) {
+    // Render a closed, controlled dialog so transitions stay mounted.
+    return <Dialog open={false} onOpenChange={(o) => !o && onClose()} />;
+  }
+
+  const { media } = activity;
+  const busy = saving || removing;
+
+  async function save() {
+    if (!activity) return;
+    setSaving(true);
+    try {
+      const res = await updateActivity(activity.id, {
+        status,
+        rating,
+        favorite,
+        notes,
+      });
+      if (res.ok) {
+        toast.success('Saved.');
+        router.refresh();
+        onClose();
+      } else {
+        toast.error(res.error ?? 'Could not save changes.');
+      }
+    } catch {
+      toast.error('Could not save changes.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove() {
+    if (!activity) return;
+    setRemoving(true);
+    try {
+      const res = await removeActivity(activity.id);
+      if (res.ok) {
+        toast.success('Removed from your list.');
+        router.refresh();
+        onClose();
+      } else {
+        toast.error(res.error ?? 'Could not remove that item.');
+      }
+    } catch {
+      toast.error('Could not remove that item.');
+    } finally {
+      setRemoving(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      {/* Mobile: dock to the bottom edge as a sheet — the body scrolls inside
+          while the Save/Remove footer stays pinned. sm+ restores the centered
+          dialog exactly as before. */}
+      <DialogContent className="bottom-0 top-auto flex max-h-[92dvh] max-w-full translate-y-0 flex-col overflow-hidden rounded-t-2xl border-b-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:bottom-auto sm:top-[50%] sm:grid sm:max-h-none sm:max-w-2xl sm:translate-y-[-50%] sm:overflow-visible sm:border-b sm:p-6">
+        <DialogHeader>
+          <DialogTitle className="pr-6">{media.title}</DialogTitle>
+        </DialogHeader>
+
+        <div className="min-h-0 flex-1 grid gap-5 overflow-y-auto sm:grid-cols-[160px_1fr] sm:overflow-visible">
+          {/* Poster + metadata — a compact horizontal row on phones, the
+              original stacked column at sm+. */}
+          <div className="flex gap-4 sm:block sm:space-y-3">
+            <div className="relative aspect-[2/3] w-28 shrink-0 self-start overflow-hidden rounded-md bg-muted sm:w-full">
+              {media.imageUrl ? (
+                <Image
+                  src={media.imageUrl}
+                  alt={media.title}
+                  fill
+                  sizes="(max-width: 640px) 112px, 160px"
+                  className="object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                  <ImageOff className="h-8 w-8" aria-hidden />
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1 space-y-2 sm:space-y-3">
+              {media.year != null && (
+                <p className="text-sm text-muted-foreground">{media.year}</p>
+              )}
+              <MediaExtras media={media} />
+            </div>
+          </div>
+
+          {/* Editable controls */}
+          <div className="space-y-4">
+            {media.description && (
+              <p className="line-clamp-5 text-sm text-muted-foreground">
+                {media.description}
+              </p>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Status</label>
+              <Select value={status} onValueChange={(v) => setStatus(v as Status)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {statusLabel(s, activity.category)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Rating</label>
+                {rating != null && (
+                  <button
+                    type="button"
+                    onClick={() => setRating(null)}
+                    className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <RatingControl value={rating} onChange={(v) => setRating(v)} />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Favorite</label>
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-pressed={favorite}
+                  onClick={() => setFavorite((f) => !f)}
+                  className={cn(favorite && 'border-amber-500/40 text-amber-300')}
+                >
+                  <Star
+                    className={cn('mr-2 h-4 w-4', favorite && 'fill-current')}
+                    aria-hidden
+                  />
+                  {favorite ? 'Favorited' : 'Mark favorite'}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Notes</label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Private notes…"
+                // text-base on phones stops iOS zooming the page on focus (<16px does).
+                className="text-base sm:text-sm"
+                rows={3}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-2 pt-2">
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={remove}
+            disabled={busy}
+          >
+            {removing ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-2 h-4 w-4" />
+            )}
+            Remove
+          </Button>
+          <Button type="button" onClick={save} disabled={busy}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

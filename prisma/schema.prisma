@@ -1,0 +1,219 @@
+// ───────────────────────────────────────────────────────────────────────────
+//  HOARD — Prisma schema
+//
+//  Design note: media is NOT stored in a single polymorphic table. Each media
+//  category gets its own first-class relational table (Book, Movie, TvShow,
+//  Anime, Manga, VideoGame, MusicAlbum) so we never compare apples to oranges.
+//  `UserMediaActivity` is the join layer that ties a User to exactly one media
+//  row (via one of seven nullable foreign keys) and carries the per-user state:
+//  status, 1–10 rating, and the hidden Elo score that drives the Arena ranking.
+// ───────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+  // "native" covers local dev; the explicit arm64 target ensures the engine is
+  // present when the image is built on (or for) a Raspberry Pi.
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MediaCategory {
+  BOOK
+  MOVIE
+  TV
+  ANIME
+  MANGA
+  GAME
+  MUSIC
+}
+
+enum MediaStatus {
+  PLANNED
+  CONSUMING
+  COMPLETED
+  DROPPED
+  ON_HOLD
+}
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  sessions   Session[]
+  activities UserMediaActivity[]
+}
+
+model Session {
+  id        String   @id // opaque random token, also the cookie value
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ── Media tables ───────────────────────────────────────────────────────────
+//  Every media table shares a common display core (externalId, title, imageUrl,
+//  description, year) plus category-specific extras. The shared core lets the UI
+//  render any category uniformly while the join include stays trivial.
+
+model Book {
+  id          String   @id @default(cuid())
+  externalId  String   @unique // OpenLibrary work/edition key
+  title       String
+  imageUrl    String?
+  description String?
+  year        Int?
+  authors     String[]
+  pageCount   Int?
+  isbn        String?
+  createdAt   DateTime @default(now())
+
+  activities UserMediaActivity[]
+}
+
+model Movie {
+  id          String   @id @default(cuid())
+  externalId  String   @unique // TMDB movie id
+  title       String
+  imageUrl    String?
+  description String?
+  year        Int?
+  runtime     Int?
+  backdropUrl String?
+  tmdbRating  Float?
+  createdAt   DateTime @default(now())
+
+  activities UserMediaActivity[]
+}
+
+model TvShow {
+  id           String   @id @default(cuid())
+  externalId   String   @unique // TMDB tv id
+  title        String
+  imageUrl     String?
+  description  String?
+  year         Int?
+  episodeCount Int?
+  seasonCount  Int?
+  tmdbRating   Float?
+  createdAt    DateTime @default(now())
+
+  activities UserMediaActivity[]
+
+  @@map("TVShow")
+}
+
+model Anime {
+  id          String   @id @default(cuid())
+  externalId  String   @unique // MyAnimeList id (via Jikan)
+  title       String
+  imageUrl    String?
+  description String?
+  year        Int?
+  episodes    Int?
+  malScore    Float?
+  studio      String?
+  createdAt   DateTime @default(now())
+
+  activities UserMediaActivity[]
+}
+
+model Manga {
+  id          String   @id @default(cuid())
+  externalId  String   @unique // MyAnimeList id (via Jikan)
+  title       String
+  imageUrl    String?
+  description String?
+  year        Int?
+  chapters    Int?
+  volumes     Int?
+  malScore    Float?
+  createdAt   DateTime @default(now())
+
+  activities UserMediaActivity[]
+}
+
+model VideoGame {
+  id          String   @id @default(cuid())
+  externalId  String   @unique // IGDB id
+  title       String
+  imageUrl    String?
+  description String?
+  year        Int?
+  platforms   String[]
+  igdbRating  Float?
+  createdAt   DateTime @default(now())
+
+  activities UserMediaActivity[]
+}
+
+model MusicAlbum {
+  id          String   @id @default(cuid())
+  externalId  String   @unique // MusicBrainz id or "artist::album" from Last.fm
+  title       String
+  imageUrl    String?
+  description String?
+  year        Int?
+  artist      String?
+  trackCount  Int?
+  createdAt   DateTime @default(now())
+
+  activities UserMediaActivity[]
+}
+
+// ── The join layer ───────────────────────────────────────────────────────────
+
+model UserMediaActivity {
+  id         String        @id @default(cuid())
+  userId     String
+  category   MediaCategory
+  status     MediaStatus   @default(PLANNED)
+  rating     Int? // user score, 1–10
+  elo        Float         @default(1200) // hidden Arena rating
+  favorite   Boolean       @default(false)
+  notes      String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  // Exactly one of these is set, matching `category`.
+  bookId       String?
+  movieId      String?
+  tvShowId     String?
+  animeId      String?
+  mangaId      String?
+  videoGameId  String?
+  musicAlbumId String?
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book       Book?       @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  movie      Movie?      @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  tvShow     TvShow?     @relation(fields: [tvShowId], references: [id], onDelete: Cascade)
+  anime      Anime?      @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  manga      Manga?      @relation(fields: [mangaId], references: [id], onDelete: Cascade)
+  videoGame  VideoGame?  @relation(fields: [videoGameId], references: [id], onDelete: Cascade)
+  musicAlbum MusicAlbum? @relation(fields: [musicAlbumId], references: [id], onDelete: Cascade)
+
+  // A user can only add a given media item once per category.
+  @@unique([userId, bookId])
+  @@unique([userId, movieId])
+  @@unique([userId, tvShowId])
+  @@unique([userId, animeId])
+  @@unique([userId, mangaId])
+  @@unique([userId, videoGameId])
+  @@unique([userId, musicAlbumId])
+  @@index([userId, category])
+  @@index([userId, category, rating])
+}
