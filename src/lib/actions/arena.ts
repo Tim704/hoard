@@ -55,19 +55,27 @@ export async function submitMatchup(
     loser.elo,
   );
 
-  // Persist both new ratings atomically.
+  // If both sit in the manual ranking and the loser is placed above the
+  // winner, swap their positions so the duel result shows up in the order.
+  const swap =
+    winner.rankOrder != null &&
+    loser.rankOrder != null &&
+    loser.rankOrder < winner.rankOrder;
+
+  // Persist both new ratings (and any swap) atomically.
   await prisma.$transaction([
     prisma.userMediaActivity.update({
       where: { id: winner.id },
-      data: { elo: newWinnerElo },
+      data: { elo: newWinnerElo, ...(swap ? { rankOrder: loser.rankOrder } : {}) },
     }),
     prisma.userMediaActivity.update({
       where: { id: loser.id },
-      data: { elo: newLoserElo },
+      data: { elo: newLoserElo, ...(swap ? { rankOrder: winner.rankOrder } : {}) },
     }),
   ]);
 
   revalidatePath('/' + slug + '/arena');
+  revalidatePath('/' + slug);
 
   return getMatchup(slug);
 }

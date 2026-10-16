@@ -181,6 +181,7 @@ model UserMediaActivity {
   status     MediaStatus   @default(PLANNED)
   rating     Int? // user score, 1–10
   elo        Float         @default(1200) // hidden Arena rating
+  rankOrder  Float? // position in the user's manual ranking (asc); null = unranked
   favorite   Boolean       @default(false)
   notes      String?
   startedAt  DateTime?
@@ -216,4 +217,5 @@ model UserMediaActivity {
   @@unique([userId, musicAlbumId])
   @@index([userId, category])
   @@index([userId, category, rating])
+  @@index([userId, category, rankOrder])
 }

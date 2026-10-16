@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ListTree, Swords } from 'lucide-react';
+import { ListOrdered, ListTree } from 'lucide-react';
 
 import { ActivityDetailDialog } from '@/components/activity-detail-dialog';
 import { MediaCompact } from '@/components/media-compact';
@@ -57,7 +57,7 @@ const SORT_LABEL: Record<SortMode, string> = {
   status: 'Status',
   recent: 'Recently added',
   rating: 'Highest rated',
-  ranking: 'Arena ranking',
+  ranking: 'My ranking',
   title: 'Title (A–Z)',
 };
 
@@ -110,7 +110,13 @@ export function CategoryClient({ slug, config, activities }: CategoryClientProps
         sorted.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
         break;
       case 'ranking':
-        sorted.sort((a, b) => b.elo - a.elo);
+        // Manual ranking first (ascending position), unranked after by Elo.
+        sorted.sort((a, b) => {
+          if (a.rankOrder != null && b.rankOrder != null) return a.rankOrder - b.rankOrder;
+          if (a.rankOrder != null) return -1;
+          if (b.rankOrder != null) return 1;
+          return b.elo - a.elo;
+        });
         break;
       case 'title':
         sorted.sort((a, b) => a.media.title.localeCompare(b.media.title));
@@ -123,13 +129,21 @@ export function CategoryClient({ slug, config, activities }: CategoryClientProps
     return sorted;
   }, [activities, filter, statusFilter, sort]);
 
+  // Manual rank numbers across the whole category (stable inside sections).
+  const ranks = useMemo(() => {
+    const ranked = activities
+      .filter((a) => a.rankOrder != null)
+      .sort((a, b) => (a.rankOrder as number) - (b.rankOrder as number));
+    return new Map(ranked.map((a, i) => [a.id, i + 1]));
+  }, [activities]);
+
   const renderView = (items: ActivityWithMedia[]) =>
     viewMode === 'grid' ? (
       <MediaGrid activities={items} onSelect={setSelected} />
     ) : viewMode === 'compact' ? (
       <MediaCompact activities={items} slug={slug} onSelect={setSelected} />
     ) : (
-      <MediaTable activities={items} onSelect={setSelected} showRank={sort === 'ranking'} />
+      <MediaTable activities={items} onSelect={setSelected} ranks={sort === 'ranking' ? ranks : undefined} />
     );
 
   return (
@@ -164,8 +178,8 @@ export function CategoryClient({ slug, config, activities }: CategoryClientProps
             'order-6 flex-1 md:order-none md:flex-none',
           )}
         >
-          <Swords className="mr-2 h-4 w-4" />
-          Arena
+          <ListOrdered className="mr-2 h-4 w-4" />
+          Rank
         </Link>
 
         <RoastButton

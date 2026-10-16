@@ -20,12 +20,12 @@ import { cn } from '@/lib/utils';
 interface MediaTableProps {
   activities: ActivityWithMedia[];
   onSelect: (a: ActivityWithMedia) => void;
-  /** Show a leading rank `#` column (used for the ranking sort). */
-  showRank?: boolean;
+  /** When given, shows a leading `#` column with each item's manual rank. */
+  ranks?: Map<string, number>;
 }
 
 /** List view: large covers with title, subtitle, status and rating. */
-export function MediaTable({ activities, onSelect, showRank }: MediaTableProps) {
+export function MediaTable({ activities, onSelect, ranks }: MediaTableProps) {
   return (
     <div className="rounded-lg border border-border">
       {/* min-w keeps the columns readable on phones — the Table primitive's
@@ -33,7 +33,7 @@ export function MediaTable({ activities, onSelect, showRank }: MediaTableProps) 
       <Table className="min-w-[560px]">
         <TableHeader>
           <TableRow>
-            {showRank && <TableHead className="w-12 text-center">#</TableHead>}
+            {ranks && <TableHead className="w-12 text-center">#</TableHead>}
             <TableHead className="w-20" />
             <TableHead>Title</TableHead>
             <TableHead className="w-36">Status</TableHead>
@@ -41,7 +41,7 @@ export function MediaTable({ activities, onSelect, showRank }: MediaTableProps) 
           </TableRow>
         </TableHeader>
         <TableBody>
-          {activities.map((activity, index) => {
+          {activities.map((activity) => {
             const { media } = activity;
             const subtitle = mediaSubtitle(media, activity.category);
             const dropped = activity.status === 'DROPPED';
@@ -51,9 +51,9 @@ export function MediaTable({ activities, onSelect, showRank }: MediaTableProps) 
                 onClick={() => onSelect(activity)}
                 className="cursor-pointer"
               >
-                {showRank && (
+                {ranks && (
                   <TableCell className="text-center text-base font-semibold tabular-nums text-muted-foreground">
-                    {index + 1}
+                    {ranks.get(activity.id) ?? '—'}
                   </TableCell>
                 )}
                 <TableCell className="py-2.5">

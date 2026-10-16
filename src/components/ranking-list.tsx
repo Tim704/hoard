@@ -4,14 +4,13 @@ import { ImageOff, Star, Trophy } from 'lucide-react';
 import type { ActivityWithMedia } from '@/lib/types';
 
 interface RankingListProps {
-  /** Already sorted by Elo descending (the dynamic 1..N ranking). */
+  /** Already sorted best-first (manual ranking, or rating then Elo). */
   items: ActivityWithMedia[];
 }
 
 /**
- * The dynamic leaderboard for a category. Items arrive pre-sorted by Elo, so we
- * simply render them 1..N. The visible 1–10 rating is shown alongside the muted
- * Elo score that actually drives the order.
+ * The read-only leaderboard beside the Arena. Items arrive pre-sorted, so we
+ * simply render them 1..N with the visible 1–10 rating and the muted Elo.
  */
 export function RankingList({ items }: RankingListProps) {
   if (items.length === 0) {

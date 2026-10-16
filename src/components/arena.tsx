@@ -35,7 +35,8 @@ export function Arena({ slug, initial }: ArenaProps) {
         <Swords className="h-10 w-10 text-muted-foreground" aria-hidden />
         <p className="text-sm font-medium">No duels available yet</p>
         <p className="max-w-xs text-sm text-muted-foreground">
-          Give at least two items the SAME 1–10 score to start dueling.
+          Put at least two items in your ranking, or give two items the same
+          1–10 score, to start dueling.
         </p>
       </div>
     );
@@ -66,10 +67,17 @@ export function Arena({ slug, initial }: ArenaProps) {
     <div className="flex flex-col items-center gap-6">
       <div className="text-center">
         <h2 className="text-xl font-semibold">Which is better?</h2>
-        <p className="mt-1 inline-flex items-center gap-1 text-sm text-muted-foreground">
-          <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden />
-          Both rated {rating}/10
-        </p>
+        {matchup.ranks ? (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ranked #{matchup.ranks[0]} vs #{matchup.ranks[1]} in your list. The
+            winner ends up on top.
+          </p>
+        ) : (
+          <p className="mt-1 inline-flex items-center gap-1 text-sm text-muted-foreground">
+            <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden />
+            Both rated {rating}/10
+          </p>
+        )}
       </div>
 
       {/* Two columns even on phones so both contenders are glanceable at once. */}

@@ -44,6 +44,7 @@ function flattenActivity(
     status: row.status,
     rating: row.rating,
     elo: row.elo,
+    rankOrder: row.rankOrder ?? null,
     favorite: row.favorite,
     notes: row.notes,
     createdAt: row.createdAt.toISOString(),
@@ -214,39 +215,80 @@ export async function getDashboardStats(): Promise<CategoryStat[]> {
   );
 }
 
-/**
- * Build an Arena matchup for a category: among the user's rated rows, find a
- * 1–10 score shared by at least two items and pick two distinct rows at random.
- * Returns `null` when no rating value has a pair. (Same-rating duels keep the
- * Arena meaningful — it breaks ties the coarse 1–10 score cannot.)
- */
-export async function getMatchup(slug: CategorySlug): Promise<Matchup | null> {
+/** All of the user's activities in a category, flattened (no ordering). */
+async function loadCategory(slug: CategorySlug): Promise<ActivityWithMedia[]> {
   const cat = getCategory(slug);
-  if (!cat) return null;
-
+  if (!cat) return [];
   const user = await getCurrentUser();
-  if (!user) return null;
+  if (!user) return [];
 
   const rows = await prisma.userMediaActivity.findMany({
-    where: { userId: user.id, category: cat.dbCategory, rating: { not: null } },
+    where: { userId: user.id, category: cat.dbCategory },
     include: { [cat.prismaModel]: true } as any,
   });
+  return rows
+    .map((row) => flattenActivity(row, cat))
+    .filter((a): a is ActivityWithMedia => a !== null);
+}
 
-  // Group eligible rows by their rating value.
-  const byRating = new Map<number, ActivityWithMedia[]>();
-  for (const row of rows) {
-    const flat = flattenActivity(row, cat);
-    if (!flat || flat.rating == null) continue;
-    const bucket = byRating.get(flat.rating);
-    if (bucket) bucket.push(flat);
-    else byRating.set(flat.rating, [flat]);
+/** Rating desc (unrated last), then hidden Elo desc, then title. */
+function byRatingThenElo(a: ActivityWithMedia, b: ActivityWithMedia): number {
+  const byRating = (b.rating ?? -1) - (a.rating ?? -1);
+  if (byRating !== 0) return byRating;
+  const byElo = b.elo - a.elo;
+  if (byElo !== 0) return byElo;
+  return a.media.title.localeCompare(b.media.title);
+}
+
+/** Items worth ranking: anything rated, or anything you have actually started. */
+function isRankable(a: ActivityWithMedia): boolean {
+  return a.rating != null || a.status !== 'PLANNED';
+}
+
+export interface RankBoard {
+  /** The manual ranking, best first. */
+  ranked: ActivityWithMedia[];
+  /** Rankable items not placed yet, best guess first (rating, then Elo). */
+  unranked: ActivityWithMedia[];
+}
+
+/** The user's manual ranking for a category plus the tray of unranked items. */
+export async function getRankBoard(slug: CategorySlug): Promise<RankBoard> {
+  const all = await loadCategory(slug);
+  const ranked = all
+    .filter((a) => a.rankOrder != null)
+    .sort((a, b) => (a.rankOrder as number) - (b.rankOrder as number));
+  const unranked = all.filter((a) => a.rankOrder == null && isRankable(a)).sort(byRatingThenElo);
+  return { ranked, unranked };
+}
+
+/**
+ * Build an Arena matchup. When the user has a manual ranking, pick two random
+ * NEIGHBOURS in it ("is #4 really better than #5?"), so every duel refines the
+ * order. Otherwise fall back to two items sharing the same 1–10 score.
+ */
+export async function getMatchup(slug: CategorySlug): Promise<Matchup | null> {
+  const all = await loadCategory(slug);
+
+  const ranked = all
+    .filter((a) => a.rankOrder != null)
+    .sort((a, b) => (a.rankOrder as number) - (b.rankOrder as number));
+  if (ranked.length >= 2) {
+    const i = Math.floor(Math.random() * (ranked.length - 1));
+    return { rating: null, ranks: [i + 1, i + 2], a: ranked[i], b: ranked[i + 1] };
   }
 
-  // Keep only ratings that actually have a pair to duel.
+  // Group rated rows by their rating value; keep ratings that have a pair.
+  const byRating = new Map<number, ActivityWithMedia[]>();
+  for (const a of all) {
+    if (a.rating == null) continue;
+    const bucket = byRating.get(a.rating);
+    if (bucket) bucket.push(a);
+    else byRating.set(a.rating, [a]);
+  }
   const eligible = [...byRating.entries()].filter(([, items]) => items.length >= 2);
   if (eligible.length === 0) return null;
 
-  // Pick a random eligible rating, then two distinct rows within it.
   const [rating, items] = eligible[Math.floor(Math.random() * eligible.length)];
   const firstIdx = Math.floor(Math.random() * items.length);
   let secondIdx = Math.floor(Math.random() * (items.length - 1));
@@ -256,25 +298,14 @@ export async function getMatchup(slug: CategorySlug): Promise<Matchup | null> {
 }
 
 /**
- * The user's rated rows for a category, sorted by hidden Elo descending — this
- * is the dynamic 1..N ranking surfaced in the Arena and ranking views.
+ * The leaderboard shown beside the Arena: the manual ranking when one exists,
+ * otherwise rated items by rating then Elo.
  */
 export async function getRanking(slug: CategorySlug): Promise<ActivityWithMedia[]> {
-  const cat = getCategory(slug);
-  if (!cat) return [];
-
-  const user = await getCurrentUser();
-  if (!user) return [];
-
-  const rows = await prisma.userMediaActivity.findMany({
-    where: { userId: user.id, category: cat.dbCategory, rating: { not: null } },
-    include: { [cat.prismaModel]: true } as any,
-    orderBy: { elo: 'desc' },
-  });
-
-  return rows
-    .map((row) => flattenActivity(row, cat))
-    .filter((a): a is ActivityWithMedia => a !== null);
+  const { ranked } = await getRankBoard(slug);
+  if (ranked.length > 0) return ranked;
+  const all = await loadCategory(slug);
+  return all.filter((a) => a.rating != null).sort(byRatingThenElo);
 }
 
 /**

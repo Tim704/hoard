@@ -49,6 +49,8 @@ export interface ActivityWithMedia {
   status: Status;
   rating: number | null;
   elo: number;
+  /** Position in the user's manual ranking (ascending); null = not ranked. */
+  rankOrder: number | null;
   favorite: boolean;
   notes: string | null;
   createdAt: string; // ISO string (serialized for client components)
@@ -66,7 +68,10 @@ export type ViewMode = 'grid' | 'list' | 'compact';
 export type RoastMode = 'roast' | 'recommend';
 
 export interface Matchup {
-  rating: number;
+  /** Shared 1–10 score for a same-rating duel; null for a ranking-neighbour duel. */
+  rating: number | null;
+  /** 1-based ranks of `a` and `b` when the duel comes from the manual ranking. */
+  ranks?: [number, number];
   a: ActivityWithMedia;
   b: ActivityWithMedia;
 }
