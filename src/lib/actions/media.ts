@@ -19,10 +19,10 @@ import {
   type DbCategory,
 } from '@/lib/categories';
 import { normalizeRating } from '@/lib/rating';
-import { nextQueueOrder } from '@/lib/queue';
 import { requireUser } from '@/lib/session';
 import { searchProvider, enrichResult } from '@/lib/apis';
 import { autoGroupAfterAdd } from '@/lib/franchise/auto';
+import { appendQueueOrder, revalidateCategory } from '@/lib/actions/shared';
 import type {
   NormalizedResult,
   SearchResponse,
@@ -86,14 +86,8 @@ export async function addToList(
       activityId = existing.id;
     } else {
       // PLANNED rows join the bottom of the category's Up next queue.
-      let queueOrder: number | null = null;
-      if (status === 'PLANNED') {
-        const top = await prisma.userMediaActivity.aggregate({
-          where: { userId: user.id, category: cat.dbCategory },
-          _max: { queueOrder: true },
-        });
-        queueOrder = nextQueueOrder(top._max.queueOrder);
-      }
+      const queueOrder =
+        status === 'PLANNED' ? await appendQueueOrder(user.id, cat.dbCategory) : null;
       const created = await prisma.userMediaActivity.create({
         data: {
           userId: user.id,
@@ -109,7 +103,7 @@ export async function addToList(
       await autoGroupAfterAdd(user.id, slug, media);
     }
 
-    revalidatePath('/' + slug);
+    revalidateCategory(slug);
     revalidatePath('/franchises');
     return { ok: true, activityId, existing: !!existing };
   } catch (err) {
@@ -174,18 +168,14 @@ export async function updateActivity(
       if (activity.status === 'PLANNED') {
         patch.queueOrder = null;
       } else if (data.status === 'PLANNED') {
-        const top = await prisma.userMediaActivity.aggregate({
-          where: { userId: user.id, category: activity.category },
-          _max: { queueOrder: true },
-        });
-        patch.queueOrder = nextQueueOrder(top._max.queueOrder);
+        patch.queueOrder = await appendQueueOrder(user.id, activity.category as DbCategory);
       }
     }
 
     await prisma.userMediaActivity.update({ where: { id }, data: patch as any });
 
     const slug = slugForDbCategory(activity.category as DbCategory);
-    if (slug) revalidatePath('/' + slug);
+    if (slug) revalidateCategory(slug);
     return { ok: true };
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Failed to update item.';
@@ -208,7 +198,7 @@ export async function removeActivity(id: string): Promise<ActionResult> {
     await prisma.userMediaActivity.delete({ where: { id } });
 
     const slug = slugForDbCategory(activity.category as DbCategory);
-    if (slug) revalidatePath('/' + slug);
+    if (slug) revalidateCategory(slug);
     return { ok: true };
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Failed to remove item.';

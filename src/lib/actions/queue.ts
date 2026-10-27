@@ -7,12 +7,11 @@
 //  can never wipe the order.
 // ───────────────────────────────────────────────────────────────────────────
 
-import { revalidatePath } from 'next/cache';
-
 import { prisma } from '@/lib/prisma';
 import { getCategory, type CategorySlug } from '@/lib/categories';
 import { QUEUE_STEP } from '@/lib/queue';
 import { requireUser } from '@/lib/session';
+import { revalidateCategory } from '@/lib/actions/shared';
 import type { ActionResult } from '@/lib/types';
 
 export async function saveQueue(
@@ -40,8 +39,7 @@ export async function saveQueue(
       ),
     );
 
-    revalidatePath('/' + slug);
-    revalidatePath('/' + slug + '/arena');
+    revalidateCategory(slug);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Failed to save queue.' };

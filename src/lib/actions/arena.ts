@@ -9,11 +9,10 @@
 //  UI can keep the user dueling without a round-trip.
 // ───────────────────────────────────────────────────────────────────────────
 
-import { revalidatePath } from 'next/cache';
-
 import { prisma } from '@/lib/prisma';
 import type { CategorySlug } from '@/lib/categories';
 import { requireUser } from '@/lib/session';
+import { revalidateCategory } from '@/lib/actions/shared';
 import { updateElo } from '@/lib/elo';
 import { getMatchup } from '@/lib/data';
 import type { Matchup } from '@/lib/types';
@@ -77,8 +76,7 @@ export async function submitMatchup(
     }),
   ]);
 
-  revalidatePath('/' + slug + '/arena');
-  revalidatePath('/' + slug);
+  revalidateCategory(slug);
 
   return getMatchup(slug);
 }

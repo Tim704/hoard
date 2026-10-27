@@ -8,19 +8,13 @@
 //  hidden from the tier list (not COMPLETED/DROPPED) are never touched.
 // ───────────────────────────────────────────────────────────────────────────
 
-import { revalidatePath } from 'next/cache';
-
 import { prisma } from '@/lib/prisma';
 import { getCategory, type CategorySlug } from '@/lib/categories';
 import { getTierBoard } from '@/lib/data';
 import { requireUser } from '@/lib/session';
+import { revalidateCategory } from '@/lib/actions/shared';
 import { acceptSuggestions, isTierEligible, planTierSave, type TierPlacement } from '@/lib/tiers';
 import type { ActionResult } from '@/lib/types';
-
-function revalidate(slug: CategorySlug) {
-  revalidatePath('/' + slug);
-  revalidatePath('/' + slug + '/arena');
-}
 
 /**
  * Persist the full tier placement for a category. Ids that do not belong to
@@ -54,7 +48,7 @@ export async function saveTiers(
       ),
     ]);
 
-    revalidate(slug);
+    revalidateCategory(slug);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Failed to save tiers.' };
