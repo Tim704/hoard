@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { ImageOff, Shuffle, Star, Swords } from 'lucide-react';
 
 import type { CategorySlug } from '@/lib/categories';
-import { formatRating } from '@/lib/rating';
 import type { ActivityWithMedia, Matchup } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -70,13 +69,13 @@ export function Arena({ slug, initial }: ArenaProps) {
         <h2 className="text-xl font-semibold">Which is better?</h2>
         {matchup.ranks ? (
           <p className="mt-1 text-sm text-muted-foreground">
-            Ranked #{matchup.ranks[0]} vs #{matchup.ranks[1]} in your list. The
+            Neighbours in tier {a.tier} (#{matchup.ranks[0]} vs #{matchup.ranks[1]}). The
             winner ends up on top.
           </p>
         ) : (
           <p className="mt-1 inline-flex items-center gap-1 text-sm text-muted-foreground">
             <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden />
-            Both rated {formatRating(rating)}/10
+            Both scored {rating === 10 ? '10.0' : `${rating}.0–${rating}.9`}
           </p>
         )}
       </div>

@@ -1,21 +1,21 @@
 'use server';
 
 // ───────────────────────────────────────────────────────────────────────────
-//  Ranking server actions — the user's manual, drag-and-drop order per
-//  category. The client always sends the complete ordered list of ranked ids;
-//  positions are rewritten as 1000, 2000, … so there is never any drift, and
-//  anything left out of the list becomes unranked again.
+//  Tier list server actions — the user's hand-placed S–F tiers per category.
+//  The client always sends the complete placement (ids per tier, best first);
+//  positions inside each tier are rewritten as 1000, 2000, … so there is never
+//  any drift, and eligible items left out go back to the Unranked tray. Items
+//  hidden from the tier list (not COMPLETED/DROPPED) are never touched.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { revalidatePath } from 'next/cache';
 
 import { prisma } from '@/lib/prisma';
 import { getCategory, type CategorySlug } from '@/lib/categories';
-import { getRankBoard } from '@/lib/data';
+import { getTierBoard } from '@/lib/data';
 import { requireUser } from '@/lib/session';
+import { acceptSuggestions, isTierEligible, planTierSave, type TierPlacement } from '@/lib/tiers';
 import type { ActionResult } from '@/lib/types';
-
-const STEP = 1000;
 
 function revalidate(slug: CategorySlug) {
   revalidatePath('/' + slug);
@@ -23,13 +23,12 @@ function revalidate(slug: CategorySlug) {
 }
 
 /**
- * Persist the full manual ranking for a category. `orderedIds` is best-first;
- * every other activity in the category is cleared to unranked. Ids that do not
- * belong to the user (or the category) are ignored.
+ * Persist the full tier placement for a category. Ids that do not belong to
+ * the user, the category, or the tier list (wrong status) are ignored.
  */
-export async function saveRanking(
+export async function saveTiers(
   slug: CategorySlug,
-  orderedIds: string[],
+  placement: TierPlacement,
 ): Promise<ActionResult> {
   const cat = getCategory(slug);
   if (!cat) return { ok: false, error: 'Unknown category.' };
@@ -38,41 +37,39 @@ export async function saveRanking(
     const user = await requireUser();
     const owned = await prisma.userMediaActivity.findMany({
       where: { userId: user.id, category: cat.dbCategory },
-      select: { id: true },
+      select: { id: true, status: true },
     });
-    const ownedIds = new Set(owned.map((o) => o.id));
-    const ids = [...new Set(orderedIds)].filter((id) => ownedIds.has(id));
+    const eligibleIds = new Set(owned.filter((o) => isTierEligible(o.status)).map((o) => o.id));
+    const { placed, clearIds } = planTierSave(placement, eligibleIds);
 
     await prisma.$transaction([
+      // Only rows that actually leave a tier are cleared: items already in the
+      // tray keep their legacy rankOrder, so the tray keeps its old order.
       prisma.userMediaActivity.updateMany({
-        where: { userId: user.id, category: cat.dbCategory, id: { notIn: ids } },
-        data: { rankOrder: null },
+        where: { userId: user.id, id: { in: clearIds }, tier: { not: null } },
+        data: { tier: null, rankOrder: null },
       }),
-      ...ids.map((id, i) =>
-        prisma.userMediaActivity.update({
-          where: { id },
-          data: { rankOrder: (i + 1) * STEP },
-        }),
+      ...placed.map(({ id, tier, rankOrder }) =>
+        prisma.userMediaActivity.update({ where: { id }, data: { tier, rankOrder } }),
       ),
     ]);
 
     revalidate(slug);
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Failed to save ranking.' };
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed to save tiers.' };
   }
 }
 
 /**
- * Append every unranked-but-rankable item to the bottom of the ranking, ordered
- * by rating then hidden Elo. Existing positions are kept.
+ * Place every rated tray item into its score-suggested tier (at the bottom,
+ * keeping tray order). Existing placements are kept; unrated items stay put.
  */
-export async function seedRanking(slug: CategorySlug): Promise<ActionResult> {
+export async function acceptSuggestedTiers(slug: CategorySlug): Promise<ActionResult> {
   try {
     await requireUser();
-    const { ranked, unranked } = await getRankBoard(slug);
-    return saveRanking(slug, [...ranked, ...unranked].map((a) => a.id));
+    return saveTiers(slug, acceptSuggestions(await getTierBoard(slug)));
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Failed to seed ranking.' };
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed to accept suggestions.' };
   }
 }

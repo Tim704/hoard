@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ListOrdered, Swords } from 'lucide-react';
+import { ArrowLeft, ListTodo, Rows3, Swords } from 'lucide-react';
 
 import { Arena } from '@/components/arena';
-import { RankBoard } from '@/components/rank-board';
 import { RankingList } from '@/components/ranking-list';
+import { TierBoard } from '@/components/tier-board';
 import { getCategory } from '@/lib/categories';
-import { getMatchup, getRankBoard, getRanking } from '@/lib/data';
+import { getMatchup, getRanking, getTierBoard } from '@/lib/data';
 import { cn } from '@/lib/utils';
 
 interface RankPageProps {
@@ -15,18 +15,20 @@ interface RankPageProps {
 }
 
 /**
- * The per-category ranking page. "My ranking" is the drag-and-drop editor;
- * "Arena" runs head-to-head duels that refine the same order.
+ * The per-category ranking page. "Tiers" is the hand-placed S–F tier list;
+ * "Up next" is the queue; "Arena" runs duels that refine order inside a tier.
  */
 export default async function RankPage({ params, searchParams }: RankPageProps) {
   const config = getCategory(params.category);
   if (!config) notFound();
 
   const slug = config.slug;
-  const tab = searchParams.tab === 'arena' ? 'arena' : 'ranking';
+  const tab =
+    searchParams.tab === 'arena' ? 'arena' : searchParams.tab === 'queue' ? 'queue' : 'tiers';
 
   const tabs = [
-    { id: 'ranking', label: 'My ranking', icon: ListOrdered, href: `/${slug}/arena` },
+    { id: 'tiers', label: 'Tiers', icon: Rows3, href: `/${slug}/arena` },
+    { id: 'queue', label: 'Up next', icon: ListTodo, href: `/${slug}/arena?tab=queue` },
     { id: 'arena', label: 'Arena', icon: Swords, href: `/${slug}/arena?tab=arena` },
   ] as const;
 
@@ -40,10 +42,10 @@ export default async function RankPage({ params, searchParams }: RankPageProps) 
           <ArrowLeft className="h-4 w-4" aria-hidden />
           Back to {config.label}
         </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight">Rank your {config.label.toLowerCase()}</h1>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight">Tier your {config.label.toLowerCase()}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Put every {config.singular.toLowerCase()} in your exact order. The Arena
-          helps when you can&apos;t decide.
+          Place every finished {config.singular.toLowerCase()} in a tier from S to F. The
+          Arena helps order a tier when you can&apos;t decide.
         </p>
 
         <div className="mt-4 inline-flex rounded-md border border-border bg-muted/40 p-0.5">
@@ -66,10 +68,14 @@ export default async function RankPage({ params, searchParams }: RankPageProps) 
         </div>
       </div>
 
-      {tab === 'ranking' ? (
+      {tab === 'tiers' ? (
         <div className="max-w-3xl">
-          <RankBoard slug={slug} initial={await getRankBoard(slug)} />
+          <TierBoard slug={slug} initial={await getTierBoard(slug)} />
         </div>
+      ) : tab === 'queue' ? (
+        <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+          Coming in the next task
+        </p>
       ) : (
         <ArenaTab slug={slug} />
       )}

@@ -86,12 +86,88 @@ export function planTierSave(
 }
 
 export function acceptSuggestions(board: TierBoardData): TierPlacement {
-  const placement = Object.fromEntries(
-    TIERS.map((t) => [t, board.tiers[t].map((a) => a.id)]),
-  ) as TierPlacement;
+  const placement = boardPlacement(board);
   for (const a of board.tray) {
     const t = suggestTier(a.rating);
     if (t) placement[t].push(a.id);
   }
   return placement;
+}
+
+/** Every pair of neighbours inside one tier (S first, best of each pair first). */
+export function withinTierPairs(board: TierBoardData): [ActivityWithMedia, ActivityWithMedia][] {
+  const pairs: [ActivityWithMedia, ActivityWithMedia][] = [];
+  for (const t of TIERS) {
+    const items = board.tiers[t];
+    for (let i = 0; i + 1 < items.length; i++) pairs.push([items[i], items[i + 1]]);
+  }
+  return pairs;
+}
+
+// ─── Editing a board in local (client) state ────────────────────────────────
+
+/** A drop target on the board: one of the six tiers or the Unranked tray. */
+export type TierContainer = Tier | 'tray';
+
+export function isTierContainer(id: string): id is TierContainer {
+  return id === 'tray' || (TIERS as readonly string[]).includes(id);
+}
+
+function itemsOf(board: TierBoardData, c: TierContainer): ActivityWithMedia[] {
+  return c === 'tray' ? board.tray : board.tiers[c];
+}
+
+/** Which container holds `id`, or null when it is not on the board. */
+export function findContainer(board: TierBoardData, id: string): TierContainer | null {
+  for (const t of TIERS) if (board.tiers[t].some((a) => a.id === id)) return t;
+  return board.tray.some((a) => a.id === id) ? 'tray' : null;
+}
+
+/**
+ * Move `id` into container `to` at `index` (default: the end; clamped). Within
+ * one container this behaves like `arrayMove`. Returns a new board; unknown ids
+ * return the board unchanged.
+ */
+export function moveItem(
+  board: TierBoardData,
+  id: string,
+  to: TierContainer,
+  index?: number,
+): TierBoardData {
+  const from = findContainer(board, id);
+  if (from === null) return board;
+  const item = itemsOf(board, from).find((a) => a.id === id) as ActivityWithMedia;
+
+  const next: TierBoardData = { tiers: { ...board.tiers }, tray: board.tray };
+  const set = (c: TierContainer, items: ActivityWithMedia[]) => {
+    if (c === 'tray') next.tray = items;
+    else next.tiers[c] = items;
+  };
+
+  set(from, itemsOf(board, from).filter((a) => a.id !== id));
+  const target = [...itemsOf(next, to)];
+  const at = Math.max(0, Math.min(index ?? target.length, target.length));
+  target.splice(at, 0, item);
+  set(to, target);
+  return next;
+}
+
+/** Where a drop over `overId` (a container or an item) lands. */
+export function resolveDrop(
+  board: TierBoardData,
+  overId: string,
+): { container: TierContainer; index: number } | null {
+  if (isTierContainer(overId)) {
+    return { container: overId, index: itemsOf(board, overId).length };
+  }
+  const container = findContainer(board, overId);
+  if (container === null) return null;
+  return { container, index: itemsOf(board, container).findIndex((a) => a.id === overId) };
+}
+
+/** The placement `saveTiers` persists: tier ids in board order (tray excluded). */
+export function boardPlacement(board: TierBoardData): TierPlacement {
+  return Object.fromEntries(
+    TIERS.map((t) => [t, board.tiers[t].map((a) => a.id)]),
+  ) as TierPlacement;
 }

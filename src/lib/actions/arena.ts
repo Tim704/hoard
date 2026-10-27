@@ -1,11 +1,12 @@
 'use server';
 
 // ───────────────────────────────────────────────────────────────────────────
-//  Arena server actions — resolve head-to-head duels between same-rated items.
+//  Arena server actions — resolve head-to-head duels between tier neighbours
+//  (or, before anything is tiered, between items with the same whole score).
 //
-//  A duel takes two activities the user scored identically and asks "which is
-//  better?". The winner's hidden Elo rises, the loser's falls, and a fresh
-//  matchup is returned so the UI can keep the user dueling without a round-trip.
+//  A duel takes two close activities and asks "which is better?". The winner's
+//  hidden Elo rises, the loser's falls, and a fresh matchup is returned so the
+//  UI can keep the user dueling without a round-trip.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { revalidatePath } from 'next/cache';
@@ -55,9 +56,11 @@ export async function submitMatchup(
     loser.elo,
   );
 
-  // If both sit in the manual ranking and the loser is placed above the
-  // winner, swap their positions so the duel result shows up in the order.
+  // If both sit in the same tier and the loser is placed above the winner,
+  // swap their positions so the duel shows up in the order. Tiers never change.
   const swap =
+    winner.tier != null &&
+    winner.tier === loser.tier &&
     winner.rankOrder != null &&
     loser.rankOrder != null &&
     loser.rankOrder < winner.rankOrder;

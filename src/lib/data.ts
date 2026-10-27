@@ -19,6 +19,7 @@ import {
   type CategoryConfig,
 } from '@/lib/categories';
 import { getCurrentUser } from '@/lib/session';
+import { buildTierBoard, TIERS, withinTierPairs, type TierBoardData } from '@/lib/tiers';
 import type {
   ActivityWithMedia,
   FranchiseRef,
@@ -253,56 +254,53 @@ function byRatingThenElo(a: ActivityWithMedia, b: ActivityWithMedia): number {
   return a.media.title.localeCompare(b.media.title);
 }
 
-/** Items worth ranking: anything rated, or anything you have actually started. */
-function isRankable(a: ActivityWithMedia): boolean {
-  return a.rating != null || a.status !== 'PLANNED';
+/** The category's tier list: placed items per tier plus the Unranked tray. */
+export async function getTierBoard(slug: CategorySlug): Promise<TierBoardData> {
+  return buildTierBoard(await loadCategory(slug));
 }
 
-export interface RankBoard {
-  /** The manual ranking, best first. */
-  ranked: ActivityWithMedia[];
-  /** Rankable items not placed yet, best guess first (rating, then Elo). */
-  unranked: ActivityWithMedia[];
-}
-
-/** The user's manual ranking for a category plus the tray of unranked items. */
-export async function getRankBoard(slug: CategorySlug): Promise<RankBoard> {
-  const all = await loadCategory(slug);
-  const ranked = all
-    .filter((a) => a.rankOrder != null)
-    .sort((a, b) => (a.rankOrder as number) - (b.rankOrder as number));
-  const unranked = all.filter((a) => a.rankOrder == null && isRankable(a)).sort(byRatingThenElo);
-  return { ranked, unranked };
+/** Pick a random element (the caller guarantees `items` is non-empty). */
+function pick<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
 }
 
 /**
- * Build an Arena matchup. When the user has a manual ranking, pick two random
- * NEIGHBOURS in it ("is #4 really better than #5?"), so every duel refines the
- * order. Otherwise fall back to two items sharing the same 1–10 score.
+ * Build an Arena matchup. When any tier holds two or more items, pick a random
+ * such tier and two random NEIGHBOURS inside it ("is #4 really better than
+ * #5?"), so every duel refines the order without ever changing a tier.
+ * Otherwise fall back to two items sharing the same whole-number score.
  */
 export async function getMatchup(slug: CategorySlug): Promise<Matchup | null> {
   const all = await loadCategory(slug);
 
-  const ranked = all
-    .filter((a) => a.rankOrder != null)
-    .sort((a, b) => (a.rankOrder as number) - (b.rankOrder as number));
-  if (ranked.length >= 2) {
-    const i = Math.floor(Math.random() * (ranked.length - 1));
-    return { rating: null, ranks: [i + 1, i + 2], a: ranked[i], b: ranked[i + 1] };
+  const board = buildTierBoard(all);
+  const pairs = withinTierPairs(board);
+  if (pairs.length > 0) {
+    const tiers = [...new Set(pairs.map(([a]) => a.tier))];
+    const tier = pick(tiers);
+    const [a, b] = pick(pairs.filter(([p]) => p.tier === tier));
+    const ranking = TIERS.flatMap((t) => board.tiers[t]);
+    return {
+      rating: null,
+      ranks: [ranking.indexOf(a) + 1, ranking.indexOf(b) + 1],
+      a,
+      b,
+    };
   }
 
-  // Group rated rows by their rating value; keep ratings that have a pair.
-  const byRating = new Map<number, ActivityWithMedia[]>();
+  // Group rated rows by whole-number score; keep scores that have a pair.
+  const byScore = new Map<number, ActivityWithMedia[]>();
   for (const a of all) {
     if (a.rating == null) continue;
-    const bucket = byRating.get(a.rating);
+    const score = Math.floor(a.rating);
+    const bucket = byScore.get(score);
     if (bucket) bucket.push(a);
-    else byRating.set(a.rating, [a]);
+    else byScore.set(score, [a]);
   }
-  const eligible = [...byRating.entries()].filter(([, items]) => items.length >= 2);
+  const eligible = [...byScore.entries()].filter(([, items]) => items.length >= 2);
   if (eligible.length === 0) return null;
 
-  const [rating, items] = eligible[Math.floor(Math.random() * eligible.length)];
+  const [rating, items] = pick(eligible);
   const firstIdx = Math.floor(Math.random() * items.length);
   let secondIdx = Math.floor(Math.random() * (items.length - 1));
   if (secondIdx >= firstIdx) secondIdx += 1; // ensure distinct from the first
@@ -311,13 +309,14 @@ export async function getMatchup(slug: CategorySlug): Promise<Matchup | null> {
 }
 
 /**
- * The leaderboard shown beside the Arena: the manual ranking when one exists,
- * otherwise rated items by rating then Elo.
+ * The leaderboard shown beside the Arena: the tier list flattened S→F when
+ * anything is placed, otherwise rated items by rating then Elo.
  */
 export async function getRanking(slug: CategorySlug): Promise<ActivityWithMedia[]> {
-  const { ranked } = await getRankBoard(slug);
-  if (ranked.length > 0) return ranked;
   const all = await loadCategory(slug);
+  const board = buildTierBoard(all);
+  const placed = TIERS.flatMap((t) => board.tiers[t]);
+  if (placed.length > 0) return placed;
   return all.filter((a) => a.rating != null).sort(byRatingThenElo);
 }
 

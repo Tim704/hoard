@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Layers, ListOrdered, ListTree } from 'lucide-react';
+import { Layers, ListTree, Rows3 } from 'lucide-react';
 
 import { ActivityDetailDialog } from '@/components/activity-detail-dialog';
 import { MediaCompact } from '@/components/media-compact';
@@ -30,6 +30,7 @@ import {
   statusLabel,
   type Status,
 } from '@/lib/status';
+import { compareTierOrder, isTierEligible } from '@/lib/tiers';
 import { toDisplayUnits, type ActivityWithMedia, type ViewMode } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -62,7 +63,7 @@ const SORT_LABEL: Record<SortMode, string> = {
   status: 'Status',
   recent: 'Recently added',
   rating: 'Highest rated',
-  ranking: 'My ranking',
+  ranking: 'Tier list',
   title: 'Title (A–Z)',
 };
 
@@ -131,13 +132,8 @@ export function CategoryClient({ slug, config, activities, franchises }: Categor
         sorted.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
         break;
       case 'ranking':
-        // Manual ranking first (ascending position), unranked after by Elo.
-        sorted.sort((a, b) => {
-          if (a.rankOrder != null && b.rankOrder != null) return a.rankOrder - b.rankOrder;
-          if (a.rankOrder != null) return -1;
-          if (b.rankOrder != null) return 1;
-          return b.elo - a.elo;
-        });
+        // Tier list order: S→F by position, untiered after.
+        sorted.sort(compareTierOrder);
         break;
       case 'title':
         sorted.sort((a, b) => a.media.title.localeCompare(b.media.title));
@@ -150,11 +146,11 @@ export function CategoryClient({ slug, config, activities, franchises }: Categor
     return sorted;
   }, [activities, filter, statusFilter, sort]);
 
-  // Manual rank numbers across the whole category (stable inside sections).
+  // Tier list positions across the whole category (stable inside sections).
   const ranks = useMemo(() => {
     const ranked = activities
-      .filter((a) => a.rankOrder != null)
-      .sort((a, b) => (a.rankOrder as number) - (b.rankOrder as number));
+      .filter((a) => a.tier !== null && isTierEligible(a.status))
+      .sort(compareTierOrder);
     return new Map(ranked.map((a, i) => [a.id, i + 1]));
   }, [activities]);
 
@@ -229,8 +225,8 @@ export function CategoryClient({ slug, config, activities, franchises }: Categor
             'order-6 flex-1 md:order-none md:flex-none',
           )}
         >
-          <ListOrdered className="mr-2 h-4 w-4" />
-          Rank
+          <Rows3 className="mr-2 h-4 w-4" />
+          Tiers
         </Link>
 
         <RoastButton

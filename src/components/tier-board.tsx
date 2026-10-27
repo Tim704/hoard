@@ -1,0 +1,387 @@
+'use client';
+
+import { useEffect, useRef, useState, useTransition } from 'react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import {
+  closestCorners,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragOverEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { ChevronDown, ChevronUp, GripVertical, ImageOff, Star, Wand2 } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { acceptSuggestedTiers, saveTiers } from '@/lib/actions/ranking';
+import type { CategorySlug } from '@/lib/categories';
+import { mediaSubtitle } from '@/lib/media-meta';
+import { formatRating } from '@/lib/rating';
+import {
+  boardPlacement,
+  findContainer,
+  moveItem,
+  resolveDrop,
+  suggestTier,
+  TIERS,
+  type Tier,
+  type TierBoardData,
+  type TierContainer,
+} from '@/lib/tiers';
+import type { ActivityWithMedia } from '@/lib/types';
+import { cn } from '@/lib/utils';
+
+interface TierBoardProps {
+  slug: CategorySlug;
+  initial: TierBoardData;
+}
+
+/** Accent per tier: label cell and suggestion chip (readable in light and dark). */
+const TIER_STYLE: Record<Tier, string> = {
+  S: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40',
+  A: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/40',
+  B: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40',
+  C: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40',
+  D: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/40',
+  F: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/40',
+};
+
+const samePlacement = (a: TierBoardData, b: TierBoardData) =>
+  JSON.stringify(boardPlacement(a)) === JSON.stringify(boardPlacement(b));
+
+/**
+ * The tier list editor: six hand-placed tiers (S…F) plus the Unranked tray.
+ * Drag between and within tiers, or use each row's arrows and tier picker.
+ * Every change saves immediately (optimistically) through `saveTiers`.
+ */
+export function TierBoard({ slug, initial }: TierBoardProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [board, setBoard] = useState<TierBoardData>(initial);
+  // The board as it was when the current drag started (for cancel / persist).
+  const dragStart = useRef<TierBoardData | null>(null);
+
+  // Resync when the server sends fresh data (after accepting or a refresh).
+  useEffect(() => setBoard(initial), [initial]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function persist(next: TierBoardData, prev: TierBoardData) {
+    setBoard(next);
+    if (samePlacement(next, prev)) return; // tray-only shuffles are not stored
+    startTransition(async () => {
+      const res = await saveTiers(slug, boardPlacement(next));
+      if (!res.ok) {
+        setBoard(prev);
+        toast.error(res.error ?? 'Could not save the tier list.');
+        router.refresh();
+      }
+    });
+  }
+
+  const move = (id: string, to: TierContainer, index?: number) =>
+    persist(moveItem(board, id, to, index), board);
+
+  function handleDragOver({ active, over }: DragOverEvent) {
+    if (!over) return;
+    // Cross-container moves happen live so the item previews in its new tier.
+    setBoard((b) => {
+      const from = findContainer(b, String(active.id));
+      const drop = resolveDrop(b, String(over.id));
+      if (!from || !drop || drop.container === from) return b;
+      return moveItem(b, String(active.id), drop.container, drop.index);
+    });
+  }
+
+  function handleDragEnd({ active, over }: DragEndEvent) {
+    const start = dragStart.current ?? board;
+    dragStart.current = null;
+    if (!over) {
+      setBoard(start);
+      return;
+    }
+    let next = board;
+    const from = findContainer(board, String(active.id));
+    const drop = resolveDrop(board, String(over.id));
+    if (drop && drop.container === from && over.id !== active.id) {
+      next = moveItem(board, String(active.id), drop.container, drop.index);
+    }
+    persist(next, start);
+  }
+
+  function handleDragCancel() {
+    if (dragStart.current) setBoard(dragStart.current);
+    dragStart.current = null;
+  }
+
+  const acceptAll = () =>
+    startTransition(async () => {
+      const res = await acceptSuggestedTiers(slug);
+      if (res.ok) {
+        toast.success('Placed everything in its suggested tier. Drag to fine-tune.');
+        router.refresh();
+      } else {
+        toast.error(res.error ?? 'Could not accept the suggestions.');
+      }
+    });
+
+  const placedCount = TIERS.reduce((n, t) => n + board.tiers[t].length, 0);
+  if (placedCount === 0 && board.tray.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+        Nothing to tier yet — finish something first.
+      </div>
+    );
+  }
+
+  const hasSuggestions = board.tray.some((a) => suggestTier(a.rating) !== null);
+  const rowProps = { disabled: isPending, onMove: move };
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={() => {
+        dragStart.current = board;
+      }}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      <div className="space-y-8">
+        <section className="space-y-2">
+          {TIERS.map((tier) => (
+            <TierRow key={tier} tier={tier} items={board.tiers[tier]} {...rowProps} />
+          ))}
+          <p className="text-xs text-muted-foreground">
+            Drag by the handle, or use the arrows and tier picker. Changes save automatically.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="tray-heading" className="text-base font-semibold text-muted-foreground">
+              Unranked · {board.tray.length}
+            </h2>
+            {hasSuggestions && (
+              <Button variant="outline" size="sm" onClick={acceptAll} disabled={isPending}>
+                <Wand2 className="mr-2 h-4 w-4" aria-hidden />
+                Accept all suggestions
+              </Button>
+            )}
+          </div>
+          <Container id="tray" items={board.tray} labelledBy="tray-heading" {...rowProps}>
+            {board.tray.length === 0 && (
+              <li className="py-3 text-center text-sm text-muted-foreground">
+                Everything is placed. Drop a title here to unrank it.
+              </li>
+            )}
+          </Container>
+        </section>
+      </div>
+    </DndContext>
+  );
+}
+
+interface RowActions {
+  disabled: boolean;
+  onMove: (id: string, to: TierContainer, index?: number) => void;
+}
+
+function TierRow({ tier, items, ...actions }: { tier: Tier; items: ActivityWithMedia[] } & RowActions) {
+  const labelId = `tier-${tier}-label`;
+  return (
+    <div className="flex overflow-hidden rounded-lg border border-border bg-card">
+      <div
+        className={cn(
+          'flex w-12 shrink-0 flex-col items-center justify-center border-r sm:w-16',
+          TIER_STYLE[tier],
+        )}
+      >
+        <span id={labelId} className="text-2xl font-black sm:text-3xl">
+          <span className="sr-only">Tier </span>
+          {tier}
+        </span>
+        <span className="text-xs tabular-nums opacity-80" aria-hidden>
+          {items.length}
+        </span>
+      </div>
+      <Container id={tier} items={items} labelledBy={labelId} {...actions} className="p-2" />
+    </div>
+  );
+}
+
+interface ContainerProps extends RowActions {
+  id: TierContainer;
+  items: ActivityWithMedia[];
+  labelledBy: string;
+  className?: string;
+  children?: React.ReactNode;
+}
+
+/** A droppable, sortable list: one tier or the tray (accepts drops when empty). */
+function Container({ id, items, labelledBy, className, children, ...actions }: ContainerProps) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <SortableContext id={id} items={items.map((a) => a.id)} strategy={verticalListSortingStrategy}>
+      <ol
+        ref={setNodeRef}
+        aria-labelledby={labelledBy}
+        className={cn(
+          'flex min-h-[4.5rem] flex-1 flex-col gap-2 rounded-md transition-colors',
+          id === 'tray' && 'rounded-lg border border-dashed border-border p-2',
+          isOver && 'bg-muted/60',
+          className,
+        )}
+      >
+        {items.map((a, index) => (
+          <TierItem
+            key={a.id}
+            activity={a}
+            container={id}
+            index={index}
+            isLast={index === items.length - 1}
+            {...actions}
+          />
+        ))}
+        {children}
+      </ol>
+    </SortableContext>
+  );
+}
+
+interface TierItemProps extends RowActions {
+  activity: ActivityWithMedia;
+  container: TierContainer;
+  index: number;
+  isLast: boolean;
+}
+
+const controlClass =
+  'flex h-11 min-w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-25 sm:h-8 sm:min-w-8';
+
+function TierItem({ activity: a, container, index, isLast, disabled, onMove }: TierItemProps) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id: a.id, disabled });
+  const title = a.media.title;
+  const subtitle = [a.media.year, mediaSubtitle(a.media, a.category)].filter(Boolean).join(' · ');
+  const suggestion = container === 'tray' ? suggestTier(a.rating) : null;
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn(
+        'flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-border bg-background p-1.5 pr-2',
+        isDragging && 'relative z-10 border-primary/60 shadow-xl shadow-black/40',
+      )}
+    >
+      <div className="flex min-w-0 flex-1 basis-48 items-center gap-2">
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          aria-label={`Drag ${title}`}
+          className={cn(controlClass, 'shrink-0 cursor-grab touch-none active:cursor-grabbing')}
+        >
+          <GripVertical className="h-4 w-4" aria-hidden />
+        </button>
+
+        <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded bg-muted ring-1 ring-border">
+          {a.media.imageUrl ? (
+            <Image src={a.media.imageUrl} alt="" fill sizes="40px" className="object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <ImageOff className="h-4 w-4 text-muted-foreground" aria-hidden />
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium leading-snug">{title}</p>
+          <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+            {a.rating != null && (
+              <span className="inline-flex shrink-0 items-center gap-0.5 font-medium text-amber-600 dark:text-amber-300">
+                <Star className="h-3 w-3 fill-current" aria-hidden />
+                {formatRating(a.rating)}
+              </span>
+            )}
+            {subtitle && <span className="truncate">{subtitle}</span>}
+          </p>
+        </div>
+      </div>
+
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        {suggestion && (
+          <button
+            type="button"
+            onClick={() => onMove(a.id, suggestion)}
+            disabled={disabled}
+            aria-label={`Place ${title} in suggested tier ${suggestion}`}
+            title={`Place in tier ${suggestion}`}
+            className={cn(
+              'flex h-11 min-w-11 items-center justify-center rounded-full border px-2 text-sm font-bold disabled:opacity-50 sm:h-8 sm:min-w-8',
+              TIER_STYLE[suggestion],
+            )}
+          >
+            {suggestion}?
+          </button>
+        )}
+
+        {container !== 'tray' && (
+          <>
+            <button
+              type="button"
+              onClick={() => onMove(a.id, container, index - 1)}
+              disabled={disabled || index === 0}
+              aria-label={`Move ${title} up`}
+              className={controlClass}
+            >
+              <ChevronUp className="h-4 w-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => onMove(a.id, container, index + 1)}
+              disabled={disabled || isLast}
+              aria-label={`Move ${title} down`}
+              className={controlClass}
+            >
+              <ChevronDown className="h-4 w-4" aria-hidden />
+            </button>
+          </>
+        )}
+
+        <select
+          value={container}
+          onChange={(e) => onMove(a.id, e.target.value as TierContainer)}
+          disabled={disabled}
+          aria-label={`Tier for ${title}`}
+          className="h-11 rounded-md border border-input bg-background px-2 text-sm disabled:opacity-50 sm:h-8"
+        >
+          {TIERS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+          <option value="tray">Unranked</option>
+        </select>
+      </div>
+    </li>
+  );
+}

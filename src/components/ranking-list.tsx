@@ -5,7 +5,7 @@ import { formatRating } from '@/lib/rating';
 import type { ActivityWithMedia } from '@/lib/types';
 
 interface RankingListProps {
-  /** Already sorted best-first (manual ranking, or rating then Elo). */
+  /** Already sorted best-first (tier list S→F, or rating then Elo). */
   items: ActivityWithMedia[];
 }
 

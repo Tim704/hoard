@@ -53,7 +53,7 @@ export interface ActivityWithMedia {
   /** Position in the "Up next" queue (ascending); null = not queued. */
   queueOrder: number | null;
   elo: number;
-  /** Position in the user's manual ranking (ascending); null = not ranked. */
+  /** Position inside the item's tier (ascending); untiered rows may keep a legacy order. */
   rankOrder: number | null;
   favorite: boolean;
   notes: string | null;
@@ -125,9 +125,9 @@ export type ViewMode = 'grid' | 'list' | 'compact';
 export type RoastMode = 'roast' | 'recommend';
 
 export interface Matchup {
-  /** Shared whole-number score for a same-rating duel; null for a ranking-neighbour duel. */
+  /** Shared whole-number score (floor) for a same-score duel; null for a tier-neighbour duel. */
   rating: number | null;
-  /** 1-based ranks of `a` and `b` when the duel comes from the manual ranking. */
+  /** 1-based positions of `a` and `b` in the flattened tier list (tier-neighbour duels). */
   ranks?: [number, number];
   a: ActivityWithMedia;
   b: ActivityWithMedia;
