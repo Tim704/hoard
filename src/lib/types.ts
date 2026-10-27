@@ -1,5 +1,6 @@
 import type { CategorySlug } from './categories';
 import type { Status } from './status';
+import type { Tier } from '@/lib/tiers';
 
 // ───────────────────────────────────────────────────────────────────────────
 //  Shared shapes that cross the API ↔ server-action ↔ UI boundaries.
@@ -48,6 +49,9 @@ export interface ActivityWithMedia {
   category: CategorySlug;
   status: Status;
   rating: number | null;
+  tier: Tier | null;
+  /** Position in the "Up next" queue (ascending); null = not queued. */
+  queueOrder: number | null;
   elo: number;
   /** Position in the user's manual ranking (ascending); null = not ranked. */
   rankOrder: number | null;
@@ -121,7 +125,7 @@ export type ViewMode = 'grid' | 'list' | 'compact';
 export type RoastMode = 'roast' | 'recommend';
 
 export interface Matchup {
-  /** Shared 1–10 score for a same-rating duel; null for a ranking-neighbour duel. */
+  /** Shared whole-number score for a same-rating duel; null for a ranking-neighbour duel. */
   rating: number | null;
   /** 1-based ranks of `a` and `b` when the duel comes from the manual ranking. */
   ranks?: [number, number];

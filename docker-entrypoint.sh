@@ -9,6 +9,13 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -e
 
+echo "[hoard] Running boot-time SQL (prisma/sql)..."
+for f in prisma/sql/*.sql; do
+  [ -e "$f" ] || continue # no files match: the glob stays literal
+  echo "[hoard]   $f"
+  npx prisma db execute --file "$f" --schema prisma/schema.prisma
+done
+
 echo "[hoard] Syncing database schema (prisma db push)..."
 npx prisma db push --skip-generate
 

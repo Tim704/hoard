@@ -52,6 +52,8 @@ function flattenActivity(
     category: cat.slug,
     status: row.status,
     rating: row.rating,
+    tier: row.tier ?? null,
+    queueOrder: row.queueOrder ?? null,
     elo: row.elo,
     rankOrder: row.rankOrder ?? null,
     favorite: row.favorite,

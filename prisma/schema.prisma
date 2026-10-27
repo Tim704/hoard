@@ -6,7 +6,8 @@
 //  Anime, Manga, VideoGame, MusicAlbum) so we never compare apples to oranges.
 //  `UserMediaActivity` is the join layer that ties a User to exactly one media
 //  row (via one of seven nullable foreign keys) and carries the per-user state:
-//  status, 1–10 rating, and the hidden Elo score that drives the Arena ranking.
+//  status, 0.0–10.0 score, tier, queue position, and the hidden Elo score that
+//  drives the Arena ranking.
 // ───────────────────────────────────────────────────────────────────────────
 
 generator client {
@@ -29,6 +30,15 @@ enum MediaCategory {
   MANGA
   GAME
   MUSIC
+}
+
+enum Tier {
+  S
+  A
+  B
+  C
+  D
+  F
 }
 
 enum MediaStatus {
@@ -215,7 +225,9 @@ model UserMediaActivity {
   userId     String
   category   MediaCategory
   status     MediaStatus   @default(PLANNED)
-  rating     Int? // user score, 1–10
+  rating     Float? // user score, 0.0–10.0
+  tier       Tier?
+  queueOrder Float? // position in the "Up next" queue (asc); null = not queued
   elo        Float         @default(1200) // hidden Arena rating
   rankOrder  Float? // position in the user's manual ranking (asc); null = unranked
   favorite   Boolean       @default(false)
@@ -260,6 +272,7 @@ model UserMediaActivity {
   @@index([userId, category])
   @@index([userId, category, rating])
   @@index([userId, category, rankOrder])
+  @@index([userId, category, queueOrder])
   @@index([franchiseId])
 }
 
@@ -274,7 +287,7 @@ model Franchise {
   name      String
   matchName String // normalised name used for automatic matching
   imageUrl  String?
-  rating    Int? // the user's rating of the IP as a whole, 1–10
+  rating    Float? // the user's score of the IP as a whole, 0.0–10.0
   elo       Float    @default(1200)
   rankOrder Float?
   notes     String?
