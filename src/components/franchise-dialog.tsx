@@ -135,7 +135,7 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
             />
             <p className="text-xs text-muted-foreground">
               Separate from each title&apos;s own rating.
-              {avg != null && ` Your titles average ${avg}/10.`}
+              {avg != null && ` Your titles average ${formatRating(avg)}/10.`}
             </p>
           </div>
 

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { ImageOff, Shuffle, Star, Swords } from 'lucide-react';
 
 import type { CategorySlug } from '@/lib/categories';
+import { formatRating } from '@/lib/rating';
 import type { ActivityWithMedia, Matchup } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -75,7 +76,7 @@ export function Arena({ slug, initial }: ArenaProps) {
         ) : (
           <p className="mt-1 inline-flex items-center gap-1 text-sm text-muted-foreground">
             <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden />
-            Both rated {rating}/10
+            Both rated {formatRating(rating)}/10
           </p>
         )}
       </div>
