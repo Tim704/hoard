@@ -66,23 +66,71 @@ export function buildTierBoard(all: ActivityWithMedia[]): TierBoardData {
 
 export type TierPlacement = Record<Tier, string[]>;
 
+/** An eligible row's current tier position, as stored. */
+export interface TierPosition {
+  tier: Tier | null;
+  rankOrder: number | null;
+}
+
+/**
+ * Plan the writes for a tier save.
+ *  - `placement`: the client's tiers (ids best first); ranks are rewritten as
+ *    1000, 2000, … per tier, but only rows whose tier or rank actually changes
+ *    are returned in `placed`.
+ *  - `trayIds`: ids the client shows in the Unranked tray. Only these may be
+ *    cleared (and only if currently tiered). Ids absent from both lists — e.g.
+ *    an item that became eligible in another tab — are never touched.
+ *  - `current`: every eligible row (COMPLETED/DROPPED, this user + category)
+ *    with its stored position; any other id is ignored.
+ */
 export function planTierSave(
   placement: TierPlacement,
-  eligibleIds: Set<string>,
+  trayIds: string[],
+  current: Map<string, TierPosition>,
 ): { placed: { id: string; tier: Tier; rankOrder: number }[]; clearIds: string[] } {
   const placed: { id: string; tier: Tier; rankOrder: number }[] = [];
   const seen = new Set<string>();
   for (const tier of TIERS) {
     let n = 0;
     for (const id of placement[tier]) {
-      if (!eligibleIds.has(id) || seen.has(id)) continue;
+      const now = current.get(id);
+      if (!now || seen.has(id)) continue;
       seen.add(id);
       n += 1;
-      placed.push({ id, tier, rankOrder: n * RANK_STEP });
+      const rankOrder = n * RANK_STEP;
+      if (now.tier !== tier || now.rankOrder !== rankOrder) placed.push({ id, tier, rankOrder });
     }
   }
-  const clearIds = [...eligibleIds].filter((id) => !seen.has(id));
+  const clearIds: string[] = [];
+  for (const id of trayIds) {
+    const now = current.get(id);
+    if (!now || seen.has(id) || now.tier === null) continue;
+    seen.add(id);
+    clearIds.push(id);
+  }
   return { placed, clearIds };
+}
+
+const isStringArray = (v: unknown): v is string[] =>
+  Array.isArray(v) && v.every((x) => typeof x === 'string');
+
+/**
+ * Validate an untrusted tier-save payload (server action input): every tier key
+ * present with an array of string ids, and `trayIds` an array of strings.
+ */
+export function parseTierSave(
+  placement: unknown,
+  trayIds: unknown,
+): { placement: TierPlacement; trayIds: string[] } | null {
+  if (typeof placement !== 'object' || placement === null || !isStringArray(trayIds)) return null;
+  const p = placement as Record<string, unknown>;
+  const out = {} as TierPlacement;
+  for (const t of TIERS) {
+    const ids = p[t];
+    if (!isStringArray(ids)) return null;
+    out[t] = [...ids];
+  }
+  return { placement: out, trayIds: [...trayIds] };
 }
 
 export function acceptSuggestions(board: TierBoardData): TierPlacement {

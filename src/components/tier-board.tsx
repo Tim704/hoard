@@ -85,7 +85,11 @@ export function TierBoard({ slug, initial }: TierBoardProps) {
     setBoard(next);
     if (samePlacement(next, prev)) return; // tray-only shuffles are not stored
     startTransition(async () => {
-      const res = await saveTiers(slug, boardPlacement(next));
+      const res = await saveTiers(
+        slug,
+        boardPlacement(next),
+        next.tray.map((a) => a.id),
+      );
       if (!res.ok) {
         setBoard(prev);
         toast.error(res.error ?? 'Could not save the tier list.');

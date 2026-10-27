@@ -7,11 +7,13 @@ import {
   findContainer,
   isTierEligible,
   moveItem,
+  parseTierSave,
   planTierSave,
   resolveDrop,
   suggestTier,
   tierIndex,
   withinTierPairs,
+  type Tier,
 } from './tiers';
 import { makeActivity as make } from './test-fixtures';
 
@@ -68,25 +70,81 @@ describe('tier rules', () => {
     expect(board.tray.map((x) => x.id)).toEqual(['e', 'd']);
   });
 
+  type Cur = { tier: Tier | null; rankOrder: number | null };
+  const cur = (entries: Record<string, Cur>) => new Map(Object.entries(entries));
+  const empty = { S: [], A: [], B: [], C: [], D: [], F: [] };
+  const unplaced: Cur = { tier: null, rankOrder: null };
+
   it('planTierSave never touches hidden items', () => {
     const plan = planTierSave(
-      { S: [], A: ['a', 'c'], B: [], C: [], D: [], F: [] },
-      new Set(['a', 'b', 'd', 'e']),
+      { ...empty, A: ['a', 'c'] },
+      ['b', 'd', 'e', 'c2'],
+      cur({
+        a: unplaced,
+        b: { tier: 'B', rankOrder: 1000 },
+        d: { tier: 'S', rankOrder: 1000 },
+        e: { tier: 'F', rankOrder: 1000 },
+      }),
     );
     expect(plan.placed).toEqual([{ id: 'a', tier: 'A', rankOrder: 1000 }]);
     expect(plan.clearIds.sort()).toEqual(['b', 'd', 'e']);
   });
 
   it('planTierSave spaces ranks by 1000', () => {
-    const plan = planTierSave(
-      { S: ['x', 'y'], A: [], B: [], C: [], D: [], F: [] },
-      new Set(['x', 'y']),
-    );
+    const plan = planTierSave({ ...empty, S: ['x', 'y'] }, [], cur({ x: unplaced, y: unplaced }));
     expect(plan.placed).toEqual([
       { id: 'x', tier: 'S', rankOrder: 1000 },
       { id: 'y', tier: 'S', rankOrder: 2000 },
     ]);
     expect(plan.clearIds).toEqual([]);
+  });
+
+  it('planTierSave only writes rows whose tier or rank changed', () => {
+    const plan = planTierSave(
+      { ...empty, S: ['x', 'y', 'z'], A: ['w'] },
+      [],
+      cur({
+        x: { tier: 'S', rankOrder: 1000 }, // unchanged
+        y: { tier: 'S', rankOrder: 3000 }, // rank changed
+        z: { tier: 'A', rankOrder: 3000 }, // tier changed
+        w: { tier: 'A', rankOrder: 1000 }, // unchanged
+      }),
+    );
+    expect(plan.placed).toEqual([
+      { id: 'y', tier: 'S', rankOrder: 2000 },
+      { id: 'z', tier: 'S', rankOrder: 3000 },
+    ]);
+  });
+
+  it('planTierSave clears only eligible tiered ids the client shows in the tray', () => {
+    const plan = planTierSave(
+      { ...empty, A: ['a'] },
+      ['t', 'u', 'a'],
+      cur({
+        a: { tier: 'B', rankOrder: 1000 }, // placed wins over a duplicate tray listing
+        t: { tier: 'C', rankOrder: 1000 }, // shown in tray → cleared
+        u: { tier: null, rankOrder: 4000 }, // already untiered → left alone
+        stale: { tier: 'S', rankOrder: 1000 }, // absent from both (other tab) → untouched
+      }),
+    );
+    expect(plan.placed).toEqual([{ id: 'a', tier: 'A', rankOrder: 1000 }]);
+    expect(plan.clearIds).toEqual(['t']);
+  });
+
+  it('parseTierSave accepts a well-formed payload', () => {
+    expect(parseTierSave({ ...empty, S: ['x'] }, ['y'])).toEqual({
+      placement: { ...empty, S: ['x'] },
+      trayIds: ['y'],
+    });
+  });
+
+  it('parseTierSave rejects malformed payloads', () => {
+    expect(parseTierSave(null, [])).toBeNull();
+    expect(parseTierSave({ S: [], A: [], B: [], C: [], D: [] }, [])).toBeNull();
+    expect(parseTierSave({ ...empty, S: 'x' }, [])).toBeNull();
+    expect(parseTierSave({ ...empty, S: [1] }, [])).toBeNull();
+    expect(parseTierSave(empty, null)).toBeNull();
+    expect(parseTierSave(empty, [2])).toBeNull();
   });
 
   it('acceptSuggestions keeps tray order inside a tier', () => {
