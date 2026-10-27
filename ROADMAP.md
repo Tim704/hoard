@@ -35,7 +35,7 @@ cheaper.
 | **F1. An event log** | Hoard keeps only the current state and the first finish date. Rewatches, the diary, the year in review, streaks and taste trends all need a history, **and history can't be filled in after the fact.** Start recording every add, status change, score and progress change now, even before any screen shows it. | S to record, M for the screens that use it |
 | **F2. Release dates and genres** | The catalogue stores only a year. "Not out yet", the release calendar, countdowns, the picker's mood and genre filters, and the genre charts all need a full release date and genres. Store them when titles are added, and fill in existing titles in one run. | S–M |
 | **F3. A nightly job runner** | Nothing in Hoard runs on a schedule. Backups, new-season checks, release reminders and notifications all need one: a small cron service in `docker-compose.yml` that calls a protected route or a script. | S |
-| **F4. User settings** | No settings are stored yet. Streaming services, country, score display, title language, week start and which sections to show need a `prefs` JSON column on `User` and a Settings page. | S |
+| **F4. User settings** | No settings are stored yet. Streaming services, region (guessed from the browser's time zone, never from location), score display, title language, week start and which sections to show need a `prefs` JSON column on `User` and a Settings page. | S |
 
 ---
 
@@ -43,7 +43,7 @@ cheaper.
 
 | # | Feature | Value | Effort | How, in this codebase |
 |---|---|---|---|---|
-| 1.1 | **Nightly backups** | ★★★★★ | S | Nothing backs up the database except the one manual dump taken during the October deploy. Add a `backup` service (built on F3) that runs `pg_dump` every night into a folder off the SD card, keeps 14 daily and 8 weekly copies, and pushes to cloud storage if configured. |
+| 1.1 | **Nightly backups** | ★★★★★ | S | Nothing backs up the database except the one manual dump taken during the October deploy. Add a `backup` service (built on F3) that runs `pg_dump` every night into `~/backups/hoard` on the Pi, outside the Docker volume, and keeps 14 daily and 8 weekly copies. The Pi runs from a single 256 GB NVMe SSD with 188 GB free, so the backups fit easily. They protect against mistakes, a bad schema change and a damaged volume, but not against the SSD itself failing. For that, an occasional copy to the Mac over Tailscale is the cheap extra step. |
 | 1.2 | **Start the event log** (F1, recording only) | ★★★★★ | S | Add an `ActivityEvent` table (`activityId`, `kind`, `from`, `to`, `at`) written by `addToList`, `updateActivity`, the rating step and the queue. No screen yet. |
 | 1.3 | **Score the unscored** | ★★★★ | S | A "Score these" list of finished titles with no score, using the existing rating step. Scoring one sends it to the tier list's tray with a suggested tier, which closes the gap left by Skip. |
 | 1.4 | **Progress counters** | ★★★★ | S | `progress Int?` on the activity, compared against the counts already stored (`pageCount`, `chapters`, `episodes`, `episodeCount`). Shows "p. 120 / 340" and a bar on cards, with a +1 button in the details. Covers TV and anime episodes until full season tracking (3.3). |
@@ -108,14 +108,14 @@ and reused by importers, AI parsing and adding by link.
 
 | # | Feature | Value | Effort | How |
 |---|---|---|---|---|
-| 5.1 | **Where to stream** | ★★★★ | S–M | TMDB's watch-providers endpoint for your country, filtered to the services you subscribe to (F4). Shown on cards and in Up next. |
+| 5.1 | **Where to stream** | ★★★★ | S–M | TMDB's watch-providers endpoint for your region, filtered to the services you subscribe to (F4). The region is guessed once from the browser's time zone (for example `Europe/Zurich` → CH), never from location. It is shown in Settings and can be changed there, and it is stored per user, so each friend sees their own country's services. Shown on cards and in Up next. |
 | 5.2 | **"What should I start tonight?"** | ★★★★ | M | Up next filtered by the time you have (runtime, episodes × length, pages, time to beat), genre and streaming. Up next itself stays the order. |
 | 5.3 | **Time to beat (games)** | ★★★ | S | IGDB's time-to-beat data, stored on the game. Feeds 5.2. |
 | 5.4 | **"Not out yet"** | ★★★ | S | Up next split into *available now* and *not out yet*, using release dates (F2). |
 | 5.5 | **New season alerts** | ★★★★ | M | A nightly job (F3) compares the season count of each completed show with TMDB. A new season gets a "new season" badge, and its tier placement is untouched until you start it. |
 | 5.6 | **Release calendar + iCal feed** | ★★★ | M | Upcoming releases from your Up next and franchises, as a page and as a private iCal link your calendar app subscribes to. |
 | 5.7 | **Notifications** | ★★★ | M | Releases, new seasons and backup failures sent through ntfy (the simplest to self-host), Discord or email. Needs F3. |
-| 5.8 | **What can we watch together?** | ★★★ | S–M | The overlap between two users' Up next queues, only for users who opt in to being compared. |
+| 5.8 | **What can we watch together?** | ★★ | S–M | The overlap between two users' Up next queues, only for users who opt in to being compared. |
 | 5.9 | **Countdowns** | ★★ | S | A "12 days" badge on cards and a dashboard tile. Needs F2. |
 | 5.10 | **More by the same people** | ★★ | M | Cast, crew and author filmographies and bibliographies from TMDB and OpenLibrary, shown in the details. |
 | 5.11 | **Anime season browser** | ★★ | M | Browse current and upcoming AniList seasons by genre and format, with add buttons. |
@@ -139,21 +139,19 @@ and reused by importers, AI parsing and adding by link.
 | 7.1 | **Recommendations across media** | ★★★★ | M | "You put Haikyuu in S tier: here's a sports novel and a game." Only Hoard holds all seven media in one place. Each suggestion links straight into the add search. |
 | 7.2 | **Taste profile** | ★★★ | M | Genres, themes and how you score, worked out once and reused by the roast and both kinds of recommendation (and shown as a page). Needs F2's genres. |
 
-## Phase 8: Integrations (only for the services you actually use)
+## Phase 8: Integrations
 
 | # | Feature | Value | Effort | Note |
 |---|---|---|---|---|
-| 8.1 | **Steam library** | ★★★ | M | Owned games and playtime, giving ownership (3.5) and "played 40 h, still unrated". |
-| 8.2 | **Jellyfin or Plex webhooks** | ★★★ if you run one | M | Finishing something on the media server marks it watched (or advances its episode count). |
-| 8.3 | **AniList two-way sync** | ★★ | M–L | Import (2.1) covers most of the need. Two-way sync only if you still use AniList itself. |
-| 8.4 | **Last.fm scrobbles** | ★★ | M | Suggest "Listened" once most of an album's tracks have been played. |
-| 8.5 | **Markdown export** | ★★ | S | One note per title with front matter, for Obsidian or shared-notes. |
-| 8.6 | **Linked notes** | ★★ | M | `[[Paprika]]` in a title's notes links to that title, which then shows "mentioned in". |
-| 8.7 | **Saved views** | ★★ | M | Named filter and sort combinations across sections ("unwatched, under 100 min"). |
-| 8.8 | **Public API** | ★★ | M | A token-protected JSON API. Wait until something needs it; the exports cover backups. |
-| 8.9 | KOReader, Audiobookshelf | ★ | M | Only if you start using them. |
+| 8.1 | **Steam library** | ★★★★ | M | Your Steam profile id (it must be public) plus a Steam Web API key. Imports owned games, matched to IGDB through IGDB's Steam ids, and playtime, giving ownership (3.5), "played 40 h, still unrated" and an unplayed pile that seeds Up next. A nightly job (F3) keeps playtime current. Steam is the only integration in use, so it is the one worth building. |
+| 8.2 | **AniList two-way sync** | ★★ | M–L | Import (2.1) covers most of the need. Two-way sync only if you still use AniList itself. |
+| 8.3 | **Last.fm scrobbles** | ★★ | M | Suggest "Listened" once most of an album's tracks have been played. |
+| 8.4 | **Markdown export** | ★★ | S | One note per title with front matter, for Obsidian or shared-notes. |
+| 8.5 | **Linked notes** | ★★ | M | `[[Paprika]]` in a title's notes links to that title, which then shows "mentioned in". |
+| 8.6 | **Saved views** | ★★ | M | Named filter and sort combinations across sections ("unwatched, under 100 min"). |
+| 8.7 | **Public API** | ★★ | M | A token-protected JSON API. Wait until something needs it; the exports cover backups. |
 
-## Phase 9: Social, between users of this instance (optional)
+## Phase 9: Social, between users of this instance (only once friends join)
 
 | # | Feature | Value | Effort | Note |
 |---|---|---|---|---|
@@ -167,6 +165,7 @@ and reused by importers, AI parsing and adding by link.
 | Federation (ActivityPub) | L, and contrary to Hoard being private. |
 | SSO / OIDC | Usernames and passwords work for a handful of people. If more is wanted, put Cloudflare Access in front of the tunnel, with no code. |
 | Badges | They can feel cheap, and they don't feed the ranking. |
+| Jellyfin / Plex webhooks, KOReader, Audiobookshelf | None of these are in use. |
 | Release RSS feeds | The iCal feed (5.6) and notifications (5.7) cover it. |
 | Personalisation (accent colours, hidden sections) | Small; fold "hide sections I don't use" into the F4 settings page and skip the rest. |
 | Week start setting | Trivial; add it with the first calendar (5.6), not before. |
@@ -209,12 +208,12 @@ F4 settings ── 1.13 score display, 4.9 title language, 5.1 streaming
 3.3 TV seasons ── 4.5 season scores in tiers
 ```
 
-## Open questions
+## Decisions (27 Oct 2026)
 
-- **Users:** who else uses this instance, or will? That decides whether 5.8 and phase 9
-  are worth building.
-- **Media servers and Steam:** do you run Jellyfin or Plex, or use Steam? Phase 8 depends
-  on it.
-- **Your country, for streaming (5.1)?** TMDB's provider lists are per country.
-- **Backups:** where should they go? Another disk on the Pi, the Mac over Tailscale, or
-  cloud storage?
+- **Users:** Tim, and maybe friends later. Features between users (5.8, phase 9) wait
+  until friends actually join, and are opt-in when they do.
+- **Integrations:** Steam only. 8.1 stays in; Jellyfin, Plex, KOReader and Audiobookshelf
+  are skipped.
+- **Streaming region:** guessed from the time zone and editable in Settings. Never from
+  location, so no friend's location is ever asked for or stored.
+- **Backups:** stored on the Pi, in `~/backups/hoard` (see 1.1).
