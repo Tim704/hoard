@@ -13,6 +13,7 @@ import { GoogleGenAI } from '@google/genai';
 
 import { getCategory, type CategorySlug } from '@/lib/categories';
 import { requireUser } from '@/lib/session';
+import { formatRating } from '@/lib/rating';
 import { getRanking } from '@/lib/data';
 import type { RoastMode } from '@/lib/types';
 
@@ -44,7 +45,7 @@ export async function roastList(
   const list = completed
     .map((a, i) => {
       const year = a.media.year ? ` (${a.media.year})` : '';
-      return `${i + 1}. ${a.media.title}${year} — ${a.rating}/10`;
+      return `${i + 1}. ${a.media.title}${year} — ${formatRating(a.rating)}/10`;
     })
     .join('\n');
 

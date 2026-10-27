@@ -11,6 +11,7 @@ import { StatusIcon } from '@/components/status-icon';
 import { Button } from '@/components/ui/button';
 import { saveRanking, seedRanking } from '@/lib/actions/ranking';
 import type { CategorySlug } from '@/lib/categories';
+import { formatRating } from '@/lib/rating';
 import type { RankBoard as RankBoardData } from '@/lib/data';
 import { mediaSubtitle } from '@/lib/media-meta';
 import type { ActivityWithMedia } from '@/lib/types';
@@ -166,7 +167,7 @@ export function RankBoard({ slug, initial }: RankBoardProps) {
                     {a.rating != null && (
                       <span className="inline-flex items-center gap-0.5">
                         <Star className="h-3 w-3 fill-amber-400 text-amber-400" aria-hidden />
-                        {a.rating}
+                        {formatRating(a.rating)}
                       </span>
                     )}
                     {a.media.year}

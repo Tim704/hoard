@@ -10,6 +10,7 @@ import { revalidatePath } from 'next/cache';
 
 import { prisma } from '@/lib/prisma';
 import { CATEGORY_LIST, type CategorySlug } from '@/lib/categories';
+import { normalizeRating } from '@/lib/rating';
 import { requireUser } from '@/lib/session';
 import { resolveMediaRow } from '@/lib/franchise/auto';
 import { normalizeTitle } from '@/lib/franchise/normalize';
@@ -120,10 +121,13 @@ export async function updateFranchise(
       patch.matchName = matchName;
     }
     if (data.rating !== undefined) {
-      if (data.rating !== null && (data.rating < 1 || data.rating > 10)) {
-        return { ok: false, error: 'Rating must be 1–10.' };
+      if (data.rating === null) {
+        patch.rating = null;
+      } else {
+        const rating = normalizeRating(data.rating);
+        if (rating === null) return { ok: false, error: 'Score must be between 0 and 10.' };
+        patch.rating = rating;
       }
-      patch.rating = data.rating;
     }
     if (data.notes !== undefined) patch.notes = data.notes;
     if (data.imageUrl !== undefined) patch.imageUrl = data.imageUrl;

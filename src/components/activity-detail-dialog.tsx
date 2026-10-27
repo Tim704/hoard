@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ImageOff, Layers, Loader2, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { RatingControl } from '@/components/rating-control';
+import { RatingInput } from '@/components/rating-input';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -304,7 +304,7 @@ export function ActivityDetailDialog({
                   </button>
                 )}
               </div>
-              <RatingControl value={rating} onChange={(v) => setRating(v)} />
+              <RatingInput value={rating} onChange={(v) => setRating(v)} />
             </div>
 
             <div className="space-y-1.5">

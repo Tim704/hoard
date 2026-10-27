@@ -18,6 +18,7 @@ import {
   type CategorySlug,
   type DbCategory,
 } from '@/lib/categories';
+import { normalizeRating } from '@/lib/rating';
 import { requireUser } from '@/lib/session';
 import { searchProvider, enrichResult } from '@/lib/apis';
 import { autoGroupAfterAdd } from '@/lib/franchise/auto';
@@ -136,7 +137,15 @@ export async function updateActivity(
     } = {};
 
     if (data.status !== undefined) patch.status = data.status;
-    if (data.rating !== undefined) patch.rating = data.rating;
+    if (data.rating !== undefined) {
+      if (typeof data.rating === 'number') {
+        const rating = normalizeRating(data.rating);
+        if (rating === null) return { ok: false, error: 'Score must be between 0 and 10.' };
+        patch.rating = rating;
+      } else {
+        patch.rating = null;
+      }
+    }
     if (data.favorite !== undefined) patch.favorite = data.favorite;
     if (data.notes !== undefined) patch.notes = data.notes;
 

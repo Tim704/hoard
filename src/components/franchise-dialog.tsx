@@ -8,7 +8,9 @@ import { toast } from 'sonner';
 import { Check, ImageOff, Loader2, Merge, Trash2, X } from 'lucide-react';
 
 import { memberAverage } from '@/components/franchise-group';
+import { formatRating } from '@/lib/rating';
 import { RatingControl } from '@/components/rating-control';
+import { RatingInput } from '@/components/rating-input';
 import { StatusBadge } from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -127,9 +129,9 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
                 </button>
               )}
             </div>
-            <RatingControl
+            <RatingInput
               value={f.rating}
-              onChange={(v) => run(() => updateFranchise(f.id, { rating: v }), `Rated ${v}/10.`)}
+              onChange={(v) => run(() => updateFranchise(f.id, { rating: v }), `Rated ${formatRating(v)}/10.`)}
             />
             <p className="text-xs text-muted-foreground">
               Separate from each title&apos;s own rating.
@@ -193,7 +195,7 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
                       <StatusBadge status={m.status} slug={m.category} className="px-1.5 py-0 text-[11px]" />
                     </div>
                   </div>
-                  <RatingControl value={m.rating} readOnly />
+                  <RatingControl value={m.rating} />
                   <button
                     type="button"
                     disabled={busy}

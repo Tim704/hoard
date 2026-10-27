@@ -16,9 +16,10 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { RatingControl } from '@/components/rating-control';
+import { RatingInput } from '@/components/rating-input';
 import { addToList, searchMedia, updateActivity } from '@/lib/actions/media';
 import type { CategorySlug } from '@/lib/categories';
+import { formatRating } from '@/lib/rating';
 import type { NormalizedResult } from '@/lib/types';
 
 interface SearchDialogProps {
@@ -108,7 +109,7 @@ export function SearchDialog({ slug, singular, triggerClassName }: SearchDialogP
     try {
       const res = await updateActivity(activityId, { rating });
       if (res.ok) {
-        toast.success(`Rated "${result.title}" ${rating}/10.`);
+        toast.success(`Rated "${result.title}" ${formatRating(rating)}/10.`);
         router.refresh();
       } else {
         toast.error(res.error ?? 'Could not save that rating.');
@@ -213,7 +214,7 @@ export function SearchDialog({ slug, singular, triggerClassName }: SearchDialogP
                     {entry && (
                       // Added → let the user rate it right here, no detail dialog.
                       <div className="mt-1.5">
-                        <RatingControl
+                        <RatingInput
                           value={entry.rating}
                           onChange={(v) => rate(result, entry.activityId, v)}
                         />

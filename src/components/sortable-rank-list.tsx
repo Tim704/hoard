@@ -20,6 +20,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ChevronDown, ChevronUp, GripVertical, ImageOff, Star, X } from 'lucide-react';
 
+import { formatRating } from '@/lib/rating';
 import { cn } from '@/lib/utils';
 
 /** One row in a rank list — generic so titles and franchises can share it. */
@@ -151,7 +152,7 @@ function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRe
       {item.rating != null && (
         <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-amber-600 dark:text-amber-300">
           <Star className="h-3.5 w-3.5 fill-current" aria-hidden />
-          {item.rating}
+          {formatRating(item.rating)}
         </span>
       )}
 

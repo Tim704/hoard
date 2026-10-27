@@ -89,7 +89,7 @@ export function MediaCard({ activity, onClick }: MediaCardProps) {
         <div className="mt-auto flex flex-col gap-1.5 pt-1">
           <StatusBadge status={status} slug={activity.category} />
           {activity.rating != null && (
-            <RatingControl value={activity.rating} readOnly />
+            <RatingControl value={activity.rating} />
           )}
         </div>
       </div>

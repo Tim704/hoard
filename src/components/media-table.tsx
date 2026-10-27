@@ -163,7 +163,7 @@ function ItemRow({
         <StatusBadge status={activity.status} slug={activity.category} />
       </TableCell>
       <TableCell>
-        <RatingControl value={activity.rating} readOnly />
+        <RatingControl value={activity.rating} />
       </TableCell>
     </TableRow>
   );
