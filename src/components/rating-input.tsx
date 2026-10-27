@@ -14,6 +14,12 @@ interface RatingInputProps {
   onChange: (v: number) => void;
   /** When given, a "Skip" button is shown that calls this. */
   onSkip?: () => void;
+  /**
+   * Called on every keystroke in the text box with the parsed score (null when
+   * the text is empty or invalid), before it is committed on Enter/blur. Lets a
+   * parent enable a "Save" button as soon as a valid score is typed.
+   */
+  onDraftChange?: (v: number | null) => void;
   autoFocus?: boolean;
 }
 
@@ -24,7 +30,13 @@ const PIPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
  * nudge buttons and a small text box ("8,5" works) that commits on Enter/blur.
  * Pips ≤ floor(value) are highlighted.
  */
-export function RatingInput({ value, onChange, onSkip, autoFocus }: RatingInputProps) {
+export function RatingInput({
+  value,
+  onChange,
+  onSkip,
+  onDraftChange,
+  autoFocus,
+}: RatingInputProps) {
   const [text, setText] = useState(value == null ? '' : formatRating(value));
 
   // Keep the box in step with the value (pips, nudges, server round-trips).
@@ -88,7 +100,10 @@ export function RatingInput({ value, onChange, onSkip, autoFocus }: RatingInputP
           type="text"
           inputMode="decimal"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            onDraftChange?.(parseRatingInput(e.target.value));
+          }}
           onBlur={commitText}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
