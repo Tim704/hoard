@@ -19,6 +19,7 @@ import {
   type DbCategory,
 } from '@/lib/categories';
 import { normalizeRating } from '@/lib/rating';
+import { nextQueueOrder } from '@/lib/queue';
 import { requireUser } from '@/lib/session';
 import { searchProvider, enrichResult } from '@/lib/apis';
 import { autoGroupAfterAdd } from '@/lib/franchise/auto';
@@ -134,6 +135,7 @@ export async function updateActivity(
       favorite?: boolean;
       notes?: string;
       finishedAt?: Date;
+      queueOrder?: number | null;
     } = {};
 
     if (data.status !== undefined) patch.status = data.status;
@@ -152,6 +154,20 @@ export async function updateActivity(
     // Stamp completion the first time an item is marked COMPLETED.
     if (data.status === 'COMPLETED' && !activity.finishedAt) {
       patch.finishedAt = new Date();
+    }
+
+    // Queue membership follows status: leaving PLANNED drops the position,
+    // entering PLANNED joins the end of the category's queue.
+    if (data.status !== undefined && data.status !== activity.status) {
+      if (activity.status === 'PLANNED') {
+        patch.queueOrder = null;
+      } else if (data.status === 'PLANNED') {
+        const top = await prisma.userMediaActivity.aggregate({
+          where: { userId: user.id, category: activity.category },
+          _max: { queueOrder: true },
+        });
+        patch.queueOrder = nextQueueOrder(top._max.queueOrder);
+      }
     }
 
     await prisma.userMediaActivity.update({ where: { id }, data: patch as any });

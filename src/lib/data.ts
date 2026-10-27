@@ -19,6 +19,7 @@ import {
   type CategoryConfig,
 } from '@/lib/categories';
 import { getCurrentUser } from '@/lib/session';
+import { orderQueue } from '@/lib/queue';
 import { buildTierBoard, TIERS, withinTierPairs, type TierBoardData } from '@/lib/tiers';
 import type {
   ActivityWithMedia,
@@ -252,6 +253,11 @@ function byRatingThenElo(a: ActivityWithMedia, b: ActivityWithMedia): number {
   const byElo = b.elo - a.elo;
   if (byElo !== 0) return byElo;
   return a.media.title.localeCompare(b.media.title);
+}
+
+/** The category's Up next queue: PLANNED items in queue order. */
+export async function getQueue(slug: CategorySlug): Promise<ActivityWithMedia[]> {
+  return orderQueue(await loadCategory(slug));
 }
 
 /** The category's tier list: placed items per tier plus the Unranked tray. */

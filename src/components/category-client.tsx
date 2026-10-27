@@ -30,6 +30,7 @@ import {
   statusLabel,
   type Status,
 } from '@/lib/status';
+import { orderQueue } from '@/lib/queue';
 import { compareTierOrder, isTierEligible } from '@/lib/tiers';
 import { toDisplayUnits, type ActivityWithMedia, type ViewMode } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -143,8 +144,15 @@ export function CategoryClient({ slug, config, activities, franchises }: Categor
         sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
         break;
     }
+    // PLANNED items follow the Up next queue order, not the sort mode's order
+    // (the 'status' sort and the Planned section both rely on this).
+    if (sort === 'status' || grouped) {
+      const queue = orderQueue(sorted);
+      let q = 0;
+      return sorted.map((a) => (a.status === 'PLANNED' ? queue[q++] : a));
+    }
     return sorted;
-  }, [activities, filter, statusFilter, sort]);
+  }, [activities, filter, statusFilter, sort, grouped]);
 
   // Tier list positions across the whole category (stable inside sections).
   const ranks = useMemo(() => {
@@ -332,6 +340,11 @@ export function CategoryClient({ slug, config, activities, franchises }: Categor
                 count={items.length}
                 collapsed={collapsed.includes(status)}
                 onToggle={() => toggleSection(status)}
+                action={
+                  status === 'PLANNED'
+                    ? { href: `/${slug}/arena?tab=queue`, label: 'Reorder' }
+                    : undefined
+                }
               >
                 {renderView(items)}
               </StatusSection>

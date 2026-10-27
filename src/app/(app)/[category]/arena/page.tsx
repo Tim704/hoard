@@ -5,8 +5,9 @@ import { ArrowLeft, ListTodo, Rows3, Swords } from 'lucide-react';
 import { Arena } from '@/components/arena';
 import { RankingList } from '@/components/ranking-list';
 import { TierBoard } from '@/components/tier-board';
+import { UpNext } from '@/components/up-next';
 import { getCategory } from '@/lib/categories';
-import { getMatchup, getRanking, getTierBoard } from '@/lib/data';
+import { getMatchup, getQueue, getRanking, getTierBoard } from '@/lib/data';
 import { cn } from '@/lib/utils';
 
 interface RankPageProps {
@@ -73,9 +74,9 @@ export default async function RankPage({ params, searchParams }: RankPageProps) 
           <TierBoard slug={slug} initial={await getTierBoard(slug)} />
         </div>
       ) : tab === 'queue' ? (
-        <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          Coming in the next task
-        </p>
+        <div className="max-w-3xl">
+          <UpNext slug={slug} initial={await getQueue(slug)} />
+        </div>
       ) : (
         <ArenaTab slug={slug} />
       )}

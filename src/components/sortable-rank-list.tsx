@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import Image from 'next/image';
 import {
   closestCenter,
@@ -39,6 +40,8 @@ interface SortableRankListProps {
   /** Optional: remove an item from the ranking (back to the unranked tray). */
   onRemove?: (id: string) => void;
   disabled?: boolean;
+  /** Optional: extra per-row controls (and content, shown under the row). */
+  renderActions?: (row: RankRow) => ReactNode;
 }
 
 /**
@@ -46,7 +49,7 @@ interface SortableRankListProps {
  * with mouse, touch or keyboard (Space to pick up, arrows to move); the up/down
  * buttons are a precise fallback, especially on phones.
  */
-export function SortableRankList({ items, onReorder, onRemove, disabled }: SortableRankListProps) {
+export function SortableRankList({ items, onReorder, onRemove, disabled, renderActions }: SortableRankListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -82,6 +85,7 @@ export function SortableRankList({ items, onReorder, onRemove, disabled }: Sorta
               onUp={() => move(index, -1)}
               onDown={() => move(index, 1)}
               onRemove={onRemove ? () => onRemove(item.id) : undefined}
+              actions={renderActions?.(item)}
             />
           ))}
         </ol>
@@ -99,9 +103,10 @@ interface SortableRowProps {
   onUp: () => void;
   onDown: () => void;
   onRemove?: () => void;
+  actions?: ReactNode;
 }
 
-function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRemove }: SortableRowProps) {
+function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRemove, actions }: SortableRowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id, disabled });
 
@@ -110,7 +115,7 @@ function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRe
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        'flex items-center gap-3 rounded-lg border border-border bg-card p-2 pr-3',
+        'flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-2 pr-3',
         isDragging && 'relative z-10 border-primary/60 shadow-xl shadow-black/40',
       )}
     >
@@ -176,6 +181,8 @@ function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRe
           <ChevronDown className="h-4 w-4" />
         </button>
       </div>
+
+      {actions}
 
       {onRemove && (
         <button
