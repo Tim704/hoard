@@ -4,17 +4,22 @@ import type { ActivityWithMedia } from '@/lib/types';
 export const QUEUE_STEP = 1000;
 
 /**
- * The Up next queue: PLANNED items only, by `queueOrder` ascending. Items with
- * no position yet (null) come last, oldest first.
+ * The Up next queue: PLANNED items only. Legacy rows with no position yet
+ * (null — everything PLANNED before the queue existed) come first, oldest
+ * first; then positioned rows by `queueOrder` ascending. New items get
+ * max + 1000, so they always land at the bottom. Equal keys fall back to
+ * createdAt, then id, so the order is deterministic.
  */
 export function orderQueue(all: ActivityWithMedia[]): ActivityWithMedia[] {
   return all
     .filter((a) => a.status === 'PLANNED')
     .sort((a, b) => {
-      if (a.queueOrder !== null && b.queueOrder !== null) return a.queueOrder - b.queueOrder;
-      if (a.queueOrder !== null) return -1;
-      if (b.queueOrder !== null) return 1;
-      return a.createdAt.localeCompare(b.createdAt);
+      if (a.queueOrder === null && b.queueOrder !== null) return -1;
+      if (a.queueOrder !== null && b.queueOrder === null) return 1;
+      if (a.queueOrder !== null && b.queueOrder !== null && a.queueOrder !== b.queueOrder) {
+        return a.queueOrder - b.queueOrder;
+      }
+      return a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
     });
 }
 
