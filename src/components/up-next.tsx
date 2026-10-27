@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Check } from 'lucide-react';
 
-import { RatingInput } from '@/components/rating-input';
+import { RatingStep } from '@/components/rating-step';
 import { SortableRankList, type RankRow } from '@/components/sortable-rank-list';
 import { updateActivity } from '@/lib/actions/media';
 import { saveQueue } from '@/lib/actions/queue';
@@ -59,10 +59,12 @@ export function UpNext({ slug, initial }: UpNextProps) {
     const index = prev.findIndex((r) => r.id === row.id);
     setRatingId(null);
     setRows(prev.filter((r) => r.id !== row.id));
+    setPending(true);
     const res = await updateActivity(
       row.id,
       rating === undefined ? { status: 'COMPLETED' } : { status: 'COMPLETED', rating },
     );
+    setPending(false);
     if (!res.ok) {
       setRows((cur) => {
         const next = [...cur];
@@ -102,10 +104,10 @@ export function UpNext({ slug, initial }: UpNextProps) {
           </button>
           {ratingId === row.id && (
             <div className="w-full border-t border-border pt-2">
-              <RatingInput
-                value={null}
+              <RatingStep
                 autoFocus
-                onChange={(v) => complete(row, v)}
+                disabled={pending}
+                onSave={(v) => complete(row, v)}
                 onSkip={() => complete(row)}
               />
             </div>

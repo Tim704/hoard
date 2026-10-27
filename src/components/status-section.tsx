@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { ChevronDown } from "lucide-react";
+import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
 
-import { StatusIcon } from "@/components/status-icon";
-import type { CategorySlug } from "@/lib/categories";
-import { statusLabel, type Status } from "@/lib/status";
-import { cn } from "@/lib/utils";
+import { StatusIcon } from '@/components/status-icon';
+import type { CategorySlug } from '@/lib/categories';
+import { statusLabel, type Status } from '@/lib/status';
+import { cn } from '@/lib/utils';
 
 interface StatusSectionProps {
   status: Status;
@@ -45,8 +45,8 @@ export function StatusSection({
         >
           <ChevronDown
             className={cn(
-              "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-              collapsed && "-rotate-90",
+              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+              collapsed && '-rotate-90',
             )}
             aria-hidden
           />
