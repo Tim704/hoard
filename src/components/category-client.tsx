@@ -201,6 +201,16 @@ export function CategoryClient({ slug, config, activities, franchises }: Categor
     );
   };
 
+  // Titles already in the library, keyed by provider id, so the Add dialog can
+  // show "In library" instead of offering to add them again.
+  const library = useMemo(() => {
+    const map: Record<string, { status: Status; rating: number | null }> = {};
+    for (const a of activities) {
+      map[a.media.externalId] = { status: a.status, rating: a.rating };
+    }
+    return map;
+  }, [activities]);
+
   return (
     <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
       {/* Header */}
@@ -223,6 +233,7 @@ export function CategoryClient({ slug, config, activities, franchises }: Categor
         <SearchDialog
           slug={slug}
           singular={config.singular}
+          library={library}
           triggerClassName="order-1 w-full md:order-none md:w-auto"
         />
 

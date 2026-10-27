@@ -49,15 +49,16 @@ function slugForDbCategory(dbCategory: DbCategory): CategorySlug | undefined {
 /**
  * Add a search result to the current user's library:
  *  1. Upsert the canonical media row (keyed by its provider `externalId`).
- *  2. Create a PLANNED activity linking the user to that media — unless one
- *     already exists (idempotent; adding twice is a no-op).
+ *  2. Create an activity (COMPLETED or PLANNED) linking the user to that media
+ *     — unless one already exists, which is returned unchanged (`existing`).
  */
 export async function addToList(
   slug: CategorySlug,
   result: NormalizedResult,
-): Promise<{ ok: boolean; error?: string; activityId?: string }> {
+  status: 'COMPLETED' | 'PLANNED',
+): Promise<{ ok: boolean; error?: string; activityId?: string; existing: boolean }> {
   const cat = getCategory(slug);
-  if (!cat) return { ok: false, error: 'Unknown category.' };
+  if (!cat) return { ok: false, error: 'Unknown category.', existing: false };
 
   try {
     const user = await requireUser();
@@ -84,11 +85,22 @@ export async function addToList(
     if (existing) {
       activityId = existing.id;
     } else {
+      // PLANNED rows join the bottom of the category's Up next queue.
+      let queueOrder: number | null = null;
+      if (status === 'PLANNED') {
+        const top = await prisma.userMediaActivity.aggregate({
+          where: { userId: user.id, category: cat.dbCategory },
+          _max: { queueOrder: true },
+        });
+        queueOrder = nextQueueOrder(top._max.queueOrder);
+      }
       const created = await prisma.userMediaActivity.create({
         data: {
           userId: user.id,
           category: cat.dbCategory,
-          status: 'PLANNED',
+          status,
+          queueOrder,
+          finishedAt: status === 'COMPLETED' ? new Date() : null,
           [cat.fkField]: media.id,
         } as any,
       });
@@ -99,10 +111,10 @@ export async function addToList(
 
     revalidatePath('/' + slug);
     revalidatePath('/franchises');
-    return { ok: true, activityId };
+    return { ok: true, activityId, existing: !!existing };
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Failed to add item.';
-    return { ok: false, error };
+    return { ok: false, error, existing: false };
   }
 }
 

@@ -107,3 +107,18 @@ export const STATUS_TEXT_CLASS: Record<Status, string> = {
 export function isStatus(value: string): value is Status {
   return (STATUSES as readonly string[]).includes(value);
 }
+
+const WANT_VERB: Record<CategorySlug, string> = {
+  movies: 'watch',
+  tv: 'watch',
+  anime: 'watch',
+  books: 'read',
+  manga: 'read',
+  games: 'play',
+  music: 'listen',
+};
+
+/** The two choices offered when adding a title: finished it, or want to. */
+export function addChoiceLabels(slug: CategorySlug): { done: string; want: string } {
+  return { done: statusLabel('COMPLETED', slug), want: `Want to ${WANT_VERB[slug]}` };
+}
