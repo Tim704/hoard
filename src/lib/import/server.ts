@@ -172,7 +172,7 @@ async function updateExisting(userId: string, activityId: string, row: CommitRow
         startedAt: a.startedAt,
         finishedAt: a.finishedAt,
         progress: a.progress,
-        tags: a.tags,
+        tags: a.tags ?? [],
       },
       {
         status: row.status,

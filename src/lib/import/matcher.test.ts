@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import anilistAnime from '@/lib/apis/__fixtures__/anilist-anime.json';
 import olSearch from '@/lib/apis/__fixtures__/openlibrary-search.json';
 import tmdbSearch from '@/lib/apis/__fixtures__/tmdb-movie-search.json';
-import { fetchAniListByIds, mapAnime, type AniListMedia } from '@/lib/apis/anilist';
+import { anilistGraphql, fetchAniListByIds, mapAnime, type AniListMedia } from '@/lib/apis/anilist';
 import { mapBookDoc, searchBooksByIsbn } from '@/lib/apis/books';
 import { mapMovieSearchHit, searchMovies } from '@/lib/apis/tmdb';
 import type { CategorySlug } from '@/lib/categories';
@@ -261,5 +261,31 @@ describe('provider helpers for imports', () => {
     const map = await fetchAniListByIds('ANIME', [154587, 200001]);
     expect(map.get(154587)).toEqual(frieren);
     expect(map.get(200001)?.externalId).toBe('al-200001');
+  });
+});
+
+describe('anilistGraphql', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const answer = (body: unknown, status: number) =>
+    new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+  it('returns GraphQL errors (unknown or private user) after one attempt', async () => {
+    const fetchMock = vi.fn(async () => answer({ data: { MediaListCollection: null }, errors: [{ message: 'User not found', status: 404 }] }, 404));
+    vi.stubGlobal('fetch', fetchMock);
+    const res = await anilistGraphql('q', {}, 'AniList list');
+    expect(res.errors[0].message).toBe('User not found');
+    expect(res.data).toEqual({ MediaListCollection: null });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a 5xx, then answers', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('oops', { status: 502 }))
+      .mockResolvedValueOnce(answer({ data: { ok: 1 } }, 200));
+    vi.stubGlobal('fetch', fetchMock);
+    const res = await anilistGraphql<{ ok: number }>('q', {}, 'AniList list');
+    expect(res).toEqual({ data: { ok: 1 }, errors: [] });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
