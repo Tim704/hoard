@@ -57,5 +57,11 @@
   "/import?source=steam",
   "/settings?anilist=expired",
   "/views",
-  "/views?view=demo-view-scifi"
+  "/views?view=demo-view-scifi",
+  "/feed",
+  "/feed?cursor=not-a-cursor",
+  "/compare",
+  "/compare/demo2",
+  "/compare/no-such-user",
+  "/compare/demo"
 ]

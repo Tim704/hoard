@@ -14,12 +14,14 @@ import {
   Clapperboard,
   Disc3,
   Gamepad2,
+  GitCompareArrows,
   Layers,
   LayoutDashboard,
   ListChecks,
   Library,
   NotebookPen,
   Popcorn,
+  Rss,
   Settings,
   Sparkles,
   Tag,
@@ -44,6 +46,7 @@ const ICONS: Record<string, LucideIcon> = {
   Sparkles,
   BookText,
   Gamepad2,
+  GitCompareArrows,
   Disc3,
   LayoutDashboard,
   Boxes,
@@ -57,6 +60,13 @@ interface NavLinksProps {
   collapsed?: boolean;
   /** The user's saved views (8.6), listed under "Views". */
   views?: SavedViewSummary[];
+  /** The viewer's sharing opt-ins: the Friends links show only for these (9.1 / 9.2 / 5.8). */
+  social?: SocialNav;
+}
+
+export interface SocialNav {
+  compare: boolean;
+  feed: boolean;
 }
 
 const isBool = (v: unknown): v is boolean => typeof v === 'boolean';
@@ -66,7 +76,7 @@ const isBool = (v: unknown): v is boolean => typeof v === 'boolean';
  * the mobile drawer, with active-route highlighting. Sections hidden in
  * Settings are left out (their pages still work).
  */
-export function NavLinks({ onNavigate, collapsed = false, views = [] }: NavLinksProps) {
+export function NavLinks({ onNavigate, collapsed = false, views = [], social }: NavLinksProps) {
   const pathname = usePathname();
   const currentView = useSearchParams().get('view');
   const [viewsOpen, setViewsOpen] = usePersistentState<boolean>('hoard:nav:views-open', true, isBool);
@@ -176,17 +186,6 @@ export function NavLinks({ onNavigate, collapsed = false, views = [] }: NavLinks
       </Link>
 
       <Link
-        href="/together"
-        onClick={onNavigate}
-        title={collapsed ? 'Watch together' : undefined}
-        aria-label={collapsed ? 'Watch together' : undefined}
-        className={linkClass('/together')}
-      >
-        <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
-        {!collapsed && <span>Watch together</span>}
-      </Link>
-
-      <Link
         href="/tags"
         onClick={onNavigate}
         title={collapsed ? 'Tags' : undefined}
@@ -255,6 +254,53 @@ export function NavLinks({ onNavigate, collapsed = false, views = [] }: NavLinks
                 );
               })}
             </ul>
+          )}
+        </div>
+      )}
+
+      {/* Friends (opt-in only): Compare and Watch together need compareOptIn, Feed needs feedOptIn. */}
+      {(social?.compare || social?.feed) && (
+        <div role="group" aria-label="Friends" className="mt-2 space-y-1">
+          {!collapsed && (
+            <p className="px-3 pb-0.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+              Friends
+            </p>
+          )}
+          {social.feed && (
+            <Link
+              href="/feed"
+              onClick={onNavigate}
+              title={collapsed ? 'Feed' : undefined}
+              aria-label={collapsed ? 'Feed' : undefined}
+              className={linkClass('/feed')}
+            >
+              <Rss className="h-4 w-4 shrink-0 text-muted-foreground" />
+              {!collapsed && <span>Feed</span>}
+            </Link>
+          )}
+          {social.compare && (
+            <>
+              <Link
+                href="/compare"
+                onClick={onNavigate}
+                title={collapsed ? 'Compare' : undefined}
+                aria-label={collapsed ? 'Compare' : undefined}
+                className={linkClass('/compare')}
+              >
+                <GitCompareArrows className="h-4 w-4 shrink-0 text-muted-foreground" />
+                {!collapsed && <span>Compare</span>}
+              </Link>
+              <Link
+                href="/together"
+                onClick={onNavigate}
+                title={collapsed ? 'Watch together' : undefined}
+                aria-label={collapsed ? 'Watch together' : undefined}
+                className={linkClass('/together')}
+              >
+                <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
+                {!collapsed && <span>Watch together</span>}
+              </Link>
+            </>
           )}
         </div>
       )}

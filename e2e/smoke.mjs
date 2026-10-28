@@ -270,6 +270,59 @@ if (failures.length === 0) {
     const gone = await call();
     if (gone.status !== 401) throw new Error(`API with a revoked token: HTTP ${gone.status}`);
   });
+  // Compare and the feed (9.1 / 9.2) against the seeded, opted-in demo2:
+  // turn both opt-ins on, see the comparison, the feed and the Friends links;
+  // then, as demo2, see demo vanish from Compare the moment demo opts out
+  // (the same answer as for an unknown user), and come back after.
+  const setOptIn = async (card, on, toast) => {
+    await page.goto(`${BASE_URL}/settings`, { waitUntil: 'networkidle' });
+    const box = page.locator(`${card} input[type="checkbox"]`);
+    await box.waitFor({ timeout: 15_000 });
+    if ((await box.isChecked()) !== on) {
+      await box.click();
+      await page.getByText(toast).first().waitFor({ timeout: 15_000 });
+    }
+  };
+  await step('compare + feed with demo2', async () => {
+    await setOptIn('#compare', true, 'Others can now compare with you.');
+    await setOptIn('#feed', true, 'Your activity now shows in the feed.');
+    await page.goto(`${BASE_URL}/compare`, { waitUntil: 'networkidle' });
+    await page.getByRole('link', { name: 'demo2' }).click();
+    await page.waitForURL((url) => url.pathname === '/compare/demo2', { timeout: 15_000 });
+    await page.getByRole('heading', { name: 'You and demo2' }).waitFor({ timeout: 15_000 });
+    const main = await page.locator('main').innerText();
+    if (!/\d+%/.test(main)) throw new Error('no compatibility score on /compare/demo2');
+    if (!/Mob Psycho 100/.test(main)) throw new Error('their S tier misses Mob Psycho 100');
+    if (!/Titles you both have \(\d+\)/.test(main)) throw new Error('no shared titles count');
+    await page.goto(`${BASE_URL}/feed`, { waitUntil: 'networkidle' });
+    await page.getByText('demo2', { exact: true }).first().waitFor({ timeout: 15_000 });
+    for (const name of ['Feed', 'Compare', 'Watch together']) {
+      await page.locator('aside').getByRole('link', { name, exact: true }).waitFor({ timeout: 10_000 });
+    }
+
+    const friend = await browser.newContext();
+    try {
+      const p = await friend.newPage();
+      await p.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
+      await p.fill('#username', 'demo2');
+      await p.fill('#password', PASSWORD);
+      await Promise.all([p.waitForURL((url) => url.pathname === '/dashboard', { timeout: 20_000 }), p.click('button[type="submit"]')]);
+      await p.goto(`${BASE_URL}/compare/demo`, { waitUntil: 'networkidle' });
+      await p.getByRole('heading', { name: 'You and demo' }).waitFor({ timeout: 15_000 });
+
+      await setOptIn('#compare', false, 'Comparing turned off.');
+      await p.goto(`${BASE_URL}/compare/demo`, { waitUntil: 'networkidle' });
+      const off = await p.locator('main').innerText();
+      await p.goto(`${BASE_URL}/compare/no-such-user`, { waitUntil: 'networkidle' });
+      const unknown = await p.locator('main').innerText();
+      if (/demo/.test(off.replace(/demo2/g, '')) || off !== unknown) throw new Error('an opted-out user is answered differently from an unknown one');
+      await p.goto(`${BASE_URL}/compare`, { waitUntil: 'networkidle' });
+      if ((await p.getByRole('link', { name: 'demo', exact: true }).count()) > 0) throw new Error('an opted-out user is still listed');
+    } finally {
+      await friend.close();
+      await setOptIn('#compare', true, 'Others can now compare with you.');
+    }
+  });
   // Signed out, a shared link survives the login (next=…).
   await step('login keeps the shared /add link', async () => {
     const fresh = await browser.newContext();

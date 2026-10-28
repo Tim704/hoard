@@ -15,7 +15,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { SearchEverythingButton } from '@/components/global-search';
-import { NavLinks } from '@/components/nav-links';
+import { NavLinks, type SocialNav } from '@/components/nav-links';
 import { NotificationBell } from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
 import type { NotificationSummary } from '@/lib/data-notifications';
@@ -30,10 +30,13 @@ export function MobileNav({
   username,
   notifications,
   views,
+  social,
 }: {
   username: string;
   notifications: NotificationSummary;
   views?: SavedViewSummary[];
+  /** The viewer's sharing opt-ins (the Friends links). */
+  social?: SocialNav;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -64,7 +67,7 @@ export function MobileNav({
 
           {/* Navigation — closes the drawer on any link tap. */}
           <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
-            <NavLinks onNavigate={() => setOpen(false)} views={views} />
+            <NavLinks onNavigate={() => setOpen(false)} views={views} social={social} />
           </nav>
 
           {/* Footer: signed-in user + logout (theme toggle lives in the top bar). */}

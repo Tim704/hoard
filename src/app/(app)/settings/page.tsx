@@ -5,7 +5,7 @@ import { SettingsData } from '@/components/settings-data';
 import { SettingsForm } from '@/components/settings-form';
 import { SettingsNotifications } from '@/components/settings-notifications';
 import { SettingsSharing } from '@/components/settings-sharing';
-import { SettingsCompare, SettingsStreaming } from '@/components/settings-streaming';
+import { SettingsCompare, SettingsFeed, SettingsStreaming } from '@/components/settings-streaming';
 import { SettingsSystem } from '@/components/settings-system';
 import { readBackupStatus } from '@/lib/backups';
 import { calendarFeedUrl } from '@/lib/calendar-token';
@@ -75,6 +75,7 @@ export default async function SettingsPage() {
       <SettingsSharing links={shareLinks} />
       <SettingsCalendar initialUrl={prefs.calendarToken ? calendarFeedUrl(prefs.calendarToken) : null} />
       <SettingsCompare initial={prefs.compareOptIn} />
+      <SettingsFeed initial={prefs.feedOptIn} />
       <SettingsData />
       <SettingsApiTokens tokens={apiTokens} />
       {backup && jobs && (

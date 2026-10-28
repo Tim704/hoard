@@ -34,6 +34,8 @@ export default async function AppLayout({
     getSavedViewNames(user.id),
   ]);
   const prefs = toDisplayPrefs(allPrefs);
+  // The Friends links (Compare / Watch together / Feed) show only with the opt-in.
+  const social = { compare: allPrefs.compareOptIn, feed: allPrefs.feedOptIn };
 
   return (
     <PrefsProvider
@@ -48,8 +50,9 @@ export default async function AppLayout({
             initialCollapsed={sidebarCollapsed}
             notifications={notifications}
             views={views}
+            social={social}
           />
-          <MobileNav username={user.username} notifications={notifications} views={views} />
+          <MobileNav username={user.username} notifications={notifications} views={views} social={social} />
           <main className="flex-1 overflow-x-hidden">{children}</main>
         </div>
       </GlobalSearchProvider>

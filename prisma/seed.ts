@@ -39,6 +39,7 @@ async function main() {
   await seedStats(user.id);
   await seedLinkedNotes(user.id);
   await seedSavedView(user.id);
+  await seedFriend(user.id);
 
   console.log('[seed] Demo user ready.');
   console.log(`[seed]   username: ${DEMO_USERNAME}`);
@@ -165,6 +166,111 @@ async function seedSavedView(userId: string) {
     update: {},
     create: { id: DEMO_VIEW_ID, userId, name: 'Sci-fi favourites', query: { tags: ['Sci-fi'], scoreMin: 8, sort: 'score' } },
   });
+}
+
+/** The second demo user (9.1 / 9.2), opened by the smoke test at /compare/demo2. */
+export const DEMO_FRIEND_USERNAME = 'demo2';
+
+const FRIEND_ENTRIES: {
+  key: string;
+  model: 'book' | 'movie' | 'anime';
+  title: string;
+  year: number;
+  status: MediaStatus;
+  rating?: number;
+  tier?: Tier;
+}[] = [
+  { key: 'alien', model: 'movie', title: 'Alien', year: 1979, status: 'COMPLETED', rating: 7 },
+  { key: 'aliens', model: 'movie', title: 'Aliens', year: 1986, status: 'COMPLETED', rating: 9.5, tier: 'S' },
+  { key: 'heat', model: 'movie', title: 'Heat', year: 1995, status: 'COMPLETED', rating: 6 },
+  { key: 'arrival', model: 'movie', title: 'Arrival', year: 2016, status: 'COMPLETED', rating: 8.5 },
+  { key: 'solaris', model: 'movie', title: 'Solaris', year: 1972, status: 'COMPLETED', rating: 9.4, tier: 'S' },
+  { key: 'dune', model: 'book', title: 'Dune', year: 1965, status: 'COMPLETED', rating: 8 },
+  { key: 'neuromancer', model: 'book', title: 'Neuromancer', year: 1984, status: 'COMPLETED', rating: 9 },
+  { key: 'hyperion', model: 'book', title: 'Hyperion', year: 1989, status: 'COMPLETED', rating: 6.5 },
+  { key: 'snow-crash', model: 'book', title: 'Snow Crash', year: 1992, status: 'DROPPED', rating: 4 },
+  { key: 'cowboy-bebop', model: 'anime', title: 'Cowboy Bebop', year: 1998, status: 'COMPLETED', rating: 9.5 },
+  { key: 'haikyuu', model: 'anime', title: 'Haikyuu!!', year: 2014, status: 'COMPLETED', rating: 7 },
+  { key: 'mob-psycho', model: 'anime', title: 'Mob Psycho 100', year: 2016, status: 'COMPLETED', rating: 9.1, tier: 'S' },
+];
+
+/**
+ * A second user who opted in to Compare and the Feed, with titles shared with
+ * the demo library (different scores), S-tier titles the demo user hasn't
+ * got and recent finishes, a drop and S placements for the feed. The demo
+ * user is opted in too unless it chose otherwise. Never in production (a
+ * known password). Only fills what is missing.
+ */
+async function seedFriend(demoId: string) {
+  if (process.env.NODE_ENV === 'production') return;
+  const demo = await prisma.user.findUnique({ where: { id: demoId }, select: { prefs: true } });
+  const demoPrefs = (demo?.prefs && typeof demo.prefs === 'object' && !Array.isArray(demo.prefs) ? demo.prefs : {}) as Record<
+    string,
+    unknown
+  >;
+  if (!('compareOptIn' in demoPrefs) || !('feedOptIn' in demoPrefs)) {
+    await prisma.user.update({
+      where: { id: demoId },
+      data: { prefs: { compareOptIn: true, feedOptIn: true, ...demoPrefs } },
+    });
+  }
+
+  const friend = await prisma.user.upsert({
+    where: { username: DEMO_FRIEND_USERNAME },
+    update: {},
+    create: {
+      username: DEMO_FRIEND_USERNAME,
+      passwordHash: await bcrypt.hash(DEMO_PASSWORD, 10),
+      prefs: { compareOptIn: true, feedOptIn: true },
+    },
+  });
+
+  const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000);
+  const ymd = (d: Date) => d.toISOString().slice(0, 10);
+  let rank = 0;
+  for (const [i, e] of FRIEND_ENTRIES.entries()) {
+    const externalId = `demo-${e.model}-${e.key}`;
+    const where = { externalId };
+    const create = { externalId, title: e.title, year: e.year };
+    const media =
+      e.model === 'book'
+        ? await prisma.book.upsert({ where, update: {}, create })
+        : e.model === 'movie'
+          ? await prisma.movie.upsert({ where, update: {}, create })
+          : await prisma.anime.upsert({ where, update: {}, create });
+    const fk = e.model === 'book' ? 'bookId' : e.model === 'movie' ? 'movieId' : 'animeId';
+    const id = `demo2-activity-${e.model}-${e.key}`;
+    if (await prisma.userMediaActivity.findUnique({ where: { id } })) continue;
+    const at = daysAgo(1 + i * 2); // spread over the last ~3 weeks
+    await prisma.userMediaActivity.create({
+      data: {
+        id,
+        userId: friend.id,
+        category: e.model === 'book' ? 'BOOK' : e.model === 'movie' ? 'MOVIE' : 'ANIME',
+        [fk]: media.id,
+        status: e.status,
+        rating: e.rating ?? null,
+        tier: e.tier ?? null,
+        rankOrder: e.tier ? (rank += 1000) : null,
+        finishedAt: at,
+      },
+    });
+    if (e.status === 'COMPLETED') {
+      await prisma.diaryEntry.create({
+        data: { userId: friend.id, activityId: id, date: ymd(at), rating: e.rating ?? null, createdAt: at },
+      });
+    }
+    if (e.status === 'DROPPED') {
+      await prisma.activityEvent.create({
+        data: { userId: friend.id, activityId: id, kind: 'status', from: 'CONSUMING', to: 'DROPPED', at },
+      });
+    }
+    if (e.tier === 'S') {
+      await prisma.activityEvent.create({
+        data: { userId: friend.id, activityId: id, kind: 'tier', from: null, to: 'S', at: new Date(at.getTime() + 60_000) },
+      });
+    }
+  }
 }
 
 // ── Demo library ─────────────────────────────────────────────────────────────

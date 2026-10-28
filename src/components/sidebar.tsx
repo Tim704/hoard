@@ -5,7 +5,7 @@ import { Boxes, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 import { logoutAction } from '@/lib/actions/auth';
 import { SearchEverythingButton } from '@/components/global-search';
-import { NavLinks } from '@/components/nav-links';
+import { NavLinks, type SocialNav } from '@/components/nav-links';
 import { NotificationBell } from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
 import type { NotificationSummary } from '@/lib/data-notifications';
@@ -20,6 +20,8 @@ interface SidebarProps {
   notifications: NotificationSummary;
   /** Saved views for the navigation (8.6). */
   views?: SavedViewSummary[];
+  /** The viewer's sharing opt-ins (the Friends links). */
+  social?: SocialNav;
 }
 
 /**
@@ -27,7 +29,7 @@ interface SidebarProps {
  * button or Ctrl/Cmd+B; the choice is stored in a cookie. Hidden below `md`,
  * where MobileNav's top bar + drawer takes over.
  */
-export function Sidebar({ username, initialCollapsed = false, notifications, views }: SidebarProps) {
+export function Sidebar({ username, initialCollapsed = false, notifications, views, social }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
 
   const toggle = useCallback(() => {
@@ -96,7 +98,7 @@ export function Sidebar({ username, initialCollapsed = false, notifications, vie
 
       {/* Navigation */}
       <nav className={cn('flex-1 space-y-1 overflow-y-auto py-2', collapsed ? 'px-2' : 'px-3')}>
-        <NavLinks collapsed={collapsed} views={views} />
+        <NavLinks collapsed={collapsed} views={views} social={social} />
       </nav>
 
       {/* Footer: signed-in user + theme toggle + logout */}
