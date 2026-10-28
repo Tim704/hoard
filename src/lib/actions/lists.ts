@@ -181,7 +181,7 @@ export async function addResultToList(
     if (!mediaId) {
       const enriched = await enrichResult(slug, parsed.data as NormalizedResult);
       const media = await prisma.$transaction((tx) =>
-        upsertCatalogueRow(tx, slug, enriched.result, enriched.metaFetchedAt),
+        upsertCatalogueRow(tx, slug, enriched.result, enriched.metaFetchedAt, enriched.trusted),
       );
       mediaId = media.id as string;
     }

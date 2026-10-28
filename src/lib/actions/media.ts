@@ -115,6 +115,7 @@ export async function addToList(
       status,
       metaFetchedAt: enriched.metaFetchedAt,
       seasons: enriched.seasons,
+      trusted: enriched.trusted,
     });
 
     // 8.2: a new anime / manga goes to AniList (an existing one didn't change).

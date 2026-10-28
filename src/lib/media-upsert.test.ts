@@ -192,7 +192,7 @@ describe('catalogueCreatePayload', () => {
       tvShow: { title: 'GoT', episodeCount: 73, seasonCount: 8, status: 'Ended', episodeRunTime: 57 },
       anime: { title: 'Frieren', episodes: 28, malScore: 9.1, studio: 'Madhouse', titleNative: 'フリーレン' },
       manga: { title: 'Berserk', chapters: 380, volumes: 42, titleRomaji: 'Berserk' },
-      videoGame: { title: 'Hades', platforms: ['PC'], igdbRating: 93, timeToBeatHours: 22.5, steamAppId: 1145360 },
+      videoGame: { title: 'Hades', platforms: ['PC'], igdbRating: 93, timeToBeatHours: 22.5 },
       musicAlbum: { title: 'OK Computer', artist: 'Radiohead', trackCount: 12 },
     };
     for (const model of MODELS) {
@@ -257,5 +257,35 @@ describe('fillOnlyUpdate', () => {
     const row = { ...stored, imageUrl: null };
     expect(fillOnlyUpdate('movie', row, { imageUrl: 'https://evil.example/x.jpg' })).toEqual({});
     expect(fillOnlyUpdate('movie', row, { imageUrl: TMDB })).toEqual({ imageUrl: TMDB });
+  });
+});
+
+describe('steamAppId is a trusted provider column (re-review 1)', () => {
+  it('a client steamAppId is dropped on create and on fill', () => {
+    expect(catalogueCreatePayload('videoGame', '1942', { title: 'Witcher 3', steamAppId: 570 })).toEqual({
+      externalId: '1942',
+      title: 'Witcher 3',
+    });
+    const stored = { id: 'g1', externalId: '1942', title: 'Witcher 3', steamAppId: null };
+    expect(fillOnlyUpdate('videoGame', stored, { steamAppId: 570 })).toEqual({});
+  });
+
+  it('the enrichment-provided (trusted) id is kept, type-checked, on create and fill', () => {
+    expect(catalogueCreatePayload('videoGame', '1942', { title: 'W3', steamAppId: 570 }, undefined, { steamAppId: 292030 })).toEqual({
+      externalId: '1942',
+      title: 'W3',
+      steamAppId: 292030,
+    });
+    const stored = { id: 'g1', externalId: '1942', title: 'W3', steamAppId: null };
+    expect(fillOnlyUpdate('videoGame', stored, {}, { steamAppId: 292030 })).toEqual({ steamAppId: 292030 });
+    expect(fillOnlyUpdate('videoGame', { ...stored, steamAppId: 1 }, {}, { steamAppId: 292030 })).toEqual({});
+    expect(catalogueCreatePayload('videoGame', '1', { title: 'T' }, undefined, { steamAppId: 'x' })).not.toHaveProperty('steamAppId');
+  });
+
+  it('trusted input sets only trusted columns (no smuggling other columns through it)', () => {
+    expect(catalogueCreatePayload('videoGame', '1', { title: 'T' }, undefined, { title: 'Forged', igdbRating: 1, activities: {} })).toEqual({
+      externalId: '1',
+      title: 'T',
+    });
   });
 });

@@ -22,7 +22,7 @@ function model(name: string) {
   };
 }
 const tx: Record<string, any> = Object.fromEntries(
-  ['movie', 'tvShow', 'book', 'anime', 'userMediaActivity', 'activityEvent', 'diaryEntry', 'tvSeason'].map((m) => [m, model(m)]),
+  ['movie', 'tvShow', 'book', 'anime', 'videoGame', 'userMediaActivity', 'activityEvent', 'diaryEntry', 'tvSeason'].map((m) => [m, model(m)]),
 );
 
 vi.mock('@/lib/prisma', () => ({ prisma: { $transaction: (cb: (t: unknown) => unknown) => cb(tx) } }));
@@ -88,5 +88,14 @@ describe('C1: nested writes through the add path', () => {
   it('adding as done writes no diary entry (the watch date is unknown)', async () => {
     await addMediaForUser('attacker', 'movies', { ...attack, fields: { title: 'Fight Club' } }, { status: 'COMPLETED' });
     expect(calls.some((c) => c.model === 'diaryEntry')).toBe(false);
+  });
+
+  it('steamAppId: the client\'s is dropped, the enrichment-provided one lands (re-review 1)', async () => {
+    const game = { ...attack, externalId: '113112', fields: { title: 'Hades', steamAppId: 570 } };
+    await addMediaForUser('attacker', 'games', game, { status: 'PLANNED' });
+    expect(calls.find((c) => c.model === 'videoGame' && c.op === 'upsert')!.args.create).toEqual({ externalId: '113112', title: 'Hades' });
+    calls.length = 0;
+    await addMediaForUser('attacker', 'games', { ...game, externalId: '113113' }, { status: 'PLANNED', trusted: { steamAppId: 1145360 } });
+    expect(calls.find((c) => c.model === 'videoGame' && c.op === 'upsert')!.args.create).toMatchObject({ steamAppId: 1145360 });
   });
 });

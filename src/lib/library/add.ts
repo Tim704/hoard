@@ -53,6 +53,8 @@ export interface AddOptions {
   metaFetchedAt?: Date | null;
   /** TV: the show's seasons from the same server-side lookup (3.3). */
   seasons?: TvSeasonData[] | null;
+  /** Trusted provider columns from that lookup (e.g. steamAppId); never from the client. */
+  trusted?: Record<string, unknown>;
 }
 
 export interface AddOutcome {
@@ -83,7 +85,7 @@ export async function addMediaForUser(
   const seenToday = recordsSeenSeasons(slug, null, status) ? await userToday(userId) : null;
 
   const outcome = await prisma.$transaction(async (tx) => {
-    const media = await upsertCatalogueRow(tx, slug, result, opts.metaFetchedAt ?? null);
+    const media = await upsertCatalogueRow(tx, slug, result, opts.metaFetchedAt ?? null, opts.trusted);
 
     if (slug === 'tv' && opts.seasons?.length) {
       await saveTvSeasons(tx, media.id, opts.seasons, { insertOnly: true });
@@ -158,6 +160,7 @@ export async function upsertCatalogueRow(
   slug: CategorySlug,
   result: NormalizedResult,
   metaFetchedAt: Date | null,
+  trusted: Record<string, unknown> = {},
 ): Promise<any> {
   const cat = getCategory(slug);
   if (!cat) throw new UserError('Unknown category.');
@@ -172,12 +175,12 @@ export async function upsertCatalogueRow(
       where,
       update: {},
       create: {
-        ...catalogueCreatePayload(cat.prismaModel, result.externalId, result.fields, result.title),
+        ...catalogueCreatePayload(cat.prismaModel, result.externalId, result.fields, result.title, trusted),
         ...(metaFetchedAt ? { metaFetchedAt } : {}),
       },
     });
   } else {
-    const fill = fillOnlyUpdate(cat.prismaModel, media, result.fields);
+    const fill = fillOnlyUpdate(cat.prismaModel, media, result.fields, trusted);
     if (Object.keys(fill).length > 0) {
       media = await db[cat.prismaModel].update({ where: { id: media.id }, data: fill });
     }

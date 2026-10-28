@@ -127,6 +127,7 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
     let result: NormalizedResult = row.result;
     let metaFetchedAt: Date | null = null;
     let seasons: EnrichedResult['seasons'] = null;
+    let trusted: EnrichedResult['trusted'] = {};
     const ext = result.externalId;
 
     if (ext === NEW_MANUAL_ID) {
@@ -146,6 +147,7 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
         result = enriched.result;
         metaFetchedAt = enriched.metaFetchedAt;
         seasons = enriched.seasons;
+        trusted = enriched.trusted;
         // AniList allows ~30–90 requests a minute; leave room between lookups.
         if (slug === 'anime' || slug === 'manga') await sleep(700);
       }
@@ -170,6 +172,7 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
       eventMeta: meta,
       metaFetchedAt,
       seasons,
+      trusted,
     });
     // Steam (8.1): playtime and the app id are facts, not choices, so they
     // are stored whether or not the rest of an existing title is updated.

@@ -6,6 +6,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import { getCategory, type CategorySlug } from '@/lib/categories';
+import { TRUSTED_PROVIDER_COLUMNS } from '@/lib/media-upsert';
 import type { NormalizedResult, SearchResponse } from '@/lib/types';
 
 import { searchMovies, searchTv } from './tmdb';
@@ -77,6 +78,11 @@ export interface EnrichedResult {
   metaFetchedAt: Date | null;
   /** TV only: the show's seasons from the same lookup (server-side, like the stamp). */
   seasons?: TvSeasonData[] | null;
+  /**
+   * Provider facts the client may not set (TRUSTED_PROVIDER_COLUMNS, e.g.
+   * IGDB's Steam app id), kept out of `fields` and written separately.
+   */
+  trusted?: Record<string, unknown>;
 }
 
 /**
@@ -106,7 +112,10 @@ export async function enrichResult(
     });
     if (!patch) return unchanged;
     const { columns, seasons } = splitSeasons(patch);
-    return { result: { ...result, fields: { ...f, ...columns } }, metaFetchedAt: new Date(), seasons };
+    const trusted: Record<string, unknown> = {};
+    const open: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(columns)) (TRUSTED_PROVIDER_COLUMNS.has(k) ? trusted : open)[k] = v;
+    return { result: { ...result, fields: { ...f, ...open } }, metaFetchedAt: new Date(), seasons, trusted };
   } catch {
     // Enrichment is best-effort; fall back to the un-enriched result.
     return unchanged;

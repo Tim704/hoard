@@ -55,6 +55,13 @@ const SERVER_OWNED = new Set([
   'metaFailedAt',
 ]);
 
+/**
+ * Provider facts the client may never set but a server-side provider lookup
+ * may (passed separately as `trusted`, like metaFetchedAt): a forged Steam app
+ * id would point everyone's Steam playtime sync at the wrong game.
+ */
+export const TRUSTED_PROVIDER_COLUMNS: ReadonlySet<string> = new Set(['steamAppId']);
+
 // ── The allow-list ──────────────────────────────────────────────────────────
 
 interface Column {
@@ -177,7 +184,7 @@ function cleanValue(key: string, col: Column, value: unknown, manual: boolean): 
 export function sanitizeCatalogueFields(
   model: PrismaModel,
   fields: Record<string, unknown>,
-  opts: { manual: boolean },
+  opts: { manual: boolean; trusted?: boolean },
 ): Record<string, unknown> {
   const cols = writableColumns(model);
   const out: Record<string, unknown> = {};
@@ -185,6 +192,8 @@ export function sanitizeCatalogueFields(
   for (const [key, value] of Object.entries(fields)) {
     const col = cols.get(key);
     if (!col) continue;
+    // Client data never sets a trusted provider column; trusted data sets only those.
+    if (TRUSTED_PROVIDER_COLUMNS.has(key) !== Boolean(opts.trusted)) continue;
     const clean = cleanValue(key, col, value, opts.manual);
     if (clean !== DROP) out[key] = clean;
   }
@@ -208,8 +217,14 @@ export function catalogueCreatePayload(
   externalId: string,
   fields: Record<string, unknown>,
   fallbackTitle?: string,
+  trusted: Record<string, unknown> = {},
 ): Record<string, unknown> {
-  const out = sanitizeCatalogueFields(model, fields, { manual: isManualId(externalId) });
+  const manual = isManualId(externalId);
+  const out = {
+    ...sanitizeCatalogueFields(model, fields, { manual }),
+    // Server-side provider facts (enrichment), still type-checked.
+    ...sanitizeCatalogueFields(model, trusted, { manual, trusted: true }),
+  };
   if (typeof out.title !== 'string' || !out.title.trim()) {
     out.title = (fallbackTitle ?? '').slice(0, MAX_TITLE) || 'Untitled';
   }
@@ -227,9 +242,13 @@ export function fillOnlyUpdate(
   model: PrismaModel,
   existing: Record<string, unknown>,
   fields: Record<string, unknown>,
+  trusted: Record<string, unknown> = {},
 ): Record<string, unknown> {
   const manual = typeof existing.externalId === 'string' && isManualId(existing.externalId);
-  const clean = upsertUpdatePayload(sanitizeCatalogueFields(model, fields, { manual }));
+  const clean = upsertUpdatePayload({
+    ...sanitizeCatalogueFields(model, fields, { manual }),
+    ...sanitizeCatalogueFields(model, trusted, { manual, trusted: true }),
+  });
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(clean)) {
     if (!(key in existing)) continue;
