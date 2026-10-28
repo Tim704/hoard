@@ -18,6 +18,12 @@ export const metadata: Metadata = {
   title: 'Hoard — Media Tracker',
   description:
     'Hoard everything you mean to watch, read, play and listen to — across seven domains.',
+  // Installed to an iPhone home screen: full screen, titled "Hoard". The
+  // manifest (src/app/manifest.ts) covers everything else; the icons are the
+  // file conventions src/app/icon.svg and src/app/apple-icon.png (setting
+  // `icons` here would replace them).
+  applicationName: 'Hoard',
+  appleWebApp: { capable: true, title: 'Hoard', statusBarStyle: 'black-translucent' },
 };
 
 // `viewport-fit=cover` lets the mobile chrome (top bar, drawer, bottom sheets)
@@ -26,6 +32,12 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  // Browser chrome follows the page: light background in light mode, the
+  // dark theme's background otherwise.
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f9f9fb' },
+    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+  ],
 };
 
 export default function RootLayout({
