@@ -14,9 +14,10 @@ import type { LibraryTitle, RecommendSeed } from '@/lib/recommend';
 import {
   computeTasteProfile,
   MIN_FINISHED_FOR_PROFILE,
-  needsTasteRefresh,
   parseTasteProfile,
+  sameJson,
   type TasteProfile,
+  withoutHidden,
 } from '@/lib/stats/profile';
 
 export interface StoredTasteProfile {
@@ -52,51 +53,44 @@ export async function buildTasteProfile(userId: string, known?: Prefs): Promise<
   return { ok: true, profile };
 }
 
-/** The newest change in the user's history: an activity event or a diary entry. */
-async function lastActivityAt(userId: string): Promise<Date | null> {
-  const [event, diary] = await Promise.all([
-    prisma.activityEvent.findFirst({ where: { userId }, orderBy: { at: 'desc' }, select: { at: true } }),
-    prisma.diaryEntry.findFirst({ where: { userId }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
-  ]);
-  const times = [event?.at, diary?.createdAt].filter((d): d is Date => d instanceof Date);
-  return times.length ? new Date(Math.max(...times.map((d) => d.getTime()))) : null;
-}
-
 /**
- * Rebuild the profile when it is missing or something happened since it was
- * built. Returns what happened, for the job's tally.
+ * The weekly rebuild: recompute from the current rows and settings (so
+ * removals, hidden sections and new metadata are picked up) and write only
+ * when the result differs from the stored profile.
  */
-export async function refreshTasteProfileIfStale(userId: string): Promise<'built' | 'unchanged' | 'too-few'> {
-  const [row, last] = await Promise.all([
-    prisma.tasteProfile.findUnique({ where: { userId }, select: { updatedAt: true } }),
-    lastActivityAt(userId),
+export async function refreshTasteProfileForJob(userId: string): Promise<'built' | 'unchanged' | 'too-few'> {
+  const prefs = await getPrefs(userId);
+  const [profile, row] = await Promise.all([
+    loadStatTitles(userId, prefs).then(computeTasteProfile),
+    prisma.tasteProfile.findUnique({ where: { userId }, select: { data: true } }),
   ]);
-  if (!needsTasteRefresh(row?.updatedAt ?? null, last)) return 'unchanged';
-  const res = await buildTasteProfile(userId);
-  return res.ok ? 'built' : 'too-few';
+  if (profile.finished < MIN_FINISHED_FOR_PROFILE) return 'too-few';
+  if (row && sameJson(profile, row.data)) return 'unchanged';
+  await prisma.tasteProfile.upsert({ where: { userId }, create: { userId, data: profile }, update: { data: profile } });
+  return 'built';
 }
 
 export interface RecommendInput {
   seeds: RecommendSeed[];
   sections: CategorySlug[];
-  library: LibraryTitle[];
+  /** The profile without hidden sections, or null. */
   profile: TasteProfile | null;
 }
 
-/** What 7.1 sends and filters against: S/A titles of visible sections, the library index, the profile. */
+/** What 7.1 sends: S/A titles of visible sections and the profile (the library index is loaded separately). */
 export async function getRecommendInput(userId: string): Promise<RecommendInput> {
   const prefs = await getPrefs(userId);
   const sections = NAV_ORDER.filter((s) => !prefs.hiddenSections.includes(s));
-  const [titles, library, stored] = await Promise.all([
-    loadStatTitles(userId, prefs),
-    getLibraryIndex(userId),
-    getTasteProfile(userId),
-  ]);
+  const [titles, stored] = await Promise.all([loadStatTitles(userId, prefs), getTasteProfile(userId)]);
   const seeds: RecommendSeed[] = [];
   for (const t of titles) {
     if (t.tier !== 'S' && t.tier !== 'A') continue;
     seeds.push({ category: t.category, title: t.media.title, year: t.media.year, tier: t.tier, rating: t.rating });
   }
-  // Every section's titles (hidden ones too) count as "already in the library".
-  return { seeds, sections, library, profile: stored?.profile ?? null };
+  return { seeds, sections, profile: stored ? withoutHidden(stored.profile, prefs.hiddenSections) : null };
+}
+
+/** Every library title (hidden sections too) for the "already in the library" filter. */
+export async function getLibraryForFilter(userId: string): Promise<LibraryTitle[]> {
+  return getLibraryIndex(userId);
 }

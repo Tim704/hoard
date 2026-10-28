@@ -5,11 +5,12 @@ import { statTitle } from './fixtures';
 import {
   computeTasteProfile,
   listWords,
-  needsTasteRefresh,
+  sameJson,
   parseTasteProfile,
   tastePromptLines,
   tasteSentences,
   type TasteProfile,
+  withoutHidden,
 } from './profile';
 
 const labels = Object.fromEntries(Object.entries(CATEGORIES).map(([k, v]) => [k, v.label])) as Record<CategorySlug, string>;
@@ -165,13 +166,37 @@ describe('parseTasteProfile', () => {
   });
 });
 
-describe('needsTasteRefresh', () => {
-  it('rebuilds a missing profile, and an existing one only after new activity', () => {
-    const at = new Date('2026-10-25T05:45:00Z');
-    expect(needsTasteRefresh(null, null)).toBe(true);
-    expect(needsTasteRefresh(at, null)).toBe(false);
-    expect(needsTasteRefresh(at, new Date('2026-10-25T05:00:00Z'))).toBe(false);
-    expect(needsTasteRefresh(at, new Date('2026-10-26T10:00:00Z'))).toBe(true);
+describe('sameJson (the job skips an unchanged profile)', () => {
+  it('compares deeply, ignoring key order', () => {
+    const rows = [statTitle({ rating: 8, media: { genres: ['Drama'], year: 1999 } })];
+    const a = computeTasteProfile(rows);
+    // Stored JSON comes back with its keys in another order.
+    const stored = JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(a).reverse())));
+    expect(sameJson(computeTasteProfile(rows), stored)).toBe(true);
+    expect(sameJson(computeTasteProfile([...rows, statTitle({ rating: 2 })]), stored)).toBe(false);
+    expect(sameJson({ a: [1, { b: null }] }, { a: [1, { b: null }] })).toBe(true);
+    expect(sameJson({ a: [1, 2] }, { a: [2, 1] })).toBe(false);
+    expect(sameJson({ a: 1 }, { a: 1, b: 2 })).toBe(false);
+    expect(sameJson(null, {})).toBe(false);
+  });
+});
+
+describe('withoutHidden', () => {
+  it('drops hidden sections from the averages, drop rates and favourites', () => {
+    const rows = [
+      ...[9, 9, 9].map((r) => statTitle({ category: 'anime', rating: r, tier: 'S', media: { title: `Anime ${r}` } })),
+      ...[5, 5, 5].map((r) => statTitle({ category: 'movies', rating: r })),
+      statTitle({ category: 'tv', status: 'DROPPED' }),
+      ...[1, 2].map(() => statTitle({ category: 'tv' })),
+    ];
+    const p = computeTasteProfile(rows);
+    expect(tasteSentences(p).join(' ')).toMatch(/anime/);
+    const shown = withoutHidden(p, ['anime', 'tv']);
+    expect(shown.sections.map((s) => s.slug)).toEqual(['movies']);
+    expect(shown.top).toEqual([]);
+    const words = [...tasteSentences(shown), ...tastePromptLines(shown, labels)].join(' ');
+    expect(words).not.toMatch(/anime|TV/);
+    expect(withoutHidden(p, [])).toBe(p);
   });
 });
 

@@ -12,12 +12,13 @@
 import { GoogleGenAI } from '@google/genai';
 
 import { CATEGORIES, getCategory, type CategorySlug } from '@/lib/categories';
+import { getPrefs } from '@/lib/data-prefs';
 import { getTasteProfile } from '@/lib/data-taste';
 import { requireUser } from '@/lib/session';
 import { formatRating } from '@/lib/rating';
 import { getRanking } from '@/lib/data';
 import { takeAiRate } from '@/lib/rate-limit';
-import { tastePromptLines } from '@/lib/stats/profile';
+import { tastePromptLines, withoutHidden } from '@/lib/stats/profile';
 import type { RoastMode } from '@/lib/types';
 
 /** Generated paragraphs take longer than a lookup, so more than G4's 8 s. */
@@ -57,8 +58,8 @@ export async function roastList(
 
   // The cross-media taste profile (7.2), as a summary, when one exists.
   const labels = Object.fromEntries(Object.entries(CATEGORIES).map(([k, v]) => [k, v.label])) as Record<CategorySlug, string>;
-  const stored = await getTasteProfile(user.id);
-  const profile = tastePromptLines(stored?.profile ?? null, labels);
+  const [stored, prefs] = await Promise.all([getTasteProfile(user.id), getPrefs(user.id)]);
+  const profile = tastePromptLines(stored ? withoutHidden(stored.profile, prefs.hiddenSections) : null, labels);
   const profileBlock = profile.length ? ['', ...profile] : [];
 
   const prompt =

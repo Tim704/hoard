@@ -11,7 +11,7 @@ import { GoogleGenAI } from '@google/genai';
 import { revalidatePath } from 'next/cache';
 
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
-import { buildTasteProfile, getRecommendInput } from '@/lib/data-taste';
+import { buildTasteProfile, getLibraryForFilter, getRecommendInput } from '@/lib/data-taste';
 import { takeAiRate, takeTasteRefreshRate } from '@/lib/rate-limit';
 import {
   buildRecommendPrompt,
@@ -107,7 +107,8 @@ export async function recommendAcrossMedia(): Promise<RecommendResult> {
 
   const parsed = parseRecommendAnswer(answer, input.sections);
   if (!parsed.ok) return parsed;
-  const items = filterRecommendations(parsed.items, input.library);
+  // Loaded only now: the full index is the biggest read, so it waits for the rate check and a valid answer.
+  const items = filterRecommendations(parsed.items, await getLibraryForFilter(user.id));
   if (items.length === 0) {
     return { ok: false, error: 'Every pick the AI had is already in your hoard. Try again for a fresh batch.' };
   }

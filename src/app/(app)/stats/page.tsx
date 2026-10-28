@@ -32,7 +32,7 @@ import { getTasteProfile, type StoredTasteProfile } from '@/lib/data-taste';
 import { formatYmd } from '@/lib/release';
 import { requireUser } from '@/lib/session';
 import { statusLabel } from '@/lib/status';
-import { MIN_FINISHED_FOR_PROFILE, SECTION_NOUN, tasteSentences } from '@/lib/stats/profile';
+import { MIN_FINISHED_FOR_PROFILE, SECTION_NOUN, tasteSentences, withoutHidden } from '@/lib/stats/profile';
 import { dropPointPhrase } from '@/lib/stats/taste';
 import type { PersonRow } from '@/lib/stats/people';
 import { parseYear } from '@/lib/year-arena';
@@ -241,10 +241,10 @@ function Taste({ data, stored, prefs }: { data: TastePage; stored: StoredTastePr
 
 /** The taste profile (7.2): built on Sundays, or now with Refresh. */
 function TasteProfilePanel({ stored, prefs }: { stored: StoredTasteProfile | null; prefs: Prefs }) {
-  const hidden = new Set<string>(prefs.hiddenSections);
-  const p = stored?.profile;
+  // Sections hidden since the build drop out of the words and the favourites.
+  const p = stored ? withoutHidden(stored.profile, prefs.hiddenSections) : null;
   const sentences = p ? tasteSentences(p, prefs.scoreFormat) : [];
-  const top = p ? p.top.filter((t) => !hidden.has(t.slug)) : [];
+  const top = p?.top ?? [];
   return (
     <section aria-labelledby="taste-profile-heading" className="rounded-xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">

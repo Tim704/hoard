@@ -258,12 +258,26 @@ export function tastePromptLines(
 }
 
 /**
- * Whether the Sunday job should rebuild a profile: always when there is
- * none, else only when something happened (an event or diary entry) after
- * it was built.
+ * The profile without the sections hidden in Settings (their averages, drop
+ * rates and favourites), for the Taste tab and the prompts: a section hidden
+ * after the profile was built never shows up in its words.
  */
-export function needsTasteRefresh(profileUpdatedAt: Date | null, lastActivityAt: Date | null): boolean {
-  if (!profileUpdatedAt) return true;
-  if (!lastActivityAt) return false;
-  return lastActivityAt.getTime() > profileUpdatedAt.getTime();
+export function withoutHidden(p: TasteProfile, hidden: readonly string[]): TasteProfile {
+  if (hidden.length === 0) return p;
+  const h = new Set(hidden);
+  return { ...p, sections: p.sections.filter((s) => !h.has(s.slug)), top: p.top.filter((t) => !h.has(t.slug)) };
+}
+
+/** Deep equality of two JSON values (the stored profile vs. a fresh one; key order ignored). */
+export function sameJson(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((v, i) => sameJson(v, b[i]));
+  const ka = Object.keys(a as object).filter((k) => (a as Record<string, unknown>)[k] !== undefined);
+  const kb = Object.keys(b as object).filter((k) => (b as Record<string, unknown>)[k] !== undefined);
+  return (
+    ka.length === kb.length &&
+    ka.every((k) => sameJson((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]))
+  );
 }
