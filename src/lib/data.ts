@@ -20,6 +20,10 @@ import {
 } from '@/lib/categories';
 import { getCurrentUser } from '@/lib/session';
 import { orderQueue } from '@/lib/queue';
+import { earlierUnfinished, isOrderMode, orderFranchiseMembers, type QueueHint } from '@/lib/franchise/order';
+import { getPrefs } from '@/lib/data-prefs';
+import { displayTitle } from '@/lib/title';
+import { parseSubScores } from '@/lib/subscores';
 import { bucketPair, challengePairs, fewestDuelsPair } from '@/lib/arena-pick';
 import { buildTierBoard, TIERS, withinTierPairs, type TierBoardData } from '@/lib/tiers';
 import type {
@@ -67,6 +71,8 @@ export function flattenActivity(
     ownedPlatforms: row.ownedPlatforms ?? [],
     format: row.format ?? null,
     rewatching: row.rewatching ?? false,
+    subScores: parseSubScores(cat.slug, row.subScores),
+    franchiseOrder: row.franchiseOrder ?? null,
     franchise: (row.franchise as FranchiseRef | undefined) ?? null,
     franchiseLocked: row.franchiseLocked ?? false,
     createdAt: row.createdAt.toISOString(),
@@ -272,6 +278,49 @@ export async function getQueue(slug: CategorySlug): Promise<ActivityWithMedia[]>
   return orderQueue(await loadCategory(slug));
 }
 
+/**
+ * Up next's "Next in {franchise}" chips (4.7): for each queued title whose
+ * franchise has an earlier title (in the franchise's order) that isn't
+ * finished, retired or dropped, the franchise name and that first earlier
+ * title. Keyed by activity id; only the current user's rows are read.
+ */
+export async function getQueueHints(queue: ActivityWithMedia[]): Promise<Record<string, QueueHint>> {
+  const user = await getCurrentUser();
+  if (!user || queue.length === 0) return {};
+  const rows = await prisma.userMediaActivity.findMany({
+    where: { userId: user.id, id: { in: queue.map((a) => a.id) }, franchiseId: { not: null } },
+    select: { id: true, franchiseId: true },
+  });
+  if (rows.length === 0) return {};
+  const include = Object.fromEntries(CATEGORY_LIST.map((c) => [c.prismaModel, true]));
+  const [franchises, prefs] = await Promise.all([
+    prisma.franchise.findMany({
+      where: { userId: user.id, id: { in: [...new Set(rows.map((r) => r.franchiseId!))] } },
+      include: { activities: { where: { userId: user.id }, include: include as any } },
+    }),
+    getPrefs(user.id),
+  ]);
+  const ordered = new Map(
+    franchises.map((f) => {
+      const members = (f.activities as any[])
+        .map((row) => {
+          const cat = CATEGORY_LIST.find((c) => c.dbCategory === row.category);
+          return cat ? flattenActivity({ ...row, franchise: null }, cat) : null;
+        })
+        .filter((a): a is ActivityWithMedia => a !== null);
+      return [f.id, { name: f.name, members: orderFranchiseMembers(members, f.orderMode) }] as const;
+    }),
+  );
+  const out: Record<string, QueueHint> = {};
+  for (const r of rows) {
+    const f = ordered.get(r.franchiseId!);
+    if (!f) continue;
+    const [first] = earlierUnfinished(f.members, r.id);
+    if (first) out[r.id] = { franchise: f.name, title: displayTitle(first.media, prefs.titleLanguage) };
+  }
+  return out;
+}
+
 /** The category's tier list: placed items per tier plus the Unranked tray. */
 export async function getTierBoard(slug: CategorySlug): Promise<TierBoardData> {
   return buildTierBoard(await loadCategory(slug));
@@ -407,7 +456,7 @@ export async function getFranchiseOptions(): Promise<{ id: string; name: string 
 
 /**
  * Every franchise of the current user with its member titles (all domains),
- * members in release order. Manually ranked franchises come first.
+ * members in the franchise's watch order (4.7). Manually ranked franchises come first.
  */
 export async function getFranchises(): Promise<FranchiseWithMembers[]> {
   const user = await getCurrentUser();
@@ -420,19 +469,23 @@ export async function getFranchises(): Promise<FranchiseWithMembers[]> {
     orderBy: [{ rankOrder: { sort: 'asc', nulls: 'last' } }, { name: 'asc' }],
   });
 
-  return rows.map((f) => ({
-    id: f.id,
-    name: f.name,
-    imageUrl: f.imageUrl,
-    rating: f.rating,
-    notes: f.notes,
-    rankOrder: f.rankOrder,
-    members: (f.activities as any[])
+  return rows.map((f) => {
+    const orderMode = isOrderMode(f.orderMode) ? f.orderMode : 'release';
+    const members = (f.activities as any[])
       .map((row) => {
         const cat = CATEGORY_LIST.find((c) => c.dbCategory === row.category);
         return cat ? flattenActivity({ ...row, franchise: null }, cat) : null;
       })
-      .filter((a): a is ActivityWithMedia => a !== null)
-      .sort((a, b) => (a.media.year ?? 9999) - (b.media.year ?? 9999)),
-  }));
+      .filter((a): a is ActivityWithMedia => a !== null);
+    return {
+      id: f.id,
+      name: f.name,
+      imageUrl: f.imageUrl,
+      rating: f.rating,
+      notes: f.notes,
+      rankOrder: f.rankOrder,
+      orderMode,
+      members: orderFranchiseMembers(members, orderMode),
+    };
+  });
 }

@@ -1,5 +1,7 @@
 import type { CategorySlug } from './categories';
 import type { Status } from './status';
+import type { OrderMode } from '@/lib/franchise/order';
+import type { SubScores } from '@/lib/subscores';
 import type { Tier } from '@/lib/tiers';
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -70,6 +72,10 @@ export interface ActivityWithMedia {
   format: string | null;
   /** 3.1: a repeat run is in progress. */
   rewatching: boolean;
+  /** 4.10: per-aspect scores (validated keys of src/lib/subscores.ts). */
+  subScores: SubScores;
+  /** 4.7: position inside the franchise in manual order; null = not placed. */
+  franchiseOrder: number | null;
   /** The franchise / IP this title is grouped under, if any. */
   franchise: FranchiseRef | null;
   /** True when the user set the franchise by hand (auto-detection won't move it). */
@@ -91,6 +97,8 @@ export interface FranchiseRef {
 export interface FranchiseWithMembers extends FranchiseRef {
   notes: string | null;
   rankOrder: number | null;
+  /** 4.7: "release" or "manual"; `members` are already in this order. */
+  orderMode: OrderMode;
   members: ActivityWithMedia[];
 }
 

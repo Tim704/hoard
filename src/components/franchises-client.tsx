@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import { ImageOff, Layers, ListOrdered, Loader2, Plus, Radar, Wand2 } from 'lucide-react';
 
 import { FranchiseDialog } from '@/components/franchise-dialog';
+import { useDisplayTitle } from '@/components/prefs-provider';
+import { nextInFranchise } from '@/lib/franchise/order';
 import { GroupRating, groupCover, memberAverage } from '@/components/franchise-group';
 import { SortableRankList, type RankRow } from '@/components/sortable-rank-list';
 import { Button } from '@/components/ui/button';
@@ -169,6 +171,7 @@ export function FranchisesClient({ franchises }: { franchises: FranchiseWithMemb
                 <div className="flex flex-1 flex-col gap-1 p-2.5">
                   <h3 className="line-clamp-2 text-sm font-semibold leading-tight">{f.name}</h3>
                   <p className="line-clamp-2 text-xs text-muted-foreground">{breakdown(f)}</p>
+                  <NextUp franchise={f} />
                   <div className="mt-auto pt-1">
                     <GroupRating franchise={f} members={f.members} />
                   </div>
@@ -233,5 +236,18 @@ export function FranchisesClient({ franchises }: { franchises: FranchiseWithMemb
 
       <FranchiseDialog franchise={selected} all={options} onClose={() => setSelectedId(null)} />
     </div>
+  );
+}
+
+/** "Next up: {title}" — the franchise's first title still to do (4.7). */
+function NextUp({ franchise }: { franchise: FranchiseWithMembers }) {
+  const titleOf = useDisplayTitle();
+  const next = nextInFranchise(franchise.members);
+  if (!next || franchise.members.length < 2) return null;
+  return (
+    <p className="line-clamp-2 text-xs">
+      <span className="text-muted-foreground">Next up: </span>
+      <span className="font-medium">{titleOf(next.media)}</span>
+    </p>
   );
 }

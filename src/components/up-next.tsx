@@ -15,28 +15,40 @@ import type { CategorySlug } from '@/lib/categories';
 import { mediaSubtitle } from '@/lib/media-meta';
 import { statusLabel } from '@/lib/status';
 import type { ActivityWithMedia } from '@/lib/types';
+import type { QueueHint } from '@/lib/franchise/order';
 
 interface UpNextProps {
   slug: CategorySlug;
   initial: ActivityWithMedia[];
+  /** Queued titles with an earlier unfinished title of their franchise (4.7). */
+  hints?: Record<string, QueueHint>;
 }
 
-const toRow = (a: ActivityWithMedia, slug: CategorySlug, titleOf: (m: ActivityWithMedia['media']) => string): RankRow => ({
-  id: a.id,
-  title: titleOf(a.media),
-  imageUrl: a.media.imageUrl,
-  subtitle: mediaSubtitle(a.media as never, slug),
-});
+const toRow = (
+  a: ActivityWithMedia,
+  slug: CategorySlug,
+  titleOf: (m: ActivityWithMedia['media']) => string,
+  hints: Record<string, QueueHint> | undefined,
+): RankRow => {
+  const hint = hints && Object.hasOwn(hints, a.id) ? hints[a.id] : null;
+  return {
+    id: a.id,
+    title: titleOf(a.media),
+    imageUrl: a.media.imageUrl,
+    subtitle: mediaSubtitle(a.media as never, slug),
+    chip: hint ? `Next in ${hint.franchise}: ${hint.title}` : null,
+  };
+};
 
 /**
  * The per-category "Up next" queue: planned items in the order you want to get
  * to them. Drag to reorder (saved immediately); mark one done to score it and
  * send it to the tier tray.
  */
-export function UpNext({ slug, initial }: UpNextProps) {
+export function UpNext({ slug, initial, hints }: UpNextProps) {
   const titleOf = useDisplayTitle();
   const router = useRouter();
-  const [rows, setRows] = useState<RankRow[]>(() => initial.map((a) => toRow(a, slug, titleOf)));
+  const [rows, setRows] = useState<RankRow[]>(() => initial.map((a) => toRow(a, slug, titleOf, hints)));
   const [ratingId, setRatingId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const rowsRef = useRef(rows);
@@ -44,8 +56,8 @@ export function UpNext({ slug, initial }: UpNextProps) {
 
   // Pick up server changes (e.g. after revalidation or adding titles).
   useEffect(() => {
-    setRows(initial.map((a) => toRow(a, slug, titleOf)));
-  }, [initial, slug, titleOf]);
+    setRows(initial.map((a) => toRow(a, slug, titleOf, hints)));
+  }, [initial, slug, titleOf, hints]);
 
   const reorder = async (next: RankRow[]) => {
     const prev = rowsRef.current;

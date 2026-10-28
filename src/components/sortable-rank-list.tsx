@@ -19,7 +19,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronDown, ChevronUp, GripVertical, ImageOff, Star, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, GripVertical, ImageOff, Layers, Star, X } from 'lucide-react';
 
 import { useScoreFormat } from '@/components/prefs-provider';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,8 @@ export interface RankRow {
   imageUrl: string | null;
   subtitle?: string | null;
   rating?: number | null;
+  /** A small hint chip under the title (e.g. "Next in Haikyuu: Season 1"). */
+  chip?: string | null;
 }
 
 interface SortableRankListProps {
@@ -155,6 +157,12 @@ function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRe
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium leading-snug">{item.title}</p>
         {item.subtitle && <p className="truncate text-xs text-muted-foreground">{item.subtitle}</p>}
+        {item.chip && (
+          <p className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+            <Layers className="h-3 w-3 shrink-0" aria-hidden />
+            <span className="truncate">{item.chip}</span>
+          </p>
+        )}
       </div>
 
       {item.rating != null && (

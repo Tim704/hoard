@@ -14,6 +14,7 @@ import { normalizeRating } from '@/lib/rating';
 import { requireUser } from '@/lib/session';
 import { resolveMediaRow } from '@/lib/franchise/auto';
 import { normalizeTitle } from '@/lib/franchise/normalize';
+import { isOrderMode } from '@/lib/franchise/order';
 import { syncUserFranchises } from '@/lib/franchise/sync';
 import { anilistQuery } from '@/lib/apis/anilist';
 import { fetchFranchiseGames, igdbConfigured } from '@/lib/apis/igdb';
@@ -293,6 +294,61 @@ export async function saveFranchiseRanking(orderedIds: string[]): Promise<Action
     return { ok: true };
   } catch (err) {
     return fail(err, 'Failed to save ranking.');
+  }
+}
+
+/** Switch a franchise's watch order between release order and your own (4.7). */
+export async function setFranchiseOrderMode(id: string, mode: unknown): Promise<ActionResult> {
+  if (typeof id !== 'string' || !isOrderMode(mode)) return { ok: false, error: 'Unknown order.' };
+  try {
+    const user = await requireUser();
+    if (!(await ownFranchise(user.id, id))) return { ok: false, error: 'Not found.' };
+    await prisma.franchise.update({ where: { id }, data: { orderMode: mode } });
+    revalidateAll();
+    return { ok: true };
+  } catch (err) {
+    return fail(err, 'Could not change the order.');
+  }
+}
+
+/**
+ * Save a franchise's manual watch order (first = watch first). Every id must
+ * be one of the franchise's own titles; members left out keep no position
+ * and follow in release order.
+ */
+export async function saveFranchiseOrder(id: string, orderedActivityIds: unknown): Promise<ActionResult> {
+  if (
+    typeof id !== 'string' ||
+    !Array.isArray(orderedActivityIds) ||
+    orderedActivityIds.length > 1000 ||
+    !orderedActivityIds.every((x) => typeof x === 'string')
+  ) {
+    return { ok: false, error: 'Invalid order.' };
+  }
+  try {
+    const user = await requireUser();
+    if (!(await ownFranchise(user.id, id))) return { ok: false, error: 'Not found.' };
+    const members = await prisma.userMediaActivity.findMany({
+      where: { userId: user.id, franchiseId: id },
+      select: { id: true },
+    });
+    const memberIds = new Set(members.map((m) => m.id));
+    const ids = [...new Set(orderedActivityIds as string[])];
+    if (!ids.every((x) => memberIds.has(x))) return { ok: false, error: 'Those titles are not all in this franchise.' };
+    await prisma.$transaction([
+      prisma.userMediaActivity.updateMany({
+        where: { userId: user.id, franchiseId: id, id: { notIn: ids } },
+        data: { franchiseOrder: null },
+      }),
+      ...ids.map((activityId, i) =>
+        prisma.userMediaActivity.update({ where: { id: activityId }, data: { franchiseOrder: (i + 1) * 1000 } }),
+      ),
+      prisma.franchise.update({ where: { id }, data: { orderMode: 'manual' } }),
+    ]);
+    revalidateAll();
+    return { ok: true };
+  } catch (err) {
+    return fail(err, 'Could not save the order.');
   }
 }
 

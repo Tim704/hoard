@@ -5,13 +5,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Check, ImageOff, ListPlus, Loader2, Merge, Trash2, X } from 'lucide-react';
+import { ArrowRight, Check, ImageOff, ListPlus, Loader2, Merge, Trash2, X } from 'lucide-react';
 
 import { memberAverage } from '@/components/franchise-group';
 import { FranchiseMissing } from '@/components/franchise-missing';
 import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
 import { RatingControl } from '@/components/rating-control';
 import { RatingInput } from '@/components/rating-input';
+import { SortableRankList, type RankRow } from '@/components/sortable-rank-list';
 import { StatusBadge } from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -28,8 +29,12 @@ import {
   assignFranchise,
   deleteFranchise,
   mergeFranchise,
+  saveFranchiseOrder,
+  setFranchiseOrderMode,
   updateFranchise,
 } from '@/lib/actions/franchise';
+import { nextInFranchise, type OrderMode } from '@/lib/franchise/order';
+import { statusLabel } from '@/lib/status';
 import { CATEGORIES } from '@/lib/categories';
 import type { ActionResult, FranchiseWithMembers } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -55,6 +60,13 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [addingMissing, setAddingMissing] = useState(false);
+  // Manual watch order, optimistic while it saves.
+  const [order, setOrder] = useState<string[]>([]);
+  const memberKey = franchise?.members.map((m) => m.id).join(',') ?? '';
+  useEffect(() => {
+    setOrder(franchise?.members.map((m) => m.id) ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [franchise?.id, memberKey]);
 
   useEffect(() => {
     setName(franchise?.name ?? '');
@@ -86,6 +98,41 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
   }
 
   const avg = memberAverage(f.members);
+  const byId = new Map(f.members.map((m) => [m.id, m]));
+  const ordered = order.map((id) => byId.get(id)).filter((m): m is (typeof f.members)[number] => !!m);
+  const next = nextInFranchise(f.members);
+  const orderRows: RankRow[] = ordered.map((m) => ({
+    id: m.id,
+    title: titleOf(m.media),
+    imageUrl: m.media.imageUrl,
+    subtitle: [CATEGORIES[m.category].singular, m.media.year, statusLabel(m.status, m.category)]
+      .filter((x) => x != null)
+      .join(' · '),
+  }));
+
+  function changeMode(mode: OrderMode) {
+    if (mode === f.orderMode) return;
+    void run(
+      () => setFranchiseOrderMode(f.id, mode),
+      mode === 'manual' ? 'Drag the titles into your watch order.' : 'Back to release order.',
+    );
+  }
+
+  async function reorder(rows: RankRow[]) {
+    const prev = order;
+    setOrder(rows.map((r) => r.id));
+    setBusy(true);
+    try {
+      const res = await saveFranchiseOrder(f.id, rows.map((r) => r.id));
+      if (res.ok) router.refresh();
+      else {
+        setOrder(prev);
+        toast.error(res.error ?? 'Could not save the order.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
   const covers = f.members.filter((m) => m.media.imageUrl);
   const others = all.filter((o) => o.id !== f.id);
   // Only these sections have provider data to find the rest of the IP (2.10).
@@ -174,6 +221,52 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* Watch order (4.7) */}
+            {f.members.length > 1 && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="text-sm font-medium">Watch order</label>
+                  <div role="group" aria-label="Watch order" className="inline-flex rounded-md border border-border p-0.5">
+                    {(
+                      [
+                        ['release', 'Release order'],
+                        ['manual', 'My order'],
+                      ] as const
+                    ).map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        disabled={busy}
+                        aria-pressed={f.orderMode === mode}
+                        onClick={() => changeMode(mode)}
+                        className={cn(
+                          'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                          f.orderMode === mode ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {next && (
+                  <p className="flex items-center gap-1.5 text-sm">
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+                    <span className="text-muted-foreground">Next up:</span>
+                    <span className="truncate font-medium">{titleOf(next.media)}</span>
+                  </p>
+                )}
+                {f.orderMode === 'manual' ? (
+                  <SortableRankList items={orderRows} onReorder={(rows) => void reorder(rows)} disabled={busy} />
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Titles are listed by release date. Switch to “My order” to drag them into the order you
+                    want to watch them.
+                  </p>
+                )}
               </div>
             )}
 

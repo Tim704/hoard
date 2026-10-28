@@ -10,6 +10,7 @@ import { ActivityExtras } from '@/components/activity-extras';
 import { ManualFields } from '@/components/manual-fields';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { ProgressField } from '@/components/progress-field';
+import { SubScoresSection } from '@/components/sub-scores';
 import { TagInput } from '@/components/tag-input';
 import { TvSeasons } from '@/components/tv-seasons';
 import { RatingInput } from '@/components/rating-input';
@@ -461,6 +462,15 @@ export function ActivityDetailDialog({
               </div>
               <RatingInput value={rating} onChange={(v) => setRating(v)} />
             </div>
+
+            <SubScoresSection
+              key={`subscores:${activity.id}`}
+              activityId={activity.id}
+              slug={activity.category}
+              initial={activity.subScores}
+              disabled={busy}
+              onUseAsScore={(v) => setRating(v)}
+            />
 
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium">

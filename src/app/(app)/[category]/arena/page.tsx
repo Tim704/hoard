@@ -8,7 +8,7 @@ import { TierBoard } from '@/components/tier-board';
 import { UpNext } from '@/components/up-next';
 import { getCategory } from '@/lib/categories';
 import { TierShare } from '@/components/tier-share';
-import { getChallengeMatchup, getMatchup, getQueue, getRanking, getTierBoard } from '@/lib/data';
+import { getChallengeMatchup, getMatchup, getQueue, getQueueHints, getRanking, getTierBoard } from '@/lib/data';
 import { cn } from '@/lib/utils';
 
 interface RankPageProps {
@@ -74,7 +74,7 @@ export default async function RankPage({ params, searchParams }: RankPageProps) 
         <TiersTab slug={slug} label={config.label} />
       ) : tab === 'queue' ? (
         <div className="max-w-3xl">
-          <UpNext slug={slug} initial={await getQueue(slug)} />
+          <QueueTab slug={slug} />
         </div>
       ) : (
         <ArenaTab slug={slug} mode={searchParams.mode === 'challenge' ? 'challenge' : 'order'} />
@@ -93,6 +93,11 @@ async function TiersTab({ slug, label }: { slug: Slug; label: string }) {
       <TierBoard slug={slug} initial={board} />
     </div>
   );
+}
+
+async function QueueTab({ slug }: { slug: Slug }) {
+  const queue = await getQueue(slug);
+  return <UpNext slug={slug} initial={queue} hints={await getQueueHints(queue)} />;
 }
 
 async function ArenaTab({ slug, mode }: { slug: Slug; mode: 'order' | 'challenge' }) {

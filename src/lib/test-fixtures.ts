@@ -22,6 +22,8 @@ export function makeActivity(
     ownedPlatforms: [],
     format: null,
     rewatching: false,
+    subScores: {},
+    franchiseOrder: null,
     franchise: null,
     franchiseLocked: false,
     createdAt: '2026-01-01T00:00:00.000Z',
