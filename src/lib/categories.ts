@@ -156,7 +156,8 @@ export const NAV_ORDER: CategorySlug[] = ['books', 'movies', 'anime', 'games', '
 export const CATEGORY_SLUGS = Object.keys(CATEGORIES) as CategorySlug[];
 
 export function isCategorySlug(slug: string): slug is CategorySlug {
-  return slug in CATEGORIES;
+  // Own keys only: `in` is also true for "toString", "constructor", ….
+  return Object.hasOwn(CATEGORIES, slug);
 }
 
 export function getCategory(slug: string): CategoryConfig | undefined {

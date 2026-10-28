@@ -96,7 +96,7 @@ export function TagInput({
         <input
           id={inputId}
           value={text}
-          disabled={disabled || full}
+          disabled={disabled || full || saving}
           onChange={(e) => {
             const v = e.target.value;
             if (v.includes(',')) commit(v);

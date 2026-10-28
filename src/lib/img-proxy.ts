@@ -18,7 +18,10 @@ export const IMAGE_HOSTS: ReadonlySet<string> = new Set([
   's4.anilist.co',
   'images.igdb.com',
   'lastfm.freetls.fastly.net',
-  // Open Library's cover redirects (see above).
+  // Open Library's cover redirects (see above). Deliberately the whole hosts:
+  // their cover paths (/download/olcovers…, /view_archive.php?…) vary, and the
+  // risk is bounded — only raster images under 5 MB pass, for signed-in users,
+  // as a same-origin copy of a public file (no cookies are forwarded).
   'archive.org',
 ]);
 

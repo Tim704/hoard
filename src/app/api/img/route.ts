@@ -49,7 +49,8 @@ export async function GET(req: NextRequest) {
       headers: {
         'content-type': type!.split(';')[0].trim().toLowerCase(),
         'content-length': String(body.byteLength),
-        'cache-control': 'public, max-age=86400',
+        // private: the route needs a session, so shared caches must not keep it.
+        'cache-control': 'private, max-age=86400',
         'x-content-type-options': 'nosniff',
         'content-security-policy': "default-src 'none'; sandbox",
       },

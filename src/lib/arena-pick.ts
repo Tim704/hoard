@@ -29,7 +29,8 @@ export function fewestDuelsPair<T extends Duelist>(
 ): [T, T] | null {
   if (pairs.length === 0) return null;
   const sum = ([a, b]: readonly [T, T]) => a.duels + b.duels;
-  const min = Math.min(...pairs.map(sum));
+  // A loop, not Math.min(...spread): a huge pair list can't overflow the stack.
+  const min = pairs.reduce((m, p) => Math.min(m, sum(p)), Infinity);
   const best = pairs.filter((p) => sum(p) === min);
   const [a, b] = best[Math.min(best.length - 1, Math.floor(rand() * best.length))];
   return [a, b];

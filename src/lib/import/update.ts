@@ -11,7 +11,7 @@
 
 import { eventsForUpdate, type EventInput } from '@/lib/events';
 import type { Status } from '@/lib/status';
-import { normalizeTags } from '@/lib/tags';
+import { MAX_TAGS, normalizeTags, tagKey } from '@/lib/tags';
 
 import { STATUS_RANK } from './rows';
 
@@ -59,9 +59,12 @@ export function planImportUpdate(
   if (change.startedAt && !sameTime(change.startedAt, now.startedAt)) patch.startedAt = change.startedAt;
   if (change.finishedAt && !sameTime(change.finishedAt, now.finishedAt)) patch.finishedAt = change.finishedAt;
   if (change.progress != null && change.progress !== now.progress) patch.progress = change.progress;
-  // Merged through the tag normaliser (4.2): case-insensitive, max 20.
-  const tags = normalizeTags([...now.tags, ...(change.tags ?? [])]);
-  if (tags.length !== now.tags.length || tags.some((t, i) => t !== now.tags[i])) patch.tags = tags;
+  // Tags (4.2): only tags whose case-insensitive key is new are added, and
+  // only while there is room under 20; an existing list (older imports kept
+  // up to 50) is never rewritten or truncated.
+  const have = new Set(now.tags.map(tagKey));
+  const added = normalizeTags(change.tags ?? []).filter((t) => !have.has(tagKey(t)));
+  if (added.length && now.tags.length < MAX_TAGS) patch.tags = normalizeTags([...now.tags, ...added]);
   if (change.favorite && !now.favorite) patch.favorite = true;
 
   let queue: ImportUpdatePlan['queue'] = null;

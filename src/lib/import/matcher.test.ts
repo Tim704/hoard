@@ -278,6 +278,16 @@ describe('planImportUpdate', () => {
     expect(plan.patch).toEqual({});
   });
 
+  it('adds only new tag keys, and never rewrites or truncates a long existing list', () => {
+    const long = Array.from({ length: 30 }, (_, i) => `t${i}`);
+    expect(planImportUpdate(ids, { ...now, tags: long }, { status: 'PLANNED', tags: ['new'] }).patch).toEqual({});
+    expect(planImportUpdate(ids, { ...now, tags: long }, { status: 'PLANNED', tags: ['T1'] }).patch).toEqual({});
+    expect(planImportUpdate(ids, { ...now, tags: ['a  b'] }, { status: 'PLANNED', tags: [] }).patch).toEqual({});
+    expect(planImportUpdate(ids, { ...now, tags: ['x'] }, { status: 'PLANNED', tags: [' New  one ', 'X'] }).patch).toEqual({
+      tags: ['x', 'New one'],
+    });
+  });
+
   it('never clears or moves back: Planned over Completed keeps Completed and its score', () => {
     const current = { ...now, status: 'COMPLETED' as const, rating: 7, finishedAt: new Date('2020-01-01T00:00:00Z') };
     const plan = planImportUpdate(ids, current, { status: 'PLANNED', rating: null, finishedAt: null, tags: [] });
