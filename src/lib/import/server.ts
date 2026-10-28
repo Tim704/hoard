@@ -30,6 +30,7 @@ import { NEW_MANUAL_ID, type CommitRow, type CommitRowOutcome, type InLibrary } 
 import { normalizeTags } from '@/lib/tags';
 import { planImportUpdate } from './update';
 import { confirmSteamApp, rememberSteamMappings } from './steam-confirm';
+import { publicError } from '@/lib/action-error';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -162,7 +163,6 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
       notes: row.notes ?? null,
       favorite: row.favourite === true,
       skipFranchise: true,
-      skipDiary: true,
       // The row's diary days (and a review no entry holds) land in the same
       // transaction as the new activity.
       afterCreate: (tx, id) => writeImportDiary(tx, userId, id, row),
@@ -179,7 +179,7 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
     const changed = await updateExisting(userId, activityId, row);
     return { outcome: changed || steamChanged ? 'updated' : 'unchanged', activityId };
   } catch (err) {
-    return { outcome: 'failed', error: err instanceof Error ? err.message : 'Import failed.' };
+    return { outcome: 'failed', error: publicError(err, 'Import failed.') };
   }
 }
 

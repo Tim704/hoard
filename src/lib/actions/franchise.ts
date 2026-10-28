@@ -30,6 +30,8 @@ import {
   type MissingTitle,
 } from '@/lib/franchise/missing';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
+import { takeActionRate } from '@/lib/rate-limit';
 
 /** Refresh every page that shows franchise data. */
 function revalidateAll() {
@@ -37,7 +39,7 @@ function revalidateAll() {
 }
 
 function fail(err: unknown, fallback: string): ActionResult {
-  return { ok: false, error: err instanceof Error ? err.message : fallback };
+  return { ok: false, error: publicError(err, fallback) };
 }
 
 /** Time budget per detection step, well under the tunnel's request timeout. */
@@ -380,6 +382,8 @@ export async function franchiseMissing(
     if (typeof franchiseId !== 'string' || !(await ownFranchise(user.id, franchiseId))) {
       return { ok: false, error: 'Not found.' };
     }
+    const limited = takeActionRate('franchiseMissing', user.id);
+    if (limited) return { ok: false, error: limited };
 
     // The members' catalogue rows: their ids and provider franchise keys.
     const members: Array<{ slug: CategorySlug; externalId: string; franchiseKey: string | null }> = [];
@@ -395,7 +399,7 @@ export async function franchiseMissing(
     }
 
     const groups: MissingGroup[] = [];
-    const failed = (err: unknown) => (err instanceof Error ? err.message : 'unknown error');
+    const failed = (provider: string, err: unknown) => console.error('[franchise missing] %s failed:', provider, err);
 
     const start = aniListStart(members);
     if (start.al.length || start.mal.ANIME.length || start.mal.MANGA.length) {
@@ -407,7 +411,8 @@ export async function franchiseMissing(
         });
         groups.push({ provider: 'AniList', titles: nodesToTitles(nodes) });
       } catch (err) {
-        groups.push({ provider: 'AniList', titles: [], message: `AniList could not be reached (${failed(err)}). Try again later.` });
+        groups.push({ provider: 'AniList', titles: [], message: 'AniList could not be reached. Try again later.' });
+        failed('AniList', err);
       }
     }
 
@@ -423,7 +428,8 @@ export async function franchiseMissing(
           }
           groups.push({ provider: 'TMDB', titles });
         } catch (err) {
-          groups.push({ provider: 'TMDB', titles: [], message: `TMDB could not be reached (${failed(err)}).` });
+          groups.push({ provider: 'TMDB', titles: [], message: 'TMDB could not be reached. Try again later.' });
+          failed('TMDB', err);
         }
       }
     }
@@ -438,7 +444,8 @@ export async function franchiseMissing(
           }
           groups.push({ provider: 'IGDB', titles });
         } catch (err) {
-          groups.push({ provider: 'IGDB', titles: [], message: `IGDB could not be reached (${failed(err)}).` });
+          groups.push({ provider: 'IGDB', titles: [], message: 'IGDB could not be reached. Try again later.' });
+          failed('IGDB', err);
         }
       }
     }

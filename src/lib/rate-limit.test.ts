@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { AI_LIMITS, API_LIMITS, checkRate, takeAiRate, takeApiRate, takeRate, takeTasteRefreshRate } from './rate-limit';
 
 describe('checkRate', () => {
-  const limits = { perMinute: 3, perDay: 5 };
+  const limits = { perMinute: 3, perDay: 5, noun: 'AI requests' };
 
   it('allows up to the per-minute limit, then says when to retry', () => {
     let stamps: number[] = [];

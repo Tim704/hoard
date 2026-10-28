@@ -16,6 +16,7 @@ import { CATEGORY_LIST, getCategory, isCategorySlug } from '@/lib/categories';
 import { enrichResult } from '@/lib/apis';
 import { getEditableLists } from '@/lib/data-lists';
 import { upsertCatalogueRow } from '@/lib/library/add';
+import { NormalizedResultSchema } from '@/lib/result-schema';
 import {
   canEditList,
   canManageList,
@@ -152,16 +153,6 @@ export async function addActivityToList(
   }
 }
 
-const ResultSchema = z.object({
-  externalId: z.string().min(1).max(200),
-  title: z.string().trim().min(1).max(500),
-  imageUrl: z.string().max(2000).nullable(),
-  subtitle: z.string().max(1000).nullable(),
-  year: z.number().int().nullable(),
-  description: z.string().max(50_000).nullable(),
-  fields: z.record(z.unknown()),
-});
-
 /**
  * Add a search hit to a list: the catalogue row is created (or only has its
  * empty columns filled, like any add), and NO library entry is made.
@@ -171,7 +162,7 @@ export async function addResultToList(
   slug: unknown,
   result: unknown,
 ): Promise<ActionResult & { existing?: boolean }> {
-  const parsed = ResultSchema.safeParse(result);
+  const parsed = NormalizedResultSchema.safeParse(result);
   if (typeof slug !== 'string' || !isCategorySlug(slug) || !parsed.success) {
     return { ok: false, error: 'Could not add that title.' };
   }
@@ -284,12 +275,14 @@ export async function inviteToList(listId: unknown, username: unknown, canEdit: 
 }
 
 /** Make a member an editor or a viewer (owner only). */
-export async function setListMemberRole(listId: unknown, memberId: unknown, canEdit: unknown): Promise<ActionResult> {
-  if (!isId(memberId) || typeof canEdit !== 'boolean') return { ok: false, error: 'Not found.' };
+export async function setListMemberRole(listId: unknown, memberUsername: unknown, canEdit: unknown): Promise<ActionResult> {
+  if (!isId(memberUsername) || typeof canEdit !== 'boolean') return { ok: false, error: 'Not found.' };
   try {
     const user = await requireUser();
     const list = await loadList(listId);
     if (!canManageList(list, user.id)) return NOT_FOUND;
+    const memberId = await userIdOf(memberUsername);
+    if (!memberId) return { ok: false, error: 'Not found.' };
     await prisma.customListMember.updateMany({ where: { listId: list!.id, userId: memberId }, data: { canEdit } });
     revalidateList(list!.id);
     return { ok: true };
@@ -298,19 +291,40 @@ export async function setListMemberRole(listId: unknown, memberId: unknown, canE
   }
 }
 
-/** Remove a member (owner), or leave a list (any member, `memberId` = yourself). */
-export async function removeListMember(listId: unknown, memberId: unknown): Promise<ActionResult> {
-  if (!isId(memberId)) return { ok: false, error: 'Not found.' };
+/** The user id behind a member's username (members are addressed by name: M3). */
+async function userIdOf(username: string): Promise<string | null> {
+  const u = await prisma.user.findUnique({ where: { username }, select: { id: true } });
+  return u?.id ?? null;
+}
+
+/** Remove a member (owner only), by username. */
+export async function removeListMember(listId: unknown, memberUsername: unknown): Promise<ActionResult> {
+  if (!isId(memberUsername)) return { ok: false, error: 'Not found.' };
   try {
     const user = await requireUser();
     const list = await loadList(listId);
-    const self = memberId === user.id && list?.members.some((m) => m.userId === user.id);
-    if (!list || (!self && !canManageList(list, user.id))) return NOT_FOUND;
+    if (!list || !canManageList(list, user.id)) return NOT_FOUND;
+    const memberId = await userIdOf(memberUsername);
+    if (!memberId) return { ok: false, error: 'Not found.' };
     await prisma.customListMember.deleteMany({ where: { listId: list.id, userId: memberId } });
     revalidateList(list.id);
     return { ok: true };
   } catch (err) {
     return fail(err, 'Could not remove them.');
+  }
+}
+
+/** Leave a list shared with you. */
+export async function leaveList(listId: unknown): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    const list = await loadList(listId);
+    if (!list || !list.members.some((m) => m.userId === user.id)) return NOT_FOUND;
+    await prisma.customListMember.deleteMany({ where: { listId: list.id, userId: user.id } });
+    revalidateList(list.id);
+    return { ok: true };
+  } catch (err) {
+    return fail(err, 'Could not leave the list.');
   }
 }
 

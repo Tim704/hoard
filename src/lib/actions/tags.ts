@@ -16,6 +16,7 @@ import { revalidateCategory } from '@/lib/actions/shared';
 import { getMyTags } from '@/lib/data-tags';
 import { normalizeTags } from '@/lib/tags';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 /** Replace a title's tags (yours only). Returns the stored, normalised list. */
 export async function setActivityTags(
@@ -39,7 +40,7 @@ export async function setActivityTags(
     revalidatePath('/tags');
     return { ok: true, tags: clean };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not save the tags.' };
+    return { ok: false, error: publicError(err, 'Could not save the tags.') };
   }
 }
 

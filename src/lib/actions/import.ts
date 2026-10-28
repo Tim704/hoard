@@ -52,8 +52,11 @@ import {
   type RowMatch,
 } from '@/lib/import/types';
 import { isYmd } from '@/lib/release';
+import { NormalizedResultSchema } from '@/lib/result-schema';
 import { requireUser } from '@/lib/session';
 import { STATUSES } from '@/lib/status';
+import { publicError } from '@/lib/action-error';
+import { takeActionRate } from '@/lib/rate-limit';
 
 const Day = z.string().refine(isYmd, 'Not a day.');
 const Slug = z.enum(CATEGORY_SLUGS as [CategorySlug, ...CategorySlug[]]);
@@ -103,20 +106,10 @@ const ImportRowSchema = z.object({
   playtimeMinutes: z.number().int().min(0).max(10_000_000).optional(),
 });
 
-const ResultSchema = z.object({
-  externalId: z.string().min(1).max(200),
-  title: z.string().trim().min(1).max(500),
-  imageUrl: z.string().max(2000).nullable(),
-  subtitle: z.string().max(1000).nullable(),
-  year: z.number().int().nullable(),
-  description: z.string().max(50_000).nullable(),
-  fields: z.record(z.unknown()),
-});
-
 const CommitRowSchema = z.object({
   category: Slug,
   source: Source,
-  result: ResultSchema,
+  result: NormalizedResultSchema,
   status: Status,
   rating: Rating.nullable().optional(),
   finishedOn: Day.nullable().optional(),
@@ -136,7 +129,7 @@ const CommitRowSchema = z.object({
   'Only Steam rows carry playtime or a Steam app id.',
 );
 
-const fail = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
+const fail = (err: unknown, fallback: string) => (publicError(err, fallback));
 
 /**
  * Read a public AniList profile's anime and manga lists into import rows.
@@ -225,6 +218,8 @@ export async function matchImportRows(
 ): Promise<{ ok: boolean; error?: string; matches?: RowMatch[] }> {
   try {
     const user = await requireUser();
+    const limited = takeActionRate('matchImportRows', user.id);
+    if (limited) return { ok: false, error: limited };
     const parsed = z.array(ImportRowSchema).max(MATCH_CHUNK).safeParse(rows);
     if (!parsed.success) return { ok: false, error: `Send at most ${MATCH_CHUNK} valid rows at a time.` };
     const matches = await matchRows(parsed.data as ImportRow[], serverMatchDeps(user.id));
@@ -244,6 +239,8 @@ export async function commitImportRows(
 ): Promise<{ ok: boolean; error?: string; outcomes?: CommitRowOutcome[]; aniListSkipped?: boolean }> {
   try {
     const user = await requireUser();
+    const limited = takeActionRate('commitImportRows', user.id);
+    if (limited) return { ok: false, error: limited };
     const parsed = z.array(CommitRowSchema).max(COMMIT_CHUNK).safeParse(rows);
     if (!parsed.success) return { ok: false, error: `Send at most ${COMMIT_CHUNK} valid rows at a time.` };
     const updateExisting = opts?.updateExisting === true;

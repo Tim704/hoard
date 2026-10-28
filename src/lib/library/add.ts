@@ -11,13 +11,12 @@ import type { Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/prisma';
 import { getCategory, type CategorySlug } from '@/lib/categories';
-import { getPrefs } from '@/lib/data-prefs';
-import { isDiaryStatus, onFinished } from '@/lib/diary';
 import { recordEvent } from '@/lib/events';
 import { autoGroupAfterAdd } from '@/lib/franchise/auto';
 import { seenSeasonCountNow, userToday } from '@/lib/library/seen-seasons';
 import { saveTvSeasons } from '@/lib/library/tv-seasons';
 import type { TvSeasonData } from '@/lib/apis/tmdb';
+import { UserError } from '@/lib/action-error';
 import { catalogueCreatePayload, fillOnlyUpdate } from '@/lib/media-upsert';
 import { MANUAL_PREFIX } from '@/lib/manual';
 import { recordsSeenSeasons } from '@/lib/new-seasons';
@@ -39,11 +38,6 @@ export interface AddOptions {
   favorite?: boolean;
   /** Skip franchise auto-grouping (bulk callers regroup once at the end). */
   skipFranchise?: boolean;
-  /**
-   * Don't log a diary entry for a title added as finished (imports write
-   * their own dated entries; see src/lib/diary.ts).
-   */
-  skipDiary?: boolean;
   eventKind?: 'added' | 'import';
   /**
    * Runs inside the add's transaction right after a NEW activity was created
@@ -81,11 +75,11 @@ export async function addMediaForUser(
   opts: AddOptions,
 ): Promise<AddOutcome> {
   const cat = getCategory(slug);
-  if (!cat) throw new Error('Unknown category.');
+  if (!cat) throw new UserError('Unknown category.');
   const { status } = opts;
-  // Added as finished = finished today (3.1), unless the caller logs its own.
-  const diaryPrefs = !opts.skipDiary && isDiaryStatus(status) ? await getPrefs(userId) : null;
-
+  // Added as done: NO diary entry, since the watch date is unknown (final
+  // review ruling). `finishedAt` still defaults to now; imports log their own
+  // dated entries through `afterCreate`.
   const seenToday = recordsSeenSeasons(slug, null, status) ? await userToday(userId) : null;
 
   const outcome = await prisma.$transaction(async (tx) => {
@@ -141,9 +135,6 @@ export async function addMediaForUser(
       to: status,
       ...(opts.eventMeta !== undefined ? { meta: opts.eventMeta } : {}),
     });
-    if (diaryPrefs) {
-      await onFinished(tx, { id: created.id, userId, rating: created.rating, rewatching: false }, diaryPrefs);
-    }
     if (opts.afterCreate) await opts.afterCreate(tx, created.id);
     return { activityId: created.id, existing: false, media };
   });
@@ -169,7 +160,10 @@ export async function upsertCatalogueRow(
   metaFetchedAt: Date | null,
 ): Promise<any> {
   const cat = getCategory(slug);
-  if (!cat) throw new Error('Unknown category.');
+  if (!cat) throw new UserError('Unknown category.');
+  if (typeof result?.externalId !== 'string' || !result.externalId || result.externalId.length > 200) {
+    throw new UserError('Could not add that item.');
+  }
   const db = tx as any; // sanctioned dynamic model access (seven media tables)
   const where = { externalId: result.externalId };
   let media = await db[cat.prismaModel].findUnique({ where });
@@ -178,12 +172,12 @@ export async function upsertCatalogueRow(
       where,
       update: {},
       create: {
-        ...catalogueCreatePayload(result.externalId, result.fields),
+        ...catalogueCreatePayload(cat.prismaModel, result.externalId, result.fields, result.title),
         ...(metaFetchedAt ? { metaFetchedAt } : {}),
       },
     });
   } else {
-    const fill = fillOnlyUpdate(media, result.fields);
+    const fill = fillOnlyUpdate(cat.prismaModel, media, result.fields);
     if (Object.keys(fill).length > 0) {
       media = await db[cat.prismaModel].update({ where: { id: media.id }, data: fill });
     }

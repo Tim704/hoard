@@ -29,6 +29,7 @@ import { revalidateCategory } from '@/lib/actions/shared';
 import { stateOf, type ActivityState } from '@/lib/undo';
 import type { Status } from '@/lib/status';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 const slugOf = (dbCategory: string): CategorySlug | undefined =>
   CATEGORY_LIST.find((c) => c.dbCategory === dbCategory)?.slug;
@@ -48,7 +49,7 @@ function refresh(dbCategory: string) {
 
 const fail = (err: unknown, fallback: string): ActionResult => ({
   ok: false,
-  error: err instanceof Error && err.message ? err.message : fallback,
+  error: publicError(err, fallback),
 });
 
 /** A past-or-today day in the user's zone. */

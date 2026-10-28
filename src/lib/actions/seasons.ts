@@ -46,10 +46,11 @@ import {
   type TierPosition,
 } from '@/lib/tiers';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 const fail = (err: unknown, fallback: string): ActionResult => ({
   ok: false,
-  error: err instanceof Error && err.message ? err.message : fallback,
+  error: publicError(err, fallback),
 });
 
 function refresh(activityId: string) {

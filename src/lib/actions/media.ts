@@ -28,6 +28,8 @@ import {
   type ManualInput,
 } from '@/lib/manual';
 import { normalizeRating } from '@/lib/rating';
+import { takeActionRate } from '@/lib/rate-limit';
+import { NormalizedResultSchema } from '@/lib/result-schema';
 import { requireUser } from '@/lib/session';
 import { searchProvider, enrichResult } from '@/lib/apis';
 import { appendQueueOrder, revalidateCategory } from '@/lib/actions/shared';
@@ -53,15 +55,23 @@ import type {
   ActionResult,
 } from '@/lib/types';
 import type { Status } from '@/lib/status';
+import { publicError } from '@/lib/action-error';
 
 /**
- * Search the external provider for a category. Pure delegation — the provider
- * layer owns query trimming, fetching, and error wrapping.
+ * Search the external provider for a category, for a signed-in user within
+ * their search budget. The provider layer owns query trimming, fetching and
+ * error wrapping.
  */
 export async function searchMedia(
   slug: CategorySlug,
   query: string,
 ): Promise<SearchResponse> {
+  const user = await requireUser();
+  const cat = getCategory(slug);
+  if (!cat) return { source: 'Unknown', results: [], error: 'Unknown category.' };
+  if (typeof query !== 'string' || query.length > 500) return { source: cat.source, results: [], error: 'That search is too long.' };
+  const limited = takeActionRate('searchMedia', user.id);
+  if (limited) return { source: cat.source, results: [], error: limited };
   return searchProvider(slug, query);
 }
 
@@ -85,9 +95,12 @@ export async function addToList(
   if (status !== 'COMPLETED' && status !== 'PLANNED') {
     return { ok: false, error: 'Unknown status.', existing: false };
   }
+  // The hit comes from the client: its shape and sizes are checked here, and
+  // the catalogue write keeps only allow-listed columns (media-upsert.ts).
+  const parsed = NormalizedResultSchema.safeParse(result);
   // Hand-made rows belong to whoever made them: they are only ever written by
   // addManualEntry / updateManualEntry, never by a (client-sent) search hit.
-  if (typeof result?.externalId !== 'string' || isManualId(result.externalId)) {
+  if (!parsed.success || isManualId(parsed.data.externalId)) {
     return { ok: false, error: 'Could not add that item.', existing: false };
   }
 
@@ -96,7 +109,7 @@ export async function addToList(
 
     // Best-effort enrich the result with extra provider detail (runtime,
     // episode counts, …) before persisting, so dashboard metrics have data.
-    const enriched = await enrichResult(slug, result);
+    const enriched = await enrichResult(slug, parsed.data as NormalizedResult);
 
     const { activityId, existing } = await addMediaForUser(user.id, slug, enriched.result, {
       status,
@@ -110,7 +123,7 @@ export async function addToList(
     revalidatePath('/franchises');
     return { ok: true, activityId, existing };
   } catch (err) {
-    const error = err instanceof Error ? err.message : 'Failed to add item.';
+    const error = publicError(err, 'Failed to add item.');
     return { ok: false, error, existing: false };
   }
 }
@@ -144,7 +157,7 @@ export async function addManualEntry(
     revalidatePath('/franchises');
     return { ok: true, activityId };
   } catch (err) {
-    const error = err instanceof Error ? err.message : 'Failed to add item.';
+    const error = publicError(err, 'Failed to add item.');
     return { ok: false, error };
   }
 }
@@ -179,7 +192,7 @@ export async function updateManualEntry(
     revalidatePath('/dashboard');
     return { ok: true };
   } catch (err) {
-    const error = err instanceof Error ? err.message : 'Could not save those details.';
+    const error = publicError(err, 'Could not save those details.');
     return { ok: false, error };
   }
 }
@@ -276,7 +289,7 @@ export async function updateActivity(
     // Undo deletes exactly the diary entry this finish wrote.
     return { ok: true, previous: { ...stateOf(activity), ...(diaryEntryId ? { diaryEntryId } : {}) } };
   } catch (err) {
-    const error = err instanceof Error ? err.message : 'Failed to update item.';
+    const error = publicError(err, 'Failed to update item.');
     return { ok: false, error };
   }
 }
@@ -316,7 +329,7 @@ export async function setProgress(id: string, progress: number | null): Promise<
     if (slug) revalidateCategory(slug);
     return { ok: true };
   } catch (err) {
-    const error = err instanceof Error ? err.message : 'Failed to save progress.';
+    const error = publicError(err, 'Failed to save progress.');
     return { ok: false, error };
   }
 }
@@ -359,7 +372,7 @@ export async function removeActivity(
     if (slug) revalidateCategory(slug);
     return { ok: true, undoToken };
   } catch (err) {
-    const error = err instanceof Error ? err.message : 'Failed to remove item.';
+    const error = publicError(err, 'Failed to remove item.');
     return { ok: false, error };
   }
 }
@@ -472,7 +485,7 @@ export async function restoreActivityState(
     if (slug) revalidateCategory(slug);
     return { ok: true };
   } catch (err) {
-    const error = err instanceof Error ? err.message : 'Could not undo that.';
+    const error = publicError(err, 'Could not undo that.');
     return { ok: false, error };
   }
 }

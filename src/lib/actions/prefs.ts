@@ -18,6 +18,7 @@ import {
 import { requireUser } from '@/lib/session';
 import { countryForTimeZone } from '@/lib/timezones';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 /** Region used when the browser's zone is unknown or UTC-like (the owner's). */
 const FALLBACK_REGION = 'DE';
@@ -38,7 +39,7 @@ export async function updatePrefs(patch: PrefsPatch): Promise<ActionResult> {
     revalidateAll();
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not save settings.' };
+    return { ok: false, error: publicError(err, 'Could not save settings.') };
   }
 }
 
@@ -59,6 +60,6 @@ export async function detectRegion(
     if (changed) revalidateAll();
     return { ok: true, region: prefs.region ?? undefined };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not detect region.' };
+    return { ok: false, error: publicError(err, 'Could not detect region.') };
   }
 }

@@ -33,6 +33,7 @@ import {
 } from '@/lib/reflists';
 import { requireUser } from '@/lib/session';
 import type { ActionResult } from '@/lib/types';
+import { takeActionRate } from '@/lib/rate-limit';
 
 /** A friendly failure; the real error goes to the server log, never to the client. */
 function fail(err: unknown, fallback: string): ActionResult {
@@ -92,6 +93,8 @@ export async function createBuiltinRefList(source: unknown): Promise<ActionResul
   if (!isBuiltinSource(source)) return { ok: false, error: 'Unknown list.' };
   try {
     const user = await requireUser();
+    const limited = takeActionRate('refList', user.id);
+    if (limited) return { ok: false, error: limited };
     const configured = refSourceConfigured(source);
     const b = BUILTIN_REF_LISTS[source];
     // One built-in list per user and source, even on a double click: a
@@ -125,6 +128,8 @@ export async function refreshRefList(listId: unknown): Promise<ActionResult & { 
     const list = await ownList(user.id, listId);
     if (!list) return NOT_FOUND;
     if (!isBuiltinSource(list.source)) return { ok: false, error: 'Only built-in lists can be refreshed.' };
+    const limited = takeActionRate('refList', user.id);
+    if (limited) return { ok: false, error: limited };
     const source = list.source;
     const { provider, size } = BUILTIN_REF_LISTS[source];
     if (!refSourceConfigured(source)) return { ok: false, error: `${provider} isn't configured on this server.` };
@@ -201,6 +206,8 @@ export async function addPastedRefItems(
   if (!parsed.success) return { ok: false, error: `Send 1 to ${MATCH_CHUNK} titles at a time.` };
   try {
     const user = await requireUser();
+    const limited = takeActionRate('addPastedRefItems', user.id);
+    if (limited) return { ok: false, error: limited };
     const list = await ownList(user.id, listId);
     if (!list) return NOT_FOUND;
     if (list.source !== CUSTOM_SOURCE || !isCategorySlug(list.category)) {

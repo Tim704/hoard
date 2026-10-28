@@ -18,6 +18,7 @@ import { MAX_GOALS_PER_YEAR, parseGoalInput, parseGoalTarget } from '@/lib/stats
 import { yearPromptLines } from '@/lib/stats/year';
 import { parseYear } from '@/lib/year-arena';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 // A generated paragraph takes longer than a lookup, so more than G4's 8 s.
 const GEMINI_TIMEOUT_MS = 20_000;
@@ -51,7 +52,7 @@ export async function createGoal(input: unknown): Promise<ActionResult> {
     if (res.ok) revalidateGoals();
     return res;
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not save the goal.' };
+    return { ok: false, error: publicError(err, 'Could not save the goal.') };
   }
 }
 
@@ -67,7 +68,7 @@ export async function updateGoalTarget(id: unknown, target: unknown): Promise<Ac
     revalidateGoals();
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not save the goal.' };
+    return { ok: false, error: publicError(err, 'Could not save the goal.') };
   }
 }
 
@@ -81,7 +82,7 @@ export async function deleteGoal(id: unknown): Promise<ActionResult> {
     revalidateGoals();
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not delete the goal.' };
+    return { ok: false, error: publicError(err, 'Could not delete the goal.') };
   }
 }
 

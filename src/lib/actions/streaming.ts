@@ -21,6 +21,7 @@ import {
 } from '@/lib/streaming';
 import type { ActionResult } from '@/lib/types';
 import { getProviderOptions, lookupWatchProviders, serviceNames } from '@/lib/watch-providers';
+import { publicError } from '@/lib/action-error';
 
 /** The caller's activities among `ids` (streamable sections only) with their externalId. */
 async function ownTitles(userId: string, ids: string[]) {
@@ -75,7 +76,7 @@ export async function loadStreamingBadges(
     });
     return { ok: true, badges, hasServices: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not load streaming info.' };
+    return { ok: false, error: publicError(err, 'Could not load streaming info.') };
   }
 }
 
@@ -104,7 +105,7 @@ export async function loadWhereToWatch(activityId: string): Promise<ActionResult
       .map((o) => o.name);
     return { ok: true, result: { status: 'ok', providers, mine: [...new Set(mine)] } };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not load where to watch.' };
+    return { ok: false, error: publicError(err, 'Could not load where to watch.') };
   }
 }
 
@@ -118,6 +119,6 @@ export async function loadProviderOptions(): Promise<
     const { options, source } = await getProviderOptions(prefs.region);
     return { ok: true, options, source };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not load the services.' };
+    return { ok: false, error: publicError(err, 'Could not load the services.') };
   }
 }

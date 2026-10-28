@@ -13,6 +13,7 @@ import { cleanTokenName, generateToken, hashToken, MAX_TOKENS } from '@/lib/api-
 import { takeRate } from '@/lib/rate-limit';
 import { requireUser } from '@/lib/session';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 /** Creating tokens is rare; a small budget keeps a runaway script tame. */
 const CREATE_LIMITS = { perMinute: 5, perDay: 30 };
@@ -36,7 +37,7 @@ export async function createApiToken(name: unknown): Promise<ActionResult & { to
     revalidatePath('/settings');
     return { ok: true, token };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not create the token.' };
+    return { ok: false, error: publicError(err, 'Could not create the token.') };
   }
 }
 
@@ -50,6 +51,6 @@ export async function revokeApiToken(id: unknown): Promise<ActionResult> {
     revalidatePath('/settings');
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not revoke the token.' };
+    return { ok: false, error: publicError(err, 'Could not revoke the token.') };
   }
 }

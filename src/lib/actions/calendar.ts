@@ -11,6 +11,7 @@ import { calendarFeedUrl, newCalendarToken } from '@/lib/calendar-token';
 import { changePrefs } from '@/lib/data-prefs';
 import { requireUser } from '@/lib/session';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 /** Make a new feed link (an existing one stops working). */
 export async function createCalendarLink(): Promise<ActionResult & { url?: string }> {
@@ -23,7 +24,7 @@ export async function createCalendarLink(): Promise<ActionResult & { url?: strin
     revalidatePath('/calendar');
     return { ok: true, url: calendarFeedUrl(token) };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not create the link.' };
+    return { ok: false, error: publicError(err, 'Could not create the link.') };
   }
 }
 
@@ -36,6 +37,6 @@ export async function revokeCalendarLink(): Promise<ActionResult> {
     revalidatePath('/calendar');
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not turn the link off.' };
+    return { ok: false, error: publicError(err, 'Could not turn the link off.') };
   }
 }

@@ -59,6 +59,7 @@ export function SearchEverythingPanel({
       if (!guard.current.isLatest(id)) return;
       setSections(res.sections);
       setMarks(res.marks);
+      if (res.error) setError(res.error);
     } catch {
       if (!guard.current.isLatest(id)) return;
       setError('Search failed. Please try again.');

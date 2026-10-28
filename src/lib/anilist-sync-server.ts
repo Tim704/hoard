@@ -36,6 +36,7 @@ import { notify } from '@/lib/notify';
 import { userToday } from '@/lib/library/seen-seasons';
 import { openToken, secretConfigured } from '@/lib/secret-box';
 import type { Status } from '@/lib/status';
+import { UserError } from '@/lib/action-error';
 
 export const ANILIST_SYNC_ERROR_PREFIX = 'AniList';
 
@@ -58,7 +59,7 @@ export interface PullTally {
 /** Pull one user's AniList lists into Hoard. Throws a readable error when the lists can't be read. */
 export async function pullAniListForUser(userId: string, username: string): Promise<PullTally> {
   const read = await readAniListLists(username);
-  if (!read.ok) throw new Error(read.error);
+  if (!read.ok) throw new UserError(read.error);
   const entries: PulledEntry[] = [
     ...pulledEntries(read.lists.ANIME, 'ANIME'),
     ...pulledEntries(read.lists.MANGA, 'MANGA'),
@@ -196,7 +197,7 @@ async function pushNow(userId: string, activityId: string): Promise<void> {
   const link = await getLink(userId, 'anilist');
   if (!link?.token) return;
   const token = openToken(link.token);
-  if (!token) throw new Error('The saved AniList connection can no longer be read. Connect AniList again in Settings.');
+  if (!token) throw new UserError('The saved AniList connection can no longer be read. Connect AniList again in Settings.');
   const a = await prisma.userMediaActivity.findUnique({
     where: { id: activityId },
     select: {
@@ -224,9 +225,9 @@ async function pushNow(userId: string, activityId: string): Promise<void> {
   const err = answer.errors[0];
   if (err) {
     if (err.status === 401 || /invalid token|unauthori[sz]ed/i.test(err.message ?? '')) {
-      throw new Error('AniList no longer accepts the connection. Connect AniList again in Settings.');
+      throw new UserError('AniList no longer accepts the connection. Connect AniList again in Settings.');
     }
-    throw new Error(`AniList didn't save "${media.title}": ${err.message ?? 'unknown error'}`);
+    throw new UserError(`AniList didn't save "${media.title}": ${err.message ?? 'unknown error'}`);
   }
 }
 

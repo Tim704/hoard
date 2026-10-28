@@ -14,6 +14,7 @@ import { revalidateCategory } from '@/lib/actions/shared';
 import { orderQueue, QUEUE_STEP } from '@/lib/queue';
 import { queueMoveEvent, recordEvent } from '@/lib/events';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 export async function saveQueue(
   slug: CategorySlug,
@@ -50,7 +51,7 @@ export async function saveQueue(
     revalidateCategory(slug);
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Failed to save queue.' };
+    return { ok: false, error: publicError(err, 'Failed to save queue.') };
   }
 }
 
@@ -80,6 +81,6 @@ export async function moveToQueueTop(activityId: string): Promise<ActionResult> 
     if (order[0] === activityId) return { ok: true };
     return saveQueue(cat.slug, [activityId, ...order.filter((id) => id !== activityId)]);
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Failed to move that title.' };
+    return { ok: false, error: publicError(err, 'Failed to move that title.') };
   }
 }

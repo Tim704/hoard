@@ -20,7 +20,7 @@ import { getLibraryIndex, libraryMarks, markKey, type LibraryIndexEntry, type Li
 import { getPrefs } from '@/lib/data-prefs';
 import { normalizeIsbn } from '@/lib/isbn';
 import { resolveMediaLink, type LinkDeps, type LinkResolution } from '@/lib/link-resolve';
-import { takeRate } from '@/lib/rate-limit';
+import { takeActionRate, takeRate } from '@/lib/rate-limit';
 import { fetchPublicPage } from '@/lib/safe-fetch';
 import { searchSections, type SectionOutcome } from '@/lib/search-everything';
 import { requireUser } from '@/lib/session';
@@ -73,6 +73,8 @@ export async function lookupBookByIsbn(raw: string): Promise<IsbnLookupResult> {
   const user = await requireUser();
   const isbn = typeof raw === 'string' ? normalizeIsbn(raw) : null;
   if (!isbn) return { ok: false, error: 'That isn’t a valid ISBN. Check the digits and try again.' };
+  const limited = takeActionRate('lookupBookByIsbn', user.id);
+  if (limited) return { ok: false, error: limited };
   try {
     const result = await lookupIsbn(isbn);
     if (!result) return { ok: true, result: null, mark: null };
@@ -86,10 +88,12 @@ export async function lookupBookByIsbn(raw: string): Promise<IsbnLookupResult> {
 /** Search every visible section's provider at once (2.5). */
 export async function searchEverything(
   query: string,
-): Promise<{ sections: SectionOutcome[]; marks: LibraryMarks }> {
+): Promise<{ sections: SectionOutcome[]; marks: LibraryMarks; error?: string }> {
   const user = await requireUser();
   const q = typeof query === 'string' ? query.trim().slice(0, 200) : '';
   if (q.length < 2) return { sections: [], marks: {} };
+  const limited = takeActionRate('searchEverything', user.id);
+  if (limited) return { sections: [], marks: {}, error: limited };
   const prefs = await getPrefs(user.id);
   const hidden = new Set<string>(prefs.hiddenSections);
   const slugs = NAV_ORDER.filter((s) => !hidden.has(s));

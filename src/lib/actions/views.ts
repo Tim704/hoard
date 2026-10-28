@@ -13,10 +13,11 @@ import { prisma } from '@/lib/prisma';
 import { cleanViewName, MAX_VIEWS, parseViewQuery } from '@/lib/saved-views';
 import { requireUser } from '@/lib/session';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 const fail = (err: unknown, fallback: string): ActionResult => ({
   ok: false,
-  error: err instanceof Error && err.message ? err.message : fallback,
+  error: publicError(err, fallback),
 });
 
 // The views live in the navigation of every page.

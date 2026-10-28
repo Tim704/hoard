@@ -20,6 +20,7 @@ import {
   sharePath,
 } from '@/lib/share';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 /**
  * The public link for `kind` + `target` ("tiers" + "books"): the active one
@@ -47,7 +48,7 @@ export async function createShareLink(
     revalidatePath('/settings');
     return { ok: true, url: absoluteUrl(sharePath(link.id)), reused: existing !== null };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not create the link.' };
+    return { ok: false, error: publicError(err, 'Could not create the link.') };
   }
 }
 
@@ -65,6 +66,6 @@ export async function revokeShareLink(id: unknown): Promise<ActionResult> {
     revalidatePath('/settings');
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not revoke the link.' };
+    return { ok: false, error: publicError(err, 'Could not revoke the link.') };
   }
 }

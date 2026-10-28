@@ -10,6 +10,7 @@ import { revalidateCategory } from '@/lib/actions/shared';
 import { seenSeasonCountNow, userToday } from '@/lib/library/seen-seasons';
 import { requireUser } from '@/lib/session';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 export async function acknowledgeNewSeason(activityId: string): Promise<ActionResult> {
   try {
@@ -25,6 +26,6 @@ export async function acknowledgeNewSeason(activityId: string): Promise<ActionRe
     revalidateCategory('tv');
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not save that.' };
+    return { ok: false, error: publicError(err, 'Could not save that.') };
   }
 }

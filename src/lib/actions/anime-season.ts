@@ -11,6 +11,7 @@ import { parseSeasonQuery, SEASON_PAGE_SIZE } from '@/lib/anime-season';
 import { libraryMarks, type LibraryMarks } from '@/lib/data-search';
 import { requireUser } from '@/lib/session';
 import type { ActionResult, NormalizedResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 export async function browseAnimeSeason(
   raw: unknown,
@@ -28,6 +29,6 @@ export async function browseAnimeSeason(
     const marks = await libraryMarks(user.id, results.map((r) => ({ slug: 'anime' as const, externalId: r.externalId })));
     return { ok: true, results, marks, more: results.length === SEASON_PAGE_SIZE };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not load that season.' };
+    return { ok: false, error: publicError(err, 'Could not load that season.') };
   }
 }

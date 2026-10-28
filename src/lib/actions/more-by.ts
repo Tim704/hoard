@@ -13,6 +13,8 @@ import { trimGroups, type MoreByAnswer } from '@/lib/more-by';
 import { moreByFor } from '@/lib/more-by-server';
 import { requireUser } from '@/lib/session';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
+import { takeActionRate } from '@/lib/rate-limit';
 
 export async function loadMoreBy(
   activityId: string,
@@ -20,6 +22,8 @@ export async function loadMoreBy(
   try {
     const user = await requireUser();
     if (typeof activityId !== 'string' || !activityId) return { ok: false, error: 'Not found.' };
+    const limited = takeActionRate('loadMoreBy', user.id);
+    if (limited) return { ok: false, error: limited };
     const a: any = await prisma.userMediaActivity.findUnique({
       where: { id: activityId },
       include: Object.fromEntries(CATEGORY_LIST.map((c) => [c.prismaModel, true])) as any,
@@ -39,6 +43,6 @@ export async function loadMoreBy(
     }
     return { ok: true, answer: { status: 'ok', groups } };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not load more by the same people.' };
+    return { ok: false, error: publicError(err, 'Could not load more by the same people.') };
   }
 }

@@ -11,6 +11,8 @@ import { prisma } from '@/lib/prisma';
 import { notify } from '@/lib/notify';
 import { requireUser } from '@/lib/session';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
+import { takeActionRate } from '@/lib/rate-limit';
 
 export async function markNotificationRead(id: string): Promise<ActionResult> {
   try {
@@ -23,7 +25,7 @@ export async function markNotificationRead(id: string): Promise<ActionResult> {
     revalidatePath('/', 'layout');
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not update.' };
+    return { ok: false, error: publicError(err, 'Could not update.') };
   }
 }
 
@@ -37,7 +39,7 @@ export async function markAllNotificationsRead(): Promise<ActionResult> {
     revalidatePath('/', 'layout');
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not update.' };
+    return { ok: false, error: publicError(err, 'Could not update.') };
   }
 }
 
@@ -48,6 +50,8 @@ export async function markAllNotificationsRead(): Promise<ActionResult> {
 export async function sendTestNotification(): Promise<ActionResult & { pushed?: string[] }> {
   try {
     const user = await requireUser();
+    const limited = takeActionRate('sendTestNotification', user.id);
+    if (limited) return { ok: false, error: limited };
     const res = await notify(user.id, {
       kind: 'test',
       title: 'Test notification',
@@ -60,6 +64,6 @@ export async function sendTestNotification(): Promise<ActionResult & { pushed?: 
     if (res.push.error) return { ok: false, error: res.push.error, pushed: res.push.sent };
     return { ok: true, pushed: res.push.sent };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not send.' };
+    return { ok: false, error: publicError(err, 'Could not send.') };
   }
 }

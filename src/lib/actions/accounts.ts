@@ -39,10 +39,11 @@ import { publicBaseUrl } from '@/lib/public-url';
 import { takeRate, type RateLimits } from '@/lib/rate-limit';
 import { SESSION_COOKIE, requireUser } from '@/lib/session';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 type LinkResult = ActionResult & { account?: PublicLink | null; notice?: string };
 
-const fail = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
+const fail = (err: unknown, fallback: string) => (publicError(err, fallback));
 
 /** "Sync now" buttons: a few a minute, a couple of dozen a day. */
 const SYNC_NOW_LIMITS: RateLimits = { perMinute: 2, perDay: 20 };

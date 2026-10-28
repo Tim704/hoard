@@ -8,6 +8,7 @@ import { getMentions } from '@/lib/data-mentions';
 import type { LibraryIndexEntry } from '@/lib/data-search';
 import { requireUser } from '@/lib/session';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 export async function getMentionedIn(activityId: unknown): Promise<ActionResult & { items?: LibraryIndexEntry[] }> {
   if (typeof activityId !== 'string' || !activityId) return { ok: false, error: 'Not found.' };
@@ -17,6 +18,6 @@ export async function getMentionedIn(activityId: unknown): Promise<ActionResult 
     if (!own || own.userId !== user.id) return { ok: false, error: 'Not found.' };
     return { ok: true, items: await getMentions(user.id, activityId) };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not load the mentions.' };
+    return { ok: false, error: publicError(err, 'Could not load the mentions.') };
   }
 }

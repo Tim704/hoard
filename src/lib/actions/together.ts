@@ -10,6 +10,7 @@ import { isCategorySlug, type CategorySlug } from '@/lib/categories';
 import { compareQueues, type TogetherItem } from '@/lib/data-together';
 import { requireUser } from '@/lib/session';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 export async function compareWith(
   username: string,
@@ -32,6 +33,6 @@ export async function compareWith(
     }
     return { ok: true, items: res.items };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not compare.' };
+    return { ok: false, error: publicError(err, 'Could not compare.') };
   }
 }

@@ -10,6 +10,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto';
+import { UserError } from '@/lib/action-error';
 
 export const MIN_SECRET_LENGTH = 32;
 const SALT = 'hoard-secret-box-v1';
@@ -30,7 +31,7 @@ function keyFor(secret: string): Buffer {
 }
 
 function requireSecret(secret: string | undefined): string {
-  if (!secretConfigured(secret)) throw new Error('HOARD_SECRET is not configured (32+ characters).');
+  if (!secretConfigured(secret)) throw new UserError('HOARD_SECRET is not configured (32+ characters).');
   return secret!;
 }
 

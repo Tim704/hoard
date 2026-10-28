@@ -31,6 +31,7 @@ import {
   type TierPosition,
 } from '@/lib/tiers';
 import type { ActionResult } from '@/lib/types';
+import { publicError } from '@/lib/action-error';
 
 /**
  * Persist the tier placement for a category. Ids that do not belong to the
@@ -96,7 +97,7 @@ async function persistTiers(
     revalidateCategory(slug);
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Failed to save tiers.' };
+    return { ok: false, error: publicError(err, 'Failed to save tiers.') };
   }
 }
 
@@ -114,7 +115,7 @@ export async function acceptSuggestedTiers(slug: CategorySlug): Promise<ActionRe
     const trayIds = board.tray.map((a) => a.id).filter((id) => !placedIds.has(id));
     return persistTiers(slug, placement, trayIds, 'suggestions');
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Failed to accept suggestions.' };
+    return { ok: false, error: publicError(err, 'Failed to accept suggestions.') };
   }
 }
 
@@ -140,6 +141,6 @@ export async function promoteFromChallenge(
     const next = moveItem(board, activityId, toTier);
     return persistTiers(slug, boardPlacement(next), [], 'challenge');
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Failed to move the title.' };
+    return { ok: false, error: publicError(err, 'Failed to move the title.') };
   }
 }
