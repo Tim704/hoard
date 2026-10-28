@@ -138,23 +138,55 @@ docker compose exec backup sh /backup.sh --once
 
 ### Restoring
 
-`pg_restore` into the running `db` service. `--clean --if-exists` drops and
-recreates every object in the dump, so this **replaces the current data**. Stop
-the app first so nothing writes during the restore:
+Restore into an **emptied** schema: the app adds columns, tables and data on
+start (`prisma db push`, `prisma/sql/*.sql`, the migration job), so restoring
+over a live schema can leave objects the dump doesn't know about. This
+**replaces all current data**. Stop the app first so nothing writes:
 
 ```bash
 docker compose stop app
 
-# Pick a dump (newest daily shown here) and stream it into the db container.
-docker compose exec -T db sh -c 'pg_restore --clean --if-exists --no-owner \
+# 1. Empty the schema.
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'
+
+# 2. Restore a dump into it (newest daily shown here).
+docker compose exec -T db sh -c 'pg_restore --no-owner \
   -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backups/hoard/daily/hoard-2026-10-28.dump
 
+# 3. Start the app (it brings the schema up to date for its own version).
 docker compose start app
 ```
 
 To try a dump without touching live data, restore it into a scratch database
 instead (`createdb -U "$POSTGRES_USER" hoard_restore_test` inside the `db`
 container, then `-d hoard_restore_test`), and drop it afterwards.
+
+### Before an upgrade, and rolling back
+
+**First deploy of a version with the `backup` service:** the service doesn't
+exist yet on the old version, so take a manual dump through the `db`
+container before you pull:
+
+```bash
+mkdir -p ../backups/hoard
+docker compose exec -T db sh -c 'pg_dump --format=custom -U "$POSTGRES_USER" "$POSTGRES_DB"' \
+  > ../backups/hoard/pre-deploy-$(date +%F).dump
+```
+
+(Later upgrades: `docker compose exec backup sh /backup.sh --once`, above.)
+
+**A plain redeploy of an older version does not work after a schema
+upgrade:** the newer schema has columns and tables the older code doesn't
+expect, and the older container's `prisma db push` refuses to drop them, so
+the app crash-loops. Roll back with the pre-deploy dump instead:
+
+1. Stop the app: `docker compose stop app`.
+2. Empty the schema (`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`, as in
+   step 1 above).
+3. Restore the pre-deploy dump with `pg_restore --no-owner` (step 2 above).
+4. Check out the previous commit: `git checkout <previous-commit>`.
+5. Rebuild and start: `docker compose up -d --build`.
 
 ---
 
