@@ -7,7 +7,9 @@ import { ImageOff, Layers, Loader2, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useDisplayTitle } from '@/components/prefs-provider';
+import { ProgressField } from '@/components/progress-field';
 import { RatingInput } from '@/components/rating-input';
+import { toastRemoved, toastStatusChange } from '@/components/undo-toast';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -204,19 +206,31 @@ export function ActivityDetailDialog({
     }
   }
 
-  async function save() {
+  // `statusOverride`: "Mark as finished" saves with the finished status.
+  async function save(statusOverride?: Status) {
     if (!activity) return;
+    const nextStatus = statusOverride ?? status;
     setSaving(true);
     try {
       const res = await updateActivity(activity.id, {
-        status,
+        status: nextStatus,
         rating,
         favorite,
         notes,
       });
       if (res.ok) {
-        toast.success('Saved.');
-        router.refresh();
+        const refresh = () => router.refresh();
+        if (nextStatus !== activity.status) {
+          toastStatusChange(
+            `Marked “${title}” as ${statusLabel(nextStatus, activity.category)}.`,
+            activity.id,
+            res.previous,
+            refresh,
+          );
+        } else {
+          toast.success('Saved.');
+        }
+        refresh();
         onClose();
       } else {
         toast.error(res.error ?? 'Could not save changes.');
@@ -234,7 +248,7 @@ export function ActivityDetailDialog({
     try {
       const res = await removeActivity(activity.id);
       if (res.ok) {
-        toast.success('Removed from your list.');
+        toastRemoved(title, res.undoToken, () => router.refresh());
         router.refresh();
         onClose();
       } else {
@@ -307,6 +321,16 @@ export function ActivityDetailDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            <ProgressField
+              key={activity.id}
+              activity={activity}
+              disabled={busy}
+              onMarkFinished={() => {
+                setStatus('COMPLETED');
+                void save('COMPLETED');
+              }}
+            />
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -398,7 +422,7 @@ export function ActivityDetailDialog({
             )}
             Remove
           </Button>
-          <Button type="button" onClick={save} disabled={busy}>
+          <Button type="button" onClick={() => save()} disabled={busy}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save
           </Button>

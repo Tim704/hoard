@@ -25,6 +25,18 @@ import { searchProvider, enrichResult } from '@/lib/apis';
 import { autoGroupAfterAdd } from '@/lib/franchise/auto';
 import { appendQueueOrder, revalidateCategory } from '@/lib/actions/shared';
 import { eventsForUpdate, recordEvent, recordEvents } from '@/lib/events';
+import { validProgress } from '@/lib/progress';
+import {
+  ActivityStateSchema,
+  planStateRestore,
+  restorePlan,
+  snapshotPlan,
+  stateOf,
+  type ActivitySnapshot,
+  type ActivityState,
+  type Row,
+} from '@/lib/undo';
+import { undoStore } from '@/lib/undo-store';
 import type {
   NormalizedResult,
   SearchResponse,
@@ -123,6 +135,8 @@ export async function addToList(
  * Update per-user state on an activity (status / rating / favorite / notes).
  * Verifies ownership first. When the status transitions to COMPLETED and no
  * finish date is recorded yet, stamps `finishedAt` with the current time.
+ * Returns the state from before the change (`previous`) so a toast can offer
+ * Undo through `restoreActivityState`.
  */
 export async function updateActivity(
   id: string,
@@ -132,7 +146,7 @@ export async function updateActivity(
     favorite?: boolean;
     notes?: string;
   },
-): Promise<ActionResult> {
+): Promise<ActionResult & { previous?: ActivityState }> {
   try {
     const user = await requireUser();
 
@@ -191,7 +205,7 @@ export async function updateActivity(
 
     const slug = slugForDbCategory(activity.category as DbCategory);
     if (slug) revalidateCategory(slug);
-    return { ok: true };
+    return { ok: true, previous: stateOf(activity) };
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Failed to update item.';
     return { ok: false, error };
@@ -199,9 +213,53 @@ export async function updateActivity(
 }
 
 /**
- * Remove an activity from the current user's library (verifies ownership).
+ * Set how far the user is through a title (pages, chapters, episodes, tracks;
+ * null stops tracking). One `progress` event per call — the client batches
+ * rapid +1 taps and saves typed values on blur/Enter, so one change is one
+ * event. Never changes the status (reaching the total only offers to).
  */
-export async function removeActivity(id: string): Promise<ActionResult> {
+export async function setProgress(id: string, progress: number | null): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    if (progress !== null && validProgress(progress) === null) {
+      return { ok: false, error: 'Progress must be a whole number.' };
+    }
+
+    const activity = await prisma.userMediaActivity.findUnique({ where: { id } });
+    if (!activity || activity.userId !== user.id) {
+      return { ok: false, error: 'Not found.' };
+    }
+    if (activity.progress === progress) return { ok: true };
+
+    await prisma.$transaction([
+      prisma.userMediaActivity.update({ where: { id }, data: { progress } }),
+      recordEvent(prisma, {
+        userId: user.id,
+        activityId: id,
+        kind: 'progress',
+        from: activity.progress == null ? null : String(activity.progress),
+        to: progress == null ? null : String(progress),
+      }),
+    ]);
+
+    const slug = slugForDbCategory(activity.category as DbCategory);
+    if (slug) revalidateCategory(slug);
+    return { ok: true };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : 'Failed to save progress.';
+    return { ok: false, error };
+  }
+}
+
+/**
+ * Remove an activity from the current user's library (verifies ownership).
+ * The row and everything that cascades from it are snapshotted first and kept
+ * on the server for a short while; the returned `undoToken` lets
+ * `restoreActivity` bring it all back with the same ids.
+ */
+export async function removeActivity(
+  id: string,
+): Promise<ActionResult & { undoToken?: string }> {
   try {
     const user = await requireUser();
 
@@ -210,13 +268,121 @@ export async function removeActivity(id: string): Promise<ActionResult> {
       return { ok: false, error: 'Not found.' };
     }
 
-    await prisma.userMediaActivity.delete({ where: { id } });
+    // Read the snapshot and delete in one transaction, so nothing written in
+    // between is lost without being captured.
+    const plan = snapshotPlan(id);
+    const snapshot = await prisma.$transaction(async (tx) => {
+      const db = tx as any; // sanctioned dynamic model access (see src/lib/undo.ts)
+      const row = await db[plan.activity.model].findUnique({ where: plan.activity.where });
+      if (!row || row.userId !== user.id) return null;
+      const children: Record<string, Row[]> = {};
+      for (const step of plan.children) {
+        children[step.model] = await db[step.model].findMany({ where: step.where });
+      }
+      await tx.userMediaActivity.delete({ where: { id } });
+      return { activity: row, children } as ActivitySnapshot;
+    });
+    if (!snapshot) return { ok: false, error: 'Not found.' };
+    const undoToken = undoStore.put(user.id, snapshot);
+
+    const slug = slugForDbCategory(activity.category as DbCategory);
+    if (slug) revalidateCategory(slug);
+    return { ok: true, undoToken };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : 'Failed to remove item.';
+    return { ok: false, error };
+  }
+}
+
+/**
+ * Undo a remove: recreate the activity and its child rows (events, …) with
+ * their original ids, in one transaction, plus a `removed-undone` event. Only
+ * the user who removed it can restore it, and only while the token is fresh.
+ */
+export async function restoreActivity(undoToken: string): Promise<ActionResult> {
+  const tooLate = { ok: false, error: 'Too late to undo.' };
+  try {
+    const user = await requireUser();
+    if (typeof undoToken !== 'string' || !undoToken) return tooLate;
+    const snapshot = undoStore.get(undoToken, user.id);
+    if (!snapshot) return tooLate;
+
+    const { activity } = snapshot;
+    const cat = CATEGORY_LIST.find((c) => c.dbCategory === activity.category);
+    if (!cat) return tooLate;
+    const mediaId = activity[cat.fkField];
+
+    // Media rows are never deleted, but check rather than fail on the FK.
+    const media = await (prisma as any)[cat.prismaModel].findUnique({ where: { id: mediaId } });
+    if (!media) return { ok: false, error: 'That title is no longer available.' };
+
+    // Added again in the meantime? Then there is nothing to bring back.
+    const again = await prisma.userMediaActivity.findFirst({
+      where: { userId: user.id, [cat.fkField]: mediaId } as any,
+    });
+    if (again) return { ok: false, error: 'It is already back in your list.' };
+
+    // A franchise deleted since the remove is simply left off.
+    const overrides: Row = {};
+    if (typeof activity.franchiseId === 'string') {
+      const franchise = await prisma.franchise.findFirst({
+        where: { id: activity.franchiseId, userId: user.id },
+      });
+      if (!franchise) Object.assign(overrides, { franchiseId: null, franchiseLocked: false });
+    }
+
+    const steps = restorePlan(snapshot, user.id, overrides);
+    await prisma.$transaction(async (tx) => {
+      const db = tx as any; // sanctioned dynamic model access (see src/lib/undo.ts)
+      for (const step of steps) await db[step.model].createMany({ data: step.data });
+      await recordEvent(tx, { userId: user.id, activityId: activity.id, kind: 'removed-undone' });
+    });
+    undoStore.drop(undoToken);
+
+    revalidateCategory(cat.slug);
+    revalidatePath('/franchises');
+    return { ok: true };
+  } catch (err) {
+    console.error('[undo] restore failed:', err);
+    return { ok: false, error: 'Could not undo that.' };
+  }
+}
+
+/**
+ * Undo a status change: put back the state `updateActivity` reported as
+ * `previous`. The client sends it, so it is validated (only status, rating,
+ * queueOrder, finishedAt, tier, rankOrder and progress; sane values) and only
+ * ever applied to the caller's own activity. Writes events like any edit.
+ */
+export async function restoreActivityState(
+  id: string,
+  previous: unknown,
+): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    const parsed = ActivityStateSchema.safeParse(previous);
+    if (!parsed.success) return { ok: false, error: 'Could not undo that.' };
+
+    const activity = await prisma.userMediaActivity.findUnique({ where: { id } });
+    if (!activity || activity.userId !== user.id) {
+      return { ok: false, error: 'Not found.' };
+    }
+
+    const { data, events } = planStateRestore(
+      { userId: user.id, activityId: id },
+      stateOf(activity),
+      parsed.data,
+    );
+    await prisma.$transaction([
+      prisma.userMediaActivity.update({ where: { id }, data: data as any }),
+      recordEvents(prisma, events),
+    ]);
 
     const slug = slugForDbCategory(activity.category as DbCategory);
     if (slug) revalidateCategory(slug);
     return { ok: true };
   } catch (err) {
-    const error = err instanceof Error ? err.message : 'Failed to remove item.';
+    const error = err instanceof Error ? err.message : 'Could not undo that.';
     return { ok: false, error };
   }
 }

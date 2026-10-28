@@ -4,6 +4,7 @@ import { Fragment } from 'react';
 import Image from 'next/image';
 import { ChevronDown, ChevronRight, ImageOff, Layers, Star } from 'lucide-react';
 
+import { ProgressBar } from '@/components/progress-field';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { GroupRating, groupCover } from '@/components/franchise-group';
 import { RatingControl } from '@/components/rating-control';
@@ -160,6 +161,7 @@ function ItemRow({
         <div className="mt-1 text-sm text-muted-foreground">
           {[media.year, subtitle].filter(Boolean).join(' · ')}
         </div>
+        <ProgressBar activity={activity} className="mt-1.5 max-w-48" />
       </TableCell>
       <TableCell>
         <StatusBadge status={activity.status} slug={activity.category} />

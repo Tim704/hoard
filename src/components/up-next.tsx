@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Check } from 'lucide-react';
 
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { RatingStep } from '@/components/rating-step';
 import { SortableRankList, type RankRow } from '@/components/sortable-rank-list';
+import { toastStatusChange } from '@/components/undo-toast';
 import { updateActivity } from '@/lib/actions/media';
 import { saveQueue } from '@/lib/actions/queue';
 import type { CategorySlug } from '@/lib/categories';
@@ -33,6 +35,7 @@ const toRow = (a: ActivityWithMedia, slug: CategorySlug, titleOf: (m: ActivityWi
  */
 export function UpNext({ slug, initial }: UpNextProps) {
   const titleOf = useDisplayTitle();
+  const router = useRouter();
   const [rows, setRows] = useState<RankRow[]>(() => initial.map((a) => toRow(a, slug, titleOf)));
   const [ratingId, setRatingId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -74,7 +77,14 @@ export function UpNext({ slug, initial }: UpNextProps) {
         return next;
       });
       toast.error(res.error ?? 'Could not mark it done.');
+      return;
     }
+    toastStatusChange(
+      `Marked “${row.title}” as ${statusLabel('COMPLETED', slug)}.`,
+      row.id,
+      res.previous,
+      () => router.refresh(),
+    );
   };
 
   if (rows.length === 0) {

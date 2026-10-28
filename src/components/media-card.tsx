@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { ImageOff, Star } from 'lucide-react';
 
 import { useDisplayTitle } from '@/components/prefs-provider';
+import { ProgressBar } from '@/components/progress-field';
 import { RatingControl } from '@/components/rating-control';
 import { StatusBadge } from '@/components/status-badge';
 import { STATUS_BASE_LABEL, STATUS_ICON, type Status } from '@/lib/status';
@@ -28,7 +29,8 @@ const CHIP_TEXT: Record<Status, string> = {
 /**
  * A clickable poster card: 2:3 poster (or placeholder) with a status icon chip,
  * title, year, the status badge, an optional read-only rating, and a favorite
- * star. Dropped items render their poster greyed out.
+ * star, plus a progress bar while ongoing. Dropped items render their poster
+ * greyed out (Retired ones don't: they were set aside, not abandoned).
  */
 export function MediaCard({ activity, onClick }: MediaCardProps) {
   const { media, status } = activity;
@@ -89,6 +91,7 @@ export function MediaCard({ activity, onClick }: MediaCardProps) {
         {media.year != null && (
           <p className="text-xs text-muted-foreground">{media.year}</p>
         )}
+        <ProgressBar activity={activity} />
         <div className="mt-auto flex flex-col gap-1.5 pt-1">
           <StatusBadge status={status} slug={activity.category} />
           {activity.rating != null && (
