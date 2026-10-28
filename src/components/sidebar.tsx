@@ -5,7 +5,9 @@ import { Boxes, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 import { logoutAction } from '@/lib/actions/auth';
 import { NavLinks } from '@/components/nav-links';
+import { NotificationBell } from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
+import type { NotificationSummary } from '@/lib/data-notifications';
 import { SIDEBAR_COOKIE } from '@/lib/ui-prefs';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +15,7 @@ interface SidebarProps {
   username: string;
   /** Collapsed state read from the cookie on the server (avoids a width flash). */
   initialCollapsed?: boolean;
+  notifications: NotificationSummary;
 }
 
 /**
@@ -20,7 +23,7 @@ interface SidebarProps {
  * button or Ctrl/Cmd+B; the choice is stored in a cookie. Hidden below `md`,
  * where MobileNav's top bar + drawer takes over.
  */
-export function Sidebar({ username, initialCollapsed = false }: SidebarProps) {
+export function Sidebar({ username, initialCollapsed = false, notifications }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
 
   const toggle = useCallback(() => {
@@ -56,7 +59,7 @@ export function Sidebar({ username, initialCollapsed = false }: SidebarProps) {
         collapsed ? 'w-16' : 'w-64',
       )}
     >
-      {/* Brand + collapse toggle */}
+      {/* Brand + notification bell + collapse toggle */}
       <div
         className={cn(
           'flex items-center py-5',
@@ -67,16 +70,19 @@ export function Sidebar({ username, initialCollapsed = false }: SidebarProps) {
           <Boxes className="h-6 w-6 shrink-0 text-primary" />
           {!collapsed && <span className="text-lg font-bold tracking-widest">HOARD</span>}
         </div>
-        <button
-          type="button"
-          onClick={toggle}
-          title={toggleLabel}
-          aria-label={toggleLabel}
-          aria-expanded={!collapsed}
-          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <ToggleIcon className="h-4 w-4" />
-        </button>
+        <div className={cn('flex items-center', collapsed ? 'flex-col gap-1' : 'gap-0.5')}>
+          <NotificationBell summary={notifications} side={collapsed ? 'right' : 'bottom'} align="start" />
+          <button
+            type="button"
+            onClick={toggle}
+            title={toggleLabel}
+            aria-label={toggleLabel}
+            aria-expanded={!collapsed}
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ToggleIcon className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Navigation */}

@@ -32,6 +32,8 @@ interface SettingsFormProps {
   regions: { code: string; name: string }[];
   timeZones: string[];
   serverTimeZone: string;
+  /** Extra cards rendered after the built-in ones (Notifications, System). */
+  children?: React.ReactNode;
 }
 
 const SCORE_OPTIONS: { value: ScoreFormat; label: string }[] = [
@@ -57,7 +59,7 @@ const SECTION_LABEL = (s: HideableSection) => (s === 'franchises' ? 'Franchises'
 const selectClass =
   'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50';
 
-export function SettingsForm({ initial, regions, timeZones, serverTimeZone }: SettingsFormProps) {
+export function SettingsForm({ initial, regions, timeZones, serverTimeZone, children }: SettingsFormProps) {
   const [prefs, setPrefs] = useState<DisplayPrefs>(initial);
   const [isPending, startTransition] = useTransition();
 
@@ -237,6 +239,8 @@ export function SettingsForm({ initial, regions, timeZones, serverTimeZone }: Se
           </div>
         </CardContent>
       </Card>
+
+      {children}
     </div>
   );
 }

@@ -15,14 +15,22 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { NavLinks } from '@/components/nav-links';
+import { NotificationBell } from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
+import type { NotificationSummary } from '@/lib/data-notifications';
 
 /**
  * The phone-only chrome: a slim sticky top bar (hamburger + brand + theme
  * toggle) whose hamburger opens a left drawer with the shared NavLinks list and
- * the signed-in/logout footer. Hidden at `md`+, where the Sidebar takes over.
+ * the signed-in/logout footer. The notification bell sits beside the theme toggle. Hidden at `md`+, where the Sidebar takes over.
  */
-export function MobileNav({ username }: { username: string }) {
+export function MobileNav({
+  username,
+  notifications,
+}: {
+  username: string;
+  notifications: NotificationSummary;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -82,7 +90,8 @@ export function MobileNav({ username }: { username: string }) {
         <span className="text-base font-bold tracking-widest">HOARD</span>
       </Link>
 
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center">
+        <NotificationBell summary={notifications} />
         <ThemeToggle />
       </div>
     </header>

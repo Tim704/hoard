@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { MobileNav } from '@/components/mobile-nav';
 import { PrefsProvider } from '@/components/prefs-provider';
 import { Sidebar } from '@/components/sidebar';
+import { getNotificationSummary } from '@/lib/data-notifications';
 import { getPrefs } from '@/lib/data-prefs';
 import { needsRegionDetection, toDisplayPrefs } from '@/lib/prefs';
 import { getCurrentUser } from '@/lib/session';
@@ -22,14 +23,21 @@ export default async function AppLayout({
 
   // Read the sidebar state server-side so the first paint has the right width.
   const sidebarCollapsed = cookies().get(SIDEBAR_COOKIE)?.value === '1';
-  const allPrefs = await getPrefs(user.id);
+  const [allPrefs, notifications] = await Promise.all([
+    getPrefs(user.id),
+    getNotificationSummary(user.id),
+  ]);
   const prefs = toDisplayPrefs(allPrefs);
 
   return (
     <PrefsProvider prefs={prefs} detectRegion={needsRegionDetection(allPrefs)}>
       <div className="flex min-h-screen flex-col md:flex-row">
-        <Sidebar username={user.username} initialCollapsed={sidebarCollapsed} />
-        <MobileNav username={user.username} />
+        <Sidebar
+          username={user.username}
+          initialCollapsed={sidebarCollapsed}
+          notifications={notifications}
+        />
+        <MobileNav username={user.username} notifications={notifications} />
         <main className="flex-1 overflow-x-hidden">{children}</main>
       </div>
     </PrefsProvider>
