@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BOM,
   csvField,
+  escapeCsvFormula,
   exportablePrefs,
   exportFilename,
   LIBRARY_COLUMNS,
@@ -10,6 +11,7 @@ import {
   toCsv,
   toFranchisesCsv,
   toLibraryCsv,
+  unescapeCsvFormula,
   type ExportActivity,
 } from './export';
 import { parsePrefs } from './prefs';
@@ -33,6 +35,27 @@ describe('csv quoting', () => {
     expect(csvField(undefined)).toBe('');
     expect(csvField(8.5)).toBe('8.5');
     expect(csvField(0)).toBe('0');
+  });
+
+  it('neutralises spreadsheet formulas in text but not numbers', () => {
+    expect(csvField('=HYPERLINK("x")')).toBe(`"'=HYPERLINK(""x"")"`);
+    expect(csvField('+1')).toBe("'+1");
+    expect(csvField('-2')).toBe("'-2");
+    expect(csvField('@SUM(A1)')).toBe("'@SUM(A1)");
+    expect(csvField('\tx')).toBe("'\tx");
+    expect(csvField('\rx')).toBe(`"'\rx"`);
+    expect(csvField("'=already")).toBe("''=already");
+    expect(csvField('a=b')).toBe('a=b');
+    expect(csvField(-1)).toBe('-1');
+    expect(csvField(8.5)).toBe('8.5');
+  });
+
+  it('unescapeCsvFormula undoes exactly the escape', () => {
+    for (const v of ['=1+1', '+x', '-', '@me', '\tt', "'=q", "''+r", "'plain", 'plain', "It's", '']) {
+      expect(unescapeCsvFormula(escapeCsvFormula(v))).toBe(v);
+    }
+    const rows = [['=cmd', "'@x", 'ok']];
+    expect(parseCsv(toCsv(rows)).map((r) => r.map(unescapeCsvFormula))).toEqual(rows);
   });
 
   it('starts with a BOM and ends every line with CRLF', () => {
@@ -152,6 +175,24 @@ describe('exportablePrefs', () => {
     expect(text).not.toContain('secret-token');
     expect(text).not.toContain('my-topic');
     expect(out.scoreFormat).toBe('five');
+    expect(Object.keys(out).sort()).toEqual(
+      [
+        'anilistUser',
+        'compareOptIn',
+        'feedOptIn',
+        'hiddenSections',
+        'lastfmUser',
+        'notify',
+        'region',
+        'scoreFormat',
+        'steamId',
+        'streamingServices',
+        'timeZone',
+        'titleLanguage',
+        'weekStart',
+      ].sort(),
+    );
+    expect(Object.keys(out.notify).sort()).toEqual(['discordConfigured', 'kinds', 'ntfyConfigured']);
     expect(out.notify).toEqual({ kinds: ['releases'], ntfyConfigured: true, discordConfigured: false });
   });
 });

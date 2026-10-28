@@ -5,7 +5,8 @@
 //
 //  CSV follows RFC 4180: fields containing a comma, quote, CR or LF are quoted
 //  and inner quotes doubled; lines end with CRLF. A UTF-8 BOM goes first so
-//  Excel reads accents and CJK titles correctly.
+//  Excel reads accents and CJK titles correctly. Text that would start a
+//  spreadsheet formula gets a leading ' (see `escapeCsvFormula`).
 // ───────────────────────────────────────────────────────────────────────────
 
 import { NAV_ORDER } from './categories';
@@ -19,10 +20,31 @@ export const BOM = '﻿';
 
 type Cell = string | number | boolean | null | undefined;
 
-/** One CSV field, quoted only when it has to be. */
+/**
+ * Text cells a spreadsheet would run as a formula (= + - @, tab or CR first,
+ * OWASP "CSV injection"), also after leading quotes so the escape round-trips.
+ */
+const FORMULA_START = /^'*[=+\-@\t\r]/;
+
+/**
+ * Neutralise a text cell for spreadsheets: prefix a single quote when it could
+ * start a formula. Numbers are never passed through here (a score of -1 stays
+ * a number). The Hoard-CSV importer (2.1) must undo this with
+ * `unescapeCsvFormula` on every text cell it reads back.
+ */
+export function escapeCsvFormula(text: string): string {
+  return FORMULA_START.test(text) ? `'${text}` : text;
+}
+
+/** The inverse of `escapeCsvFormula`: drop the one quote it added. */
+export function unescapeCsvFormula(text: string): string {
+  return text.startsWith("'") && FORMULA_START.test(text.slice(1)) ? text.slice(1) : text;
+}
+
+/** One CSV field: formula-escaped when text, quoted only when it has to be. */
 export function csvField(value: Cell): string {
   if (value === null || value === undefined) return '';
-  const text = String(value);
+  const text = typeof value === 'string' ? escapeCsvFormula(value) : String(value);
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
@@ -196,18 +218,29 @@ export function toFranchisesCsv(list: ExportFranchise[]): string {
 }
 
 /**
- * Settings as they go into the JSON export: everything except secrets — the
- * push targets (an ntfy topic or Discord webhook URL is a write credential)
- * and the calendar feed token.
+ * Settings as they go into the JSON export. An explicit allowlist, so a
+ * setting added later stays out until someone decides it is safe. Never
+ * exported: the push targets (an ntfy topic or Discord webhook URL is a write
+ * credential) and the calendar feed token — only whether pushes are set up.
  */
 export function exportablePrefs(prefs: Prefs) {
-  const { calendarToken: _token, notify, ...rest } = prefs;
   return {
-    ...rest,
+    region: prefs.region,
+    timeZone: prefs.timeZone,
+    scoreFormat: prefs.scoreFormat,
+    titleLanguage: prefs.titleLanguage,
+    weekStart: prefs.weekStart,
+    hiddenSections: prefs.hiddenSections,
+    streamingServices: prefs.streamingServices,
+    steamId: prefs.steamId,
+    lastfmUser: prefs.lastfmUser,
+    anilistUser: prefs.anilistUser,
+    compareOptIn: prefs.compareOptIn,
+    feedOptIn: prefs.feedOptIn,
     notify: {
-      kinds: notify.kinds,
-      ntfyConfigured: notify.ntfyUrl != null,
-      discordConfigured: notify.discordWebhook != null,
+      kinds: prefs.notify.kinds,
+      ntfyConfigured: prefs.notify.ntfyUrl != null,
+      discordConfigured: prefs.notify.discordWebhook != null,
     },
   };
 }

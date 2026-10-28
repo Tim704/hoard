@@ -7,9 +7,11 @@ import type { Tier } from '@/lib/tiers';
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * A search hit normalized across every external provider. `fields` is the EXACT
- * `create`/`update` payload for the target Prisma media table (column → value,
- * including `externalId` and `title`); the addToList action upserts it verbatim.
+ * A search hit normalized across every external provider. `fields` are the
+ * columns for the target Prisma media table (column → value, including
+ * `externalId` and `title`). The add path creates a new row from them with
+ * `externalId` pinned, and only fills empty columns of an existing row
+ * (src/lib/media-upsert.ts), since they come back from the client.
  */
 export interface NormalizedResult {
   externalId: string;

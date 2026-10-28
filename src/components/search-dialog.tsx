@@ -610,7 +610,8 @@ export function SearchDialog({
             </div>
 
             {multi && (
-              <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 p-2">
+              // Sticky: the dialog itself scrolls on phones, so keep the bar in view.
+              <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 rounded-md border border-border bg-background p-2 shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.25)]">
                 <span className="text-sm text-muted-foreground" aria-live="polite">
                   {bulk
                     ? `Adding ${Math.min(bulk.done + 1, bulk.total)} of ${bulk.total}…`

@@ -11,7 +11,7 @@ import { prisma } from '@/lib/prisma';
 import { getCategory, type CategorySlug } from '@/lib/categories';
 import { recordEvent } from '@/lib/events';
 import { autoGroupAfterAdd } from '@/lib/franchise/auto';
-import { upsertUpdatePayload } from '@/lib/media-upsert';
+import { catalogueCreatePayload, fillOnlyUpdate } from '@/lib/media-upsert';
 import { nextQueueOrder } from '@/lib/queue';
 import type { Status } from '@/lib/status';
 import type { NormalizedResult } from '@/lib/types';
@@ -40,8 +40,8 @@ export interface AddOutcome {
 }
 
 /**
- * Upsert the shared media row (keyed by its provider `externalId`; an existing
- * row only takes the values this result actually has) and, unless the user
+ * Create the shared media row (keyed by its provider `externalId`; an existing
+ * row only has its empty columns filled, never overwritten) and, unless the user
  * already has it, create their activity — joining the bottom of Up next when
  * PLANNED — with its `added`/`import` event, all in one transaction. Franchise
  * grouping runs afterwards (best-effort) unless `skipFranchise`.
@@ -58,11 +58,23 @@ export async function addMediaForUser(
 
   const outcome = await prisma.$transaction(async (tx) => {
     const db = tx as any; // sanctioned dynamic model access (seven media tables)
-    const media = await db[cat.prismaModel].upsert({
-      where: { externalId: result.externalId },
-      update: upsertUpdatePayload(result.fields),
-      create: result.fields,
-    });
+    // Client-sent `fields` never overwrite a shared row (spec G2): a new row
+    // is created with its externalId pinned; an existing one only has empty
+    // columns filled in. (Upsert with an empty update covers a concurrent add.)
+    const where = { externalId: result.externalId };
+    let media = await db[cat.prismaModel].findUnique({ where });
+    if (!media) {
+      media = await db[cat.prismaModel].upsert({
+        where,
+        update: {},
+        create: catalogueCreatePayload(result.externalId, result.fields),
+      });
+    } else {
+      const fill = fillOnlyUpdate(media, result.fields);
+      if (Object.keys(fill).length > 0) {
+        media = await db[cat.prismaModel].update({ where: { id: media.id }, data: fill });
+      }
+    }
 
     const existing = await tx.userMediaActivity.findFirst({
       where: { userId, [cat.fkField]: media.id } as any,
