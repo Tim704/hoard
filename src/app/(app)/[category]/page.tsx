@@ -7,9 +7,10 @@ import { getCategoryActivities, getFranchiseOptions } from '@/lib/data';
 interface CategoryPageProps {
   // Next 14: route params are a plain object (not a Promise).
   params: { category: string };
+  searchParams: { score?: string };
 }
 
-export default async function CategoryPage({ params }: CategoryPageProps) {
+export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
   const config = getCategory(params.category);
   if (!config) notFound();
 
@@ -24,6 +25,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       config={config}
       activities={activities}
       franchises={franchises}
+      scoreOpen={searchParams.score === '1'}
     />
   );
 }

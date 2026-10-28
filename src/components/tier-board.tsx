@@ -22,7 +22,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronDown, ChevronUp, GripVertical, ImageOff, Star, Wand2 } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronDown, ChevronUp, GripVertical, ImageOff, Sparkles, Star, Wand2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { acceptSuggestedTiers, saveTiers } from '@/lib/actions/ranking';
@@ -41,6 +42,7 @@ import {
   type TierContainer,
 } from '@/lib/tiers';
 import type { ActivityWithMedia } from '@/lib/types';
+import { unscoredFinished } from '@/lib/unscored';
 import { cn } from '@/lib/utils';
 
 interface TierBoardProps {
@@ -156,6 +158,8 @@ export function TierBoard({ slug, initial }: TierBoardProps) {
   }
 
   const hasSuggestions = board.tray.some((a) => suggestTier(a.rating) !== null);
+  // Every title on the board is finished, so the unscored ones are "Score these".
+  const unscored = unscoredFinished([...TIERS.flatMap((t) => board.tiers[t]), ...board.tray]).length;
   const rowProps = { disabled: isPending, onMove: move };
 
   return (
@@ -185,12 +189,23 @@ export function TierBoard({ slug, initial }: TierBoardProps) {
             <h2 id="tray-heading" className="text-base font-semibold text-muted-foreground">
               Unranked · {board.tray.length}
             </h2>
-            {hasSuggestions && (
-              <Button variant="outline" size="sm" onClick={acceptAll} disabled={isPending}>
-                <Wand2 className="mr-2 h-4 w-4" aria-hidden />
-                Accept all suggestions
-              </Button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {unscored > 0 && (
+                <Link
+                  href={`/${slug}?score=1`}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 underline-offset-4 hover:underline dark:text-amber-300"
+                >
+                  <Sparkles className="h-4 w-4" aria-hidden />
+                  Score these · {unscored}
+                </Link>
+              )}
+              {hasSuggestions && (
+                <Button variant="outline" size="sm" onClick={acceptAll} disabled={isPending}>
+                  <Wand2 className="mr-2 h-4 w-4" aria-hidden />
+                  Accept all suggestions
+                </Button>
+              )}
+            </div>
           </div>
           <Container id="tray" items={board.tray} labelledBy="tray-heading" {...rowProps}>
             {board.tray.length === 0 && (

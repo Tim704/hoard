@@ -10,6 +10,7 @@ import { MediaGrid } from '@/components/media-grid';
 import { MediaTable } from '@/components/media-table';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { RoastButton } from '@/components/roast-button';
+import { ScoreThese } from '@/components/score-these';
 import { SearchDialog } from '@/components/search-dialog';
 import { StatusSection } from '@/components/status-section';
 import { ViewToggle } from '@/components/view-toggle';
@@ -43,6 +44,8 @@ interface CategoryClientProps {
   activities: ActivityWithMedia[];
   /** The user's franchises, for the detail dialog's franchise picker. */
   franchises: { id: string; name: string }[];
+  /** Open the "Score these" dialog on arrival (linked from the tier list). */
+  scoreOpen?: boolean;
 }
 
 type SortMode = 'status' | 'recent' | 'rating' | 'ranking' | 'title';
@@ -81,7 +84,13 @@ const SORT_LABEL: Record<SortMode, string> = {
  * The interactive shell for a category page: search/add, filter, sort, switch
  * between grid and table views, and open the detail dialog for any item.
  */
-export function CategoryClient({ slug, config, activities, franchises }: CategoryClientProps) {
+export function CategoryClient({
+  slug,
+  config,
+  activities,
+  franchises,
+  scoreOpen = false,
+}: CategoryClientProps) {
   // View preferences persist per category across visits.
   const key = (name: string) => `hoard:${slug}:${name}`;
   const [viewMode, setViewMode] = usePersistentState<ViewMode>(key('view'), 'grid', isViewMode);
@@ -336,6 +345,8 @@ export function CategoryClient({ slug, config, activities, franchises }: Categor
           <ViewToggle value={viewMode} onChange={setViewMode} />
         </div>
       </div>
+
+      <ScoreThese slug={slug} activities={activities} defaultOpen={scoreOpen} />
 
       {/* Body */}
       {activities.length === 0 ? (
