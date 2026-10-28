@@ -5,6 +5,8 @@ import type { NormalizedResult } from '@/lib/types';
 import {
   chunk,
   chunkCommitRows,
+  RATE_RETRIES,
+  withRateRetry,
   COMMIT_BYTES,
   commitRowsFor,
   fitRow,
@@ -147,5 +149,33 @@ describe('Steam data in commit rows (8.1)', () => {
     const [other] = commitRowsFor([matchedItem(pendingItem(forged), match('high'))]);
     expect(other.playtimeMinutes).toBeUndefined();
     expect(other.steamAppId).toBeUndefined();
+  });
+});
+
+describe('withRateRetry (re-review 2)', () => {
+  it('waits the server\'s retry-after and resends the same chunk', async () => {
+    const answers = [{ ok: false, retryAfterSec: 12 }, { ok: false, retryAfterSec: 3 }, { ok: true }];
+    const waits: number[] = [];
+    let calls = 0;
+    const res = await withRateRetry(
+      async () => answers[calls++] as { ok: boolean; retryAfterSec?: number },
+      async (ms) => void waits.push(ms),
+    );
+    expect(res).toEqual({ ok: true });
+    expect(calls).toBe(3);
+    expect(waits).toEqual([12_000, 3_000]);
+  });
+
+  it('gives up after RATE_RETRIES, and never waits out a daily limit', async () => {
+    let calls = 0;
+    const res = await withRateRetry(async () => (calls++, { ok: false, retryAfterSec: 1 }), async () => {});
+    expect(calls).toBe(1 + RATE_RETRIES);
+    expect(res.retryAfterSec).toBe(1);
+    calls = 0;
+    await withRateRetry(async () => (calls++, { ok: false, retryAfterSec: 3600 }), async () => {});
+    expect(calls).toBe(1);
+    calls = 0;
+    await withRateRetry(async () => (calls++, null), async () => {});
+    expect(calls).toBe(1);
   });
 });

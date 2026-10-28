@@ -50,9 +50,6 @@ export async function registerAction(
   let succeeded = false;
 
   try {
-    const limited = takeRegisterRate(requestIp());
-    if (limited) return { error: limited };
-
     const parsed = registerSchema.safeParse({
       username: formData.get('username'),
       password: formData.get('password'),
@@ -61,6 +58,9 @@ export async function registerAction(
     if (!parsed.success) {
       return { error: parsed.error.issues[0]?.message ?? 'Invalid input.' };
     }
+    // Only well-formed attempts count against the address's budget.
+    const limited = takeRegisterRate(requestIp());
+    if (limited) return { error: limited };
 
     const user = await createUser(parsed.data.username, parsed.data.password);
     await createSessionForUser(user.id);

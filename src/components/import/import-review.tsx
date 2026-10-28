@@ -32,6 +32,7 @@ import {
   pendingItem,
   pickedInLibrary,
   summarise,
+  withRateRetry,
   type ImportSummary,
   type ReviewItem,
 } from '@/lib/import/review';
@@ -104,7 +105,7 @@ export function ImportReview({ rows, onDone }: ImportReviewProps) {
       let done = 0;
       for (const part of parts) {
         if (cancelled || stopRef.current) break;
-        const res = await matchImportRows(part.map((i) => matchPayload(rows[i]))).catch(() => null);
+        const res = await withRateRetry(() => matchImportRows(part.map((i) => matchPayload(rows[i]))).catch(() => null));
         if (cancelled) return;
         setItems((prev) => {
           const next = [...prev];
@@ -193,7 +194,9 @@ export function ImportReview({ rows, onDone }: ImportReviewProps) {
       setPhase({ kind: 'importing', done: 0, total: payload.length });
       for (const part of chunkCommitRows(payload, COMMIT_CHUNK)) {
         // importTotal: large imports are not pushed to AniList (8.2).
-        const res = await commitImportRows(part, { updateExisting, importTotal: payload.length }).catch(() => null);
+        const res = await withRateRetry(() =>
+          commitImportRows(part, { updateExisting, importTotal: payload.length }).catch(() => null),
+        );
         if (res?.aniListSkipped) aniListSkipped = true;
         if (res?.ok && res.outcomes?.length === part.length) outcomes.push(...res.outcomes);
         else outcomes.push(...part.map(() => ({ outcome: 'failed' as const, error: res?.error ?? 'Import failed.' })));

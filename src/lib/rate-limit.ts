@@ -34,40 +34,50 @@ export type RateDecision =
  * Whether one more call fits `limits`, given the earlier calls' `stamps`.
  * Returns the pruned stamps (plus `now` when allowed) to store back.
  */
-export function checkRate(stamps: number[], limits: RateLimits, now: number): RateDecision {
+export function checkRate(stamps: number[], limits: RateLimits, now: number, cost = 1): RateDecision {
   // Keep only as much history as the longest window needs.
   const horizon = limits.perDay != null ? DAY : limits.perHour != null ? HOUR : MINUTE;
   const recent = stamps.filter((t) => t > now - horizon && t <= now);
   const noun = limits.noun ?? 'requests';
+  // `cost` units at once (e.g. import rows): never more than one window holds.
+  const n = Math.max(1, Math.min(Math.floor(cost), limits.perMinute));
+  /** Seconds until enough of `inWindow` (oldest first) expires for `n` more, or null when they fit. */
+  const wait = (inWindow: number[], limit: number, span: number): number | null => {
+    const excess = inWindow.length + n - limit;
+    if (excess <= 0) return null;
+    const freeing = inWindow[Math.min(excess - 1, inWindow.length - 1)];
+    return Math.max(1, Math.ceil((freeing + span - now) / 1000));
+  };
   const lastMinute = recent.filter((t) => t > now - MINUTE);
-  if (lastMinute.length >= limits.perMinute) {
-    const retryAfterSec = Math.max(1, Math.ceil((lastMinute[0] + MINUTE - now) / 1000));
-    return { ok: false, stamps: recent, retryAfterSec, message: `Too many ${noun}. Try again in ${retryAfterSec} s.` };
+  const minuteWait = wait(lastMinute, limits.perMinute, MINUTE);
+  if (minuteWait !== null) {
+    return { ok: false, stamps: recent, retryAfterSec: minuteWait, message: `Too many ${noun}. Try again in ${minuteWait} s.` };
   }
   if (limits.perHour != null) {
-    const lastHour = recent.filter((t) => t > now - HOUR);
-    if (lastHour.length >= limits.perHour) {
-      const retryAfterSec = Math.max(1, Math.ceil((lastHour[0] + HOUR - now) / 1000));
-      const minutes = Math.ceil(retryAfterSec / 60);
+    const hourWait = wait(recent.filter((t) => t > now - HOUR), limits.perHour, HOUR);
+    if (hourWait !== null) {
+      const minutes = Math.ceil(hourWait / 60);
       return {
         ok: false,
         stamps: recent,
-        retryAfterSec,
+        retryAfterSec: hourWait,
         message: `Too many requests. Try again in about ${minutes} minute${minutes === 1 ? '' : 's'}.`,
       };
     }
   }
-  if (limits.perDay != null && recent.length >= limits.perDay) {
-    const retryAfterSec = Math.max(1, Math.ceil((recent[0] + DAY - now) / 1000));
-    const hours = Math.ceil(retryAfterSec / 3600);
-    return {
-      ok: false,
-      stamps: recent,
-      retryAfterSec,
-      message: `You've used today's ${limits.perDay} ${noun}. Try again in about ${hours} hour${hours === 1 ? '' : 's'}.`,
-    };
+  if (limits.perDay != null) {
+    const dayWait = wait(recent, limits.perDay, DAY);
+    if (dayWait !== null) {
+      const hours = Math.ceil(dayWait / 3600);
+      return {
+        ok: false,
+        stamps: recent,
+        retryAfterSec: dayWait,
+        message: `You've used today's ${limits.perDay} ${noun}. Try again in about ${hours} hour${hours === 1 ? '' : 's'}.`,
+      };
+    }
   }
-  return { ok: true, stamps: [...recent, now] };
+  return { ok: true, stamps: [...recent, ...Array.from({ length: n }, () => now)] };
 }
 
 type Store = Map<string, number[]>;
@@ -79,9 +89,9 @@ function store(): Store {
 }
 
 /** Count one call against `key` if it fits `limits` (the in-process store). */
-export function takeRate(key: string, limits: RateLimits, now: number = Date.now()): RateDecision {
+export function takeRate(key: string, limits: RateLimits, now: number = Date.now(), cost = 1): RateDecision {
   const s = store();
-  const decision = checkRate(s.get(key) ?? [], limits, now);
+  const decision = checkRate(s.get(key) ?? [], limits, now, cost);
   if (decision.stamps.length) s.set(key, decision.stamps);
   else s.delete(key);
   return decision;
@@ -136,8 +146,9 @@ export const ACTION_LIMITS = {
   /** refreshRefList and createBuiltinRefList share one budget. */
   refList: { perMinute: 5, perDay: 30, noun: 'list refreshes' },
   addPastedRefItems: { perMinute: 5, perDay: 50 },
-  matchImportRows: { perMinute: 30, perDay: 3000 },
-  commitImportRows: { perMinute: 30, perDay: 3000 },
+  /** Import budgets count ROWS (a call costs its row count): see takeActionCost. */
+  matchImportRows: { perMinute: 600, perDay: 30_000, noun: 'import rows' },
+  commitImportRows: { perMinute: 1200, perDay: 60_000, noun: 'import rows' },
   sendTestNotification: { perMinute: 5, perDay: 30, noun: 'test notifications' },
 } satisfies Record<string, RateLimits>;
 
@@ -148,6 +159,15 @@ export type RatedAction = keyof typeof ACTION_LIMITS;
  * friendly message to show ("Too many searches. Try again in 12 s.").
  */
 export function takeActionRate(action: RatedAction, userId: string, now?: number): string | null {
-  const d = takeRate(`action:${action}:${userId}`, ACTION_LIMITS[action], now);
+  const d = takeActionCost(action, userId, 1, now);
   return d.ok ? null : d.message;
+}
+
+/**
+ * Count `cost` units (e.g. the rows of one import chunk) of `action` by
+ * `userId` at once. The decision carries `retryAfterSec`, so a client can wait
+ * and retry the same chunk instead of failing it.
+ */
+export function takeActionCost(action: RatedAction, userId: string, cost: number, now?: number): RateDecision {
+  return takeRate(`action:${action}:${userId}`, ACTION_LIMITS[action], now, cost);
 }

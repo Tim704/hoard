@@ -16,18 +16,30 @@ describe('usernameProblem (new accounts)', () => {
 
 describe('login and register brakes', () => {
   const now = 5_000_000_000;
-  it('allows 10 attempts a minute per username, across IPs', () => {
-    for (let i = 0; i < 10; i++) expect(takeLoginRate('Victim', `10.0.0.${i}`, now + i)).toBeNull();
-    expect(takeLoginRate('victim', '10.0.1.1', now + 20)).toMatch(/Too many sign-in attempts/);
+  it('allows 10 attempts a minute per username+IP', () => {
+    for (let i = 0; i < 10; i++) expect(takeLoginRate('Victim', '10.0.0.1', now + i)).toBeNull();
+    expect(takeLoginRate('victim', '10.0.0.1', now + 20)).toMatch(/Too many sign-in attempts/);
+  });
+
+  it('one IP exhausting its budget does not block the same username from another IP (re-review 3)', () => {
+    for (let i = 0; i < 12; i++) takeLoginRate('owner', '203.0.113.66', now + i);
+    expect(takeLoginRate('owner', '203.0.113.66', now + 30)).toMatch(/Too many/);
+    expect(takeLoginRate('owner', '198.51.100.7', now + 30)).toBeNull();
+  });
+
+  it('caps a username at 1000 attempts a day across all IPs', () => {
+    const t0 = now + 100 * 86_400_000;
+    for (let i = 0; i < 1000; i++) takeLoginRate('target', `ip-${i}`, t0 + i * 1000);
+    expect(takeLoginRate('target', 'ip-fresh', t0 + 1_000_500)).toMatch(/Too many/);
   });
   it('allows 10 attempts a minute per IP, across usernames', () => {
     for (let i = 0; i < 10; i++) expect(takeLoginRate(`user${i}`, '203.0.113.9', now + i)).toBeNull();
     expect(takeLoginRate('someone', '203.0.113.9', now + 20)).toMatch(/Too many sign-in attempts/);
   });
-  it('caps a username at 100 attempts a day', () => {
+  it('caps a username+IP at 100 attempts a day', () => {
     const t0 = now + 10 * 86_400_000;
     let blocked: string | null = null;
-    for (let i = 0; i < 101; i++) blocked = takeLoginRate('daily', `198.51.100.${i % 250}`, t0 + i * 61_000 / 10);
+    for (let i = 0; i < 101; i++) blocked = takeLoginRate('daily', '198.51.100.1', t0 + i * 61_000 / 10);
     expect(blocked).toMatch(/Too many/);
   });
   it('allows 5 sign-ups an hour per IP', () => {

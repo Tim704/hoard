@@ -56,7 +56,7 @@ import { NormalizedResultSchema } from '@/lib/result-schema';
 import { requireUser } from '@/lib/session';
 import { STATUSES } from '@/lib/status';
 import { publicError } from '@/lib/action-error';
-import { takeActionRate } from '@/lib/rate-limit';
+import { takeActionCost } from '@/lib/rate-limit';
 
 const Day = z.string().refine(isYmd, 'Not a day.');
 const Slug = z.enum(CATEGORY_SLUGS as [CategorySlug, ...CategorySlug[]]);
@@ -215,13 +215,14 @@ export async function fetchTraktRows(
 /** Candidates and a confidence for up to MATCH_CHUNK rows. */
 export async function matchImportRows(
   rows: ImportRow[],
-): Promise<{ ok: boolean; error?: string; matches?: RowMatch[] }> {
+): Promise<{ ok: boolean; error?: string; matches?: RowMatch[]; retryAfterSec?: number }> {
   try {
     const user = await requireUser();
-    const limited = takeActionRate('matchImportRows', user.id);
-    if (limited) return { ok: false, error: limited };
     const parsed = z.array(ImportRowSchema).max(MATCH_CHUNK).safeParse(rows);
     if (!parsed.success) return { ok: false, error: `Send at most ${MATCH_CHUNK} valid rows at a time.` };
+    // The budget counts rows, so chunk size doesn't matter (re-review 2).
+    const rate = takeActionCost('matchImportRows', user.id, parsed.data.length);
+    if (!rate.ok) return { ok: false, error: rate.message, retryAfterSec: rate.retryAfterSec };
     const matches = await matchRows(parsed.data as ImportRow[], serverMatchDeps(user.id));
     return { ok: true, matches };
   } catch (err) {
@@ -236,13 +237,13 @@ export async function matchImportRows(
 export async function commitImportRows(
   rows: unknown,
   opts: { updateExisting: boolean; importTotal?: number },
-): Promise<{ ok: boolean; error?: string; outcomes?: CommitRowOutcome[]; aniListSkipped?: boolean }> {
+): Promise<{ ok: boolean; error?: string; outcomes?: CommitRowOutcome[]; aniListSkipped?: boolean; retryAfterSec?: number }> {
   try {
     const user = await requireUser();
-    const limited = takeActionRate('commitImportRows', user.id);
-    if (limited) return { ok: false, error: limited };
     const parsed = z.array(CommitRowSchema).max(COMMIT_CHUNK).safeParse(rows);
     if (!parsed.success) return { ok: false, error: `Send at most ${COMMIT_CHUNK} valid rows at a time.` };
+    const rate = takeActionCost('commitImportRows', user.id, parsed.data.length);
+    if (!rate.ok) return { ok: false, error: rate.message, retryAfterSec: rate.retryAfterSec };
     const updateExisting = opts?.updateExisting === true;
     const outcomes: CommitRowOutcome[] = [];
     for (const row of parsed.data) outcomes.push(await commitRow(user.id, row, { updateExisting }));

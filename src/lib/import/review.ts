@@ -146,3 +146,28 @@ export function chunkCommitRows(rows: CommitRow[], maxCount: number, maxBytes = 
   if (current.length) out.push(current);
   return out;
 }
+
+/** Retries of one chunk the server rate-limited (re-review 2). */
+export const RATE_RETRIES = 3;
+/** Longer waits (a spent daily budget) aren't waited out: the rows fail as before. */
+export const RATE_MAX_WAIT_SEC = 120;
+
+/**
+ * Run an import call; when the server answers with `retryAfterSec` (its row
+ * budget is spent for now), wait that long and send the SAME chunk again, up
+ * to RATE_RETRIES times, instead of marking its rows failed.
+ */
+export async function withRateRetry<T extends { retryAfterSec?: number } | null>(
+  call: () => Promise<T>,
+  wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+  retries: number = RATE_RETRIES,
+): Promise<T> {
+  let res = await call();
+  for (let i = 0; i < retries; i++) {
+    const after = res?.retryAfterSec;
+    if (typeof after !== 'number' || after > RATE_MAX_WAIT_SEC) break;
+    await wait(Math.max(1, after) * 1000);
+    res = await call();
+  }
+  return res;
+}

@@ -18,8 +18,13 @@ export function usernameProblem(username: string): string | null {
   return null;
 }
 
-/** Sign-in attempts, per username and per IP. */
+/** Sign-in attempts per username+IP pair, and per IP. */
 export const LOGIN_LIMITS: RateLimits = { perMinute: 10, perDay: 100 };
+/**
+ * A high global cap per username (all IPs together): slows a distributed
+ * guess at one account without letting a single attacker lock its owner out.
+ */
+export const LOGIN_USER_LIMITS: RateLimits = { perMinute: 100, perDay: 1000 };
 /** New accounts per IP: 5 an hour. */
 export const REGISTER_LIMITS: RateLimits = { perMinute: 5, perHour: 5 };
 
@@ -27,13 +32,17 @@ const retryText = (sec: number) => (sec >= 120 ? `about ${Math.ceil(sec / 60)} m
 
 /**
  * Count one sign-in attempt for `username` from `ip`. Null when allowed,
- * else the message. Both budgets are charged, so neither a single account
- * nor a single address can be hammered.
+ * else the message. The tight budget is per username AND address (re-review
+ * 3): someone guessing from one address can't lock the owner out from
+ * theirs. Each address also has its own budget across usernames, and each
+ * username a high global cap.
  */
 export function takeLoginRate(username: string, ip: string, now?: number): string | null {
-  const byUser = takeRate(`login:user:${username.trim().toLowerCase()}`, LOGIN_LIMITS, now);
+  const user = username.trim().toLowerCase();
+  const byPair = takeRate(`login:pair:${user}:${ip}`, LOGIN_LIMITS, now);
   const byIp = takeRate(`login:ip:${ip}`, LOGIN_LIMITS, now);
-  const blocked = [byUser, byIp].find((d) => !d.ok);
+  const byUser = takeRate(`login:user:${user}`, LOGIN_USER_LIMITS, now);
+  const blocked = [byPair, byIp, byUser].find((d) => !d.ok);
   if (!blocked || blocked.ok) return null;
   return `Too many sign-in attempts. Try again in ${retryText(blocked.retryAfterSec)}.`;
 }

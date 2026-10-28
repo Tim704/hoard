@@ -99,3 +99,41 @@ describe('the public API limit (8.7)', () => {
     expect(d.stamps).toEqual([1000 * 61_000]);
   });
 });
+
+describe('cost accounting (re-review 2: import budgets in rows)', () => {
+  it('charges a call its row count; chunk size does not change the budget', () => {
+    const limits = { perMinute: 600, perDay: 30_000 };
+    let stamps: number[] = [];
+    // 60 chunks of 10 rows fill the minute exactly...
+    for (let i = 0; i < 60; i++) {
+      const d = checkRate(stamps, limits, 1000 + i, 10);
+      expect(d.ok).toBe(true);
+      stamps = d.stamps;
+    }
+    expect(stamps).toHaveLength(600);
+    // ...so one more row is refused, with the time until enough rows expire.
+    const blocked = checkRate(stamps, limits, 2000, 10);
+    expect(blocked).toMatchObject({ ok: false });
+    expect(!blocked.ok && blocked.retryAfterSec).toBe(59);
+    expect(checkRate(stamps, limits, 61_011, 10).ok).toBe(true); // the first 10 rows expired
+  });
+
+  it('one call of 20 rows fits when 20 slots are free, not when 19 are', () => {
+    const limits = { perMinute: 30 };
+    const ten = Array.from({ length: 10 }, (_, i) => i);
+    expect(checkRate(ten, limits, 100, 20).ok).toBe(true);
+    expect(checkRate([...ten, 50], limits, 100, 20).ok).toBe(false);
+  });
+
+  it('takeActionCost counts rows against the per-user import budget', async () => {
+    const { takeActionCost, ACTION_LIMITS } = await import('./rate-limit');
+    expect(ACTION_LIMITS.matchImportRows.perMinute).toBe(600);
+    expect(ACTION_LIMITS.commitImportRows.perMinute).toBe(1200);
+    const now = 7_000_000_000;
+    for (let i = 0; i < 60; i++) expect(takeActionCost('commitImportRows', 'rows-u', 20, now + i).ok).toBe(true);
+    const d = takeActionCost('commitImportRows', 'rows-u', 1, now + 100);
+    expect(d.ok).toBe(false);
+    expect(!d.ok && d.retryAfterSec).toBeGreaterThan(0);
+    expect(takeActionCost('commitImportRows', 'rows-other', 20, now + 100).ok).toBe(true);
+  });
+});

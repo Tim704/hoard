@@ -19,7 +19,7 @@ import { commitImportRows, finishImport } from '@/lib/actions/import';
 import { CATEGORIES } from '@/lib/categories';
 import type { MissingTitle } from '@/lib/franchise/missing';
 import { initialTicked } from '@/lib/franchise/missing-pick';
-import { chunk, chunkCommitRows } from '@/lib/import/review';
+import { chunk, chunkCommitRows, withRateRetry } from '@/lib/import/review';
 import { COMMIT_CHUNK, type CommitRow } from '@/lib/import/types';
 import { statusLabel } from '@/lib/status';
 
@@ -83,7 +83,7 @@ export function FranchiseMissing({ franchiseId, onBack }: { franchiseId: string;
       let n = 0;
       setProgress(`Adding 0 of ${rows.length}…`);
       for (const part of chunkCommitRows(rows, COMMIT_CHUNK)) {
-        const res = await commitImportRows(part, { updateExisting: false }).catch(() => null);
+        const res = await withRateRetry(() => commitImportRows(part, { updateExisting: false }).catch(() => null));
         const outcomes = res?.ok && res.outcomes?.length === part.length ? res.outcomes : null;
         if (!outcomes) failed += part.length;
         else {
