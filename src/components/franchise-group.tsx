@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { ChevronDown, ImageOff, Layers, Star } from 'lucide-react';
 
-import { formatRating } from '@/lib/rating';
+import { useScoreFormat } from '@/components/prefs-provider';
 import type { ActivityWithMedia, FranchiseRef } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -32,6 +32,7 @@ export function GroupRating({
   members: ActivityWithMedia[];
   className?: string;
 }) {
+  const { score, scoreOutOf } = useScoreFormat();
   const avg = memberAverage(members);
   if (franchise.rating == null && avg == null) {
     return <span className={cn('text-sm text-muted-foreground', className)}>—</span>;
@@ -39,7 +40,7 @@ export function GroupRating({
   return (
     <span className={cn('inline-flex items-center gap-1 text-sm font-medium text-amber-600 dark:text-amber-300', className)}>
       <Star className={cn('h-3.5 w-3.5', franchise.rating != null && 'fill-current')} aria-hidden />
-      {franchise.rating != null ? `${formatRating(franchise.rating)}/10` : `${formatRating(avg)} avg`}
+      {franchise.rating != null ? scoreOutOf(franchise.rating) : `${score(avg)} avg`}
     </span>
   );
 }

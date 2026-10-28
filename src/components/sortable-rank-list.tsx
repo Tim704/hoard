@@ -21,7 +21,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ChevronDown, ChevronUp, GripVertical, ImageOff, Star, X } from 'lucide-react';
 
-import { formatRating } from '@/lib/rating';
+import { useScoreFormat } from '@/components/prefs-provider';
 import { cn } from '@/lib/utils';
 
 /** One row in a rank list — generic so titles and franchises can share it. */
@@ -109,6 +109,7 @@ interface SortableRowProps {
 function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRemove, actions }: SortableRowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id, disabled });
+  const { score } = useScoreFormat();
 
   return (
     <li
@@ -157,7 +158,7 @@ function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRe
       {item.rating != null && (
         <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-amber-600 dark:text-amber-300">
           <Star className="h-3.5 w-3.5 fill-current" aria-hidden />
-          {formatRating(item.rating)}
+          {score(item.rating)}
         </span>
       )}
 

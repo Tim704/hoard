@@ -31,7 +31,34 @@ export function nudgeRating(v: number | null, delta: number): number {
   return Math.min(RATING_MAX, Math.max(RATING_MIN, next));
 }
 
-/** "8.0", "7.5", or an em dash when unrated. */
+/** How scores are shown (input always stays on the 0–10 scale). */
+export type ScoreFormat = 'ten' | 'five' | 'hundred';
+
+/**
+ * Show a 0–10 score in the user's format, or an em dash when unrated:
+ * ten "8.5" (one decimal), five "4.3★" (score/2 to one decimal), hundred "85".
+ */
+export function formatScore(v: number | null, format: ScoreFormat = 'ten'): string {
+  if (v === null || !Number.isFinite(v)) return '—';
+  switch (format) {
+    case 'five':
+      // round1 on the tenths avoids 8.5/2 = 4.25 rounding down through float error.
+      return `${(Math.round(Math.round(v * 10) / 2) / 10).toFixed(1)}★`;
+    case 'hundred':
+      return String(Math.round(v * 10));
+    default:
+      return round1(v).toFixed(1);
+  }
+}
+
+/** Like formatScore, with the scale: "8.5/10", "4.3★", "85/100". */
+export function formatScoreOutOf(v: number | null, format: ScoreFormat = 'ten'): string {
+  if (v === null || !Number.isFinite(v)) return '—';
+  const s = formatScore(v, format);
+  return format === 'ten' ? `${s}/10` : format === 'hundred' ? `${s}/100` : s;
+}
+
+/** "8.0", "7.5", or an em dash when unrated (the 0–10 format, used by inputs). */
 export function formatRating(v: number | null): string {
-  return v === null ? '—' : v.toFixed(1);
+  return formatScore(v, 'ten');
 }

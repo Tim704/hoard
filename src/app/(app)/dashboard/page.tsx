@@ -18,9 +18,11 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
+import { Score } from '@/components/prefs-provider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import { getDashboardStats, getNowConsuming, type CategoryStat } from '@/lib/data';
+import { getCurrentPrefs } from '@/lib/data-prefs';
 import { getCurrentUser } from '@/lib/session';
 import type { ActivityWithMedia } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -43,11 +45,18 @@ const ROW_1_2_LEFT: CategorySlug[] = ['books', 'movies', 'anime', 'games'];
 const ROW_2_RIGHT_3: CategorySlug[] = ['tv', 'manga', 'music'];
 
 export default async function DashboardPage() {
-  const [user, stats, consuming] = await Promise.all([
+  const [user, allStats, allConsuming, prefs] = await Promise.all([
     getCurrentUser(),
     getDashboardStats(),
     getNowConsuming(),
+    getCurrentPrefs(),
   ]);
+
+  // Sections hidden in Settings drop out of the tiles, the totals and "Now consuming".
+  const hidden = new Set<string>(prefs.hiddenSections);
+  const stats = allStats.filter((s) => !hidden.has(s.slug));
+  const consuming = allConsuming.filter((a) => !hidden.has(a.category));
+  const shown = (slugs: CategorySlug[]) => slugs.filter((s) => !hidden.has(s));
 
   const bySlug = new Map(stats.map((s) => [s.slug, s]));
   const statFor = (slug: CategorySlug) => bySlug.get(slug);
@@ -59,19 +68,21 @@ export default async function DashboardPage() {
           Welcome back{user ? `, ${user.username}` : ''} 👋
         </h1>
         <p className="mt-1 text-muted-foreground">
-          Your hoard at a glance — across all seven domains.
+          {stats.length === allStats.length
+            ? 'Your hoard at a glance — across all seven domains.'
+            : 'Your hoard at a glance.'}
         </p>
       </header>
 
       {/* 3×3 on desktop. At sm (2 columns) the overview spans the full width and
           moves first, leaving 8 tiles in 4 even rows. Phones: one column. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {ROW_1_2_LEFT.map((slug) => {
+        {shown(ROW_1_2_LEFT).map((slug) => {
           const stat = statFor(slug);
           return stat ? <CategoryCard key={slug} stat={stat} /> : null;
         })}
         <OverviewCard stats={stats} />
-        {ROW_2_RIGHT_3.map((slug) => {
+        {shown(ROW_2_RIGHT_3).map((slug) => {
           const stat = statFor(slug);
           return stat ? <CategoryCard key={slug} stat={stat} /> : null;
         })}
@@ -93,11 +104,11 @@ function OverviewCard({ stats }: { stats: CategoryStat[] }) {
       ? null
       : rated.reduce((sum, s) => sum + (s.avgRating ?? 0), 0) / rated.length;
 
-  const cells: { icon: LucideIcon; value: string; label: string }[] = [
+  const cells: { icon: LucideIcon; value: React.ReactNode; label: string }[] = [
     { icon: Library, value: totalItems.toLocaleString(), label: 'tracked' },
     { icon: CheckCircle2, value: totalCompleted.toLocaleString(), label: 'completed' },
     { icon: Layers, value: `${activeDomains}/${stats.length}`, label: 'domains' },
-    { icon: Star, value: avg != null ? avg.toFixed(1) : '—', label: 'avg rating' },
+    { icon: Star, value: <Score value={avg} />, label: 'avg rating' },
   ];
 
   return (
@@ -235,7 +246,7 @@ function CategoryCard({ stat }: { stat: CategoryStat }) {
             {stat.avgRating != null ? (
               <span>
                 <span className="font-semibold tabular-nums text-foreground">
-                  {stat.avgRating.toFixed(1)}
+                  <Score value={stat.avgRating} />
                 </span>{' '}
                 avg rating
               </span>

@@ -6,7 +6,7 @@ import { FranchiseGroupHeader, GroupRating } from '@/components/franchise-group'
 import { StatusIcon } from '@/components/status-icon';
 import type { CategorySlug } from '@/lib/categories';
 import { statusLabel } from '@/lib/status';
-import { formatRating } from '@/lib/rating';
+import { useScoreFormat } from '@/components/prefs-provider';
 import type { ActivityWithMedia, DisplayUnit } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -95,6 +95,7 @@ function CompactRow({
   onSelect: (a: ActivityWithMedia) => void;
 }) {
   const { media, status, rating } = activity;
+  const { scoreOutOf } = useScoreFormat();
   return (
     <button
       type="button"
@@ -119,7 +120,7 @@ function CompactRow({
           rating != null ? 'font-medium text-amber-600 dark:text-amber-300' : 'text-muted-foreground',
         )}
       >
-        {rating != null ? `${formatRating(rating)}/10` : '—'}
+        {scoreOutOf(rating)}
       </span>
     </button>
   );

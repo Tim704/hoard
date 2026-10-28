@@ -11,6 +11,7 @@ import type { ActivityWithMedia, Matchup } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { nextMatchup, submitMatchup } from '@/lib/actions/arena';
+import { useScoreFormat } from '@/components/prefs-provider';
 
 interface ArenaProps {
   slug: CategorySlug;
@@ -27,6 +28,7 @@ export function Arena({ slug, initial }: ArenaProps) {
   const [matchup, setMatchup] = useState<Matchup | null>(initial);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const { score } = useScoreFormat();
 
   // ── Empty state: not enough equally-rated items to form a duel. ────────────
   if (!matchup) {
@@ -75,7 +77,7 @@ export function Arena({ slug, initial }: ArenaProps) {
         ) : (
           <p className="mt-1 inline-flex items-center gap-1 text-sm text-muted-foreground">
             <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden />
-            Both scored {rating === 10 ? '10.0' : `${rating}.0–${rating}.9`}
+            Both scored {rating === 10 ? score(10) : `${score(rating)}–${score(rating == null ? null : rating + 0.9)}`}
           </p>
         )}
       </div>

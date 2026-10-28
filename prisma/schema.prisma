@@ -56,6 +56,8 @@ model User {
   username     String   @unique
   passwordHash String
   createdAt    DateTime @default(now())
+  // Per-user settings, typed and defaulted by src/lib/prefs.ts (unknown keys dropped).
+  prefs        Json     @default("{}")
 
   sessions   Session[]
   activities UserMediaActivity[]

@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { Check, ImageOff, Loader2, Merge, Trash2, X } from 'lucide-react';
 
 import { memberAverage } from '@/components/franchise-group';
-import { formatRating } from '@/lib/rating';
+import { useScoreFormat } from '@/components/prefs-provider';
 import { RatingControl } from '@/components/rating-control';
 import { RatingInput } from '@/components/rating-input';
 import { StatusBadge } from '@/components/status-badge';
@@ -46,6 +46,7 @@ interface FranchiseDialogProps {
  */
 export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProps) {
   const router = useRouter();
+  const { scoreOutOf } = useScoreFormat();
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
   const [mergeTarget, setMergeTarget] = useState<string>('');
@@ -131,11 +132,11 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
             </div>
             <RatingInput
               value={f.rating}
-              onChange={(v) => run(() => updateFranchise(f.id, { rating: v }), `Rated ${formatRating(v)}/10.`)}
+              onChange={(v) => run(() => updateFranchise(f.id, { rating: v }), `Rated ${scoreOutOf(v)}.`)}
             />
             <p className="text-xs text-muted-foreground">
               Separate from each title&apos;s own rating.
-              {avg != null && ` Your titles average ${formatRating(avg)}/10.`}
+              {avg != null && ` Your titles average ${scoreOutOf(avg)}.`}
             </p>
           </div>
 

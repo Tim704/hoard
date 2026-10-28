@@ -20,7 +20,7 @@ import { RatingStep } from '@/components/rating-step';
 import { addToList, searchMedia, updateActivity } from '@/lib/actions/media';
 import type { CategorySlug } from '@/lib/categories';
 import { cn } from '@/lib/utils';
-import { formatRating } from '@/lib/rating';
+import { useScoreFormat } from '@/components/prefs-provider';
 import {
   createLatestGuard,
   libraryBadge,
@@ -63,6 +63,7 @@ export function SearchDialog({
   triggerClassName,
 }: SearchDialogProps) {
   const router = useRouter();
+  const { score } = useScoreFormat();
   const labels = addChoiceLabels(slug);
 
   const [open, setOpen] = useState(false);
@@ -349,7 +350,7 @@ export function SearchDialog({
                 {row?.phase === 'done' ? (
                   <ConfirmedLabel>
                     {labels.done}
-                    {row.rating !== null && ` ${formatRating(row.rating)}`}
+                    {row.rating !== null && ` ${score(row.rating)}`}
                   </ConfirmedLabel>
                 ) : row?.phase === 'want' ? (
                   <ConfirmedLabel>In Up next</ConfirmedLabel>

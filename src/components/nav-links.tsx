@@ -12,11 +12,13 @@ import {
   Layers,
   LayoutDashboard,
   Library,
+  Settings,
   Sparkles,
   Tv,
   type LucideIcon,
 } from 'lucide-react';
 
+import { usePrefs } from '@/components/prefs-provider';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import { cn } from '@/lib/utils';
 
@@ -56,10 +58,12 @@ interface NavLinksProps {
 
 /**
  * The Dashboard + seven-category link list shared by the desktop sidebar and
- * the mobile drawer, with active-route highlighting.
+ * the mobile drawer, with active-route highlighting. Sections hidden in
+ * Settings are left out (their pages still work).
  */
 export function NavLinks({ onNavigate, collapsed = false }: NavLinksProps) {
   const pathname = usePathname();
+  const hidden = new Set<string>(usePrefs().hiddenSections);
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
@@ -87,18 +91,20 @@ export function NavLinks({ onNavigate, collapsed = false }: NavLinksProps) {
         {!collapsed && <span>Dashboard</span>}
       </Link>
 
-      <Link
-        href="/franchises"
-        onClick={onNavigate}
-        title={collapsed ? 'Franchises' : undefined}
-        aria-label={collapsed ? 'Franchises' : undefined}
-        className={linkClass('/franchises')}
-      >
-        <Layers className="h-4 w-4 shrink-0 text-muted-foreground" />
-        {!collapsed && <span>Franchises</span>}
-      </Link>
+      {!hidden.has('franchises') && (
+        <Link
+          href="/franchises"
+          onClick={onNavigate}
+          title={collapsed ? 'Franchises' : undefined}
+          aria-label={collapsed ? 'Franchises' : undefined}
+          className={linkClass('/franchises')}
+        >
+          <Layers className="h-4 w-4 shrink-0 text-muted-foreground" />
+          {!collapsed && <span>Franchises</span>}
+        </Link>
+      )}
 
-      {NAV_ORDER.map((slug) => {
+      {NAV_ORDER.filter((slug) => !hidden.has(slug)).map((slug) => {
         const config = CATEGORIES[slug];
         const Icon = ICONS[config.icon] ?? Boxes;
         const href = `/${config.slug}`;
@@ -117,6 +123,17 @@ export function NavLinks({ onNavigate, collapsed = false }: NavLinksProps) {
           </Link>
         );
       })}
+
+      <Link
+        href="/settings"
+        onClick={onNavigate}
+        title={collapsed ? 'Settings' : undefined}
+        aria-label={collapsed ? 'Settings' : undefined}
+        className={cn(linkClass('/settings'), 'mt-2')}
+      >
+        <Settings className="h-4 w-4 shrink-0 text-muted-foreground" />
+        {!collapsed && <span>Settings</span>}
+      </Link>
     </>
   );
 }

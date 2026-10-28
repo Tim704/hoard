@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import { ImageOff, Star, Trophy } from 'lucide-react';
 
-import { formatRating } from '@/lib/rating';
+import { Score } from '@/components/prefs-provider';
 import type { ActivityWithMedia } from '@/lib/types';
 
 interface RankingListProps {
@@ -65,7 +65,7 @@ export function RankingList({ items }: RankingListProps) {
             {activity.rating != null && (
               <span className="inline-flex shrink-0 items-center gap-1 text-sm">
                 <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden />
-                {formatRating(activity.rating)}/10
+                <Score value={activity.rating} outOf />
               </span>
             )}
 

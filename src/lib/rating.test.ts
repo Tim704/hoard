@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatRating,
+  formatScore,
+  formatScoreOutOf,
   normalizeRating,
   nudgeRating,
   parseRatingInput,
@@ -41,5 +43,41 @@ describe('formatRating', () => {
     expect(formatRating(8)).toBe('8.0');
     expect(formatRating(7.5)).toBe('7.5');
     expect(formatRating(null)).toBe('—');
+  });
+});
+
+describe('formatScore', () => {
+  it('ten: one decimal', () => {
+    expect(formatScore(8.5, 'ten')).toBe('8.5');
+    expect(formatScore(8, 'ten')).toBe('8.0');
+    expect(formatScore(8)).toBe('8.0');
+  });
+
+  it('five: half the score to one decimal, with a star', () => {
+    expect(formatScore(8.5, 'five')).toBe('4.3★');
+    expect(formatScore(8.4, 'five')).toBe('4.2★');
+    expect(formatScore(8.3, 'five')).toBe('4.2★');
+    expect(formatScore(10, 'five')).toBe('5.0★');
+    expect(formatScore(0, 'five')).toBe('0.0★');
+    expect(formatScore(0.1, 'five')).toBe('0.1★');
+  });
+
+  it('hundred: whole number', () => {
+    expect(formatScore(8.5, 'hundred')).toBe('85');
+    expect(formatScore(10, 'hundred')).toBe('100');
+    expect(formatScore(0.1, 'hundred')).toBe('1');
+    expect(formatScore(7.3, 'hundred')).toBe('73');
+  });
+
+  it('a dash when unrated', () => {
+    expect(formatScore(null, 'five')).toBe('—');
+    expect(formatScore(NaN, 'hundred')).toBe('—');
+  });
+
+  it('formatScoreOutOf adds the scale', () => {
+    expect(formatScoreOutOf(8.5, 'ten')).toBe('8.5/10');
+    expect(formatScoreOutOf(8.5, 'five')).toBe('4.3★');
+    expect(formatScoreOutOf(8.5, 'hundred')).toBe('85/100');
+    expect(formatScoreOutOf(null, 'hundred')).toBe('—');
   });
 });
