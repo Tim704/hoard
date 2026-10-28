@@ -31,6 +31,8 @@ import { searchProvider, enrichResult } from '@/lib/apis';
 import { appendQueueOrder, revalidateCategory } from '@/lib/actions/shared';
 import { eventsForUpdate, recordEvent, recordEvents } from '@/lib/events';
 import { validProgress } from '@/lib/progress';
+import { getPrefs } from '@/lib/data-prefs';
+import { applyDiaryForUpdate, isFinishTransition } from '@/lib/diary';
 import {
   ActivityStateSchema,
   planStateRestore,
@@ -180,6 +182,8 @@ export async function updateManualEntry(
  * Update per-user state on an activity (status / rating / favorite / notes).
  * Verifies ownership first. When the status transitions to COMPLETED and no
  * finish date is recorded yet, stamps `finishedAt` with the current time.
+ * Finishing a run also logs a diary entry, and a score given right after
+ * lands on today's entry (src/lib/diary.ts).
  * Returns the state from before the change (`previous`) so a toast can offer
  * Undo through `restoreActivityState`.
  */
@@ -243,10 +247,18 @@ export async function updateActivity(
       { status: activity.status, rating: activity.rating },
       { status: patch.status, rating: patch.rating },
     );
-    await prisma.$transaction([
-      prisma.userMediaActivity.update({ where: { id }, data: patch as any }),
-      recordEvents(prisma, events),
-    ]);
+    // The diary (3.1) only cares about finishes and score changes.
+    const diaryPrefs =
+      isFinishTransition(activity.status, patch.status) || patch.rating !== undefined
+        ? await getPrefs(user.id)
+        : null;
+    await prisma.$transaction(async (tx) => {
+      await tx.userMediaActivity.update({ where: { id }, data: patch as any });
+      await recordEvents(tx, events);
+      if (diaryPrefs) {
+        await applyDiaryForUpdate(tx, activity, { status: patch.status, rating: patch.rating }, diaryPrefs);
+      }
+    });
 
     const slug = slugForDbCategory(activity.category as DbCategory);
     if (slug) revalidateCategory(slug);
@@ -393,10 +405,13 @@ export async function restoreActivity(undoToken: string): Promise<ActionResult> 
   }
 }
 
+/** How recent a diary entry must be for a status undo to take it back. */
+const UNDO_DIARY_MS = 15 * 60 * 1000;
+
 /**
  * Undo a status change: put back the state `updateActivity` reported as
  * `previous`. The client sends it, so it is validated (only status, rating,
- * queueOrder, finishedAt, tier, rankOrder and progress; sane values) and only
+ * queueOrder, finishedAt, tier, rankOrder, progress and rewatching; sane values) and only
  * ever applied to the caller's own activity. Writes events like any edit.
  */
 export async function restoreActivityState(
@@ -418,10 +433,21 @@ export async function restoreActivityState(
       stateOf(activity),
       parsed.data,
     );
-    await prisma.$transaction([
-      prisma.userMediaActivity.update({ where: { id }, data: data as any }),
-      recordEvents(prisma, events),
-    ]);
+    // Undoing a finish also takes back the diary entry it just wrote (3.1).
+    const unfinish =
+      parsed.data.status !== undefined && isFinishTransition(parsed.data.status, activity.status);
+    await prisma.$transaction(async (tx) => {
+      await tx.userMediaActivity.update({ where: { id }, data: data as any });
+      await recordEvents(tx, events);
+      if (unfinish) {
+        const latest = await tx.diaryEntry.findFirst({
+          where: { activityId: id, userId: user.id, createdAt: { gte: new Date(Date.now() - UNDO_DIARY_MS) } },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
+        });
+        if (latest) await tx.diaryEntry.delete({ where: { id: latest.id } });
+      }
+    });
 
     const slug = slugForDbCategory(activity.category as DbCategory);
     if (slug) revalidateCategory(slug);

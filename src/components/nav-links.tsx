@@ -12,6 +12,7 @@ import {
   Layers,
   LayoutDashboard,
   Library,
+  NotebookPen,
   Settings,
   Sparkles,
   Tv,
@@ -114,11 +115,22 @@ export function NavLinks({ onNavigate, collapsed = false }: NavLinksProps) {
       })}
 
       <Link
+        href="/diary"
+        onClick={onNavigate}
+        title={collapsed ? 'Diary' : undefined}
+        aria-label={collapsed ? 'Diary' : undefined}
+        className={cn(linkClass('/diary'), 'mt-2')}
+      >
+        <NotebookPen className="h-4 w-4 shrink-0 text-muted-foreground" />
+        {!collapsed && <span>Diary</span>}
+      </Link>
+
+      <Link
         href="/import"
         onClick={onNavigate}
         title={collapsed ? 'Import' : undefined}
         aria-label={collapsed ? 'Import' : undefined}
-        className={cn(linkClass('/import'), 'mt-2')}
+        className={linkClass('/import')}
       >
         <Upload className="h-4 w-4 shrink-0 text-muted-foreground" />
         {!collapsed && <span>Import</span>}

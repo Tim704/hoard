@@ -19,5 +19,6 @@
   "/add?text=Watch%20this%20https%3A%2F%2Fanilist.co%2Fmanga%2F30013",
   "/add?text=Frieren",
   "/books?open=does-not-exist",
-  "/import"
+  "/import",
+  "/diary"
 ]

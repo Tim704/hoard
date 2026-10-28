@@ -22,7 +22,7 @@ import { normalizeRating } from './rating';
 import { STATUSES, type Status } from './status';
 import { isTierEligible, TIERS, type Tier } from './tiers';
 
-export const SNAPSHOT_CHILDREN = ['activityEvent'] as const;
+export const SNAPSHOT_CHILDREN = ['activityEvent', 'diaryEntry', 'playSession'] as const;
 export type ChildModel = (typeof SNAPSHOT_CHILDREN)[number];
 
 /** A database row as Prisma returns it (column → value). */
@@ -100,6 +100,8 @@ export interface ActivityState {
   tier: Tier | null;
   rankOrder: number | null;
   progress: number | null;
+  /** 3.1: a repeat run in progress (Watch again / finishing flips it). */
+  rewatching: boolean;
 }
 
 /** The state a client may ask to restore: only these fields, each optional. */
@@ -112,6 +114,7 @@ export const ActivityStateSchema = z
     tier: z.enum(TIERS).nullable(),
     rankOrder: z.number().finite().nullable(),
     progress: z.number().int().min(0).max(100_000).nullable(),
+    rewatching: z.boolean(),
   })
   .partial()
   .strict();
@@ -127,6 +130,7 @@ export function stateOf(row: {
   tier: string | null;
   rankOrder: number | null;
   progress: number | null;
+  rewatching?: boolean;
 }): ActivityState {
   return {
     status: row.status as Status,
@@ -136,6 +140,7 @@ export function stateOf(row: {
     tier: row.tier as Tier | null,
     rankOrder: row.rankOrder,
     progress: row.progress,
+    rewatching: row.rewatching ?? false,
   };
 }
 

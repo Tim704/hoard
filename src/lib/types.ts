@@ -61,6 +61,11 @@ export interface ActivityWithMedia {
   progress: number | null;
   favorite: boolean;
   notes: string | null;
+  /** 3.5: platforms a game is owned on; books / manga / music format. */
+  ownedPlatforms: string[];
+  format: string | null;
+  /** 3.1: a repeat run is in progress. */
+  rewatching: boolean;
   /** The franchise / IP this title is grouped under, if any. */
   franchise: FranchiseRef | null;
   /** True when the user set the franchise by hand (auto-detection won't move it). */

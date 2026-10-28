@@ -19,6 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { mediaSubtitle } from '@/lib/media-meta';
+import { ownershipText } from '@/lib/ownership';
 import type { ActivityWithMedia, DisplayUnit } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -159,7 +160,7 @@ function ItemRow({
           )}
         </div>
         <div className="mt-1 text-sm text-muted-foreground">
-          {[media.year, subtitle].filter(Boolean).join(' · ')}
+          {[media.year, subtitle, ownershipText(activity)].filter(Boolean).join(' · ')}
         </div>
         <ProgressBar activity={activity} className="mt-1.5 max-w-48" />
       </TableCell>

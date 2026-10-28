@@ -11,6 +11,8 @@ import type { Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/prisma';
 import { getCategory, type CategorySlug } from '@/lib/categories';
+import { getPrefs } from '@/lib/data-prefs';
+import { isDiaryStatus, onFinished } from '@/lib/diary';
 import { recordEvent } from '@/lib/events';
 import { autoGroupAfterAdd } from '@/lib/franchise/auto';
 import { catalogueCreatePayload, fillOnlyUpdate } from '@/lib/media-upsert';
@@ -33,6 +35,11 @@ export interface AddOptions {
   favorite?: boolean;
   /** Skip franchise auto-grouping (bulk callers regroup once at the end). */
   skipFranchise?: boolean;
+  /**
+   * Don't log a diary entry for a title added as finished (imports write
+   * their own dated entries; see src/lib/diary.ts).
+   */
+  skipDiary?: boolean;
   eventKind?: 'added' | 'import';
   eventMeta?: Prisma.InputJsonValue;
   /**
@@ -65,6 +72,8 @@ export async function addMediaForUser(
   const cat = getCategory(slug);
   if (!cat) throw new Error('Unknown category.');
   const { status } = opts;
+  // Added as finished = finished today (3.1), unless the caller logs its own.
+  const diaryPrefs = !opts.skipDiary && isDiaryStatus(status) ? await getPrefs(userId) : null;
 
   const outcome = await prisma.$transaction(async (tx) => {
     const db = tx as any; // sanctioned dynamic model access (seven media tables)
@@ -133,6 +142,9 @@ export async function addMediaForUser(
       to: status,
       ...(opts.eventMeta !== undefined ? { meta: opts.eventMeta } : {}),
     });
+    if (diaryPrefs) {
+      await onFinished(tx, { id: created.id, userId, rating: created.rating, rewatching: false }, diaryPrefs);
+    }
     return { activityId: created.id, existing: false, media };
   });
 

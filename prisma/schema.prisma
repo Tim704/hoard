@@ -65,6 +65,8 @@ model User {
   franchises    Franchise[]
   events        ActivityEvent[]
   notifications Notification[]
+  diaryEntries  DiaryEntry[]
+  playSessions  PlaySession[]
 }
 
 model Session {
@@ -334,6 +336,13 @@ model UserMediaActivity {
   franchiseId     String?
   franchiseLocked Boolean @default(false)
 
+  // 3.5 ownership and format: the platforms a game is owned on (IGDB names or
+  // free text), and print|ebook|audio (books, manga) or vinyl|cd|digital (music).
+  ownedPlatforms String[]
+  format         String?
+  // 3.1: a repeat run is in progress; the next finish logs a rewatch.
+  rewatching     Boolean  @default(false)
+
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   franchise  Franchise?  @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
   book       Book?       @relation(fields: [bookId], references: [id], onDelete: Cascade)
@@ -344,7 +353,9 @@ model UserMediaActivity {
   videoGame  VideoGame?  @relation(fields: [videoGameId], references: [id], onDelete: Cascade)
   musicAlbum MusicAlbum? @relation(fields: [musicAlbumId], references: [id], onDelete: Cascade)
 
-  events ActivityEvent[]
+  events       ActivityEvent[]
+  diaryEntries DiaryEntry[]
+  playSessions PlaySession[]
 
   // A user can only add a given media item once per category.
   @@unique([userId, bookId])
@@ -381,6 +392,45 @@ model ActivityEvent {
 
   @@index([userId, at])
   @@index([activityId, at])
+}
+
+// ── Diary and play sessions ─────────────────────────────────────────────────
+//  One DiaryEntry per finished run (3.1 / 3.4): written when a title is
+//  finished (src/lib/diary.ts), by imports with dated logs, and by hand on
+//  /diary. `date` is a calendar day in the user's time zone (G10).
+//  PlaySession (3.6) is one sitting of a game.
+
+model DiaryEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  activityId String
+  date       String // YYYY-MM-DD
+  rating     Float?
+  rewatch    Boolean  @default(false)
+  review     String?
+  createdAt  DateTime @default(now())
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity UserMediaActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([activityId, date])
+}
+
+model PlaySession {
+  id         String   @id @default(cuid())
+  userId     String
+  activityId String
+  date       String // YYYY-MM-DD
+  minutes    Int?
+  note       String?
+  createdAt  DateTime @default(now())
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity UserMediaActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([activityId, date])
 }
 
 // ── Franchises ───────────────────────────────────────────────────────────────

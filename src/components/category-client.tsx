@@ -33,6 +33,7 @@ import {
   statusLabel,
   type Status,
 } from '@/lib/status';
+import { hasOwnership, matchesOwnership, ownershipChoices } from '@/lib/ownership';
 import { orderQueue } from '@/lib/queue';
 import { matchesTitle } from '@/lib/title';
 import { compareTierOrder, isTierEligible } from '@/lib/tiers';
@@ -123,6 +124,9 @@ export function CategoryClient({
     });
   const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  // 3.5: owned platform (games) or format (books, manga, music); ALL / NONE / a value.
+  const [ownedFilter, setOwnedFilter] = useState('ALL');
+  const ownedChoices = useMemo(() => ownershipChoices(slug, activities), [slug, activities]);
   // Track the selection by id so the dialog always shows fresh server data.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = activities.find((a) => a.id === selectedId) ?? null;
@@ -152,6 +156,7 @@ export function CategoryClient({
 
     const filtered = activities.filter((a) => {
       if (statusFilter !== 'ALL' && a.status !== statusFilter) return false;
+      if (!matchesOwnership(a, ownedFilter)) return false;
       // Matches every stored title (anime / manga: English, romaji and native).
       if (text && !matchesTitle(a.media, text)) return false;
       return true;
@@ -192,7 +197,7 @@ export function CategoryClient({
       return sorted.map((a) => (a.status === 'PLANNED' ? queue[q++] : a));
     }
     return sorted;
-  }, [activities, filter, statusFilter, sort, grouped, titleOf]);
+  }, [activities, filter, statusFilter, ownedFilter, sort, grouped, titleOf]);
 
   // Tier list positions across the whole category (stable inside sections).
   const ranks = useMemo(() => {
@@ -330,6 +335,26 @@ export function CategoryClient({
             ))}
           </SelectContent>
         </Select>
+
+        {hasOwnership(slug) && (slug !== 'games' || ownedChoices.length > 0) && (
+          <Select value={ownedFilter} onValueChange={setOwnedFilter}>
+            <SelectTrigger
+              aria-label={slug === 'games' ? 'Owned on' : 'Format'}
+              className="order-5 h-10 w-full md:order-none md:h-9 md:w-40"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">{slug === 'games' ? 'Any platform' : 'Any format'}</SelectItem>
+              {ownedChoices.map((c) => (
+                <SelectItem key={c.value} value={c.value}>
+                  {c.label}
+                </SelectItem>
+              ))}
+              <SelectItem value="NONE">{slug === 'games' ? 'No platform set' : 'No format set'}</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
 
         <div className="order-3 flex items-center gap-2 md:order-none">
           <Button

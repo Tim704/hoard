@@ -137,3 +137,38 @@ const WANT_VERB: Record<CategorySlug, string> = {
 export function addChoiceLabels(slug: CategorySlug): { done: string; want: string } {
   return { done: statusLabel('COMPLETED', slug), want: `Want to ${WANT_VERB[slug]}` };
 }
+
+const AGAIN_VERB: Record<CategorySlug, string> = {
+  movies: 'Watch',
+  tv: 'Watch',
+  anime: 'Watch',
+  books: 'Read',
+  manga: 'Read',
+  games: 'Play',
+  music: 'Listen',
+};
+
+/** "Watch again" · "Read again" · "Play again" · "Listen again" (3.1). */
+export function againLabel(slug: CategorySlug): string {
+  return `${AGAIN_VERB[slug]} again`;
+}
+
+const DONE_VERB: Record<CategorySlug, string> = {
+  movies: 'Watched',
+  tv: 'Watched',
+  anime: 'Watched',
+  books: 'Read',
+  manga: 'Read',
+  games: 'Played',
+  music: 'Listened',
+};
+
+/** The past tense for one run: "Watched 3×", "Read", "Played", "Listened". */
+export function doneVerb(slug: CategorySlug): string {
+  return DONE_VERB[slug];
+}
+
+/** "Started watching again" etc. (the `rewatch` event). */
+export function againStartedLabel(slug: CategorySlug): string {
+  return `Started ${WANT_VERB[slug]}ing again`;
+}

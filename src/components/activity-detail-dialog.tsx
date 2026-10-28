@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ImageOff, Layers, Loader2, PencilLine, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { ActivityExtras } from '@/components/activity-extras';
 import { ManualFields } from '@/components/manual-fields';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { ProgressField } from '@/components/progress-field';
@@ -337,14 +338,14 @@ export function ActivityDetailDialog({
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       {/* Mobile: dock to the bottom edge as a sheet — the body scrolls inside
-          while the Save/Remove footer stays pinned. sm+ restores the centered
-          dialog exactly as before. */}
-      <DialogContent className="bottom-0 top-auto flex max-h-[92dvh] max-w-full translate-y-0 flex-col overflow-hidden rounded-t-2xl border-b-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:bottom-auto sm:top-[50%] sm:grid sm:max-h-none sm:max-w-2xl sm:translate-y-[-50%] sm:overflow-visible sm:border-b sm:p-6">
+          while the Save/Remove footer stays pinned. sm+ is the centered
+          dialog, which scrolls the same way once the history grows. */}
+      <DialogContent className="bottom-0 top-auto flex max-h-[92dvh] max-w-full translate-y-0 flex-col overflow-hidden rounded-t-2xl border-b-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:bottom-auto sm:top-[50%] sm:max-h-[90dvh] sm:max-w-2xl sm:translate-y-[-50%] sm:border-b sm:p-6">
         <DialogHeader>
           <DialogTitle className="pr-6">{title}</DialogTitle>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 grid gap-5 overflow-y-auto sm:grid-cols-[160px_1fr] sm:overflow-visible">
+        <div className="min-h-0 flex-1 grid gap-5 overflow-y-auto sm:grid-cols-[160px_1fr] sm:items-start">
           {/* Poster + metadata — a compact horizontal row on phones, the
               original stacked column at sm+. */}
           <div className="flex gap-4 sm:block sm:space-y-3">
@@ -500,6 +501,8 @@ export function ActivityDetailDialog({
                 rows={3}
               />
             </div>
+
+            <ActivityExtras key={activity.id} activity={activity} disabled={busy} onClose={onClose} />
           </div>
         </div>
 

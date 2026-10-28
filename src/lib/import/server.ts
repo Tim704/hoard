@@ -14,6 +14,7 @@ import { searchBooksByIsbn, searchBooksByTitle } from '@/lib/apis/books';
 import { detailsConfigured, isLookupSkipped } from '@/lib/apis/details';
 import { searchMovies } from '@/lib/apis/tmdb';
 import { getCategory, type CategorySlug } from '@/lib/categories';
+import { writeImportDiary } from '@/lib/diary';
 import { recordEvent, recordEvents } from '@/lib/events';
 import { addMediaForUser, newManualExternalId } from '@/lib/library/add';
 import { manualResult, parseManualInput } from '@/lib/manual';
@@ -143,11 +144,15 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
       notes: row.notes ?? null,
       favorite: row.favourite === true,
       skipFranchise: true,
+      skipDiary: true,
       eventKind: 'import',
       eventMeta: meta,
       metaFetchedAt,
     });
-    if (!existing) return { outcome: 'added', activityId };
+    if (!existing) {
+      await prisma.$transaction((tx) => writeImportDiary(tx, userId, activityId, row));
+      return { outcome: 'added', activityId };
+    }
     if (!opts.updateExisting) return { outcome: 'unchanged', activityId };
     const changed = await updateExisting(userId, activityId, row);
     return { outcome: changed ? 'updated' : 'unchanged', activityId };
@@ -159,7 +164,8 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
 /**
  * Apply an import row to an activity the user already has, with the same
  * events updateActivity / setProgress record (plus one `import` event), in a
- * transaction. True when something changed.
+ * transaction, and add its diary days the activity doesn't have yet (imports
+ * never log a "today" entry). True when something changed.
  */
 async function updateExisting(userId: string, activityId: string, row: CommitRow): Promise<boolean> {
   return prisma.$transaction(async (tx) => {
@@ -186,7 +192,9 @@ async function updateExisting(userId: string, activityId: string, row: CommitRow
         favorite: row.favourite === true,
       },
     );
-    if (Object.keys(plan.patch).length === 0) return false;
+    // The row's dated log (or finish day) joins the diary, skipping known days.
+    const logged = await writeImportDiary(tx, userId, activityId, row);
+    if (Object.keys(plan.patch).length === 0) return logged > 0;
 
     const data: Prisma.UserMediaActivityUpdateInput = { ...plan.patch };
     if (plan.queue === 'leave') data.queueOrder = null;

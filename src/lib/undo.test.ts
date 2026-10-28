@@ -83,6 +83,14 @@ describe('snapshot round trip', () => {
     }
   });
 
+  it('snapshots diary entries and play sessions with the activity', () => {
+    expect(SNAPSHOT_CHILDREN).toContain('diaryEntry');
+    expect(SNAPSHOT_CHILDREN).toContain('playSession');
+    const snapshot = takeSnapshot(seed(), 'act1');
+    const models = restorePlan(snapshot, 'u1').map((s) => s.model);
+    expect(models).toEqual(['userMediaActivity', 'activityEvent', 'diaryEntry', 'playSession']);
+  });
+
   it('reads the activity and each child table by activity id', () => {
     const plan = snapshotPlan('a');
     expect(plan.activity).toEqual({ model: 'userMediaActivity', where: { id: 'a' } });
@@ -121,7 +129,7 @@ describe('snapshot round trip', () => {
 });
 
 describe('UndoStore', () => {
-  const snapshot = { activity: { id: 'a', userId: 'u1' }, children: { activityEvent: [] } } as ActivitySnapshot;
+  const snapshot = { activity: { id: 'a', userId: 'u1' }, children: { activityEvent: [], diaryEntry: [], playSession: [] } } as ActivitySnapshot;
 
   it('hands the snapshot back only to its owner, and only while fresh', () => {
     const store = new UndoStore(1000, 10);
@@ -157,6 +165,7 @@ describe('status-change undo', () => {
     tier: null,
     rankOrder: null,
     progress: 24,
+    rewatching: false,
   };
 
   it('accepts only the restorable fields', () => {
@@ -209,6 +218,16 @@ describe('status-change undo', () => {
     expect(events.map((e) => [e.kind, e.from, e.to])).toEqual([['score', '8', '7.3']]);
     expect(planStateRestore(ids, current, { rating: 8.04 }).events).toEqual([]);
     expect(planStateRestore(ids, current, { rating: null }).data.rating).toBeNull();
+  });
+
+  it('puts a rewatch flag back (undoing Watch again or a rewatch finish)', () => {
+    expect(ActivityStateSchema.safeParse({ rewatching: 'yes' }).success).toBe(false);
+    const { data } = planStateRestore(ids, { ...current, status: 'CONSUMING', rewatching: true }, {
+      status: 'COMPLETED',
+      rewatching: false,
+      progress: 24,
+    });
+    expect(data).toMatchObject({ status: 'COMPLETED', rewatching: false, progress: 24 });
   });
 
   it('writes no events when nothing changes', () => {

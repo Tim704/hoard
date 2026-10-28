@@ -9,6 +9,8 @@
 //  so Settings → System shows them.
 // ───────────────────────────────────────────────────────────────────────────
 
+import { backfillDiary } from '@/lib/jobs/diary-backfill';
+
 export interface MigrationStep {
   /** Stable, unique id, e.g. "003-diary-from-finished". */
   id: string;
@@ -17,6 +19,7 @@ export interface MigrationStep {
 
 export const MIGRATION_STEPS: MigrationStep[] = [
   // Later tasks append steps here.
+  { id: '003-diary-from-finished', run: async () => void (await backfillDiary()) },
 ];
 
 /** Run every step in order. Throws a summary if any step failed. */
