@@ -20,7 +20,7 @@ below start with `/api/v1`.
    ```
 
 Cookies are ignored: being signed in to Hoard in a browser does not authorise API calls.
-You can have up to 10 tokens. **Revoke** deletes a token, and requests that use it get
+You can have up to 10 tokens, and create at most 5 a minute (30 a day). **Revoke** deletes a token, and requests that use it get
 `401` from then on. The Settings list shows when each token was created and last used
 (updated at most once a minute).
 
@@ -36,7 +36,12 @@ carries:
 - `X-RateLimit-Remaining: <requests left in the current minute>`
 
 Over the limit you get `429 Too Many Requests` with a `Retry-After` header (seconds).
-The counter lives in the server's memory and starts over when Hoard restarts.
+
+Failed sign-ins are limited too: after 30 requests in a minute from one address that
+answer `401` (no token, a malformed one, or an unknown or revoked one), that address gets
+`429` with `Retry-After` until the minute has passed, before any token is checked.
+
+Both counters live in the server's memory and start over when Hoard restarts.
 
 ## Errors
 
@@ -46,13 +51,13 @@ Errors are JSON with a stable `code` and a readable `message`:
 { "error": { "code": "unauthorized", "message": "This token is unknown or has been revoked." } }
 ```
 
-| Status | `code`         | When |
-|--------|----------------|------|
-| 400    | `bad_request`  | An unknown `category` or `status`, a `limit` that isn't 1–100, or a cursor Hoard didn't issue. |
+| Status | `code`         | When                                                                                                                                                                                                |
+|--------|----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 400    | `bad_request`  | `/library` only: an unknown `category` or `status`, a `limit` that isn't a whole number of at least 1, or a cursor Hoard didn't issue.                                                              |
 | 401    | `unauthorized` | No `Authorization: Bearer` header, a malformed token, or an unknown or revoked one. The response has `WWW-Authenticate: Bearer realm="hoard"` (with `error="invalid_token"` when a token was sent). |
-| 404    | `not_found`    | The title isn't in your library, or the category doesn't exist. |
-| 429    | `rate_limited` | More than 60 requests in a minute. See `Retry-After`. |
-| 500    | `internal`     | Something broke on the server. Try again later. |
+| 404    | `not_found`    | The title isn't in your library (`/activity`), or the category doesn't exist (`/tiers`, `/queue`).                                                                                                  |
+| 429    | `rate_limited` | More than 60 requests in a minute on the token, or too many failed sign-ins from your address. See `Retry-After`.                                                                                   |
+| 500    | `internal`     | Something broke on the server. Try again later.                                                                                                                                                     |
 
 Responses are never cached (`Cache-Control: no-store`).
 
@@ -64,6 +69,9 @@ Responses are never cached (`Cache-Control: no-store`).
 - **`score`**: 0.0–10.0, or `null` when unscored (whatever score format you display in
   Hoard, the API always uses 0–10).
 - **`tier`**: `S`, `A`, `B`, `C`, `D`, `F` or `null`.
+- **Hidden sections:** `/library`, `/activity`, `/tiers` and `/queue` include sections
+  hidden in Settings (hiding is only a display choice); `/stats` leaves them out, like the
+  Stats page.
 - Times are ISO 8601 in UTC (`2026-10-28T09:30:00.000Z`); diary days are calendar days
   (`2026-10-28`) in your time zone.
 
@@ -116,7 +124,7 @@ Your titles, oldest added first, one page at a time.
 |------------|---------|
 | `category` | Only this section (optional). |
 | `status`   | Only this status (optional, any case). |
-| `limit`    | Titles per page, 1–100 (default 50). |
+| `limit`    | Titles per page (default 50). Values over 100 are treated as 100. |
 | `cursor`   | The `nextCursor` of the previous page. |
 
 ```json
@@ -146,8 +154,8 @@ done
 
 ### `GET /api/v1/activity/:id`
 
-One title with its diary (one entry per finished run, newest first) and, for games, its
-play sessions.
+One title with its diary (one entry per finished run, newest first) and its play
+sessions (newest first; always empty except for games).
 
 ```json
 {
@@ -169,7 +177,10 @@ curl -s -H "Authorization: Bearer $HOARD_TOKEN" \
 ### `GET /api/v1/tiers/:category`
 
 The section's tier list: each tier in order with 1-based places, then the titles not
-placed yet (`unranked`: finished, retired or dropped titles without a tier).
+placed yet (`unranked`: finished, retired or dropped titles without a tier). A placed
+title that is being rewatched is left out until it is finished again, as on the Tiers
+page. In this and the queue's items, `title` is the main stored title, not the title
+language picked in Settings.
 
 ```json
 {

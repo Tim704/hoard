@@ -1,10 +1,27 @@
 # Roadmap
 
+> **Status (28 Oct 2026):** everything below is built, the four foundations and phases 1–9,
+> except the [Skipped](#skipped-and-why) table. Two of its rows went in the way the table
+> itself suggested: "hide sections I don't use" is part of the Settings page (F4), and the
+> week start setting arrived with the calendar (5.6). [`FEATURES.md`](FEATURES.md)
+> describes the app as it is now; the build's decisions are in
+> `docs/superpowers/specs/2026-10-28-roadmap-build.md`.
+>
+> **Built but inactive until the owner adds keys** (each shows a "not configured" note
+> until then):
+> - **8.1 Steam** library import and nightly playtime: `STEAM_API_KEY`.
+> - **2.7 Trakt** import: `TRAKT_CLIENT_ID`.
+> - **8.2 AniList push** (sending your changes to AniList): `ANILIST_CLIENT_ID`,
+>   `ANILIST_CLIENT_SECRET` and `HOARD_SECRET`. The nightly AniList *pull* needs no key.
+>
+> The AI features (the critic, 2.8 paste a list, 6.1's verdict, 7.1 recommendations) need
+> `GEMINI_API_KEY`, as before. See README → Configuration for every variable.
+
 This roadmap ranks a list of feature ideas drawn from other trackers: Ryot, Yamtrack,
 StoryGraph, Letterboxd, Serializd, Backloggd, Hardcover, Trakt, TV Time, AniList apps,
 NeoDB and Sequel. Each idea is ranked by how useful it would be **in Hoard** and what it
-would cost **in this codebase**. Written against commit `79a94d5`; `FEATURES.md` describes
-what exists today.
+would cost **in this codebase**. Written against commit `79a94d5`, before the build; the
+text below is kept as it was planned.
 
 **Value** (★1–5) is judged for how Hoard is used: a private tracker on a Raspberry Pi for
 Tim and maybe a few others, across all seven kinds of media. Ranking is the heart of the

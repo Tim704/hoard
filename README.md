@@ -11,30 +11,38 @@ the app gently roast you for it.
 
 ## ✨ Features
 
-- **Seven media domains**, each with its own first-class catalogue and metadata:
-  - 📖 **Books** (OpenLibrary)
-  - 🎬 **Movies** (TMDB)
-  - 📺 **TV** (TMDB)
-  - ✨ **Anime** (AniList)
-  - 📚 **Manga** (AniList)
-  - 🎮 **Games** (IGDB)
-  - 💿 **Music** (Last.fm)
-- **List & grid views** — flip between a dense table and a poster wall, filter by
-  status, search your collection, and sort by recency, rating, title, or ranking.
-- **Gloriously unhinged statuses** — under the hood every item is just `PLANNED`,
-  `CONSUMING`, `COMPLETED`, `DROPPED`, or `ON_HOLD`. On screen those become things
-  like *"Hoarding for the Apocalypse"*, *"Actively Hyperfixating"*, *"Conquered &
-  Digested"*, or *"Banished to the Shadow Realm"*. Each item's label is randomly
-  chosen but **stable** (seeded by its id) so it never flickers between renders.
-- **1–10 ratings** plus a **hidden Elo Arena**. Give two items the *same* 1–10
-  score, then head to the **Arena** to settle ties head-to-head ("Which is
-  better?"). Each duel updates a hidden Elo rating that powers a dynamic 1..N
-  **ranking** of your taste.
-- **AI critic (Gemini)** — hit **Roast my taste** to have an AI savagely (but
-  PG-13) review your top picks, or **Recommend a gem** to get a single tasteful,
-  hidden-gem suggestion based on what you've ranked highest.
-- **Multi-user** — cookie-based sessions, bcrypt-hashed passwords; everyone's
-  hoard is their own.
+A short tour; [`FEATURES.md`](FEATURES.md) describes everything in detail.
+
+- **Seven media domains**, each with its own catalogue, search source and details:
+  📖 Books (OpenLibrary), 🎬 Movies and 📺 TV (TMDB), ✨ Anime and 📚 Manga (AniList),
+  🎮 Games (IGDB) and 💿 Albums (Last.fm). Wording follows the medium (*Unread / Reading /
+  Read*, *Unplayed / Playing / Beaten*…), across six statuses: Planned, Ongoing,
+  Completed, Paused, Retired and Dropped.
+- **Ranking is the heart of it:** scores from 0.0 to 10.0 (shown out of 10, as stars or
+  out of 100), a hand-placed **S–F tier list** per section, and an **Arena** of
+  head-to-head duels that orders titles within a tier, challenges tier borders and picks
+  your best of the year. TV seasons get their own tier lists.
+- **Getting titles in:** search, select several, add by link or barcode, Search
+  everything (`/`), a Cmd/Ctrl+K palette, hand-made entries, and imports from Hoard CSV,
+  AniList, Letterboxd, Goodreads, StoryGraph, MyAnimeList, Trakt, Steam, any CSV, or a
+  pasted list read by AI.
+- **Tracking:** progress counters, TV seasons and episodes, rewatches, a dated diary with
+  reviews, per-title history, play sessions, owned platforms and formats, tags, linked
+  notes (`[[Title]]`), franchises grouped across media with watch order.
+- **Deciding what's next:** Up next queues, a "what should I start tonight?" picker,
+  where to stream in your region, a release calendar with a private iCal feed,
+  countdowns, new-season alerts and notifications (in-app, ntfy, Discord).
+- **Stats:** charts, streaks, a year in review (PNG and share link), goals, taste trends,
+  compare periods, people stats and a taste profile.
+- **AI (Gemini, optional):** a roast of your taste, recommendations across media, list
+  reading and a year verdict.
+- **Lists and sharing:** custom lists shared with other users, reference checklists (top
+  250 films and more), saved views, read-only share links, and opt-in compare, watch
+  together and an activity feed between users of the same Hoard.
+- **Your data:** CSV, full JSON and Markdown (Obsidian) exports, a read-only token API
+  ([`docs/API.md`](docs/API.md)), Steam / AniList / Last.fm accounts, nightly backups.
+- **Multi-user and private:** cookie sessions, bcrypt-hashed passwords; everyone's hoard
+  is their own unless they opt in to sharing. Installable as an app on phones.
 
 ---
 
@@ -46,10 +54,14 @@ the app gently roast you for it.
 | Language     | TypeScript (strict)                                           |
 | UI           | Tailwind CSS + shadcn/ui (zinc dark theme), lucide-react      |
 | Toasts       | sonner                                                        |
-| ORM / DB     | Prisma 5 + PostgreSQL 16                                       |
+| ORM / DB     | Prisma 5 + PostgreSQL 16                                      |
 | Auth         | Custom cookie sessions + bcryptjs                             |
 | AI           | Google Gemini (`@google/genai`)                               |
 | Validation   | zod                                                           |
+| Drag & drop  | @dnd-kit                                                      |
+| Files        | fflate (zip import/export), html-to-image (PNG export)        |
+| Barcodes     | BarcodeDetector, with @zxing/browser as a fallback            |
+| Tests        | Vitest (unit), playwright-core + local Chrome (smoke)         |
 | Container    | Docker (multi-stage) + docker-compose                         |
 
 ---
@@ -59,7 +71,7 @@ the app gently roast you for it.
 This is the easiest way to run Hoard — including on a Raspberry Pi.
 
 ```bash
-# 1. Get the env file and fill in your API keys (see "API keys" below).
+# 1. Get the env file and fill in your API keys (see "Configuration" below).
 cp .env.example .env
 $EDITOR .env
 
@@ -77,10 +89,12 @@ docker compose up -d --build
 #    The first account is the owner (it gets backup warnings).
 ```
 
-The `app` container runs `prisma db push` on startup, which **idempotently syncs
+On startup the `app` container ([`docker-entrypoint.sh`](docker-entrypoint.sh)) runs
+the SQL files in `prisma/sql/` and then `prisma db push`, which **idempotently syncs
 the schema** to the Postgres database before the server boots — so there are no
-manual migration steps. Data lives in the named `pgdata` volume and survives
-restarts.
+manual migration steps. Backfills that need new columns run once, as the `migration`
+job, when the app starts (see [Scheduled jobs](#-scheduled-jobs)). Data lives in the
+named `pgdata` volume and survives restarts.
 
 > **Raspberry Pi / ARM64:** both the Postgres and app images build and run
 > natively as `arm64` on a Pi — no emulation. The Prisma schema already declares
@@ -150,10 +164,24 @@ There is no separate jobs container. The app starts an in-process scheduler
 (`src/instrumentation.ts` → `src/lib/jobs/`) that ticks every minute and runs
 each job at its time in the server's `TZ`:
 
-| Job            | When              | What it does                                         |
-| -------------- | ----------------- | ---------------------------------------------------- |
-| `migration`    | at every startup  | Idempotent data backfills that need new columns      |
-| `backup-watch` | 09:00             | Warns the owner if the newest backup is over 26 h old |
+| Job             | When          | What it does                                                    |
+| --------------- | ------------- | --------------------------------------------------------------- |
+| `migration`     | every startup | One-off backfills that need new columns; each step runs once    |
+| `metadata`      | 03:30         | Refreshes title details older than 30 days (up to 1000 a night) |
+| `new-seasons`   | 04:00         | Refreshes shows you watch, finds new seasons, caches sequels    |
+| `steam`         | 04:30         | Updates Steam playtime of linked accounts                       |
+| `lastfm`        | 05:00         | Suggests "Mark as Listened?" from Last.fm plays (300 a night)   |
+| `anilist-sync`  | 05:30         | Pulls the AniList lists of users with an AniList username       |
+| `taste-profile` | Sundays 05:45 | Rebuilds every user's taste profile                             |
+| `releases`      | 06:00         | Notifies about titles out today and new episodes                |
+| `airing`        | 06:30         | Refreshes anime's next airing episode (after `releases`)        |
+| `backup-watch`  | 09:00         | Warns the owner if the newest backup is over 26 h old           |
+
+The times live in [`src/lib/jobs/times.ts`](src/lib/jobs/times.ts). A job whose key is
+missing does nothing (`steam` without `STEAM_API_KEY`, `lastfm` without `LASTFM_API_KEY`)
+or skips that provider (`metadata` and `new-seasons` without TMDB, IGDB or Last.fm keys),
+and records a normal run. Users can sync their own Steam, Last.fm and AniList accounts
+at any time from Settings → Accounts.
 
 - A run missed while the server was down runs **once** on the next start, not
   once per missed day.
@@ -169,12 +197,16 @@ each job at its time in the server's `TZ`:
 
 ### Notifications
 
-Notifications appear under the bell in the header. Each user can also push them
-to their own [ntfy](https://ntfy.sh) topic URL and/or a Discord channel webhook
-(Settings → Notifications, public https URLs only (no localhost or private
-IP addresses), with a "Send test" button). Pushes
-time out after 5 seconds; failures are recorded on the notification, never
-thrown.
+Notifications appear under the bell in the header: releases and new episodes
+(the `releases` job), new seasons (`new-seasons`), Last.fm "Mark as Listened?"
+suggestions (`lastfm`), AniList sync errors, lists shared with you and, for the owner
+only, backup problems (`backup-watch`).
+
+Each user can also push them to their own [ntfy](https://ntfy.sh) topic URL and/or a
+Discord channel webhook (Settings → Notifications: public https URLs only, no
+localhost or private IP addresses, with a "Send test" button) and pick which kinds are
+pushed; the bell always shows all of them. Pushes time out after 5 seconds; failures
+are recorded on the notification, never thrown.
 
 ---
 
@@ -190,60 +222,109 @@ npm install
 #    Set DATABASE_URL in your environment / .env, e.g.
 #    DATABASE_URL=postgresql://hoard:password@localhost:5432/hoard?schema=public
 
-# 3. Sync the schema to the database.
+# 3. Sync the schema to the database. (A database from before the roadmap
+#    build needs the prisma/sql files first, as the container does:
+#    for f in prisma/sql/*.sql; do npx prisma db execute --file "$f" --schema prisma/schema.prisma; done)
 npm run db:push
 
-# 4. Run the dev server.
+# 4. Optional: the demo users and library (see "Seeding" below).
+npx prisma db seed
+
+# 5. Run the dev server.
 npm run dev
 # → http://localhost:3000
 ```
 
+The scheduler starts with the server. Set `HOARD_SCHEDULER=off` if you don't want
+nightly jobs or the startup backfills while debugging.
+
 Other handy scripts:
 
-| Script               | Purpose                                  |
-| -------------------- | ---------------------------------------- |
-| `npm run build`      | `prisma generate` + production build     |
-| `npm run start`      | Start the production server              |
-| `npm run db:push`    | Push the Prisma schema to the DB         |
-| `npm run db:studio`  | Open Prisma Studio                       |
-| `npm run lint`       | Lint with Next's ESLint config           |
+| Script                | Purpose                                                                  |
+| --------------------- | ------------------------------------------------------------------------ |
+| `npm run build`       | `prisma generate` + production build                                     |
+| `npm run start`       | Start the production server                                              |
+| `npm test`            | Run the Vitest unit tests                                                |
+| `npm run smoke`       | Log in as `demo` and visit every page in Chrome (needs a running server) |
+| `npm run lint`        | Lint with Next's ESLint config                                           |
+| `npm run db:push`     | Push the Prisma schema to the DB                                         |
+| `npm run db:generate` | Regenerate the Prisma client                                             |
+| `npm run db:studio`   | Open Prisma Studio                                                       |
 
 ---
 
-## 🔑 API keys
+## 🔑 Configuration
 
-Hoard talks to several free public APIs. Fill these into your `.env` (copied from
-`.env.example`). The app degrades gracefully — a category whose key is missing
-simply reports a friendly error when you search it.
+Everything is set in `.env` (copied from [`.env.example`](.env.example), which has
+the same notes); `docker-compose.yml` passes each variable to the container that needs
+it. Only the database settings are required. Every other variable is optional: a
+feature whose key is missing shows a friendly "not configured" message and the rest of
+the app keeps working.
 
-| Service              | Env var(s)                              | Where to get it                                                            |
-| -------------------- | --------------------------------------- | -------------------------------------------------------------------------- |
-| **TMDB** (movies/TV) | `TMDB_API_KEY`                          | <https://www.themoviedb.org/settings/api> (use the **API Key v3 auth**)    |
-| **IGDB** (games)     | `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`  | Register a Twitch app: <https://dev.twitch.tv/console/apps>                 |
-| **Last.fm** (music)  | `LASTFM_API_KEY`                        | <https://www.last.fm/api/account/create>                                   |
-| **Gemini** (AI)      | `GEMINI_API_KEY` (`GEMINI_MODEL` opt.)  | <https://aistudio.google.com/app/apikey>                                   |
-| **Google Books**     | `GOOGLE_BOOKS_API_KEY` (optional)       | <https://console.cloud.google.com/apis/library/books.googleapis.com>       |
+### Database and server
 
-**No key required:**
+| Variable                                            | Default                         | What it does                                                                                                 |
+| --------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | required                        | The `db` container's database; the backup service logs in with them too                                      |
+| `DATABASE_URL`                                      | required                        | How the app reaches Postgres; must agree with the three above. With `connection_limit`, keep it at 3 or more |
+| `HOARD_PUBLISH`                                     | `3000:3000`                     | Host port binding for the app. Behind a tunnel use a localhost port, e.g. `127.0.0.1:3010:3000`              |
+| `HOARD_PUBLIC_URL`                                  | `https://hoard.timhufnagel.org` | Hoard's outside address: share links, the iCal feed, links in notifications, the AniList OAuth redirect      |
+| `TZ`                                                | `Europe/Berlin`                 | Server time zone: job times, the nightly backup, and day boundaries for users who haven't picked a time zone |
+| `HOARD_SCHEDULER`                                   | on                              | `off` disables the in-process scheduler (local debugging; not passed through compose)                        |
 
-- **Anime & Manga** use the [AniList GraphQL API](https://anilist.co) — no key, nothing to configure.
-- **Books** default to [OpenLibrary](https://openlibrary.org), which needs no key.
-  (`GOOGLE_BOOKS_API_KEY` is optional and only relevant if you switch the books
-  provider to Google Books.)
+### Backups
 
-The AI roast/recommend feature is the only one that's fully optional: without
-`GEMINI_API_KEY`, the rest of the app works fine and the AI critic simply tells
-you it isn't configured.
+| Variable                               | Default            | What it does                                                                                                        |
+| -------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `HOARD_BACKUP_DIR`                     | `../backups/hoard` | Host folder for the dumps (relative to this checkout); the app mounts it read-only. Create it before the first `up` |
+| `HOARD_BACKUP_UID`, `HOARD_BACKUP_GID` | `1000`             | User and group the backup service runs as, so the dumps belong to you                                               |
+| `BACKUP_HOUR`                          | `3`                | Hour of the nightly dump (0–23, in `TZ`)                                                                            |
+
+### Search sources
+
+| Service     | Variable(s)                            | Enables                                                                                 | Where to get it                                             |
+| ----------- | -------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **TMDB**    | `TMDB_API_KEY`                         | Movies and TV: search, details, seasons, where to stream, Letterboxd and Trakt matching | <https://www.themoviedb.org/settings/api> (API Key v3 auth) |
+| **IGDB**    | `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET` | Games: search, details, time to beat, Steam matching                                    | A Twitch app: <https://dev.twitch.tv/console/apps>          |
+| **Last.fm** | `LASTFM_API_KEY`                       | Albums: search and details, "Mark as Listened?" suggestions                             | <https://www.last.fm/api/account/create>                    |
+
+Without one of these, that section's search reports that it isn't configured and its
+nightly lookups are skipped. **No key required:** anime and manga use the
+[AniList GraphQL API](https://anilist.co), and books use
+[OpenLibrary](https://openlibrary.org). `GOOGLE_BOOKS_API_KEY` is still listed in
+`.env.example` and passed through compose, but nothing reads it: books always come from
+OpenLibrary.
+
+### Optional features
+
+| Variable(s)                                                   | Enables                                                                                                                                                            | Without it                                           |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| `GEMINI_API_KEY` (`GEMINI_MODEL`, default `gemini-2.5-flash`) | The AI critic, Recommend across media, Paste a list (import and reference lists) and the year-in-review verdict. <https://aistudio.google.com/app/apikey>          | Those buttons say the AI isn't configured            |
+| `TRAKT_CLIENT_ID`                                             | The Trakt import (public profiles). Create an app at <https://trakt.tv/oauth/applications>                                                                         | The Trakt source is disabled with a note             |
+| `STEAM_API_KEY`                                               | Steam library import and the nightly playtime job. <https://steamcommunity.com/dev/apikey>                                                                         | Settings → Accounts → Steam asks the owner for a key |
+| `ANILIST_CLIENT_ID`, `ANILIST_CLIENT_SECRET`                  | Pushing anime and manga changes to AniList. Register a client at <https://anilist.co/settings/developer> with the redirect `${HOARD_PUBLIC_URL}/api/oauth/anilist` | No push; the nightly AniList pull still works        |
+| `HOARD_SECRET`                                                | Encrypts saved OAuth tokens (AES-256-GCM): 32+ random characters, e.g. `openssl rand -base64 48`. Needed for the AniList push; changing it means reconnecting      | No token is ever stored, so the push stays off       |
+
+On hoard.timhufnagel.org the Steam, Trakt and AniList-push keys (`STEAM_API_KEY`,
+`TRAKT_CLIENT_ID`, `ANILIST_CLIENT_ID`, `ANILIST_CLIENT_SECRET`, `HOARD_SECRET`) have not
+been added yet; those features are built and wait for them.
+
+Development only: `HOARD_BACKUP_MOUNT` points the app at another backups folder (default
+`/backups`), and `BASE_URL`, `CHROME_PATH`, `SMOKE_USER` and `SMOKE_PASSWORD` steer
+`npm run smoke`.
 
 ---
 
 ## 🌱 Seeding a demo user
 
-A tiny, idempotent seed creates a demo account so you can log in without
-registering, plus a small demo library (books, movies and anime with scores,
-tiers and an Up next queue) so every page has content and `npm run smoke` is
-reproducible. It only inserts rows that don't exist yet; catalogue rows use
-`demo-` external ids.
+A small, idempotent seed creates a demo account so you can log in without
+registering, plus a demo library (books, movies, anime and a TV show with scores,
+tiers, an Up next queue, tags, seasons, a custom list, a reference list, a goal, a
+saved view and share links) so every page has content and `npm run smoke` is
+reproducible. It also creates a second user, `demo2`, opted in to compare and the
+feed, for trying the friends features. It only inserts rows that don't exist yet;
+catalogue rows use `demo-` external ids. It is meant for local use; production never
+runs it.
 
 ```bash
 # Local (uses tsx via the prisma seed hook):
@@ -253,7 +334,7 @@ npx prisma db seed
 Default seeded credentials:
 
 ```
-username: demo
+username: demo     (or demo2)
 password: demo1234
 ```
 
@@ -263,10 +344,32 @@ password: demo1234
 
 Media is **not** crammed into one polymorphic table. Each category gets its own
 first-class table (`Book`, `Movie`, `TvShow`, `Anime`, `Manga`, `VideoGame`,
-`MusicAlbum`) sharing a common display core (title, image, description, year)
-plus category-specific extras. `UserMediaActivity` is the join layer that ties a
-user to exactly one media row and carries the per-user state: status, 1–10
-rating, the hidden Elo score, favourite flag, and notes.
+`MusicAlbum`) sharing a common display core (title, image, description, year,
+release date, genres) plus category-specific extras. These rows are a catalogue
+shared by every user: what a user sends only ever fills empty columns, and the
+provider (through the nightly `metadata` job) owns the rest.
+
+`UserMediaActivity` is the join layer that ties a user to exactly one media row and
+carries the per-user state: status, a 0–10 score with one decimal, tier and place,
+Up next order, the hidden Elo score and duel count, progress, favourite, tags,
+notes, sub-scores, owned platforms or format, and Steam playtime.
+
+Around it:
+
+- **History:** `ActivityEvent` (adds, status, score, progress, tier, queue, import,
+  rewatch and review changes), `DiaryEntry` (one per finish, with score and review)
+  and `PlaySession`.
+- **Ranking extras:** `TvSeason` + `SeasonActivity` (season tracking and season
+  tiers) and `YearDuelScore` (best of the year).
+- **Collections:** `Franchise`, `CustomList` (+ items and members), `RefList`
+  (+ items), `SavedView` and `Goal`.
+- **Per user:** `User.prefs` (a JSON column validated by `src/lib/prefs.ts`),
+  `TasteProfile`, `Notification`, `ShareLink`, `ApiToken` (SHA-256 hashes only) and
+  `ExternalLink` (Steam, Last.fm and AniList accounts; tokens encrypted).
+- **System:** `JobRun` (scheduler state) and `WatchProviderCache`.
+
+Schema changes are additive only (new tables, nullable or defaulted columns), so
+`prisma db push` never needs `--accept-data-loss`.
 
 ---
 

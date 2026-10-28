@@ -3,9 +3,34 @@
 Hoard is a self-hosted media tracker. It keeps track of what you have read, watched, played
 and listened to, and what you still mean to. It runs at
 [hoard.timhufnagel.org](https://hoard.timhufnagel.org) on a Raspberry Pi. Every account
-has its own private library.
+has its own private library; anything shared with other people is opt-in.
 
-This list describes the app as of commit `79a94d5` (27 Oct 2026).
+This list describes the app as of commit `2de2e8b` (28 Oct 2026), after the whole of
+[`ROADMAP.md`](ROADMAP.md) was built.
+
+### Features that need a key
+
+These features need a key; the rest of Hoard works without them. A feature whose key is
+missing says so ("not configured") instead of failing. The owner sets keys in `.env`
+(see README → Configuration).
+
+| Key | Unlocks |
+|---|---|
+| `TMDB_API_KEY` | Movies and TV: search, details, seasons, where to stream; Letterboxd and Trakt matching; TMDB reference lists |
+| `IGDB_CLIENT_ID` + `IGDB_CLIENT_SECRET` | Games: search, details, time to beat; Steam matching; the IGDB reference list |
+| `LASTFM_API_KEY` | Albums: search and details; Last.fm "Mark as Listened?" suggestions |
+| `GEMINI_API_KEY` | the AI critic, Recommend across media, Paste a list, the AI pick in reference lists, the year-in-review verdict |
+| `STEAM_API_KEY` | Steam library import and nightly playtime |
+| `TRAKT_CLIENT_ID` | Trakt import |
+| `ANILIST_CLIENT_ID` + `ANILIST_CLIENT_SECRET` + `HOARD_SECRET` | sending your anime and manga changes to AniList (push) |
+
+**Not added yet on hoard.timhufnagel.org:** the Steam, Trakt and AniList-push keys
+(`STEAM_API_KEY`, `TRAKT_CLIENT_ID`, `ANILIST_CLIENT_ID`, `ANILIST_CLIENT_SECRET`,
+`HOARD_SECRET`). Those three features are built and show their "not configured" notes
+until the keys are in place.
+
+AniList and OpenLibrary need no key: anime, manga and books search, the AniList import and
+the nightly AniList pull all work without one.
 
 ---
 
@@ -15,25 +40,27 @@ Each kind of media has its own section, its own search source and its own detail
 
 | Section | Searches | Details kept |
 |---|---|---|
-| **Books** | OpenLibrary (no key needed) | authors, pages, ISBN, cover |
-| **Movies** | TMDB | runtime, TMDB score, backdrop, poster |
-| **TV Shows** | TMDB | seasons, episodes, TMDB score |
-| **Anime** | AniList (no key needed) | episodes, studio, MAL score |
-| **Manga** | AniList (no key needed) | chapters, volumes, MAL score |
-| **Video Games** | IGDB | platforms, IGDB rating, cover |
-| **Albums** | Last.fm | artist, track count, cover |
+| **Books** | OpenLibrary | authors, pages, ISBN, cover, up to 3 genres |
+| **Movies** | TMDB | runtime, TMDB score, release date, genres, directors, top 5 cast, collection |
+| **TV Shows** | TMDB | seasons (with episode counts and air dates), episodes, episode length, status, next episode date, cast |
+| **Anime** | AniList | episodes, studio, MAL score, English / romaji / native titles, next airing episode |
+| **Manga** | AniList | chapters, volumes, MAL score, English / romaji / native titles |
+| **Video Games** | IGDB | platforms, IGDB rating, release date, genres, time to beat, Steam app id |
+| **Albums** | Last.fm | artist, track count, cover, top 3 tags as genres |
 
-Every title also has a year, a description and a cover image. A section whose API key is
-missing shows a friendly error when you search it; the rest of the app keeps working.
-
-Wording follows the medium: books are *Unread / Reading / Read*, films and shows are
-*Unwatched / Watching / Watched*, games are *Unplayed / Playing / Beaten* and albums are
-*Unheard / Listening / Listened*.
+- **Every title** has a year, a description, a cover, and (where the source has them) a
+  full release date and genres.
+- **Keeping details fresh:** a nightly job refreshes details that are more than 30 days
+  old (section 23). Hand-made titles are never looked up.
+- **Wording follows the medium:** books are *Unread / Reading / Read*, films and shows are
+  *Unwatched / Watching / Watched*, games are *Unplayed / Playing / Beaten* and albums are
+  *Unheard / Listening / Listened*.
+- **Anime and manga titles** show in the language you choose in Settings (English,
+  romaji or native), and filtering matches all three.
 
 ## 2. Statuses
 
-Every title has one of five statuses, each with its own colour and icon, so states differ
-by shape as well as by colour:
+Every title has one of six statuses, each with its own colour and icon:
 
 | Status | Icon | Meaning |
 |---|---|---|
@@ -41,224 +68,432 @@ by shape as well as by colour:
 | Ongoing (Watching, Reading…) | play | in progress |
 | Completed (Watched, Read, Beaten…) | check | finished |
 | Paused | pause | on hold |
+| Retired | archive | set aside for good, e.g. an endless multiplayer game |
 | Dropped | ✕ | abandoned (its cover is shown greyed out) |
 
-The date you finish something is stamped automatically the first time it is marked
-completed.
+- **Finished** means Completed, Retired or Dropped: these can go on the tier list and are
+  offered in "Score these".
+- **Retired** is offered in the details, not in the Add dialog.
+- **The finish date** is stamped the first time a title is completed.
+- **Undo:** changing a status, or removing a title, shows a toast with **Undo** for 8
+  seconds. Undoing a removal brings back the title with its tier, notes, history, diary,
+  play sessions, seasons and year duels.
 
 ## 3. Adding titles
 
-The **Add** button on each section opens a search dialog:
+### The Add dialog
 
-- **Search as you type.** Results appear 350 ms after you stop typing, once you have
-  typed at least 2 letters. Enter still searches immediately, and late results from an
-  earlier query never overwrite newer ones.
-- **Keyboard friendly.** ↑/↓ moves through the results and Enter acts on the
-  highlighted row.
+The **Add** button on each section opens a search:
+
+- **Search as you type:** results appear 350 ms after you stop typing (at least 2
+  letters). ↑/↓ and Enter work.
 - **Two choices on every result,** worded for the medium:
-  - **Done** ("Watched", "Read", "Beaten", "Listened") adds it as completed. A score step
-    then opens on the same row, with **Save** and **Skip**; unrated is fine.
-  - **Want to …** ("Want to watch", "Want to read", "Want to play", "Want to listen")
-    adds it as planned, at the bottom of your **Up next** queue.
-- **No duplicates.** A title already in your library shows "In library", with its status
-  and score, instead of the buttons.
-- **Add several in a row.** The dialog stays open, and is fully cleared when it closes.
-- **Filling in details.** On adding, the app fetches extra details (movie runtimes, TV
-  episode and season counts), so the dashboard totals are real. If that fetch fails, the
-  title is still added.
+  - **Done** ("Watched", "Read"…) adds it as completed, then offers a score (**Save** or
+    **Skip**);
+  - **Want to …** adds it as planned, at the bottom of Up next.
+- **No duplicates:** a title already in your library shows "In library" with its status.
+- **Select several:** tick several results and add them all as done or to Up next.
+- **Paste a link** into the search box to add that exact title (see below).
+- **Can't find it?** "Add it yourself" makes a hand-made entry: title, year, an https
+  cover, a description and the medium's counts. Hand-made entries can be edited later.
+- **Books only:** "Scan a barcode or type an ISBN" uses the camera (or a typed ISBN) and
+  looks the book up on OpenLibrary.
 
-## 4. Scores
+### Other ways in
 
-- **Scores run from 0.0 to 10.0 with one decimal.** Older whole-number scores carried over
-  (8 became 8.0).
-- **Three ways to enter a score:**
-  - tap one of 10 pips to set the whole number;
-  - nudge it with **−0.1 / +0.1**;
-  - or type it.
-- **Scores are checked on the server.** Anything outside 0–10 is refused, and every score
-  is rounded to one decimal.
-- **Scores are shown everywhere** (cards, rows, the tier list, the queue, franchises),
-  always with one decimal.
+- **Search everything** (the header button, or `/`): searches every visible section at
+  once, grouped by section, with a 6 s limit per source.
+- **Command palette** (Cmd+K on a Mac, Ctrl+K elsewhere): jump to any title in your
+  library or any page. On the highlighted title: Enter opens it, Cmd/Ctrl+Enter marks it
+  done, Alt+Enter moves it to the top of Up next. Enter on no match runs Search everything.
+- **Add by link** (`/add`): paste a link from TMDB, IMDb, AniList, MyAnimeList, IGDB,
+  Steam, Goodreads, Letterboxd or OpenLibrary. Other links are searched by their page
+  title. On Android, sharing a link to the installed app opens this page.
+- **Add missing titles** on a franchise lists the parts you don't have yet (AniList
+  relations, TMDB collections, IGDB franchises) to tick and add.
+- **Anime season browser** (`/anime/season`, linked from the Anime section): this or any
+  season's anime by popularity, with genre and format filters.
+- **More by the same people** in the details: other work by the director and cast (films,
+  TV), author (books), studio and staff (anime, manga), developer (games) or artist
+  (albums), each with add buttons.
+- **Recommendations, reference lists, compare and the year-in-review** all have the same
+  add buttons.
 
-## 5. Browsing a section
+## 4. Importing
+
+`/import` brings in a library from elsewhere. Every source goes through one **review
+screen** before anything is saved.
+
+| Source | What you give it | Needs |
+|---|---|---|
+| **Hoard CSV** | Hoard's own library export | — |
+| **AniList** | a username | — |
+| **Letterboxd** | the export zip or its CSVs (watched, ratings, diary, watchlist, reviews) | TMDB |
+| **Goodreads** | the library export CSV | — |
+| **StoryGraph** | the export CSV | — |
+| **MyAnimeList** | the anime/manga list export (`.xml` or `.xml.gz`) | — |
+| **Trakt** | a public username | `TRAKT_CLIENT_ID`, TMDB |
+| **Steam** | your linked Steam account (Settings → Accounts) | `STEAM_API_KEY` |
+| **Any other CSV** | any file; you map its columns once and Hoard remembers the mapping | — |
+| **Paste a list** | text or a screenshot (up to 6 MB) of a list | Gemini |
+
+- **Matching:** by id where the file has one (TMDB, MAL, AniList, ISBN, IGDB, Steam),
+  otherwise by title and year.
+- **The review screen:** each row shows the match, other candidates, a status, a score
+  and Skip. Unsure matches start unticked. Titles already in your library are flagged,
+  and only change when "Update existing titles" is ticked; even then a status only moves
+  forward, never back.
+- **What comes in:** status, score (stars ×2), dates, rereads, reviews (as diary
+  entries), shelves and custom lists (as tags), progress and notes.
+- **Limits:** files up to 20 MB, 5000 titles per import.
+- **After the import,** franchises are grouped once. Failed rows can be retried.
+
+## 5. Scores
+
+- **0.0 to 10.0 with one decimal,** entered with pips, ±0.1 or typing. The server refuses
+  anything outside 0–10.
+- **Display format** (Settings): out of 10 (`8.5`), five stars (`4.3★`) or out of 100
+  (`85`). Storage and input stay 0–10.
+- **Sub-scores** (optional, in the details): Story, Characters, Visuals, Audio and
+  Enjoyment for films, TV and anime; Gameplay instead of Characters for games; Writing,
+  Story, Characters and Enjoyment for books and manga; Songs, Production and Enjoyment for
+  albums. Their average can be applied as the score with "Use as score".
+- **Score these:** a "Score these · N" banner on each section lists finished titles
+  without a score (and, for games, any game with 10 h or more on Steam), each with the
+  score step. The tier list's tray links to it.
+
+## 6. Progress, history and the diary
+
+- **Progress:** pages (books), chapters (manga), episodes (TV, anime) or tracks (albums,
+  hidden unless you turn it on). +1 or type it in the details; a bar shows on cards while
+  a title is ongoing. Reaching the total offers "Mark as finished"; the status never
+  changes by itself.
+- **TV seasons:** a TV title's details list its seasons. Each has a watched count (+1,
+  set or All) and optional episode ticks, and the show's progress is their sum.
+- **Rewatches:** "Watch again" (Read again, Play again, Listen again) starts a new run
+  without touching the tier list. The details show "Watched 3× · last 12 Mar 2026".
+- **The diary** (`/diary`): every finish (Completed or Retired, not Dropped) is a dated
+  entry with its score, a rewatch flag and an optional review. Entries are grouped by
+  month, filterable by section and year, and can be edited, deleted or added for a past
+  watch. Finishes from before the diary existed were added once from their finish dates.
+- **Review:** the details have a Review field for the latest entry.
+- **History:** the details list everything that happened to a title (added, status,
+  score, progress, tier, queue, imports, rewatches, reviews), newest first.
+- **Owned on and format:** platforms you own a game on, and print / ebook / audio for
+  books and manga or vinyl / CD / digital for albums. Shown in the list view and
+  filterable.
+- **Play sessions** (games): log a day, minutes and a note; a month calendar shows the
+  days played, and sessions less than 7 days apart form a run.
+
+## 7. Browsing a section
 
 Each section page has:
 
-- **Three views:**
-  - **Grid:** a poster wall.
-  - **List:** a table with covers, status, score and a favourite star.
-  - **Compact:** dense rows with status icons.
-- **Filter by title** and **filter by status**.
-- **Five ways to sort:** by status (in progress first, then the backlog, then finished),
-  recently added, highest rated, tier list order, or title A–Z. With the tier list sort,
-  the list view adds a **#** column showing each title's place.
-- **Group by status:** collapsible sections, ordered Ongoing → Planned → Completed →
-  Paused → Dropped. The Planned section follows your Up next order and has a
-  **Reorder** link.
-- **Group franchises:** titles from the same franchise fold into one expandable row. When
-  grouping by status as well, the whole franchise sits in one section, the "best" one:
-  ongoing first, then completed, then paused, planned, dropped. Typing in the title filter
-  ungroups them, so a single title can always be found.
-- **Remembered settings:** view, sort, grouping and collapsed sections are kept per
-  section on each device.
+- **Three views:** Grid (poster wall), List (a table) and Compact (dense rows).
+- **Filters:** title (all title variants), status, tags (all must match), and owned
+  platform or format.
+- **Five ways to sort:** by status, recently added, highest rated, tier list order, or
+  title A–Z.
+- **Group by status** (collapsible sections, Planned in Up next order) and **group
+  franchises** (one expandable row per franchise). View, sort, grouping and collapsed
+  sections are remembered per section on each device.
+- **Badges on cards:** progress, "in 12 days" for planned titles not out yet, "New
+  season", "≈ 32 h" to beat (games), your streaming services, and "Mark as Listened?"
+  (albums).
+- **You vs. the crowd** at the foot of the page: your 10 biggest disagreements with the
+  TMDB, MAL or IGDB score, and how far you usually differ.
 
 ### Title details
 
-Clicking a title opens its details:
+Clicking a title opens its details: cover, year, release date, genres, time to beat,
+Steam playtime and the provider's score, and everything you can change:
 
-- **Shown:** cover, year, description and every detail from section 1, plus the
-  provider's own score (TMDB, MAL or IGDB).
-- **What you can change:**
-  - status;
-  - score;
-  - favourite (★);
-  - free-text notes;
-  - which franchise it belongs to: none, any existing one, or a new franchise started from
-    this title.
-- **Saving:** a franchise change saves at once and is locked, so automatic grouping never
-  moves it again. Everything else saves with **Save**.
-- **Remove** takes the title out of your library.
+- status, score, favourite (★), progress, tags, notes;
+- the franchise it belongs to;
+- seasons (TV), sub-scores, owned on / format, play sessions (games), review;
+- "Add to list…", "Where to watch" (films, TV, anime), "More by the same people",
+  "Mentioned in" and the history.
 
-## 6. Tier list
+**Linked notes:** `[[Title]]` in notes or reviews links to that title in your library
+(autocomplete after `[[`), and the target shows "Mentioned in".
+
+## 8. Tier list
 
 Each section has its own **S / A / B / C / D / F** tier list, under the **Tiers** button.
 
-- **Who appears:** titles you have completed or dropped.
-- **Placing:** you place titles by hand, and they stay where you put them. Scores and the
-  Arena never move a title to another tier.
-- **Ordering within a tier:** drag to reorder. ↑/↓ buttons and a tier menu on each row
-  do the same without dragging, so it works with a keyboard and on phones.
-- **Unranked tray:** newly finished titles wait here, each with a suggested tier from its
-  score, which you accept with one tap:
+- **Who appears:** titles that are completed, retired or dropped.
+- **Placing:** by hand, and they stay put. Scores and the Arena never move a title to
+  another tier on their own.
+- **Ordering:** drag, or use the ↑/↓ buttons and tier menu (keyboard and phone friendly).
+- **Unranked tray:** newly finished titles wait here with a suggested tier from their
+  score (9.0+ S, 8.0+ A, 7.0+ B, 6.0+ C, 5.0+ D, below F). **Accept all suggestions**
+  places every rated one.
+- **Rewatches:** a placed title being rewatched keeps its place but is hidden until it is
+  finished again.
+- **Sharing:** **Download PNG** saves an image of the board; **Share link** makes a
+  read-only public page with titles and covers only (no scores or notes). Links are
+  listed, and revoked, in Settings → Sharing.
+- **Season tiers:** each TV show has its own tier list and Arena of its seasons
+  (`/tv/seasons/…`, linked from the details).
 
-  | Score | 9.0+ | 8.0+ | 7.0+ | 6.0+ | 5.0+ | below 5 |
-  |---|---|---|---|---|---|---|
-  | Suggested tier | S | A | B | C | D | F |
+## 9. Up next
 
-  Unrated titles get no suggestion.
-- **Accept all suggestions** places every rated title in the tray in one go, keeping the
-  tray's order inside each tier.
-- **Rewatches:** if a placed title goes back to "watching", it keeps its tier and place
-  but is hidden until you finish or drop it again.
-- **Saving:** only the rows that actually changed are written.
+Each section has its own queue of everything you plan to get to.
 
-## 7. Up next
+- **Order:** drag; new titles join at the bottom.
+- **Available now / Not out yet:** titles not released yet sit in their own group,
+  soonest first, without changing the queue order.
+- **Next in franchise:** a chip warns when an earlier part of the same franchise is still
+  unfinished.
+- **Streaming badges** show which of your services carry a title.
+- **Finishing from the queue** opens the score step, with Undo.
 
-Each section has its own queue of everything you plan to read, watch, play or hear.
+## 10. Arena
 
-- **Order:** drag to put it in the order you want to get to things. New titles join at
-  the bottom.
-- **Finishing from the queue:** marking a title done takes it out of the queue and opens
-  the same score step as adding (Save or Skip). It then waits in the tier list's tray.
-- **Where it shows:** the queue is a tab next to Tiers and Arena, and the section page's
-  Planned group uses the same order.
+The **Arena** settles which of two titles is better.
 
-## 8. Arena
+- **Order tiers:** two titles from the **same tier**; *Which is better?* If the lower one
+  wins they swap places. Without any tier holding two titles, it pairs titles with the
+  same whole-number score.
+- **Confidence:** each title counts its duels ("12 duels" in the ranking), and the
+  least-tested pair is offered first.
+- **Challenge tiers:** the bottom of one tier against the top of the next. If the lower
+  title wins the same pairing twice, a card offers "Move “Title” up to A?" with Accept
+  and Dismiss. Nothing moves unless you accept.
+- **Behind the scenes:** each duel updates a hidden Elo rating (K = 32), shown as a
+  ranking beside the duels. **Shuffle / Skip** moves on without counting a duel.
+- **Best of the year** (`/arena/year/2026`): everything you finished in a year, across
+  all sections, duelled into one ranking. Its top 3 feeds the year in review.
 
-The **Arena** helps when you can't decide which of two titles is better.
+## 11. Franchises
 
-- **The duels:** it shows two titles from the **same tier** and asks *Which is better?* If
-  the lower one wins, they swap places in that tier. A title never leaves its tier.
-- **Before you have tiers:** if no tier holds two titles yet, it pairs titles with the
-  same whole-number score instead.
-- **Behind the scenes:** each duel also updates a hidden Elo rating (K = 32), shown as a
-  ranking beside the duels.
-- **Shuffle / Skip** moves on without counting a duel.
+Hoard groups titles from the same franchise, across sections: every Haikyuu season, the
+movies and the manga become one group.
 
-## 9. Franchises
+- **Automatic grouping:** AniList relations (anime, manga), TMDB collections (movies), IGDB
+  franchises (games), and matching titles everywhere else. Each new title is grouped as
+  it is added; **Detect franchises** regroups everything. Grouping never makes a group of
+  one, never moves a title you placed by hand and never deletes a group.
+- **The Franchises page:** a cover grid with breakdowns ("3 anime, 1 manga"), and a
+  Ranking tab to drag your top franchises into order.
+- **Managing one:** its own score and notes; rename, remove titles, merge or delete the
+  group (the titles stay). Unscored franchises show their titles' average, labelled "avg".
+- **Watch order:** release order (by release date) or your own drag order, with "Next
+  up: {title}" on the franchise.
+- **Add missing titles:** see section 3.
 
-Hoard groups titles from the same franchise. For example, every Haikyuu season, the movies
-and the manga become one group.
+## 12. Lists, tags and views
 
-- **Automatic grouping:**
-  - **Anime and manga** follow AniList's links between seasons, movies, sequels and
-    source material. Crossovers and cameos are ignored, so unrelated series don't merge.
-  - **Movies** use TMDB collections.
-  - **Games** use IGDB franchises and collections.
-  - **TV, books and music** are matched by title.
-  - **Across sections,** titles with matching names join, so a TMDB movie can join an
-    AniList anime group.
-- **When grouping happens:** each new title is grouped as it is added; a slow source gives
-  up after 8 seconds and the title is still added. **Detect franchises** on the
-  Franchises page regroups everything you already track, showing its progress as it goes.
-- **What grouping never does:**
-  - make a group of one title;
-  - move a title you placed by hand;
-  - delete a group.
-- **The Franchises page** has two tabs:
-  - **All franchises:** a cover grid, each with a breakdown such as "3 anime, 1 manga, 1
-    movie".
-  - **Ranking:** drag your top franchises into order, with a "Not ranked yet" list below.
-- **Managing a franchise:**
-  - give the franchise its own score and notes (e.g. a watch order);
-  - rename it, remove titles from it, merge it into another, or delete the group (the
-    titles stay in your library).
-- **Franchise scores:** where you haven't scored a franchise, it shows its titles'
-  average, labelled "avg" so the two are never confused.
+- **Custom lists** (`/lists`): your own lists of titles from any section, in drag order.
+  Invite other users of this Hoard by username as viewer or editor; they see the list
+  only, never your library. A list can also get a public read-only share link.
+- **Reference lists** (`/lists` → Reference lists): built-in checklists (TMDB top 250
+  movies, TMDB top 100 TV, AniList top 100 anime and manga, IGDB top 100 games) or your
+  own pasted list, each with how many you've done and planned, add buttons and a Refresh.
+- **Tags** (`/tags`): every tag with its count per section; clicking one lists the
+  tagged titles across sections. Up to 20 tags per title.
+- **Saved views** (`/views`): filter your whole library by sections, statuses, tags,
+  genres, maximum length, score range and year range, sort it, and save it with a name.
+  Saved views appear under **Views** in the navigation (up to 50).
 
-## 10. Dashboard
+## 13. What's next and what's coming
 
-The home screen after logging in is a 3×3 grid:
+- **Tonight** (`/tonight`): three picks from Up next for the time you have (30 min, 1 h,
+  2 h, 3 h+ or a few sessions), filtered by section, genre and "on my services".
+  **Another** shows three more.
+- **Where to stream:** the details of a film, show or anime list where it streams, rents
+  or sells in your region (TMDB, data by JustWatch; official AniList links for anime),
+  your services first. Pick your services in Settings → Streaming. Answers are cached for
+  7 days.
+- **Calendar** (`/calendar`): a month grid or list of planned releases, next episodes of
+  shows you watch, airing anime and unreleased sequels of your franchises. Settings →
+  Calendar makes a private iCal link for your calendar app (regenerate or turn it off at
+  any time).
+- **Countdowns:** "in 12 days" on planned titles, and a **Coming up** tile on the
+  dashboard with the next 5 releases.
+- **New seasons:** a show you have watched or are watching that gets a new season (once
+  it has aired) shows "New season" and sends a notification. **Got it** (or starting the
+  show) clears it; the tier list is untouched.
 
-- **One tile per section,** each with:
-  - a headline total:
+## 14. Dashboard
 
-    | Section | Headline total |
-    |---|---|
-    | Books | words read (at about 275 words per page) |
-    | Movies | hours watched |
-    | TV, Anime | episodes watched |
-    | Manga | chapters read |
-    | Games | games beaten |
-    | Albums | albums heard |
+The home screen after logging in:
 
-  - counts of ongoing, planned and done;
-  - the average score.
-- **"Your hoard":** totals across all sections (titles tracked, completed, sections in
-  use, average score).
-- **"Now consuming":** covers of up to five things in progress, plus a count of any more.
+- **One tile per section** with a headline total, counts of ongoing, planned and done, and
+  the average score:
 
-## 11. AI critic
+  | Section | Headline total |
+  |---|---|
+  | Books | words read (at about 275 words per page) |
+  | Movies | hours watched |
+  | TV, Anime | episodes watched |
+  | Manga | chapters read |
+  | Games | games beaten |
+  | Albums | albums heard |
 
-Optional; it needs a Gemini API key. Each section has an AI menu with two modes:
+- **"Your hoard"** (totals across sections) and **"Now consuming"** (up to five covers).
+- **Coming up:** the next 5 releases among your planned titles.
+- **Goals for this year,** when you have any.
+- **Favourites:** the first four starred titles per section, in tier order.
+- **Recommend across media** (Gemini), top right.
 
-- **Roast my taste:** a savage but PG-13 review of your finished, scored titles, naming
-  specific titles.
-- **Recommend a gem:** one hidden-gem suggestion you probably haven't seen, explained
-  through your highest-ranked titles.
+## 15. Stats
 
-## 12. Accounts and privacy
+`/stats` has four tabs, plus a year page:
 
-- **Logging in:** register with a username (at least 3 characters) and a password (at
-  least 8). Passwords are stored as bcrypt hashes.
-- **Sessions:** last 30 days, in an httpOnly cookie.
-- **Failed logins** give the same "Invalid username or password" either way, so they never
-  reveal whether a username exists.
-- **Every library is private:** each user has their own titles, statuses, scores, tiers,
-  queue and franchises. The shared part is only the catalogue of title details, so two
-  people adding the same film share one copy of its details.
-- **Demo account:** a seed script can create `demo` / `demo1234` for trying it out.
+- **Overview:** current and longest streak of active days, a card per section (headline
+  total, status counts, drop rate, average score), and charts: finished per month
+  (stacked by section), top 10 genres, average score by year, status mix and drop rate.
+  Every chart has a table view. You vs. the crowd for all sections sits below.
+- **Year in review** (`/stats/year/2026`): totals per section, hours and pages, the
+  busiest month, the top franchise, new S-tier titles and the best-of-the-year top 3.
+  Download it as a PNG, share a link (no scores), or ask the AI for a verdict.
+- **Goals:** yearly targets per section or overall: titles, pages, hours or episodes,
+  with progress bars (up to 30 a year).
+- **Taste:** your taste profile (below), where you usually drop things ("around episode
+  4"), your average score per genre by year, and **Compare periods** (this year vs last,
+  last 3 months vs the 3 before, or any two ranges).
+- **People:** your most-watched directors and actors, with counts and average scores.
 
-## 13. Look and navigation
+Hours are estimates: a film's runtime, a TV episode's length (45 min when unknown), 24
+min per anime episode. Hidden sections are left out of stats.
+
+## 16. AI (Gemini)
+
+All of these need `GEMINI_API_KEY`, and together allow each user 10 AI calls a minute and
+100 a day.
+
+- **AI critic** (each section): **Roast my taste**, a savage but PG-13 review of your
+  finished titles, or **Recommend a gem**, one hidden-gem suggestion.
+- **Recommend across media** (dashboard and stats): up to 6 suggestions from at least 3
+  sections, based on your S and A tiers and taste profile, none already in your library.
+  **Find it** opens Search everything with the title.
+- **Paste a list** (import) and "Let the AI pick out the titles" (reference lists): reads
+  a pasted list or a screenshot into titles for the review screen. Nothing is added
+  without the review.
+- **Year verdict:** a paragraph on your year, on the year-in-review page.
+
+**The taste profile** needs no AI: it is worked out every Sunday (or with **Refresh** on
+Stats → Taste) from at least 5 finished titles, as favourite genres, scoring habits per
+section, drop rates and favourite decades, shown as plain sentences. The roast and both
+kinds of recommendation are given this summary too.
+
+## 17. Linked accounts
+
+Settings → Accounts:
+
+- **Steam** (needs `STEAM_API_KEY`): link a profile URL, vanity name or SteamID64. "Import
+  library" brings your games in through the review screen (unplayed ones suggested as
+  Planned, played ones as Ongoing; nothing is marked done). A nightly job keeps playtime
+  current; the details show "40 h on Steam". The profile's game details must be public.
+- **AniList:** a username. A nightly pull adds titles you track there and updates their
+  status, progress and score (the newest change wins; nothing is removed; only sure
+  matches are written). **Connect to push changes** (needs `ANILIST_CLIENT_ID`,
+  `ANILIST_CLIENT_SECRET` and `HOARD_SECRET`) also sends your anime and manga changes
+  back to AniList. Large imports (over 200 titles) are not pushed.
+- **Last.fm:** a username. Every night Hoard checks your planned and ongoing albums; once
+  you have played at least 80 % of an album's tracks, it suggests **Mark as Listened?**
+  (with a notification). It never marks anything by itself.
+- Each account has its own button to sync it now (**Update playtime now**, **Check
+  now**, **Sync now**), at most 2 a minute.
+
+## 18. Notifications
+
+The bell in the header lists notifications. Each user can also push them to their own
+[ntfy](https://ntfy.sh) topic and/or a Discord webhook (Settings → Notifications; public
+https addresses only, with **Send test**) and choose which kinds are pushed:
+
+- releases out today and new episodes of shows you watch;
+- new seasons;
+- sync errors (AniList);
+- lists shared with you;
+- Last.fm "Mark as Listened?" suggestions;
+- backup problems (owner only).
+
+## 19. Sharing and friends
+
+Everything here is off until you turn it on.
+
+- **Share links:** tier lists, custom lists and your year in review get read-only public
+  pages (no scores, notes or reviews), listed and revocable in Settings → Sharing.
+- **Compare** (`/compare/<username>`): needs Settings → "Compare with other users" on
+  both sides. Shows the titles you both have, your biggest disagreements, a compatibility
+  score (needs 5 titles you have both scored) and their S-tier titles you haven't got.
+- **Watch together** (`/together`): same opt-in. The planned titles you share, ranked by
+  your combined queue positions, with streaming badges.
+- **Feed** (`/feed`): what opted-in users finished, dropped or put in S tier over the
+  last 30 days, with scores. Your own activity appears only if you turn on "Show my
+  activity in the feed".
+- These pages sit under **Friends** in the navigation once you opt in.
+
+## 20. Your data
+
+Settings → Data:
+
+- **Library CSV** (every section, with tags, dates, progress, tier and franchise) and
+  **Franchises CSV**. The library CSV can be imported again.
+- **Full JSON export:** everything you own, including diary, sessions, seasons, lists,
+  goals, views and links; never passwords, tokens or token hashes.
+- **Markdown (Obsidian):** a zip with one note per title, `Section/Title (Year).md`, with
+  front matter (status, score, tier, dates, tags, franchise, link) and your notes and
+  reviews.
+
+Settings → API tokens: a read-only JSON API over your library for scripts and dashboards.
+Up to 10 tokens, each shown once, 60 requests a minute. See [`docs/API.md`](docs/API.md).
+
+## 21. Accounts and privacy
+
+- **Logging in:** a username (at least 3 characters) and a password (at least 8), stored
+  as bcrypt hashes. Sessions last 30 days in an httpOnly cookie. Signing in returns you
+  to the page you were headed to.
+- **Failed logins** say "Invalid username or password" either way.
+- **Every library is private.** The shared part is the catalogue of title details (two
+  people adding the same film share one copy). The providers own those details: what a
+  user sends can only fill in a missing one, never overwrite it.
+- **No location:** your region (for streaming) is guessed once from your browser's time
+  zone and can be changed in Settings.
+- **Demo accounts:** the seed script (for local use; production never runs it) creates
+  `demo` / `demo1234` with a small library, and a second user `demo2` for trying the
+  friends features.
+
+## 22. Look and navigation
 
 - **Theme:** dark and light, toggled by hand.
-- **Desktop:** a sidebar with Dashboard, Franchises and the seven sections. It collapses
-  to an icon rail, and that choice is remembered.
-- **Phones:**
-  - a slim top bar with a menu drawer;
-  - controls rearranged into thumb-sized full-width rows;
-  - text boxes large enough that iPhones don't zoom in.
-- **Small touches:** cover images throughout, with a placeholder when a title has none;
-  toast messages confirm every action and explain failures.
+- **Desktop:** a sidebar with Dashboard, Franchises, the seven sections, Diary, Stats,
+  Tonight, Calendar, Tags, Lists, Views, Friends, Import and Settings. It collapses to an
+  icon rail, and that choice is remembered.
+- **Phones:** a slim top bar with a menu drawer, thumb-sized controls, and layouts
+  checked at 375 px.
+- **Settings:** region, time zone, score format, title language, week start, and sections
+  to hide (they leave the navigation, dashboard and stats; their pages still work).
+- **Installable:** Hoard can be added to the home screen as an app (no offline mode).
 
-## 14. Running it
+## 23. Running it
 
-- **Stack:** Next.js 14 (App Router, server actions), Prisma 5 on PostgreSQL 16,
-  Tailwind with shadcn/ui, and @dnd-kit for dragging.
-- **Deploy:** Docker Compose, built natively for arm64 so it runs on a Raspberry Pi,
-  behind a Cloudflare tunnel. A deploy is `git pull` plus a rebuild on the Pi.
-- **Database changes:** each container start applies the schema and then runs the
-  one-off SQL scripts in `prisma/sql/` (such as the switch to decimal scores). The scripts
-  are safe to run again and again, and the data lives in a named Docker volume.
-- **Tests:** `npm test` runs 34 Vitest tests, covering scores, tier rules, the queue and
-  search-dialog behaviour.
+- **Stack:** Next.js 14 (App Router, server actions), Prisma 5 on PostgreSQL 16, Tailwind
+  with shadcn/ui, @dnd-kit for dragging, Gemini for AI.
+- **Deploy:** Docker Compose, built natively for arm64, behind a Cloudflare tunnel. A
+  deploy is `git pull` plus a rebuild on the Pi.
+- **Database changes:** each container start runs the SQL scripts in `prisma/sql/`, then
+  applies the schema. Both are safe to run again and again.
+- **Backups:** a `backup` service dumps the database every night at 03:00 and keeps 14
+  daily and 8 weekly copies outside Docker. The owner sees the last backup in Settings →
+  System and is notified if it is over 26 hours old.
+- **Scheduled jobs** run inside the app, each at its time in the server's time zone
+  (Europe/Berlin):
+
+  | Job | When | What it does |
+  |---|---|---|
+  | migration | at startup | one-off data backfills |
+  | metadata | 03:30 | refreshes title details older than 30 days (up to 1000 a night) |
+  | new-seasons | 04:00 | refreshes shows you watch, finds new seasons, caches upcoming sequels |
+  | steam | 04:30 | Steam playtime |
+  | lastfm | 05:00 | Last.fm "Mark as Listened?" suggestions |
+  | anilist-sync | 05:30 | AniList pull |
+  | taste-profile | Sundays 05:45 | taste profiles |
+  | releases | 06:00 | "out today" and new-episode notifications |
+  | airing | 06:30 | next airing episode of anime |
+  | backup-watch | 09:00 | warns the owner about old backups |
+
+- **Tests:** `npm test` runs over 900 Vitest tests; `npm run smoke` drives Chrome through
+  every page as the demo user.
