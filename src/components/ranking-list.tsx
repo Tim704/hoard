@@ -11,7 +11,8 @@ interface RankingListProps {
 
 /**
  * The read-only leaderboard beside the Arena. Items arrive pre-sorted, so we
- * simply render them 1..N with the visible 1–10 rating and the muted Elo.
+ * simply render them 1..N with the visible 1–10 rating, how many duels each
+ * has fought (4.3: how settled its place is) and the muted Elo.
  */
 export function RankingList({ items }: RankingListProps) {
   if (items.length === 0) {
@@ -59,9 +60,11 @@ export function RankingList({ items }: RankingListProps) {
               <p className="truncate font-medium leading-snug">
                 <MediaTitle media={media} />
               </p>
-              {media.year != null && (
-                <p className="text-xs text-muted-foreground">{media.year}</p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                {[media.year, `${activity.duels} ${activity.duels === 1 ? 'duel' : 'duels'}`]
+                  .filter((x) => x != null)
+                  .join(' · ')}
+              </p>
             </div>
 
             {activity.rating != null && (

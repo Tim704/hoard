@@ -20,6 +20,7 @@ import {
 } from '@/lib/categories';
 import { getCurrentUser } from '@/lib/session';
 import { orderQueue } from '@/lib/queue';
+import { bucketPair, challengePairs, fewestDuelsPair } from '@/lib/arena-pick';
 import { buildTierBoard, TIERS, withinTierPairs, type TierBoardData } from '@/lib/tiers';
 import type {
   ActivityWithMedia,
@@ -57,6 +58,8 @@ export function flattenActivity(
     tier: row.tier ?? null,
     queueOrder: row.queueOrder ?? null,
     elo: row.elo,
+    duels: row.duels ?? 0,
+    tags: Array.isArray(row.tags) ? row.tags : [],
     rankOrder: row.rankOrder ?? null,
     progress: row.progress ?? null,
     favorite: row.favorite,
@@ -274,26 +277,23 @@ export async function getTierBoard(slug: CategorySlug): Promise<TierBoardData> {
   return buildTierBoard(await loadCategory(slug));
 }
 
-/** Pick a random element (the caller guarantees `items` is non-empty). */
-function pick<T>(items: T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
-}
-
 /**
- * Build an Arena matchup. When any tier holds two or more items, pick a random
- * such tier and two random NEIGHBOURS inside it ("is #4 really better than
- * #5?"), so every duel refines the order without ever changing a tier.
- * Otherwise fall back to two items sharing the same whole-number score.
+ * Build an Arena matchup. When any tier holds two or more items, duel two
+ * NEIGHBOURS inside a tier ("is #4 really better than #5?"), so every duel
+ * refines the order without ever changing a tier. Otherwise fall back to two
+ * items sharing the same whole-number score. Among the valid pairs, the one
+ * with the fewest combined duels wins (4.3), ties at random.
  */
 export async function getMatchup(slug: CategorySlug): Promise<Matchup | null> {
-  const all = await loadCategory(slug);
+  return matchupFrom(await loadCategory(slug));
+}
 
+/** getMatchup's choice for an already-loaded category (pure apart from Math.random). */
+export function matchupFrom(all: ActivityWithMedia[]): Matchup | null {
   const board = buildTierBoard(all);
-  const pairs = withinTierPairs(board);
-  if (pairs.length > 0) {
-    const tiers = [...new Set(pairs.map(([a]) => a.tier))];
-    const tier = pick(tiers);
-    const [a, b] = pick(pairs.filter(([p]) => p.tier === tier));
+  const neighbours = fewestDuelsPair(withinTierPairs(board));
+  if (neighbours) {
+    const [a, b] = neighbours;
     const ranking = TIERS.flatMap((t) => board.tiers[t]);
     return {
       rating: null,
@@ -312,15 +312,32 @@ export async function getMatchup(slug: CategorySlug): Promise<Matchup | null> {
     if (bucket) bucket.push(a);
     else byScore.set(score, [a]);
   }
-  const eligible = [...byScore.entries()].filter(([, items]) => items.length >= 2);
-  if (eligible.length === 0) return null;
+  const candidates = [...byScore.values()]
+    .map((items) => bucketPair(items))
+    .filter((p): p is [ActivityWithMedia, ActivityWithMedia] => p !== null);
+  const pair = fewestDuelsPair(candidates);
+  if (!pair) return null;
+  const [a, b] = Math.random() < 0.5 ? pair : ([pair[1], pair[0]] as const);
+  return { rating: Math.floor(a.rating ?? 0), a, b };
+}
 
-  const [rating, items] = pick(eligible);
-  const firstIdx = Math.floor(Math.random() * items.length);
-  let secondIdx = Math.floor(Math.random() * (items.length - 1));
-  if (secondIdx >= firstIdx) secondIdx += 1; // ensure distinct from the first
-
-  return { rating, a: items[firstIdx], b: items[secondIdx] };
+/**
+ * A "Challenge tiers" matchup (4.4): the bottom title of a tier against the
+ * top title of the next lower non-empty tier, least-dueled pairing first.
+ * `a` is the upper title, `b` the lower one.
+ */
+export async function getChallengeMatchup(slug: CategorySlug): Promise<Matchup | null> {
+  const board = buildTierBoard(await loadCategory(slug));
+  const pairs = challengePairs(board.tiers);
+  const chosen = fewestDuelsPair(pairs.map((p) => [p.upper, p.lower] as const));
+  if (!chosen) return null;
+  const pair = pairs.find((p) => p.upper === chosen[0] && p.lower === chosen[1])!;
+  return {
+    rating: null,
+    a: pair.upper,
+    b: pair.lower,
+    challenge: { upperTier: pair.upperTier, lowerTier: pair.lowerTier },
+  };
 }
 
 /**

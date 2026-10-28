@@ -4,18 +4,22 @@ import { useState, useTransition } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ImageOff, Shuffle, Star, Swords } from 'lucide-react';
+import { ArrowUp, ImageOff, Shuffle, Star, Swords } from 'lucide-react';
 
 import type { CategorySlug } from '@/lib/categories';
 import type { ActivityWithMedia, Matchup } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { nextMatchup, submitMatchup } from '@/lib/actions/arena';
+import { nextChallenge, nextMatchup, submitChallenge, submitMatchup, type ChallengeOutcome } from '@/lib/actions/arena';
+import { promoteFromChallenge } from '@/lib/actions/ranking';
+import type { ChallengeHistory } from '@/lib/arena-pick';
 import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
 
 interface ArenaProps {
   slug: CategorySlug;
   initial: Matchup | null;
+  /** "Challenge tiers" (4.4): duel across tier borders instead of inside a tier. */
+  mode?: 'order' | 'challenge';
 }
 
 /**
@@ -24,15 +28,72 @@ interface ArenaProps {
  * fetches a fresh matchup. The visible 1–10 rating stays put — Elo is the secret
  * tie-breaker that powers the dynamic ranking list.
  */
-export function Arena({ slug, initial }: ArenaProps) {
+export function Arena({ slug, initial, mode = 'order' }: ArenaProps) {
   const [matchup, setMatchup] = useState<Matchup | null>(initial);
+  // Challenge mode: lower-title wins per pairing in this session (4.4).
+  const [history, setHistory] = useState<ChallengeHistory>({});
+  const [suggestion, setSuggestion] = useState<ChallengeOutcome['suggestion']>(null);
+  const challenge = mode === 'challenge';
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const { scorePlain: score } = useScoreFormat();
   const titleOf = useDisplayTitle();
 
+  const suggestionCard = suggestion && (
+    <div
+      role="status"
+      className="flex w-full flex-col gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 sm:flex-row sm:items-center"
+    >
+      <ArrowUp className="hidden h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300 sm:block" aria-hidden />
+      <p className="flex-1 text-sm">
+        <span className="font-medium">Move “{suggestion.title}” up to {suggestion.toTier}?</span>{' '}
+        <span className="text-muted-foreground">It beat the bottom of {suggestion.toTier} twice.</span>
+      </p>
+      <div className="flex gap-2">
+        <Button size="sm" onClick={acceptSuggestion} disabled={isPending}>
+          Accept
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setSuggestion(null)} disabled={isPending}>
+          Dismiss
+        </Button>
+      </div>
+    </div>
+  );
+
+  /** Move the suggested title to the bottom of the higher tier (never automatic). */
+  function acceptSuggestion() {
+    if (!suggestion) return;
+    const s = suggestion;
+    startTransition(async () => {
+      const res = await promoteFromChallenge(slug, s.activityId, s.toTier);
+      if (res.ok) {
+        toast.success(`Moved “${s.title}” up to ${s.toTier}.`);
+        setSuggestion(null);
+        setMatchup(await nextChallenge(slug));
+        router.refresh();
+      } else {
+        toast.error(res.error ?? 'Could not move that title.');
+      }
+    });
+  }
+
   // ── Empty state: not enough equally-rated items to form a duel. ────────────
   if (!matchup) {
+    if (challenge) {
+      return (
+        <div className="flex flex-col items-center gap-4">
+          {suggestionCard}
+          <div className="flex w-full flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-card/40 p-10 text-center">
+            <Swords className="h-10 w-10 text-muted-foreground" aria-hidden />
+            <p className="text-sm font-medium">No tier borders to challenge</p>
+            <p className="max-w-xs text-sm text-muted-foreground">
+              Place titles in at least two different tiers to pit the bottom of one against the
+              top of the next.
+            </p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-card/40 p-10 text-center">
         <Swords className="h-10 w-10 text-muted-foreground" aria-hidden />
@@ -48,8 +109,14 @@ export function Arena({ slug, initial }: ArenaProps) {
   /** Record a winner, then swap in whatever the server hands back. */
   function choose(winner: ActivityWithMedia, loser: ActivityWithMedia) {
     startTransition(async () => {
-      const next = await submitMatchup(slug, winner.id, loser.id);
-      setMatchup(next);
+      if (challenge) {
+        const out = await submitChallenge(slug, winner.id, loser.id, history);
+        setHistory(out.history);
+        if (out.suggestion) setSuggestion(out.suggestion);
+        setMatchup(out.next);
+      } else {
+        setMatchup(await submitMatchup(slug, winner.id, loser.id));
+      }
       toast.success(`"${titleOf(winner.media)}" wins the round.`);
       router.refresh();
     });
@@ -58,8 +125,7 @@ export function Arena({ slug, initial }: ArenaProps) {
   /** Skip this pairing without scoring it. */
   function shuffle() {
     startTransition(async () => {
-      const next = await nextMatchup(slug);
-      setMatchup(next);
+      setMatchup(await (challenge ? nextChallenge(slug) : nextMatchup(slug)));
       router.refresh();
     });
   }
@@ -68,9 +134,15 @@ export function Arena({ slug, initial }: ArenaProps) {
 
   return (
     <div className="flex flex-col items-center gap-6">
+      {suggestionCard}
       <div className="text-center">
         <h2 className="text-xl font-semibold">Which is better?</h2>
-        {matchup.ranks ? (
+        {matchup.challenge ? (
+          <p className="mt-1 text-sm text-muted-foreground">
+            The bottom of {matchup.challenge.upperTier} against the top of{' '}
+            {matchup.challenge.lowerTier}. Tiers only change if you accept a suggestion.
+          </p>
+        ) : matchup.ranks ? (
           <p className="mt-1 text-sm text-muted-foreground">
             Neighbours in tier {a.tier} (#{matchup.ranks[0]} vs #{matchup.ranks[1]}). The
             winner ends up on top.

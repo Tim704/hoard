@@ -10,6 +10,7 @@ import { ActivityExtras } from '@/components/activity-extras';
 import { ManualFields } from '@/components/manual-fields';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { ProgressField } from '@/components/progress-field';
+import { TagInput } from '@/components/tag-input';
 import { TvSeasons } from '@/components/tv-seasons';
 import { RatingInput } from '@/components/rating-input';
 import { toastRemoved, toastStatusChange } from '@/components/undo-toast';
@@ -438,7 +439,7 @@ export function ActivityDetailDialog({
 
             {activity.category === 'tv' && (
               <TvSeasons
-                key={activity.id}
+                key={`seasons:${activity.id}`}
                 activityId={activity.id}
                 disabled={busy}
                 onLoaded={(has) => setSeasonTracked(has ? activity.id : null)}
@@ -487,6 +488,8 @@ export function ActivityDetailDialog({
               )}
             </div>
 
+            <TagInput key={`tags:${activity.id}`} activityId={activity.id} initial={activity.tags} disabled={busy} />
+
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Favorite</label>
               <div>
@@ -519,7 +522,7 @@ export function ActivityDetailDialog({
               />
             </div>
 
-            <ActivityExtras key={activity.id} activity={activity} disabled={busy} onClose={onClose} />
+            <ActivityExtras key={`extras:${activity.id}`} activity={activity} disabled={busy} onClose={onClose} />
           </div>
         </div>
 

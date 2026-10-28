@@ -24,6 +24,7 @@ import type { NormalizedResult } from '@/lib/types';
 import { dayToDate } from './fields';
 import type { MatchDeps } from './matcher';
 import { NEW_MANUAL_ID, type CommitRow, type CommitRowOutcome, type InLibrary } from './types';
+import { normalizeTags } from '@/lib/tags';
 import { planImportUpdate } from './update';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -142,7 +143,7 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
       finishedAt: day(row.finishedOn),
       startedAt: day(row.startedOn),
       progress: row.progress ?? null,
-      tags: row.tags ?? [],
+      tags: normalizeTags(row.tags ?? []),
       notes: row.notes ?? null,
       favorite: row.favourite === true,
       skipFranchise: true,

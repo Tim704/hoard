@@ -14,6 +14,7 @@ import { RoastButton } from '@/components/roast-button';
 import { ScoreThese } from '@/components/score-these';
 import { SearchDialog } from '@/components/search-dialog';
 import { StatusSection } from '@/components/status-section';
+import { TagFilter } from '@/components/tag-filter';
 import { ViewToggle } from '@/components/view-toggle';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { usePersistentState } from '@/hooks/use-persistent-state';
@@ -35,6 +36,7 @@ import {
 } from '@/lib/status';
 import { hasOwnership, matchesOwnership, ownershipChoices } from '@/lib/ownership';
 import { orderQueue } from '@/lib/queue';
+import { countTags, hasAllTags } from '@/lib/tags';
 import { matchesTitle } from '@/lib/title';
 import { compareTierOrder, isTierEligible } from '@/lib/tiers';
 import { toDisplayUnits, type ActivityWithMedia, type ViewMode } from '@/lib/types';
@@ -52,6 +54,8 @@ interface CategoryClientProps {
   openId?: string;
   /** Changes with every palette pick (`?t=`), so the same title reopens. */
   openNonce?: string;
+  /** Tags to filter by on arrival (`?tag=a&tag=b`, from the /tags page). */
+  initialTags?: string[];
 }
 
 type SortMode = 'status' | 'recent' | 'rating' | 'ranking' | 'title';
@@ -98,6 +102,7 @@ export function CategoryClient({
   scoreOpen = false,
   openId,
   openNonce,
+  initialTags = [],
 }: CategoryClientProps) {
   // View preferences persist per category across visits.
   const key = (name: string) => `hoard:${slug}:${name}`;
@@ -126,6 +131,12 @@ export function CategoryClient({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   // 3.5: owned platform (games) or format (books, manga, music); ALL / NONE / a value.
   const [ownedFilter, setOwnedFilter] = useState('ALL');
+  // 4.2: titles carrying ALL of these tags.
+  const [tagFilter, setTagFilter] = useState<string[]>(initialTags);
+  const sectionTags = useMemo(
+    () => countTags(activities.map((a) => ({ tags: a.tags, section: slug }))).map((t) => t.tag),
+    [activities, slug],
+  );
   const ownedChoices = useMemo(() => ownershipChoices(slug, activities), [slug, activities]);
   // Track the selection by id so the dialog always shows fresh server data.
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -157,6 +168,7 @@ export function CategoryClient({
     const filtered = activities.filter((a) => {
       if (statusFilter !== 'ALL' && a.status !== statusFilter) return false;
       if (!matchesOwnership(a, ownedFilter)) return false;
+      if (!hasAllTags(a.tags, tagFilter)) return false;
       // Matches every stored title (anime / manga: English, romaji and native).
       if (text && !matchesTitle(a.media, text)) return false;
       return true;
@@ -197,7 +209,7 @@ export function CategoryClient({
       return sorted.map((a) => (a.status === 'PLANNED' ? queue[q++] : a));
     }
     return sorted;
-  }, [activities, filter, statusFilter, ownedFilter, sort, grouped, titleOf]);
+  }, [activities, filter, statusFilter, ownedFilter, tagFilter, sort, grouped, titleOf]);
 
   // Tier list positions across the whole category (stable inside sections).
   const ranks = useMemo(() => {
@@ -354,6 +366,15 @@ export function CategoryClient({
               <SelectItem value="NONE">{slug === 'games' ? 'No platform set' : 'No format set'}</SelectItem>
             </SelectContent>
           </Select>
+        )}
+
+        {(sectionTags.length > 0 || tagFilter.length > 0) && (
+          <TagFilter
+            tags={sectionTags}
+            selected={tagFilter}
+            onChange={setTagFilter}
+            className="order-5 w-full md:order-none md:w-auto"
+          />
         )}
 
         <div className="order-3 flex items-center gap-2 md:order-none">

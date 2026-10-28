@@ -22,5 +22,9 @@
   "/import",
   "/diary",
   "/tv?open=demo-activity-tv-expanse",
-  "/tv/seasons/demo-activity-tv-expanse"
+  "/tv/seasons/demo-activity-tv-expanse",
+  "/books/arena?tab=arena&mode=challenge",
+  "/tags",
+  "/tags?tag=Sci-fi",
+  "/books?tag=Sci-fi"
 ]

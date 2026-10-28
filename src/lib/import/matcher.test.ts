@@ -273,6 +273,11 @@ describe('planImportUpdate', () => {
     ]);
   });
 
+  it('merges tags case-insensitively (4.2): a case variant changes nothing', () => {
+    const plan = planImportUpdate(ids, { ...now, tags: ['Sci-Fi'] }, { status: 'PLANNED', tags: ['sci-fi', '  sci-fi '] });
+    expect(plan.patch).toEqual({});
+  });
+
   it('never clears or moves back: Planned over Completed keeps Completed and its score', () => {
     const current = { ...now, status: 'COMPLETED' as const, rating: 7, finishedAt: new Date('2020-01-01T00:00:00Z') };
     const plan = planImportUpdate(ids, current, { status: 'PLANNED', rating: null, finishedAt: null, tags: [] });

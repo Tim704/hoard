@@ -13,6 +13,8 @@ export function makeActivity(
     tier: null,
     queueOrder: null,
     elo: 1200,
+    duels: 0,
+    tags: [],
     rankOrder: null,
     progress: null,
     favorite: false,

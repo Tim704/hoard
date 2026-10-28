@@ -11,6 +11,7 @@
 
 import { eventsForUpdate, type EventInput } from '@/lib/events';
 import type { Status } from '@/lib/status';
+import { normalizeTags } from '@/lib/tags';
 
 import { STATUS_RANK } from './rows';
 
@@ -58,8 +59,9 @@ export function planImportUpdate(
   if (change.startedAt && !sameTime(change.startedAt, now.startedAt)) patch.startedAt = change.startedAt;
   if (change.finishedAt && !sameTime(change.finishedAt, now.finishedAt)) patch.finishedAt = change.finishedAt;
   if (change.progress != null && change.progress !== now.progress) patch.progress = change.progress;
-  const extra = (change.tags ?? []).filter((t) => !now.tags.includes(t));
-  if (extra.length) patch.tags = [...now.tags, ...extra];
+  // Merged through the tag normaliser (4.2): case-insensitive, max 20.
+  const tags = normalizeTags([...now.tags, ...(change.tags ?? [])]);
+  if (tags.length !== now.tags.length || tags.some((t, i) => t !== now.tags[i])) patch.tags = tags;
   if (change.favorite && !now.favorite) patch.favorite = true;
 
   let queue: ImportUpdatePlan['queue'] = null;

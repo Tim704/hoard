@@ -54,11 +54,12 @@ interface DemoEntry {
   favorite?: boolean;
   /** The provider's community score (TMDB / MAL), for "You vs. the crowd". */
   crowd?: number;
+  tags?: string[];
 }
 
 const BOOKS: DemoEntry[] = [
-  { key: 'dune', title: 'Dune', year: 1965, status: 'COMPLETED', rating: 9.2, tier: 'S', favorite: true },
-  { key: 'neuromancer', title: 'Neuromancer', year: 1984, status: 'COMPLETED', rating: 8.5, tier: 'A' },
+  { key: 'dune', title: 'Dune', year: 1965, status: 'COMPLETED', rating: 9.2, tier: 'S', favorite: true, tags: ['Classic', 'Sci-fi'] },
+  { key: 'neuromancer', title: 'Neuromancer', year: 1984, status: 'COMPLETED', rating: 8.5, tier: 'A', tags: ['Sci-fi', 'Cyberpunk'] },
   { key: 'hyperion', title: 'Hyperion', year: 1989, status: 'COMPLETED', rating: 8.4 },
   { key: 'snow-crash', title: 'Snow Crash', year: 1992, status: 'COMPLETED' },
   { key: 'ubik', title: 'Ubik', year: 1969, status: 'CONSUMING', rating: 7, progress: 120 },
@@ -67,7 +68,7 @@ const BOOKS: DemoEntry[] = [
 ];
 
 const MOVIES: DemoEntry[] = [
-  { key: 'alien', title: 'Alien', year: 1979, status: 'COMPLETED', rating: 8.8, tier: 'S', favorite: true, crowd: 8.2 },
+  { key: 'alien', title: 'Alien', year: 1979, status: 'COMPLETED', rating: 8.8, tier: 'S', favorite: true, crowd: 8.2, tags: ['Sci-fi'] },
   { key: 'aliens', title: 'Aliens', year: 1986, status: 'COMPLETED', rating: 8.8, tier: 'S', crowd: 7.9 },
   { key: 'heat', title: 'Heat', year: 1995, status: 'COMPLETED', rating: 8.1, crowd: 7.9 },
   { key: 'arrival', title: 'Arrival', year: 2016, status: 'DROPPED', rating: 5.5, crowd: 7.6 },
@@ -212,6 +213,7 @@ async function seedCategory(
         queueOrder: e.queued ? (queue += 1000) : null,
         progress: e.progress ?? null,
         favorite: e.favorite ?? false,
+        tags: e.tags ?? [],
         finishedAt: e.status === 'COMPLETED' ? new Date() : null,
       },
     });

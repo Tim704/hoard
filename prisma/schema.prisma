@@ -314,6 +314,7 @@ model UserMediaActivity {
   tier       Tier?
   queueOrder Float? // position in the "Up next" queue (asc); null = not queued
   elo        Float         @default(1200) // hidden Arena rating
+  duels      Int           @default(0) // Arena duels fought (4.3: confidence)
   rankOrder  Float? // position in the user's manual ranking (asc); null = unranked
   progress   Int? // pages / chapters / episodes / tracks done (1.4); null = not tracked
   tags       String[] // free-form labels (4.2); imported shelves land here (2.3)

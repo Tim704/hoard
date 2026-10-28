@@ -55,6 +55,10 @@ export interface ActivityWithMedia {
   /** Position in the "Up next" queue (ascending); null = not queued. */
   queueOrder: number | null;
   elo: number;
+  /** Arena duels this title has fought (4.3: confidence in its place). */
+  duels: number;
+  /** Free-form labels (4.2), normalised by src/lib/tags.ts. */
+  tags: string[];
   /** Position inside the item's tier (ascending); untiered rows may keep a legacy order. */
   rankOrder: number | null;
   /** Pages / chapters / episodes / tracks done (1.4); null = not tracked. */
@@ -138,6 +142,8 @@ export interface Matchup {
   rating: number | null;
   /** 1-based positions of `a` and `b` in the flattened tier list (tier-neighbour duels). */
   ranks?: [number, number];
+  /** "Challenge tiers" (4.4): `a` is the bottom of `upperTier`, `b` the top of `lowerTier`. */
+  challenge?: { upperTier: Tier; lowerTier: Tier };
   a: ActivityWithMedia;
   b: ActivityWithMedia;
 }

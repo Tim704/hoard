@@ -15,6 +15,7 @@ import {
   NotebookPen,
   Settings,
   Sparkles,
+  Tag,
   Tv,
   Upload,
   type LucideIcon,
@@ -123,6 +124,17 @@ export function NavLinks({ onNavigate, collapsed = false }: NavLinksProps) {
       >
         <NotebookPen className="h-4 w-4 shrink-0 text-muted-foreground" />
         {!collapsed && <span>Diary</span>}
+      </Link>
+
+      <Link
+        href="/tags"
+        onClick={onNavigate}
+        title={collapsed ? 'Tags' : undefined}
+        aria-label={collapsed ? 'Tags' : undefined}
+        className={linkClass('/tags')}
+      >
+        <Tag className="h-4 w-4 shrink-0 text-muted-foreground" />
+        {!collapsed && <span>Tags</span>}
       </Link>
 
       <Link

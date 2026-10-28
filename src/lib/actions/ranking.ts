@@ -18,7 +18,12 @@ import { revalidateCategory } from '@/lib/actions/shared';
 import { recordEvents, tierEvents } from '@/lib/events';
 import {
   acceptSuggestions,
+  boardPlacement,
+  findContainer,
   isTierEligible,
+  moveItem,
+  tierIndex,
+  TIERS,
   parseTierSave,
   planTierSave,
   type Tier,
@@ -110,5 +115,31 @@ export async function acceptSuggestedTiers(slug: CategorySlug): Promise<ActionRe
     return persistTiers(slug, placement, trayIds, 'suggestions');
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Failed to accept suggestions.' };
+  }
+}
+
+/**
+ * Accept a "Challenge tiers" suggestion (4.4): move the title to the bottom
+ * of the higher tier `toTier`, through the normal tier save (so a `tier`
+ * event is recorded, tagged `challenge`). Refused unless the title is on the
+ * user's board in a tier below `toTier`.
+ */
+export async function promoteFromChallenge(
+  slug: CategorySlug,
+  activityId: string,
+  toTier: Tier,
+): Promise<ActionResult> {
+  try {
+    await requireUser();
+    if (!(TIERS as readonly string[]).includes(toTier)) return { ok: false, error: 'Unknown tier.' };
+    const board = await getTierBoard(slug);
+    const from = findContainer(board, activityId);
+    if (from === null || from === 'tray' || tierIndex(from) <= tierIndex(toTier)) {
+      return { ok: false, error: 'That title is no longer below that tier.' };
+    }
+    const next = moveItem(board, activityId, toTier);
+    return persistTiers(slug, boardPlacement(next), [], 'challenge');
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed to move the title.' };
   }
 }
