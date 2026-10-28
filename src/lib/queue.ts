@@ -10,7 +10,9 @@ export const QUEUE_STEP = 1000;
  * max + 1000, so they always land at the bottom. Equal keys fall back to
  * createdAt, then id, so the order is deterministic.
  */
-export function orderQueue(all: ActivityWithMedia[]): ActivityWithMedia[] {
+export function orderQueue<
+  T extends Pick<ActivityWithMedia, 'id' | 'status' | 'queueOrder' | 'createdAt'>,
+>(all: T[]): T[] {
   return all
     .filter((a) => a.status === 'PLANNED')
     .sort((a, b) => {

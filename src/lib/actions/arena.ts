@@ -15,6 +15,7 @@ import { requireUser } from '@/lib/session';
 import { revalidateCategory } from '@/lib/actions/shared';
 import { updateElo } from '@/lib/elo';
 import { getMatchup } from '@/lib/data';
+import { recordEvent } from '@/lib/events';
 import type { Matchup } from '@/lib/types';
 
 /** Fetch the next matchup for a category (requires auth). */
@@ -74,6 +75,20 @@ export async function submitMatchup(
       where: { id: loser.id },
       data: { elo: newLoserElo, ...(swap ? { rankOrder: winner.rankOrder } : {}) },
     }),
+    // A swap moves the winner above the loser inside its tier: log it as a
+    // `tier` event whose tier stays the same (meta says what happened).
+    ...(swap
+      ? [
+          recordEvent(prisma, {
+            userId: user.id,
+            activityId: winner.id,
+            kind: 'tier',
+            from: winner.tier,
+            to: winner.tier,
+            meta: { via: 'arena', above: loser.id },
+          }),
+        ]
+      : []),
   ]);
 
   revalidateCategory(slug);

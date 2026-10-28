@@ -23,6 +23,7 @@ import { requireUser } from '@/lib/session';
 import { searchProvider, enrichResult } from '@/lib/apis';
 import { autoGroupAfterAdd } from '@/lib/franchise/auto';
 import { appendQueueOrder, revalidateCategory } from '@/lib/actions/shared';
+import { eventsForUpdate, recordEvent, recordEvents } from '@/lib/events';
 import type {
   NormalizedResult,
   SearchResponse,
@@ -88,17 +89,20 @@ export async function addToList(
       // PLANNED rows join the bottom of the category's Up next queue.
       const queueOrder =
         status === 'PLANNED' ? await appendQueueOrder(user.id, cat.dbCategory) : null;
-      const created = await prisma.userMediaActivity.create({
-        data: {
-          userId: user.id,
-          category: cat.dbCategory,
-          status,
-          queueOrder,
-          finishedAt: status === 'COMPLETED' ? new Date() : null,
-          [cat.fkField]: media.id,
-        } as any,
+      activityId = await prisma.$transaction(async (tx) => {
+        const created = await tx.userMediaActivity.create({
+          data: {
+            userId: user.id,
+            category: cat.dbCategory,
+            status,
+            queueOrder,
+            finishedAt: status === 'COMPLETED' ? new Date() : null,
+            [cat.fkField]: media.id,
+          } as any,
+        });
+        await recordEvent(tx, { userId: user.id, activityId: created.id, kind: 'added', to: status });
+        return created.id;
       });
-      activityId = created.id;
       // Group the new title with the rest of its franchise (best-effort).
       await autoGroupAfterAdd(user.id, slug, media);
     }
@@ -172,7 +176,15 @@ export async function updateActivity(
       }
     }
 
-    await prisma.userMediaActivity.update({ where: { id }, data: patch as any });
+    const events = eventsForUpdate(
+      { userId: user.id, activityId: id },
+      { status: activity.status, rating: activity.rating },
+      { status: patch.status, rating: patch.rating },
+    );
+    await prisma.$transaction([
+      prisma.userMediaActivity.update({ where: { id }, data: patch as any }),
+      recordEvents(prisma, events),
+    ]);
 
     const slug = slugForDbCategory(activity.category as DbCategory);
     if (slug) revalidateCategory(slug);

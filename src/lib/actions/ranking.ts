@@ -15,6 +15,7 @@ import { getCategory, type CategorySlug } from '@/lib/categories';
 import { getTierBoard } from '@/lib/data';
 import { requireUser } from '@/lib/session';
 import { revalidateCategory } from '@/lib/actions/shared';
+import { recordEvents, tierEvents } from '@/lib/events';
 import {
   acceptSuggestions,
   isTierEligible,
@@ -35,6 +36,16 @@ export async function saveTiers(
   placement: TierPlacement,
   trayIds: string[],
 ): Promise<ActionResult> {
+  return persistTiers(slug, placement, trayIds);
+}
+
+/** saveTiers' body; `via` tags the tier events (e.g. accepted suggestions). */
+async function persistTiers(
+  slug: CategorySlug,
+  placement: TierPlacement,
+  trayIds: string[],
+  via?: string,
+): Promise<ActionResult> {
   const cat = getCategory(slug);
   if (!cat) return { ok: false, error: 'Unknown category.' };
   const input = parseTierSave(placement, trayIds);
@@ -54,6 +65,15 @@ export async function saveTiers(
     const { placed, clearIds } = planTierSave(input.placement, input.trayIds, current);
 
     if (placed.length > 0 || clearIds.length > 0) {
+      // A `tier` event for every row whose tier changes (not for reorders).
+      const events = tierEvents(
+        user.id,
+        [
+          ...clearIds.map((id) => ({ activityId: id, from: current.get(id)?.tier ?? null, to: null })),
+          ...placed.map((p) => ({ activityId: p.id, from: current.get(p.id)?.tier ?? null, to: p.tier })),
+        ],
+        via ? { via } : undefined,
+      );
       await prisma.$transaction([
         // Only rows that actually leave a tier are cleared: items already in the
         // tray keep their legacy rankOrder, so the tray keeps its old order.
@@ -64,6 +84,7 @@ export async function saveTiers(
         ...placed.map(({ id, tier, rankOrder }) =>
           prisma.userMediaActivity.update({ where: { id }, data: { tier, rankOrder } }),
         ),
+        recordEvents(prisma, events),
       ]);
     }
 
@@ -86,7 +107,7 @@ export async function acceptSuggestedTiers(slug: CategorySlug): Promise<ActionRe
     // Unrated tray items stay in the tray (they are already untiered).
     const placedIds = new Set(Object.values(placement).flat());
     const trayIds = board.tray.map((a) => a.id).filter((id) => !placedIds.has(id));
-    return saveTiers(slug, placement, trayIds);
+    return persistTiers(slug, placement, trayIds, 'suggestions');
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Failed to accept suggestions.' };
   }

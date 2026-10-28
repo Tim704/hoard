@@ -9,9 +9,10 @@
 
 import { prisma } from '@/lib/prisma';
 import { getCategory, type CategorySlug } from '@/lib/categories';
-import { QUEUE_STEP } from '@/lib/queue';
 import { requireUser } from '@/lib/session';
 import { revalidateCategory } from '@/lib/actions/shared';
+import { orderQueue, QUEUE_STEP } from '@/lib/queue';
+import { queueMoveEvent, recordEvent } from '@/lib/events';
 import type { ActionResult } from '@/lib/types';
 
 export async function saveQueue(
@@ -25,19 +26,26 @@ export async function saveQueue(
     const user = await requireUser();
     const planned = await prisma.userMediaActivity.findMany({
       where: { userId: user.id, category: cat.dbCategory, status: 'PLANNED' },
-      select: { id: true },
+      select: { id: true, queueOrder: true, createdAt: true },
     });
     const valid = new Set(planned.map((p) => p.id));
     const ids = [...new Set(orderedIds)].filter((id) => valid.has(id));
 
-    await prisma.$transaction(
-      ids.map((id, i) =>
+    // One `queue` event per save, attached to the item that moved.
+    const before = orderQueue(
+      planned.map((p) => ({ ...p, status: 'PLANNED' as const, createdAt: p.createdAt.toISOString() })),
+    ).map((p) => p.id);
+    const event = queueMoveEvent(user.id, before, ids);
+
+    await prisma.$transaction([
+      ...ids.map((id, i) =>
         prisma.userMediaActivity.update({
           where: { id },
           data: { queueOrder: (i + 1) * QUEUE_STEP },
         }),
       ),
-    );
+      ...(event ? [recordEvent(prisma, event)] : []),
+    ]);
 
     revalidateCategory(slug);
     return { ok: true };
