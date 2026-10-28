@@ -54,8 +54,8 @@ export default async function FeedPage({ searchParams }: { searchParams: { curso
         </p>
       ) : (
         <ol className="space-y-2">
-          {items.map((item) => (
-            <FeedRow key={item.id} item={item} now={now} />
+          {items.map((item, i) => (
+            <FeedRow key={i} item={item} now={now} />
           ))}
         </ol>
       )}

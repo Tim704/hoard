@@ -225,8 +225,8 @@ export function SettingsCompare({ initial }: { initial: boolean }) {
             Watch together
           </Link>{' '}
           with you. Compare shows the titles you both have with both scores, a compatibility score, and the titles in
-          your S tier they don’t have. Watch together shows the planned titles you both have queued. Never your notes,
-          reviews, dates or other statuses.
+          your S tier they don’t have. Watch together shows the planned titles you both have queued, with their places in
+          each queue. Never your notes, reviews, dates or other statuses.
         </>
       }
     />
@@ -249,8 +249,8 @@ export function SettingsFeed({ initial }: { initial: boolean }) {
           <Link href="/feed" className="underline underline-offset-2">
             Feed
           </Link>{' '}
-          what you finished (with your score), dropped or put in S tier over the last 30 days, under your username.
-          Turning it off takes all of it out of everyone’s feed at once.
+          what you finished (with that run’s score), dropped (with the title’s current score) or put in S tier over
+          the last 30 days, under your username. Turning it off takes all of it out of everyone’s feed at once.
         </>
       }
     />

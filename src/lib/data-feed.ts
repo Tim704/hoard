@@ -9,7 +9,18 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import { CATEGORY_LIST, type CategorySlug } from '@/lib/categories';
-import { buildFeed, FEED_DAYS, FEED_PAGE_SIZE, type FeedCursor, type FeedKind } from '@/lib/feed';
+import { Prisma } from '@prisma/client';
+
+import {
+  buildFeed,
+  diaryHorizon,
+  FEED_DAYS,
+  FEED_PAGE_SIZE,
+  latestHorizon,
+  sourceHorizon,
+  type FeedCursor,
+  type FeedKind,
+} from '@/lib/feed';
 import { effectiveTimeZone, parsePrefs, type Prefs } from '@/lib/prefs';
 import { prisma } from '@/lib/prisma';
 import { todayYmd } from '@/lib/release';
@@ -18,8 +29,19 @@ import { displayTitle } from '@/lib/title';
 /** Rows read per source and request (a bound; the window is 30 days). */
 const SOURCE_CAP = 2000;
 
+/**
+ * Not an undo (`meta.undo` true). A plain NOT would also drop rows whose meta
+ * is NULL or lacks the key (SQL NULL), so match those explicitly.
+ */
+const NOT_UNDO: Prisma.ActivityEventWhereInput = {
+  OR: [
+    { meta: { equals: Prisma.DbNull } },
+    { meta: { path: ['undo'], equals: Prisma.AnyNull } },
+    { meta: { path: ['undo'], equals: false } },
+  ],
+};
+
 export interface FeedItem {
-  id: string;
   kind: FeedKind;
   username: string;
   isMe: boolean;
@@ -69,25 +91,47 @@ export async function getFeedPage(
   const fromDay = todayYmd('UTC', new Date(since.getTime() - 86_400_000));
   const toDay = todayYmd('UTC', new Date(upper.getTime() + 86_400_000));
 
-  const [diary, events] = await Promise.all([
+  const [diary, events, undos] = await Promise.all([
     prisma.diaryEntry.findMany({
       where: { userId: { in: ids }, date: { gte: fromDay, lte: toDay } },
       select: { id: true, userId: true, activityId: true, date: true, createdAt: true, rating: true, rewatch: true },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
       take: SOURCE_CAP,
     }),
+    // Feed entries only, so the cap is spent on rows that count: drops, and
+    // placements into S from elsewhere (an Arena swap inside S has from = S);
+    // never undo events.
     prisma.activityEvent.findMany({
       where: {
         userId: { in: ids },
         at: { gte: since, lte: upper },
-        OR: [
-          { kind: 'status', to: 'DROPPED' },
-          { kind: 'tier', to: 'S' },
+        AND: [
+          NOT_UNDO,
+          {
+            OR: [
+              { kind: 'status', to: 'DROPPED' },
+              { kind: 'tier', to: 'S', OR: [{ from: null }, { from: { not: 'S' } }] },
+            ],
+          },
         ],
       },
       select: { id: true, userId: true, activityId: true, kind: true, from: true, to: true, at: true, meta: true },
       orderBy: { at: 'desc' },
       take: SOURCE_CAP,
+    }),
+    // Undos that took a drop or an S placement back (later than the entry).
+    prisma.activityEvent.findMany({
+      where: {
+        userId: { in: ids },
+        at: { gte: since },
+        meta: { path: ['undo'], equals: true },
+        OR: [
+          { kind: 'status', from: 'DROPPED' },
+          { kind: 'tier', from: 'S' },
+        ],
+      },
+      select: { activityId: true, kind: true, from: true, at: true },
+      take: 5 * SOURCE_CAP,
     }),
   ]);
 
@@ -95,6 +139,8 @@ export async function getFeedPage(
     allowed: new Set(ids),
     now,
     cursor,
+    undos,
+    horizon: latestHorizon(diaryHorizon(diary, SOURCE_CAP), sourceHorizon(events, SOURCE_CAP)),
     limit: FEED_PAGE_SIZE,
     ymdOf: (userId, at) => todayYmd(users.get(userId)?.timeZone ?? 'UTC', at),
   });
@@ -118,7 +164,6 @@ export async function getFeedPage(
     if (!cat || !m) continue;
     const current = typeof a.rating === 'number' ? a.rating : null;
     items.push({
-      id: e.id,
       kind: e.kind,
       username: owner.username,
       isMe: e.userId === meId,

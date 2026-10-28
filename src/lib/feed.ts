@@ -14,6 +14,7 @@
 //    - drop:    a status event into Dropped (not an undo);
 //    - s-tier:  a tier event into S from another tier or none (an Arena swap
 //               inside S and undo restores are not new placements).
+//  A drop or S placement that a later Undo took back is left out.
 // ───────────────────────────────────────────────────────────────────────────
 
 /** How far back the feed reaches. */
@@ -58,9 +59,21 @@ export interface FeedEntry {
   rewatch: boolean;
 }
 
+/**
+ * A paging position: entries at `at` or older, minus the first `skip` of the
+ * ones exactly at `at` (in feed order). Encoded opaquely, never with row ids.
+ */
 export interface FeedCursor {
   at: Date;
-  id: string;
+  skip: number;
+}
+
+/** An undo event (`meta.undo`) as read for the feed. */
+export interface RawUndo {
+  activityId: string;
+  kind: string;
+  from: string | null;
+  at: Date;
 }
 
 const meta = (m: unknown): Record<string, unknown> =>
@@ -93,11 +106,60 @@ function newerFirst(a: FeedEntry, b: FeedEntry): number {
   return b.at.getTime() - a.at.getTime() || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0);
 }
 
-/** Is `e` strictly after the cursor in feed order (i.e. older)? */
-function afterCursor(e: FeedEntry, c: FeedCursor): boolean {
-  const t = e.at.getTime();
+/**
+ * Was this drop / S placement taken back by a later Undo? (An undo of a drop
+ * is a status event out of Dropped; of an S placement, a tier event out of S.)
+ */
+export function wasUndone(e: Pick<FeedEntry, 'kind' | 'activityId' | 'at'>, undos: readonly RawUndo[]): boolean {
+  if (e.kind === 'finish') return false; // undoing a finish deletes its diary entry
+  const kind = e.kind === 'drop' ? 'status' : 'tier';
+  const from = e.kind === 'drop' ? 'DROPPED' : 'S';
+  return undos.some(
+    (u) => u.activityId === e.activityId && u.kind === kind && u.from === from && u.at.getTime() > e.at.getTime(),
+  );
+}
+
+/**
+ * The horizon of a source read newest-first with `take: cap`: when it came
+ * back full, rows at or before its oldest timestamp may be missing, so only
+ * entries strictly newer than that are complete. Null when it wasn't full.
+ */
+export function sourceHorizon(rowsNewestFirst: readonly { at: Date }[], cap: number): Date | null {
+  return rowsNewestFirst.length >= cap && rowsNewestFirst.length > 0 ? rowsNewestFirst[rowsNewestFirst.length - 1].at : null;
+}
+
+/**
+ * The same for diary entries read by day (newest first): a missing entry of
+ * the oldest day read can be placed as late as that day's end in any zone
+ * (diaryMoment), so the horizon is 36 h after that day's UTC midnight.
+ */
+export function diaryHorizon(rowsNewestFirst: readonly { date: string }[], cap: number): Date | null {
+  if (rowsNewestFirst.length < cap || rowsNewestFirst.length === 0) return null;
+  const day = new Date(`${rowsNewestFirst[rowsNewestFirst.length - 1].date}T00:00:00.000Z`);
+  return Number.isNaN(day.getTime()) ? null : new Date(day.getTime() + 36 * 3_600_000);
+}
+
+/** The later of some horizons (null = none). */
+export function latestHorizon(...hs: (Date | null)[]): Date | null {
+  let out: Date | null = null;
+  for (const h of hs) if (h && (!out || h > out)) out = h;
+  return out;
+}
+
+/** The entries after `c` in feed order (`ordered` is already newest first). */
+function applyCursor(ordered: FeedEntry[], c: FeedCursor | null | undefined): FeedEntry[] {
+  if (!c) return ordered;
   const ct = c.at.getTime();
-  return t < ct || (t === ct && e.id < c.id);
+  let skipped = 0;
+  return ordered.filter((e) => {
+    const t = e.at.getTime();
+    if (t > ct) return false;
+    if (t === ct && skipped < c.skip) {
+      skipped++;
+      return false;
+    }
+    return true;
+  });
 }
 
 export interface BuildFeedOptions {
@@ -107,6 +169,14 @@ export interface BuildFeedOptions {
   /** The owner's day for a timestamp (diaryMoment). */
   ymdOf: (userId: string, at: Date) => string;
   cursor?: FeedCursor | null;
+  /** Later undo events: an undone drop / S placement is not shown. */
+  undos?: readonly RawUndo[];
+  /**
+   * A capped source's horizon (latestHorizon of sourceHorizon/diaryHorizon):
+   * only entries strictly newer are complete, so the page stops there and
+   * `next` continues from it, even on a short page.
+   */
+  horizon?: Date | null;
   limit?: number;
   days?: number;
 }
@@ -137,26 +207,46 @@ export function buildFeed(
     all.push({ id: `e:${ev.id}`, kind, userId: ev.userId, activityId: ev.activityId, at: ev.at, rating: null, rewatch: false });
   }
 
-  const inWindow = all
+  const undos = opts.undos ?? [];
+  const ordered = all
     .filter((e) => e.at.getTime() >= since && e.at.getTime() <= opts.now.getTime() + 60_000)
-    .filter((e) => !opts.cursor || afterCursor(e, opts.cursor))
+    .filter((e) => !wasUndone(e, undos))
     .sort(newerFirst);
-  const entries = inWindow.slice(0, limit);
+  let candidates = applyCursor(ordered, opts.cursor);
+
+  // A capped source: stop at its horizon so nothing older is skipped for
+  // good. (If nothing at all is newer than the horizon, e.g. thousands of
+  // rows on one day, the page goes on without it rather than stall.)
+  let cut = false;
+  if (opts.horizon) {
+    const h = opts.horizon.getTime();
+    const kept = candidates.filter((e) => e.at.getTime() > h);
+    if (kept.length > 0) {
+      candidates = kept;
+      cut = true;
+    }
+  }
+
+  const entries = candidates.slice(0, limit);
   const last = entries[entries.length - 1];
-  return { entries, next: inWindow.length > limit && last ? { at: last.at, id: last.id } : null };
+  if (!last || !(cut || candidates.length > limit)) return { entries, next: null };
+  const sameAt = entries.filter((e) => e.at.getTime() === last.at.getTime()).length;
+  const carried = opts.cursor && opts.cursor.at.getTime() === last.at.getTime() ? opts.cursor.skip : 0;
+  return { entries, next: { at: last.at, skip: sameAt + carried } };
 }
 
-/** "1730000000000~e:abc" ⇄ cursor. Anything malformed reads as "first page". */
+/** An opaque cursor ("<ms base36>-<skip base36>"); anything malformed reads as "first page". */
 export function encodeCursor(c: FeedCursor): string {
-  return `${c.at.getTime()}~${c.id}`;
+  return `${c.at.getTime().toString(36)}-${c.skip.toString(36)}`;
 }
 
 export function decodeCursor(raw: unknown): FeedCursor | null {
-  if (typeof raw !== 'string' || raw.length > 200) return null;
-  const m = /^(\d{1,15})~([de]:[A-Za-z0-9_-]{1,100})$/.exec(raw);
+  if (typeof raw !== 'string' || raw.length > 40) return null;
+  const m = /^([0-9a-z]{1,10})-([0-9a-z]{1,6})$/.exec(raw);
   if (!m) return null;
-  const at = new Date(Number(m[1]));
-  return Number.isNaN(at.getTime()) ? null : { at, id: m[2] };
+  const at = new Date(parseInt(m[1], 36));
+  const skip = parseInt(m[2], 36);
+  return Number.isNaN(at.getTime()) || !Number.isSafeInteger(skip) ? null : { at, skip };
 }
 
 /** "just now", "5 min ago", "3 h ago", "yesterday", "4 days ago". */

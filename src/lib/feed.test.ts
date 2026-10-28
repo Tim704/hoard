@@ -3,10 +3,15 @@ import { describe, expect, it } from 'vitest';
 import {
   buildFeed,
   decodeCursor,
+  diaryHorizon,
   diaryMoment,
   encodeCursor,
   eventKind,
+  latestHorizon,
   relativeTime,
+  sourceHorizon,
+  wasUndone,
+  type FeedCursor,
   type RawDiary,
   type RawEvent,
 } from '@/lib/feed';
@@ -110,7 +115,7 @@ describe('buildFeed window, order and paging', () => {
     const events = Array.from({ length: 7 }, (_, i) => event(`e${i}`, 'a', hoursAgo(i < 3 ? 1 : i)));
     const opts = { allowed: new Set(['a']), now: NOW, ymdOf: berlin, limit: 3 };
     const seen: string[] = [];
-    let cursor = null;
+    let cursor: FeedCursor | null = null;
     for (let guard = 0; guard < 10; guard++) {
       const page: ReturnType<typeof buildFeed> = buildFeed([], events, { ...opts, cursor });
       seen.push(...page.entries.map((e) => e.id));
@@ -122,13 +127,78 @@ describe('buildFeed window, order and paging', () => {
   });
 });
 
+describe('buildFeed with undone actions', () => {
+  it('drops a drop or S placement that a later undo took back, keeps the rest', () => {
+    const drop = event('drop', 'a', hoursAgo(5));
+    const s = event('s', 'a', hoursAgo(4), { kind: 'tier', from: 'A', to: 'S' });
+    const keptDrop = event('kept', 'a', hoursAgo(3));
+    const undos = [
+      { activityId: 'act-drop', kind: 'status', from: 'DROPPED', at: hoursAgo(4.9) },
+      { activityId: 'act-s', kind: 'tier', from: 'S', at: hoursAgo(3.9) },
+      // An undo BEFORE the entry, or of another kind, doesn't count.
+      { activityId: 'act-kept', kind: 'status', from: 'DROPPED', at: hoursAgo(3.5) },
+      { activityId: 'act-kept', kind: 'tier', from: 'S', at: hoursAgo(1) },
+    ];
+    const { entries } = buildFeed([], [drop, s, keptDrop], { allowed: new Set(['a']), now: NOW, ymdOf: berlin, undos });
+    expect(entries.map((e) => e.id)).toEqual(['e:kept']);
+  });
+
+  it('wasUndone never applies to finishes', () => {
+    expect(
+      wasUndone({ kind: 'finish', activityId: 'x', at: hoursAgo(2) }, [{ activityId: 'x', kind: 'status', from: 'DROPPED', at: NOW }]),
+    ).toBe(false);
+  });
+});
+
+describe('buildFeed horizon (capped sources)', () => {
+  it('computes horizons only for full sources', () => {
+    const rows = [{ at: hoursAgo(1) }, { at: hoursAgo(2) }];
+    expect(sourceHorizon(rows, 3)).toBeNull();
+    expect(sourceHorizon(rows, 2)).toEqual(hoursAgo(2));
+    expect(diaryHorizon([{ date: '2026-10-27' }], 2)).toBeNull();
+    expect(diaryHorizon([{ date: '2026-10-28' }, { date: '2026-10-20' }], 2)).toEqual(new Date('2026-10-21T12:00:00.000Z'));
+    expect(latestHorizon(null, hoursAgo(5), hoursAgo(2), null)).toEqual(hoursAgo(2));
+    expect(latestHorizon(null, null)).toBeNull();
+  });
+
+  it('stops at the horizon and continues from it on a short page, losing nothing', () => {
+    // Source A was capped at 2 rows (hours 1 and 3); hours 5 and 7 exist but weren't read.
+    const all = [1, 3, 5, 7].map((h) => event(`a${h}`, 'a', hoursAgo(h)));
+    const other = [2, 6].map((h) => event(`b${h}`, 'b', hoursAgo(h)));
+    const base = { allowed: new Set(['a', 'b']), now: NOW, ymdOf: berlin, limit: 50 };
+    const first = buildFeed([], [...all.slice(0, 2), ...other], { ...base, horizon: sourceHorizon(all.slice(0, 2), 2) });
+    expect(first.entries.map((e) => e.id)).toEqual(['e:a1', 'e:b2']);
+    expect(first.next).not.toBeNull();
+    // Next request: the DB returns what is at or before the cursor.
+    const c = first.next!;
+    const rest = [...all, ...other].filter((e) => e.at <= c.at);
+    const second = buildFeed([], rest, { ...base, cursor: decodeCursor(encodeCursor(c)) });
+    expect(second.entries.map((e) => e.id)).toEqual(['e:a3', 'e:a5', 'e:b6', 'e:a7']);
+    expect(second.next).toBeNull();
+  });
+
+  it('pages through many entries at the same instant without repeats', () => {
+    const same = Array.from({ length: 5 }, (_, i) => event(`s${i}`, 'a', hoursAgo(1)));
+    const seen: string[] = [];
+    let cursor: FeedCursor | null = null;
+    for (let guard = 0; guard < 10; guard++) {
+      const page: ReturnType<typeof buildFeed> = buildFeed([], same, { allowed: new Set(['a']), now: NOW, ymdOf: berlin, limit: 2, cursor });
+      seen.push(...page.entries.map((e) => e.id));
+      if (!page.next) break;
+      cursor = page.next;
+    }
+    expect(seen.sort()).toEqual(['e:s0', 'e:s1', 'e:s2', 'e:s3', 'e:s4']);
+  });
+});
+
 describe('cursor and relative time', () => {
   it('round-trips a cursor and rejects junk', () => {
-    const c = { at: NOW, id: 'e:abc123' };
+    const c = { at: NOW, skip: 3 };
     expect(decodeCursor(encodeCursor(c))).toEqual(c);
+    expect(encodeCursor(c)).toMatch(/^[0-9a-z]+-[0-9a-z]+$/);
     expect(decodeCursor('nope')).toBeNull();
     expect(decodeCursor(undefined)).toBeNull();
-    expect(decodeCursor('123~x:abc')).toBeNull();
+    expect(decodeCursor('123~e:abc')).toBeNull();
   });
 
   it('reads like a person would say it', () => {
