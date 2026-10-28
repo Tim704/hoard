@@ -1,0 +1,117 @@
+// ───────────────────────────────────────────────────────────────────────────
+//  Adding a title to a user's library — the one write path behind the Add
+//  dialog, "Select several", manual entries and (later) the importers.
+//  Deliberately NOT a 'use server' module: it trusts its `userId` argument, so
+//  it must never become a client-callable action. Callers authenticate first.
+// ───────────────────────────────────────────────────────────────────────────
+
+import type { Prisma } from '@prisma/client';
+
+import { prisma } from '@/lib/prisma';
+import { getCategory, type CategorySlug } from '@/lib/categories';
+import { recordEvent } from '@/lib/events';
+import { autoGroupAfterAdd } from '@/lib/franchise/auto';
+import { upsertUpdatePayload } from '@/lib/media-upsert';
+import { nextQueueOrder } from '@/lib/queue';
+import type { Status } from '@/lib/status';
+import type { NormalizedResult } from '@/lib/types';
+
+export interface AddOptions {
+  status: Status;
+  /** 0–10, already validated by the caller. */
+  rating?: number | null;
+  /** Defaults to now for COMPLETED, else null. */
+  finishedAt?: Date | null;
+  startedAt?: Date | null;
+  progress?: number | null;
+  /** Reserved for the tags column (4.2); ignored until it exists. */
+  tags?: string[];
+  notes?: string | null;
+  /** Skip franchise auto-grouping (bulk callers regroup once at the end). */
+  skipFranchise?: boolean;
+  eventKind?: 'added' | 'import';
+  eventMeta?: Prisma.InputJsonValue;
+}
+
+export interface AddOutcome {
+  activityId: string;
+  /** True when the user already had this title; it is returned unchanged. */
+  existing: boolean;
+}
+
+/**
+ * Upsert the shared media row (keyed by its provider `externalId`; an existing
+ * row only takes the values this result actually has) and, unless the user
+ * already has it, create their activity — joining the bottom of Up next when
+ * PLANNED — with its `added`/`import` event, all in one transaction. Franchise
+ * grouping runs afterwards (best-effort) unless `skipFranchise`.
+ */
+export async function addMediaForUser(
+  userId: string,
+  slug: CategorySlug,
+  result: NormalizedResult,
+  opts: AddOptions,
+): Promise<AddOutcome> {
+  const cat = getCategory(slug);
+  if (!cat) throw new Error('Unknown category.');
+  const { status } = opts;
+
+  const outcome = await prisma.$transaction(async (tx) => {
+    const db = tx as any; // sanctioned dynamic model access (seven media tables)
+    const media = await db[cat.prismaModel].upsert({
+      where: { externalId: result.externalId },
+      update: upsertUpdatePayload(result.fields),
+      create: result.fields,
+    });
+
+    const existing = await tx.userMediaActivity.findFirst({
+      where: { userId, [cat.fkField]: media.id } as any,
+      select: { id: true },
+    });
+    if (existing) return { activityId: existing.id, existing: true, media };
+
+    // PLANNED rows join the bottom of the category's Up next queue.
+    let queueOrder: number | null = null;
+    if (status === 'PLANNED') {
+      const top = await tx.userMediaActivity.aggregate({
+        where: { userId, category: cat.dbCategory },
+        _max: { queueOrder: true },
+      });
+      queueOrder = nextQueueOrder(top._max.queueOrder);
+    }
+
+    const created = await tx.userMediaActivity.create({
+      data: {
+        userId,
+        category: cat.dbCategory,
+        status,
+        queueOrder,
+        rating: opts.rating ?? null,
+        progress: opts.progress ?? null,
+        notes: opts.notes ?? null,
+        startedAt: opts.startedAt ?? null,
+        finishedAt:
+          opts.finishedAt !== undefined
+            ? opts.finishedAt
+            : status === 'COMPLETED'
+              ? new Date()
+              : null,
+        [cat.fkField]: media.id,
+      } as any,
+    });
+    await recordEvent(tx, {
+      userId,
+      activityId: created.id,
+      kind: opts.eventKind ?? 'added',
+      to: status,
+      ...(opts.eventMeta !== undefined ? { meta: opts.eventMeta } : {}),
+    });
+    return { activityId: created.id, existing: false, media };
+  });
+
+  // Group the new title with the rest of its franchise (best-effort).
+  if (!outcome.existing && !opts.skipFranchise) {
+    await autoGroupAfterAdd(userId, slug, outcome.media);
+  }
+  return { activityId: outcome.activityId, existing: outcome.existing };
+}

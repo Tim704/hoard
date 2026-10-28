@@ -9,6 +9,7 @@
 //  serializable `ActionResult` rather than thrown (these are called from forms).
 // ───────────────────────────────────────────────────────────────────────────
 
+import { randomBytes } from 'crypto';
 import { revalidatePath } from 'next/cache';
 
 import { prisma } from '@/lib/prisma';
@@ -18,11 +19,17 @@ import {
   type CategorySlug,
   type DbCategory,
 } from '@/lib/categories';
-import { upsertUpdatePayload } from '@/lib/media-upsert';
+import { addMediaForUser } from '@/lib/library/add';
+import {
+  isManualId,
+  MANUAL_PREFIX,
+  manualResult,
+  parseManualInput,
+  type ManualInput,
+} from '@/lib/manual';
 import { normalizeRating } from '@/lib/rating';
 import { requireUser } from '@/lib/session';
 import { searchProvider, enrichResult } from '@/lib/apis';
-import { autoGroupAfterAdd } from '@/lib/franchise/auto';
 import { appendQueueOrder, revalidateCategory } from '@/lib/actions/shared';
 import { eventsForUpdate, recordEvent, recordEvents } from '@/lib/events';
 import { validProgress } from '@/lib/progress';
@@ -61,10 +68,9 @@ function slugForDbCategory(dbCategory: DbCategory): CategorySlug | undefined {
 }
 
 /**
- * Add a search result to the current user's library:
- *  1. Upsert the canonical media row (keyed by its provider `externalId`).
- *  2. Create an activity (COMPLETED or PLANNED) linking the user to that media
- *     — unless one already exists, which is returned unchanged (`existing`).
+ * Add a search result to the current user's library (see `addMediaForUser`):
+ * upsert the canonical media row, then create a COMPLETED or PLANNED activity
+ * — unless one already exists, which is returned unchanged (`existing`).
  */
 export async function addToList(
   slug: CategorySlug,
@@ -73,6 +79,14 @@ export async function addToList(
 ): Promise<{ ok: boolean; error?: string; activityId?: string; existing: boolean }> {
   const cat = getCategory(slug);
   if (!cat) return { ok: false, error: 'Unknown category.', existing: false };
+  if (status !== 'COMPLETED' && status !== 'PLANNED') {
+    return { ok: false, error: 'Unknown status.', existing: false };
+  }
+  // Hand-made rows belong to whoever made them: they are only ever written by
+  // addManualEntry / updateManualEntry, never by a (client-sent) search hit.
+  if (typeof result?.externalId !== 'string' || isManualId(result.externalId)) {
+    return { ok: false, error: 'Could not add that item.', existing: false };
+  }
 
   try {
     const user = await requireUser();
@@ -81,54 +95,89 @@ export async function addToList(
     // episode counts, …) before persisting, so dashboard metrics have data.
     result = await enrichResult(slug, result);
 
-    // Upsert the shared media row. `result.fields` is the exact column payload
-    // for this category's table (per the provider contract). An existing row
-    // only takes the values this result actually has, so a thinner search hit
-    // never blanks stored details.
-    const media = await (prisma as any)[cat.prismaModel].upsert({
-      where: { externalId: result.externalId },
-      update: upsertUpdatePayload(result.fields),
-      create: result.fields,
-    });
-
-    // Only create the join row if the user hasn't already added this item.
-    const existing = await prisma.userMediaActivity.findFirst({
-      where: { userId: user.id, [cat.fkField]: media.id } as any,
-    });
-
-    // Reuse the pre-existing activity id when present, else the newly created one.
-    let activityId: string;
-    if (existing) {
-      activityId = existing.id;
-    } else {
-      // PLANNED rows join the bottom of the category's Up next queue.
-      const queueOrder =
-        status === 'PLANNED' ? await appendQueueOrder(user.id, cat.dbCategory) : null;
-      activityId = await prisma.$transaction(async (tx) => {
-        const created = await tx.userMediaActivity.create({
-          data: {
-            userId: user.id,
-            category: cat.dbCategory,
-            status,
-            queueOrder,
-            finishedAt: status === 'COMPLETED' ? new Date() : null,
-            [cat.fkField]: media.id,
-          } as any,
-        });
-        await recordEvent(tx, { userId: user.id, activityId: created.id, kind: 'added', to: status });
-        return created.id;
-      });
-      // Group the new title with the rest of its franchise (best-effort).
-      await autoGroupAfterAdd(user.id, slug, media);
-    }
+    const { activityId, existing } = await addMediaForUser(user.id, slug, result, { status });
 
     revalidateCategory(slug);
     revalidatePath('/franchises');
-    return { ok: true, activityId, existing: !!existing };
+    return { ok: true, activityId, existing };
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Failed to add item.';
     return { ok: false, error, existing: false };
   }
+}
+
+/**
+ * Add a title the providers don't know (spec 1.5). Every manual add creates
+ * its own catalogue row (`manual:<id>`), so later edits only ever touch the
+ * adding user's row. Status is COMPLETED or PLANNED, as in the search results.
+ */
+export async function addManualEntry(
+  slug: CategorySlug,
+  input: ManualInput,
+  status: 'COMPLETED' | 'PLANNED',
+): Promise<{ ok: boolean; error?: string; activityId?: string }> {
+  const cat = getCategory(slug);
+  if (!cat) return { ok: false, error: 'Unknown category.' };
+  if (status !== 'COMPLETED' && status !== 'PLANNED') return { ok: false, error: 'Unknown status.' };
+  const parsed = parseManualInput(slug, input);
+  if (!parsed.ok) return { ok: false, error: parsed.error };
+
+  try {
+    const user = await requireUser();
+    const externalId = MANUAL_PREFIX + newManualId();
+    const { activityId } = await addMediaForUser(
+      user.id,
+      slug,
+      manualResult(externalId, parsed.fields),
+      { status },
+    );
+    revalidateCategory(slug);
+    revalidatePath('/franchises');
+    return { ok: true, activityId };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : 'Failed to add item.';
+    return { ok: false, error };
+  }
+}
+
+/**
+ * Edit a manual entry's details (title, year, cover, description, counts).
+ * Only for the caller's own activity, and only when its media row is manual —
+ * provider rows are shared and never edited by hand.
+ */
+export async function updateManualEntry(
+  activityId: string,
+  input: ManualInput,
+): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    const activity = await prisma.userMediaActivity.findUnique({ where: { id: activityId } });
+    if (!activity || activity.userId !== user.id) return { ok: false, error: 'Not found.' };
+    const cat = CATEGORY_LIST.find((c) => c.dbCategory === activity.category);
+    const mediaId = cat ? activity[cat.fkField] : null;
+    if (!cat || !mediaId) return { ok: false, error: 'Not found.' };
+
+    const media = await (prisma as any)[cat.prismaModel].findUnique({ where: { id: mediaId } });
+    if (!media || !isManualId(media.externalId)) {
+      return { ok: false, error: 'Only titles you added yourself can be edited.' };
+    }
+    const parsed = parseManualInput(cat.slug, input);
+    if (!parsed.ok) return { ok: false, error: parsed.error };
+
+    await (prisma as any)[cat.prismaModel].update({ where: { id: mediaId }, data: parsed.fields });
+    revalidateCategory(cat.slug);
+    revalidatePath('/franchises');
+    revalidatePath('/dashboard');
+    return { ok: true };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : 'Could not save those details.';
+    return { ok: false, error };
+  }
+}
+
+/** A collision-resistant id for a manual row (cuid-like: time + randomness). */
+function newManualId(): string {
+  return 'c' + Date.now().toString(36) + randomBytes(9).toString('hex');
 }
 
 /**

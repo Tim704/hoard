@@ -9,6 +9,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import { anilistQuery } from '@/lib/apis/anilist';
+import { isLookupSkipped } from '@/lib/apis/details';
 import { fetchGameFranchise } from '@/lib/apis/igdb';
 import { fetchMovieDetails } from '@/lib/apis/tmdb';
 import type { CategorySlug } from '@/lib/categories';
@@ -143,6 +144,8 @@ export async function resolveFranchise(
   slug: CategorySlug,
   media: { externalId: string; title: string },
 ): Promise<FranchiseInfo | null> {
+  // Hand-made and demo rows have no provider id: they group by title only.
+  if (isLookupSkipped(media.externalId)) return { key: null, name: media.title };
   try {
     switch (slug) {
       case 'anime':

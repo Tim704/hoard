@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { ImageOff, Layers, Loader2, Star, Trash2 } from 'lucide-react';
+import { ImageOff, Layers, Loader2, PencilLine, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { ManualFields } from '@/components/manual-fields';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { ProgressField } from '@/components/progress-field';
 import { RatingInput } from '@/components/rating-input';
@@ -26,7 +27,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { assignFranchise } from '@/lib/actions/franchise';
-import { removeActivity, updateActivity } from '@/lib/actions/media';
+import { removeActivity, updateActivity, updateManualEntry } from '@/lib/actions/media';
+import { isManualId, manualInputFrom, parseManualInput, type ManualInput } from '@/lib/manual';
 import { formatTimeToBeat } from '@/lib/media-meta';
 import { formatYmd, isYmd } from '@/lib/release';
 import { STATUSES, statusLabel, type Status } from '@/lib/status';
@@ -136,6 +138,75 @@ function MediaExtras({ media }: { media: MediaItem }) {
 }
 
 /**
+ * Editing a hand-made title's details (spec 1.5). Only offered for manual
+ * rows: provider rows are shared catalogue data and are never edited by hand.
+ */
+function ManualEditor({
+  activity,
+  onDone,
+}: {
+  activity: ActivityWithMedia;
+  onDone: () => void;
+}) {
+  const router = useRouter();
+  const [value, setValue] = useState<ManualInput>(() =>
+    manualInputFrom(activity.category, activity.media),
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const parsed = parseManualInput(activity.category, value);
+    if (!parsed.ok) {
+      setError(parsed.error);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await updateManualEntry(activity.id, value);
+      if (res.ok) {
+        toast.success('Details saved.');
+        router.refresh();
+        onDone();
+      } else {
+        setError(res.error ?? 'Could not save those details.');
+      }
+    } catch {
+      setError('Could not save those details.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border border-border p-3">
+      <ManualFields
+        slug={activity.category}
+        value={value}
+        onChange={setValue}
+        disabled={saving}
+        idPrefix={`manual-edit-${activity.id}`}
+      />
+      {error && (
+        <p className="text-sm text-rose-500" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={onDone} disabled={saving}>
+          Cancel
+        </Button>
+        <Button type="button" size="sm" onClick={() => void save()} disabled={saving}>
+          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Save details
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Controlled detail dialog: edit status / rating / favorite / notes, or remove
  * the item entirely. Open when `activity` is non-null.
  */
@@ -157,6 +228,7 @@ export function ActivityDetailDialog({
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [editingDetails, setEditingDetails] = useState(false);
 
   // Re-sync local editable state whenever a different activity is selected.
   // Keyed on the id so a background refresh doesn't wipe unsaved edits.
@@ -166,6 +238,7 @@ export function ActivityDetailDialog({
       setRating(activity.rating);
       setFavorite(activity.favorite);
       setNotes(activity.notes ?? '');
+      setEditingDetails(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activity?.id]);
@@ -300,10 +373,32 @@ export function ActivityDetailDialog({
 
           {/* Editable controls */}
           <div className="space-y-4">
-            {media.description && (
-              <p className="line-clamp-5 text-sm text-muted-foreground">
-                {media.description}
-              </p>
+            {editingDetails ? (
+              <ManualEditor
+                key={activity.id}
+                activity={activity}
+                onDone={() => setEditingDetails(false)}
+              />
+            ) : (
+              <>
+                {media.description && (
+                  <p className="line-clamp-5 text-sm text-muted-foreground">
+                    {media.description}
+                  </p>
+                )}
+                {isManualId(media.externalId) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => setEditingDetails(true)}
+                  >
+                    <PencilLine className="mr-2 h-4 w-4" aria-hidden />
+                    Edit details
+                  </Button>
+                )}
+              </>
             )}
 
             <div className="space-y-1.5">
