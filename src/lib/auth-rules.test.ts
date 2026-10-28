@@ -27,12 +27,21 @@ describe('login and register brakes', () => {
     expect(takeLoginRate('owner', '198.51.100.7', now + 30)).toBeNull();
   });
 
-  it('caps a username at 1000 attempts a day across all IPs', () => {
+  it('one IP flooding >1000 attempts never locks the username out from another IP (re-review 4)', () => {
     const t0 = now + 100 * 86_400_000;
-    for (let i = 0; i < 1000; i++) takeLoginRate('target', `ip-${i}`, t0 + i * 1000);
-    expect(takeLoginRate('target', 'ip-fresh', t0 + 1_000_500)).toMatch(/Too many/);
+    for (let i = 0; i < 1500; i++) takeLoginRate('owner2', '203.0.113.200', t0 + i * 100);
+    expect(takeLoginRate('owner2', '203.0.113.200', t0 + 150_100)).toMatch(/Too many/);
+    expect(takeLoginRate('owner2', '198.51.100.20', t0 + 150_100)).toBeNull();
   });
-  it('allows 10 attempts a minute per IP, across usernames', () => {
+
+  it('is atomic: an attempt refused by the IP budget charges nothing to the pair budget', () => {
+    const t0 = now + 200 * 86_400_000;
+    for (let i = 0; i < 10; i++) expect(takeLoginRate(`u${i}`, '192.0.2.77', t0 + i)).toBeNull();
+    // The address is spent: 20 refused attempts at "alice" from it…
+    for (let i = 0; i < 20; i++) expect(takeLoginRate('alice', '192.0.2.77', t0 + 20 + i)).toMatch(/Too many/);
+    // …charged nothing: a minute later alice gets her full 10 from there.
+    for (let i = 0; i < 10; i++) expect(takeLoginRate('alice', '192.0.2.77', t0 + 61_000 + i)).toBeNull();
+  });  it('allows 10 attempts a minute per IP, across usernames', () => {
     for (let i = 0; i < 10; i++) expect(takeLoginRate(`user${i}`, '203.0.113.9', now + i)).toBeNull();
     expect(takeLoginRate('someone', '203.0.113.9', now + 20)).toMatch(/Too many sign-in attempts/);
   });

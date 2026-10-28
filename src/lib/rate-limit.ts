@@ -98,8 +98,35 @@ export function takeRate(key: string, limits: RateLimits, now: number = Date.now
 }
 
 /** Whether one more call would fit, without counting it (the store is not changed). */
-export function peekRate(key: string, limits: RateLimits, now: number = Date.now()): RateDecision {
-  return checkRate(store().get(key) ?? [], limits, now);
+export function peekRate(key: string, limits: RateLimits, now: number = Date.now(), cost = 1): RateDecision {
+  return checkRate(store().get(key) ?? [], limits, now, cost);
+}
+
+/**
+ * A rate key from its parts, joined by NUL so no part (a username, an IP) can
+ * forge another key's boundary ("a:b" + "c" vs "a" + "b:c").
+ */
+export function rateKey(...parts: string[]): string {
+  return parts.join('\u0000');
+}
+
+/**
+ * Several budgets at once, atomically: every one is checked first and all
+ * are charged only when all allow. A refused attempt charges nothing, so a
+ * flood refused by one budget can't drain another (e.g. lock a username out
+ * from every address).
+ */
+export function takeAllRates(
+  budgets: { key: string; limits: RateLimits; cost?: number }[],
+  now: number = Date.now(),
+): RateDecision {
+  for (const b of budgets) {
+    const d = peekRate(b.key, b.limits, now, b.cost);
+    if (!d.ok) return d;
+  }
+  let last: RateDecision = { ok: true, stamps: [] };
+  for (const b of budgets) last = takeRate(b.key, b.limits, now, b.cost);
+  return last;
 }
 
 /** One AI call for `userId` (roast, Paste a list, …), shared across the AI features. */
@@ -169,5 +196,5 @@ export function takeActionRate(action: RatedAction, userId: string, now?: number
  * and retry the same chunk instead of failing it.
  */
 export function takeActionCost(action: RatedAction, userId: string, cost: number, now?: number): RateDecision {
-  return takeRate(`action:${action}:${userId}`, ACTION_LIMITS[action], now, cost);
+  return takeRate(rateKey('action', action, userId), ACTION_LIMITS[action], now, cost);
 }

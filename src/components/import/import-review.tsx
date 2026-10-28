@@ -87,6 +87,14 @@ export function ImportReview({ rows, onDone }: ImportReviewProps) {
   const [filter, setFilter] = useState<Filter>('all');
   const [page, setPage] = useState(0);
   const stopRef = useRef(false);
+  /** Set on unmount: a rate-limit wait (withRateRetry) and the commit loop stop. */
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
   /** True while a commit runs (a double click must not start a second one). */
   const runningRef = useRef(false);
   /** Every outcome so far that didn't fail, across retries. */
@@ -105,7 +113,9 @@ export function ImportReview({ rows, onDone }: ImportReviewProps) {
       let done = 0;
       for (const part of parts) {
         if (cancelled || stopRef.current) break;
-        const res = await withRateRetry(() => matchImportRows(part.map((i) => matchPayload(rows[i]))).catch(() => null));
+        const res = await withRateRetry(() => matchImportRows(part.map((i) => matchPayload(rows[i]))).catch(() => null), {
+          shouldStop: () => cancelled || stopRef.current,
+        });
         if (cancelled) return;
         setItems((prev) => {
           const next = [...prev];
@@ -193,9 +203,11 @@ export function ImportReview({ rows, onDone }: ImportReviewProps) {
       let aniListSkipped = false;
       setPhase({ kind: 'importing', done: 0, total: payload.length });
       for (const part of chunkCommitRows(payload, COMMIT_CHUNK)) {
+        if (unmountedRef.current) break;
         // importTotal: large imports are not pushed to AniList (8.2).
         const res = await withRateRetry(() =>
           commitImportRows(part, { updateExisting, importTotal: payload.length }).catch(() => null),
+          { shouldStop: () => unmountedRef.current },
         );
         if (res?.aniListSkipped) aniListSkipped = true;
         if (res?.ok && res.outcomes?.length === part.length) outcomes.push(...res.outcomes);

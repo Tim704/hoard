@@ -137,3 +137,23 @@ describe('cost accounting (re-review 2: import budgets in rows)', () => {
     expect(takeActionCost('commitImportRows', 'rows-other', 20, now + 100).ok).toBe(true);
   });
 });
+
+describe('takeAllRates and rateKey (re-review 4)', () => {
+  it('charges every budget only when all allow', async () => {
+    const { takeAllRates, peekRate } = await import('./rate-limit');
+    const now = 8_000_000_000;
+    const tight = { perMinute: 1 };
+    const loose = { perMinute: 100 };
+    expect(takeAllRates([{ key: 'all-a', limits: tight }, { key: 'all-b', limits: loose }], now).ok).toBe(true);
+    // all-a is spent: the refused call must not charge all-b.
+    for (let i = 0; i < 5; i++) expect(takeAllRates([{ key: 'all-a', limits: tight }, { key: 'all-b', limits: loose }], now + 1).ok).toBe(false);
+    const b = peekRate('all-b', loose, now + 2);
+    expect(b.ok && b.stamps.length).toBe(2); // the first call, plus the peeked one
+  });
+
+  it('joins key parts with NUL, so parts cannot forge a boundary', async () => {
+    const { rateKey } = await import('./rate-limit');
+    expect(rateKey('login', 'pair', 'a:b', 'c')).not.toBe(rateKey('login', 'pair', 'a', 'b:c'));
+    expect(rateKey('x', 'y')).toBe('x\u0000y');
+  });
+});

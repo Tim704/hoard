@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { NormalizedResult } from '@/lib/types';
 
@@ -6,6 +6,7 @@ import {
   chunk,
   chunkCommitRows,
   RATE_RETRIES,
+  stoppableWait,
   withRateRetry,
   COMMIT_BYTES,
   commitRowsFor,
@@ -153,14 +154,15 @@ describe('Steam data in commit rows (8.1)', () => {
 });
 
 describe('withRateRetry (re-review 2)', () => {
+  const noWait = { wait: async () => {} };
+
   it('waits the server\'s retry-after and resends the same chunk', async () => {
     const answers = [{ ok: false, retryAfterSec: 12 }, { ok: false, retryAfterSec: 3 }, { ok: true }];
     const waits: number[] = [];
     let calls = 0;
-    const res = await withRateRetry(
-      async () => answers[calls++] as { ok: boolean; retryAfterSec?: number },
-      async (ms) => void waits.push(ms),
-    );
+    const res = await withRateRetry(async () => answers[calls++] as { ok: boolean; retryAfterSec?: number }, {
+      wait: async (ms) => void waits.push(ms),
+    });
     expect(res).toEqual({ ok: true });
     expect(calls).toBe(3);
     expect(waits).toEqual([12_000, 3_000]);
@@ -168,14 +170,60 @@ describe('withRateRetry (re-review 2)', () => {
 
   it('gives up after RATE_RETRIES, and never waits out a daily limit', async () => {
     let calls = 0;
-    const res = await withRateRetry(async () => (calls++, { ok: false, retryAfterSec: 1 }), async () => {});
+    const res = await withRateRetry(async () => (calls++, { ok: false, retryAfterSec: 1 }), noWait);
     expect(calls).toBe(1 + RATE_RETRIES);
     expect(res.retryAfterSec).toBe(1);
     calls = 0;
-    await withRateRetry(async () => (calls++, { ok: false, retryAfterSec: 3600 }), async () => {});
+    await withRateRetry(async () => (calls++, { ok: false, retryAfterSec: 3600 }), noWait);
     expect(calls).toBe(1);
     calls = 0;
-    await withRateRetry(async () => (calls++, null), async () => {});
+    await withRateRetry(async () => (calls++, null), noWait);
     expect(calls).toBe(1);
+  });
+});
+
+describe('withRateRetry honours Stop / unmount (re-review 3)', () => {
+  it('a Stop during the wait ends it early and sends nothing more', async () => {
+    vi.useFakeTimers();
+    try {
+      let stopped = false;
+      let calls = 0;
+      const pending = withRateRetry(async () => (calls++, { ok: false, retryAfterSec: 60 }), { shouldStop: () => stopped });
+      await vi.advanceTimersByTimeAsync(1000);
+      stopped = true;
+      await vi.advanceTimersByTimeAsync(300); // one tick, far short of 60 s
+      const res = await pending;
+      expect(res.retryAfterSec).toBe(60);
+      expect(calls).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('already stopped: no wait, no retry', async () => {
+    let calls = 0;
+    const waits: number[] = [];
+    await withRateRetry(async () => (calls++, { ok: false, retryAfterSec: 5 }), {
+      shouldStop: () => true,
+      wait: async (ms) => void waits.push(ms),
+    });
+    expect(calls).toBe(1);
+    expect(waits).toEqual([]);
+  });
+
+  it('stoppableWait returns once shouldStop turns true', async () => {
+    vi.useFakeTimers();
+    try {
+      let stop = false;
+      let done = false;
+      void stoppableWait(60_000, () => stop).then(() => (done = true));
+      await vi.advanceTimersByTimeAsync(500);
+      expect(done).toBe(false);
+      stop = true;
+      await vi.advanceTimersByTimeAsync(250);
+      expect(done).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

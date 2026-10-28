@@ -152,21 +152,41 @@ export const RATE_RETRIES = 3;
 /** Longer waits (a spent daily budget) aren't waited out: the rows fail as before. */
 export const RATE_MAX_WAIT_SEC = 120;
 
+export interface RateRetryOptions {
+  /** True once the user pressed Stop or the screen unmounted: stop waiting and retrying. */
+  shouldStop?: () => boolean;
+  /** Sleep `ms` (tests pass a fake); it may return early once `shouldStop` is true. */
+  wait?: (ms: number, shouldStop: () => boolean) => Promise<void>;
+  retries?: number;
+}
+
+/** Sleep in short ticks, ending early once `shouldStop()` is true. */
+export async function stoppableWait(ms: number, shouldStop: () => boolean, tick = 250): Promise<void> {
+  const end = Date.now() + ms;
+  while (!shouldStop() && Date.now() < end) {
+    await new Promise((r) => setTimeout(r, Math.min(tick, end - Date.now())));
+  }
+}
+
 /**
  * Run an import call; when the server answers with `retryAfterSec` (its row
  * budget is spent for now), wait that long and send the SAME chunk again, up
- * to RATE_RETRIES times, instead of marking its rows failed.
+ * to RATE_RETRIES times, instead of marking its rows failed. Stop / unmount
+ * (`shouldStop`) ends the wait at once and returns the last answer.
  */
 export async function withRateRetry<T extends { retryAfterSec?: number } | null>(
   call: () => Promise<T>,
-  wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
-  retries: number = RATE_RETRIES,
+  opts: RateRetryOptions = {},
 ): Promise<T> {
+  const shouldStop = opts.shouldStop ?? (() => false);
+  const wait = opts.wait ?? stoppableWait;
+  const retries = opts.retries ?? RATE_RETRIES;
   let res = await call();
   for (let i = 0; i < retries; i++) {
     const after = res?.retryAfterSec;
-    if (typeof after !== 'number' || after > RATE_MAX_WAIT_SEC) break;
-    await wait(Math.max(1, after) * 1000);
+    if (typeof after !== 'number' || after > RATE_MAX_WAIT_SEC || shouldStop()) break;
+    await wait(Math.max(1, after) * 1000, shouldStop);
+    if (shouldStop()) break;
     res = await call();
   }
   return res;

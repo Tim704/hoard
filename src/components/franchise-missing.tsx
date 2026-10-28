@@ -6,7 +6,7 @@
 // Done or Want (Want by default) through the import pipeline
 // (`commitImportRows`, source "franchise"), then pinned to this franchise.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, ImageOff, Loader2, Plus } from 'lucide-react';
@@ -35,6 +35,14 @@ export function FranchiseMissing({ franchiseId, onBack }: { franchiseId: string;
   // Want (Planned) by default: these are titles the user hasn't logged yet.
   const [done, setDone] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
+  /** Set on unmount: a rate-limit wait and the add loop stop. */
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,7 +91,10 @@ export function FranchiseMissing({ franchiseId, onBack }: { franchiseId: string;
       let n = 0;
       setProgress(`Adding 0 of ${rows.length}…`);
       for (const part of chunkCommitRows(rows, COMMIT_CHUNK)) {
-        const res = await withRateRetry(() => commitImportRows(part, { updateExisting: false }).catch(() => null));
+        if (unmountedRef.current) break;
+        const res = await withRateRetry(() => commitImportRows(part, { updateExisting: false }).catch(() => null), {
+          shouldStop: () => unmountedRef.current,
+        });
         const outcomes = res?.ok && res.outcomes?.length === part.length ? res.outcomes : null;
         if (!outcomes) failed += part.length;
         else {
