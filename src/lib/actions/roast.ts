@@ -11,12 +11,17 @@
 
 import { GoogleGenAI } from '@google/genai';
 
-import { getCategory, type CategorySlug } from '@/lib/categories';
+import { CATEGORIES, getCategory, type CategorySlug } from '@/lib/categories';
+import { getTasteProfile } from '@/lib/data-taste';
 import { requireUser } from '@/lib/session';
 import { formatRating } from '@/lib/rating';
 import { getRanking } from '@/lib/data';
 import { takeAiRate } from '@/lib/rate-limit';
+import { tastePromptLines } from '@/lib/stats/profile';
 import type { RoastMode } from '@/lib/types';
+
+/** Generated paragraphs take longer than a lookup, so more than G4's 8 s. */
+const GEMINI_TIMEOUT_MS = 20_000;
 
 export async function roastList(
   slug: CategorySlug,
@@ -50,6 +55,12 @@ export async function roastList(
     })
     .join('\n');
 
+  // The cross-media taste profile (7.2), as a summary, when one exists.
+  const labels = Object.fromEntries(Object.entries(CATEGORIES).map(([k, v]) => [k, v.label])) as Record<CategorySlug, string>;
+  const stored = await getTasteProfile(user.id);
+  const profile = tastePromptLines(stored?.profile ?? null, labels);
+  const profileBlock = profile.length ? ['', ...profile] : [];
+
   const prompt =
     mode === 'roast'
       ? [
@@ -59,6 +70,7 @@ export async function roastList(
           '',
           'Their ranked list (best to worst, with their 1–10 scores):',
           list,
+          ...profileBlock,
         ].join('\n')
       : [
           `You are a tasteful, knowledgeable curator of ${label.toLowerCase()}.`,
@@ -67,6 +79,7 @@ export async function roastList(
           '',
           'Their ranked list (best to worst, with their 1–10 scores):',
           list,
+          ...profileBlock,
         ].join('\n');
 
   // Shared per-user AI budget (registration is open; the key is the owner's).
@@ -78,6 +91,7 @@ export async function roastList(
     const resp = await ai.models.generateContent({
       model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
       contents: prompt,
+      config: { abortSignal: AbortSignal.timeout(GEMINI_TIMEOUT_MS) },
     });
     return { text: resp.text ?? '' };
   } catch {

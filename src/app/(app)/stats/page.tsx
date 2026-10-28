@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { CalendarCheck2, Flame, Info, Trophy } from 'lucide-react';
 
 import { Score } from '@/components/prefs-provider';
+import { RecommendAcrossButton } from '@/components/recommend-across';
 import { ComparePeriods } from '@/components/stats/compare-periods';
 import { GoalsClient } from '@/components/stats/goals-client';
 import {
@@ -14,9 +15,10 @@ import {
   StatusMixChart,
 } from '@/components/stats/stats-charts';
 import { StatsTabs, type StatsTab } from '@/components/stats/stats-tabs';
+import { TasteRefreshButton } from '@/components/stats/taste-refresh';
 import { CATEGORIES, NAV_ORDER } from '@/lib/categories';
 import { getPrefs } from '@/lib/data-prefs';
-import type { Prefs } from '@/lib/prefs';
+import { effectiveTimeZone, type Prefs } from '@/lib/prefs';
 import {
   getGoalsProgress,
   getPeoplePage,
@@ -26,9 +28,11 @@ import {
   type TastePage,
   yearNow,
 } from '@/lib/data-stats';
+import { getTasteProfile, type StoredTasteProfile } from '@/lib/data-taste';
 import { formatYmd } from '@/lib/release';
 import { requireUser } from '@/lib/session';
 import { statusLabel } from '@/lib/status';
+import { MIN_FINISHED_FOR_PROFILE, SECTION_NOUN, tasteSentences } from '@/lib/stats/profile';
 import { dropPointPhrase } from '@/lib/stats/taste';
 import type { PersonRow } from '@/lib/stats/people';
 import { parseYear } from '@/lib/year-arena';
@@ -53,14 +57,23 @@ export default async function StatsPage({ searchParams }: { searchParams: Search
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-      <header className="mb-4">
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Stats</h1>
-        <p className="mt-1 text-muted-foreground">What your hoard says about you.</p>
+      <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Stats</h1>
+          <p className="mt-1 text-muted-foreground">What your hoard says about you.</p>
+        </div>
+        <RecommendAcrossButton />
       </header>
       <StatsTabs active={tab} currentYear={cy} />
       {tab === 'overview' && <Overview data={await getStatsOverview(user.id, parseYear(searchParams.year), prefs)} />}
       {tab === 'goals' && <Goals userId={user.id} prefs={prefs} year={parseYear(searchParams.year) ?? cy} currentYear={cy} />}
-      {tab === 'taste' && <Taste data={await getTastePage(user.id, searchParams, prefs)} />}
+      {tab === 'taste' && (
+        <Taste
+          data={await getTastePage(user.id, searchParams, prefs)}
+          stored={await getTasteProfile(user.id)}
+          prefs={prefs}
+        />
+      )}
       {tab === 'people' && <People data={await getPeoplePage(user.id, prefs)} />}
     </div>
   );
@@ -186,10 +199,12 @@ async function Goals({ userId, prefs, year, currentYear: cy }: { userId: string;
 
 // ── Taste ───────────────────────────────────────────────────────────────────
 
-function Taste({ data }: { data: TastePage }) {
+function Taste({ data, stored, prefs }: { data: TastePage; stored: StoredTasteProfile | null; prefs: Prefs }) {
   const drops = data.drops.filter((d) => dropPointPhrase(d) !== null);
   return (
     <div className="space-y-6">
+      <TasteProfilePanel stored={stored} prefs={prefs} />
+
       <section className="rounded-xl border border-border bg-card p-4">
         <h2 className="font-semibold">Where you drop things</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">
@@ -221,6 +236,71 @@ function Taste({ data }: { data: TastePage }) {
 
       <ComparePeriods compare={data.compare} />
     </div>
+  );
+}
+
+/** The taste profile (7.2): built on Sundays, or now with Refresh. */
+function TasteProfilePanel({ stored, prefs }: { stored: StoredTasteProfile | null; prefs: Prefs }) {
+  const hidden = new Set<string>(prefs.hiddenSections);
+  const p = stored?.profile;
+  const sentences = p ? tasteSentences(p, prefs.scoreFormat) : [];
+  const top = p ? p.top.filter((t) => !hidden.has(t.slug)) : [];
+  return (
+    <section aria-labelledby="taste-profile-heading" className="rounded-xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 id="taste-profile-heading" className="font-semibold">
+            Your taste profile
+          </h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {stored
+              ? `Built ${stored.updatedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: effectiveTimeZone(prefs) })} from ${stored.profile.finished} finished titles. Rebuilt every Sunday; the AI critic and recommendations read it.`
+              : `Built every Sunday once you've finished ${MIN_FINISHED_FOR_PROFILE} titles, or now with Refresh.`}
+          </p>
+        </div>
+        <TasteRefreshButton />
+      </div>
+      {!p ? (
+        <p className="mt-3 text-sm text-muted-foreground">No taste profile yet.</p>
+      ) : (
+        <>
+          {sentences.length > 0 ? (
+            <ul className="mt-3 space-y-1 text-sm">
+              {sentences.map((s) => (
+                <li key={s}>{s}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground">Not much to say yet: rate and finish a few more titles.</p>
+          )}
+          {p.genres.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Genre weights</h3>
+              <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                {p.genres.map((g) => (
+                  <li key={g.genre} className="rounded-full border border-border px-2 py-0.5 text-xs">
+                    {g.genre} <span className="tabular-nums text-muted-foreground">{g.count}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {top.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your S and A tiers</h3>
+              <dl className="mt-1.5 space-y-1 text-sm">
+                {top.map((t) => (
+                  <div key={t.slug} className="flex gap-2">
+                    <dt className="w-16 shrink-0 capitalize text-muted-foreground">{SECTION_NOUN[t.slug]}</dt>
+                    <dd className="min-w-0">{t.titles.join(' · ')}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 

@@ -9,4 +9,9 @@ export const JOB_TIMES = {
   releases: '06:00',
   airing: '06:30',
   'backup-watch': '09:00',
+  /** Sundays only (TASTE_PROFILE_WEEKDAY). */
+  'taste-profile': '05:45',
 } as const;
+
+/** The taste-profile job's day: Sunday (0 = Sunday … 6 = Saturday). */
+export const TASTE_PROFILE_WEEKDAY = 0;

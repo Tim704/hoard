@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { AI_LIMITS, checkRate, takeAiRate, takeRate } from './rate-limit';
+import { AI_LIMITS, checkRate, takeAiRate, takeRate, takeTasteRefreshRate } from './rate-limit';
 
 describe('checkRate', () => {
   const limits = { perMinute: 3, perDay: 5 };
@@ -49,5 +49,30 @@ describe('invite limit', () => {
     let ok = 0;
     for (let m = 1; m <= 30; m++) if (takeInviteRate('inv-u', t0 + m * 61_000).ok) ok++;
     expect(ok).toBe(15);
+  });
+});
+
+describe('hourly window (taste refresh)', () => {
+  const limits = { perMinute: 2, perHour: 5, perDay: 30 };
+
+  it('caps the hour, then frees up as the oldest call ages out', () => {
+    let stamps: number[] = [];
+    for (const t of [0, 61_000, 122_000, 183_000, 244_000]) {
+      const d = checkRate(stamps, limits, t);
+      expect(d.ok).toBe(true);
+      stamps = d.stamps;
+    }
+    const blocked = checkRate(stamps, limits, 400_000);
+    expect(blocked.ok).toBe(false);
+    expect(!blocked.ok && blocked.retryAfterSec).toBe(3200);
+    expect(!blocked.ok && blocked.message).toMatch(/about 54 minutes/);
+    expect(checkRate(stamps, limits, 3_600_001).ok).toBe(true);
+  });
+
+  it('keeps refreshes apart from the AI budget', () => {
+    const now = 9_000_000_000;
+    for (let i = 0; i < 2; i++) expect(takeTasteRefreshRate('u-taste', now + i).ok).toBe(true);
+    expect(takeTasteRefreshRate('u-taste', now + 2).ok).toBe(false);
+    expect(takeAiRate('u-taste', now + 3).ok).toBe(true);
   });
 });

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 
 import { Score } from '@/components/prefs-provider';
+import { RecommendAcrossButton } from '@/components/recommend-across';
 import { GoalBar } from '@/components/stats/goals-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
@@ -80,15 +81,18 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-      <header className="mb-6 sm:mb-8">
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          Welcome back{user ? `, ${user.username}` : ''} 👋
-        </h1>
-        <p className="mt-1 text-muted-foreground">
-          {stats.length === allStats.length
-            ? 'Your hoard at a glance — across all seven domains.'
-            : 'Your hoard at a glance.'}
-        </p>
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3 sm:mb-8">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            Welcome back{user ? `, ${user.username}` : ''} 👋
+          </h1>
+          <p className="mt-1 text-muted-foreground">
+            {stats.length === allStats.length
+              ? 'Your hoard at a glance — across all seven domains.'
+              : 'Your hoard at a glance.'}
+          </p>
+        </div>
+        <RecommendAcrossButton />
       </header>
 
       {/* 3×3 on desktop. At sm (2 columns) the overview spans the full width and

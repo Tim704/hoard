@@ -43,15 +43,17 @@ import type { MediaItem } from '@/lib/types';
 
 /** Per media relation: only the columns stats read. */
 const MEDIA_SELECT = {
-  book: { select: { title: true, imageUrl: true, genres: true, pageCount: true } },
+  book: { select: { title: true, imageUrl: true, genres: true, year: true, releaseDate: true, pageCount: true } },
   movie: {
-    select: { title: true, imageUrl: true, genres: true, runtime: true, directors: true, cast: true, tmdbRating: true },
+    select: { title: true, imageUrl: true, genres: true, year: true, releaseDate: true, runtime: true, directors: true, cast: true, tmdbRating: true },
   },
   tvShow: {
     select: {
       title: true,
       imageUrl: true,
       genres: true,
+      year: true,
+      releaseDate: true,
       episodeCount: true,
       episodeRunTime: true,
       directors: true,
@@ -67,6 +69,8 @@ const MEDIA_SELECT = {
       titleNative: true,
       imageUrl: true,
       genres: true,
+      year: true,
+      releaseDate: true,
       episodes: true,
       malScore: true,
     },
@@ -79,16 +83,26 @@ const MEDIA_SELECT = {
       titleNative: true,
       imageUrl: true,
       genres: true,
+      year: true,
+      releaseDate: true,
       chapters: true,
       malScore: true,
     },
   },
-  videoGame: { select: { title: true, imageUrl: true, genres: true, igdbRating: true } },
-  musicAlbum: { select: { title: true, imageUrl: true, genres: true, trackCount: true } },
+  videoGame: { select: { title: true, imageUrl: true, genres: true, year: true, releaseDate: true, igdbRating: true } },
+  musicAlbum: { select: { title: true, imageUrl: true, genres: true, year: true, releaseDate: true, trackCount: true } },
 } as const;
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []);
+
+/** The release year: the year column, else the YYYY of the release date. */
+function releaseYear(media: Record<string, unknown>): number | null {
+  const y = num(media.year);
+  if (y != null && Number.isInteger(y)) return y;
+  const d = typeof media.releaseDate === 'string' ? /^(\d{4})/.exec(media.releaseDate) : null;
+  return d ? Number(d[1]) : null;
+}
 
 /** The user's titles as stats see them (optionally only some ids). */
 export async function loadStatTitles(userId: string, prefs: Prefs, ids?: string[]): Promise<StatTitle[]> {
@@ -128,6 +142,7 @@ export async function loadStatTitles(userId: string, prefs: Prefs, ids?: string[
         title: displayTitle(media as { title: string }, prefs.titleLanguage),
         imageUrl: typeof media.imageUrl === 'string' ? media.imageUrl : null,
         genres: strings(media.genres),
+        year: releaseYear(media),
         runtime: num(media.runtime),
         episodeCount: num(media.episodeCount),
         episodeRunTime: num(media.episodeRunTime),

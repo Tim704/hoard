@@ -10,7 +10,8 @@ import { runMigrations } from '@/lib/jobs/migration';
 import { runAiring, runNewSeasons } from '@/lib/jobs/new-seasons';
 import { runReleases } from '@/lib/jobs/releases';
 import { registerJob, startScheduler } from '@/lib/jobs/scheduler';
-import { JOB_TIMES } from '@/lib/jobs/times';
+import { runTasteProfiles } from '@/lib/jobs/taste-profile';
+import { JOB_TIMES, TASTE_PROFILE_WEEKDAY } from '@/lib/jobs/times';
 
 registerJob({ name: 'migration', at: 'startup', run: () => runMigrations() });
 registerJob({
@@ -36,6 +37,14 @@ registerJob({
 });
 registerJob({ name: 'airing', at: JOB_TIMES.airing, run: () => runAiring() });
 registerJob({ name: 'backup-watch', at: JOB_TIMES['backup-watch'], run: () => runBackupWatch() });
+registerJob({
+  name: 'taste-profile',
+  at: JOB_TIMES['taste-profile'],
+  weekday: TASTE_PROFILE_WEEKDAY,
+  run: async () => {
+    await runTasteProfiles();
+  },
+});
 
 export { runJob, registeredJobs } from '@/lib/jobs/scheduler';
 export { startScheduler };

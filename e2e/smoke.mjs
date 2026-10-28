@@ -160,6 +160,21 @@ if (failures.length === 0) {
     ]);
     await page.getByRole('heading', { name: 'Which season is better?' }).waitFor({ timeout: 15_000 });
   });
+  // Taste profile (7.2): the Taste tab renders with or without one, and
+  // Refresh builds it (the demo has enough finished titles). Recommend
+  // across media (7.1) is on the dashboard; it is not clicked (no AI key).
+  await step('taste profile refresh + recommend button', async () => {
+    await page.goto(`${BASE_URL}/stats?tab=taste`, { waitUntil: 'networkidle' });
+    const panel = page.getByRole('region', { name: 'Your taste profile' });
+    await panel.waitFor({ timeout: 15_000 });
+    const hadNone = (await panel.getByText('No taste profile yet.').count()) > 0;
+    await panel.getByRole('button', { name: 'Refresh' }).click();
+    await page.getByText('Taste profile updated.').waitFor({ timeout: 20_000 });
+    await panel.getByText(/^Built .* from \d+ finished titles/).waitFor({ timeout: 20_000 });
+    if (hadNone) console.log('    (started without a profile)');
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: 'Recommend across media' }).waitFor({ timeout: 10_000 });
+  });
   // Signed out, a shared link survives the login (next=…).
   await step('login keeps the shared /add link', async () => {
     const fresh = await browser.newContext();

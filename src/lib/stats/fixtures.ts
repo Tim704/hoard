@@ -24,6 +24,7 @@ export function statTitle(
       title: `Title ${n}`,
       imageUrl: null,
       genres: [],
+      year: null,
       runtime: null,
       episodeCount: null,
       episodeRunTime: null,

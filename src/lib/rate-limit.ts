@@ -11,6 +11,8 @@
 
 export interface RateLimits {
   perMinute: number;
+  /** Optional middle window (e.g. the taste profile's Refresh). */
+  perHour?: number;
   perDay: number;
 }
 
@@ -18,6 +20,7 @@ export interface RateLimits {
 export const AI_LIMITS: RateLimits = { perMinute: 10, perDay: 100 };
 
 const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
 const DAY = 24 * 60 * MINUTE;
 
 export type RateDecision =
@@ -34,6 +37,19 @@ export function checkRate(stamps: number[], limits: RateLimits, now: number): Ra
   if (lastMinute.length >= limits.perMinute) {
     const retryAfterSec = Math.max(1, Math.ceil((lastMinute[0] + MINUTE - now) / 1000));
     return { ok: false, stamps: recent, retryAfterSec, message: `Too many AI requests. Try again in ${retryAfterSec} s.` };
+  }
+  if (limits.perHour != null) {
+    const lastHour = recent.filter((t) => t > now - HOUR);
+    if (lastHour.length >= limits.perHour) {
+      const retryAfterSec = Math.max(1, Math.ceil((lastHour[0] + HOUR - now) / 1000));
+      const minutes = Math.ceil(retryAfterSec / 60);
+      return {
+        ok: false,
+        stamps: recent,
+        retryAfterSec,
+        message: `Too many requests. Try again in about ${minutes} minute${minutes === 1 ? '' : 's'}.`,
+      };
+    }
   }
   if (recent.length >= limits.perDay) {
     const retryAfterSec = Math.max(1, Math.ceil((recent[0] + DAY - now) / 1000));
@@ -68,6 +84,14 @@ export function takeRate(key: string, limits: RateLimits, now: number = Date.now
 /** One AI call for `userId` (roast, Paste a list, …), shared across the AI features. */
 export function takeAiRate(userId: string, now?: number): RateDecision {
   return takeRate(`ai:${userId}`, AI_LIMITS, now);
+}
+
+/** The taste profile's Refresh button (7.2): cheap, but a full recompute. */
+export const TASTE_REFRESH_LIMITS: RateLimits = { perMinute: 2, perHour: 5, perDay: 30 };
+
+/** One taste-profile refresh by `userId`. */
+export function takeTasteRefreshRate(userId: string, now?: number): RateDecision {
+  return takeRate(`taste:${userId}`, TASTE_REFRESH_LIMITS, now);
 }
 
 /** List invitations per user (4.11): they notify someone else, so keep them modest. */

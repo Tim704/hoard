@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseAt } from '@/lib/jobs/schedule';
-import { JOB_TIMES } from '@/lib/jobs/times';
+import { JOB_TIMES, TASTE_PROFILE_WEEKDAY } from '@/lib/jobs/times';
 
 const minutes = (at: string) => {
   const t = parseAt(at)!;
@@ -18,5 +18,9 @@ describe('job order', () => {
   });
   it('every time is a valid HH:MM', () => {
     for (const at of Object.values(JOB_TIMES)) expect(parseAt(at)).not.toBeNull();
+  });
+  it('builds taste profiles on Sundays at 05:45 (spec F3)', () => {
+    expect(JOB_TIMES['taste-profile']).toBe('05:45');
+    expect(TASTE_PROFILE_WEEKDAY).toBe(0);
   });
 });

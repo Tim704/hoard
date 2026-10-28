@@ -14,6 +14,8 @@ export interface StatMedia {
   title: string;
   imageUrl: string | null;
   genres: string[];
+  /** The release year (the year column, else the release date's), or null. */
+  year: number | null;
   /** Movies: minutes. */
   runtime: number | null;
   /** TV: total episodes and the typical episode length in minutes. */
