@@ -32,6 +32,7 @@ import {
   buildSeasonBoard,
   isSeasonRankable,
   parseSeasonChange,
+  hasWatchState,
   prefillSeasons,
   seasonProgress,
   type SeasonMatchup,
@@ -109,23 +110,24 @@ export async function updateSeasonWatch(
 
       // The first season change on a show that already has progress: spread
       // that progress over the seasons first, so the sum continues from it.
-      const tracked = await tx.seasonActivity.count({ where: { userId: user.id, activityId: activity.id } });
-      if (tracked === 0 && oldProgress != null && oldProgress > 0) {
+      // Rows holding only a score or tier don't count as tracking; the prefill
+      // sets their watch count and keeps the score / tier.
+      const rows = await tx.seasonActivity.findMany({
+        where: { userId: user.id, activityId: activity.id },
+        select: { watchedEpisodes: true, episodesWatched: true },
+      });
+      if (!hasWatchState(rows) && oldProgress != null && oldProgress > 0) {
         const all = await tx.tvSeason.findMany({
           where: { tvShowId: activity.tvShowId },
           select: { id: true, seasonNumber: true, episodeCount: true },
         });
-        const filled = prefillSeasons(all, oldProgress);
-        await tx.seasonActivity.createMany({
-          data: [...filled].map(([seasonId, watchedEpisodes]) => ({
-            userId: user.id,
-            activityId: activity.id,
-            seasonId,
-            watchedEpisodes,
-            episodesWatched: [],
-          })),
-          skipDuplicates: true,
-        });
+        for (const [seasonId, watchedEpisodes] of prefillSeasons(all, oldProgress)) {
+          await tx.seasonActivity.upsert({
+            where: { userId_seasonId: { userId: user.id, seasonId } },
+            update: { watchedEpisodes, episodesWatched: [] },
+            create: { userId: user.id, activityId: activity.id, seasonId, watchedEpisodes, episodesWatched: [] },
+          });
+        }
       }
 
       const key = { userId_seasonId: { userId: user.id, seasonId: season.id } };

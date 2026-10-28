@@ -10,7 +10,6 @@ import { ActivityExtras } from '@/components/activity-extras';
 import { ManualFields } from '@/components/manual-fields';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { ProgressField } from '@/components/progress-field';
-import { TagInput } from '@/components/tag-input';
 import { TvSeasons } from '@/components/tv-seasons';
 import { RatingInput } from '@/components/rating-input';
 import { toastRemoved, toastStatusChange } from '@/components/undo-toast';
@@ -487,8 +486,6 @@ export function ActivityDetailDialog({
                 </p>
               )}
             </div>
-
-            <TagInput key={activity.id} activityId={activity.id} initial={activity.tags} disabled={busy} />
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Favorite</label>

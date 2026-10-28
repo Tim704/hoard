@@ -56,6 +56,15 @@ export function seasonProgress(seasons: CountedWatch[]): number {
 }
 
 /**
+ * Whether any season of a show has watch state (a count or ticks). Rows that
+ * only hold a score or a tier don't count: the show is still "untracked" and
+ * its first watch change starts from the stored progress.
+ */
+export function hasWatchState(rows: SeasonWatch[]): boolean {
+  return rows.some((r) => r.watchedEpisodes > 0 || r.episodesWatched.length > 0);
+}
+
+/**
  * The first season interaction on a show that already has progress: spread
  * that progress over the seasons in order (each filled up to its episode
  * count; a season with an unknown count takes the rest), so the season sum

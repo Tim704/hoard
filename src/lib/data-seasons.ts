@@ -8,7 +8,7 @@
 import { fetchSeasonsNow } from '@/lib/library/tv-seasons';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/session';
-import { buildSeasonBoard, pickSeasonMatchup, prefillSeasons, type SeasonItem, type SeasonMatchup } from '@/lib/seasons';
+import { buildSeasonBoard, hasWatchState, pickSeasonMatchup, prefillSeasons, type SeasonItem, type SeasonMatchup } from '@/lib/seasons';
 import { TIERS, type Tier, type TierBoardData } from '@/lib/tiers';
 
 /** One season in the details' Seasons section: catalogue data + the user's state. */
@@ -59,8 +59,11 @@ export async function seasonRowsForUser(userId: string, activityId: string): Pro
   }
   // Nothing tracked yet but progress stored: show that progress spread over
   // the seasons, as the first change will store it (updateSeasonWatch).
-  const untracked = seasons.every((s) => s.activities.length === 0);
-  const prefill = untracked ? prefillSeasons(seasons, activity.progress) : new Map<string, number>();
+  // (Rows with only a score or tier don't count — same rule as the action.)
+  const untracked = !hasWatchState(
+    seasons.flatMap((s) => s.activities.map((a) => ({ ...a, episodesWatched: a.episodesWatched ?? [] }))),
+  );
+  const prefill = untracked ? prefillSeasons(seasons, activity.progress) : null;
   return seasons.map((s) => {
     const mine = s.activities[0];
     return {
@@ -70,7 +73,7 @@ export async function seasonRowsForUser(userId: string, activityId: string): Pro
       episodeCount: s.episodeCount,
       airDate: s.airDate,
       imageUrl: s.imageUrl,
-      watchedEpisodes: mine?.watchedEpisodes ?? prefill.get(s.id) ?? 0,
+      watchedEpisodes: prefill ? prefill.get(s.id) ?? 0 : mine?.watchedEpisodes ?? 0,
       episodesWatched: mine?.episodesWatched ?? [],
       rating: mine?.rating ?? null,
       tier: (mine?.tier as Tier | null) ?? null,

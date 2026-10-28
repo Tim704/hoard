@@ -10,6 +10,7 @@ import {
   MAX_EPISODES,
   normalizeEpisodeTicks,
   parseSeasonChange,
+  hasWatchState,
   prefillSeasons,
   pickSeasonMatchup,
   seasonProgress,
@@ -102,6 +103,33 @@ describe('season progress', () => {
         { watchedEpisodes: 0, episodesWatched: [1, 2, 9], episodeCount: 8 },
       ]),
     ).toBe(12);
+  });
+
+  it('a season with only a score is not watch tracking: rate S1, then +1 on S2 continues 30 → 31', () => {
+    const seasons = [
+      { id: 's1', seasonNumber: 1, episodeCount: 10 },
+      { id: 's2', seasonNumber: 2, episodeCount: 24 },
+      { id: 's3', seasonNumber: 3, episodeCount: 13 },
+    ];
+    type Stored = { watchedEpisodes: number; episodesWatched: number[]; rating: number | null };
+    // Scoring S1 first stored a row with a rating and no watch state.
+    const stored = new Map<string, Stored>([['s1', { watchedEpisodes: 0, episodesWatched: [], rating: 8 }]]);
+    expect(hasWatchState([...stored.values()])).toBe(false);
+    expect(hasWatchState([{ watchedEpisodes: 0, episodesWatched: [2] }])).toBe(true);
+    expect(hasWatchState([{ watchedEpisodes: 1, episodesWatched: [] }])).toBe(true);
+    expect(hasWatchState([])).toBe(false);
+
+    // The prefill sets the watch counts (upsert) and keeps the score…
+    for (const [id, n] of prefillSeasons(seasons, 30)) {
+      const row = stored.get(id) ?? { watchedEpisodes: 0, episodesWatched: [], rating: null };
+      stored.set(id, { ...row, watchedEpisodes: n, episodesWatched: [] });
+    }
+    // …then +1 on S2 lands on top.
+    const s2 = stored.get('s2')!;
+    stored.set('s2', { ...s2, ...applySeasonChange(s2, { kind: 'inc' }, 24)! });
+    expect(stored.get('s2')?.watchedEpisodes).toBe(21);
+    expect(seasonProgress([...stored.values()])).toBe(31);
+    expect(stored.get('s1')).toEqual({ watchedEpisodes: 10, episodesWatched: [], rating: 8 });
   });
 
   it('prefills seasons in order from existing progress', () => {
