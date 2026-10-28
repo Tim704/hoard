@@ -36,5 +36,8 @@
   "/lists?tab=ref",
   "/lists/demo-list-comfort",
   "/lists/ref/demo-reflist-scifi",
-  "/s/demo-share-list-comfort"
+  "/s/demo-share-list-comfort",
+  "/tonight",
+  "/together",
+  "/movies/arena?tab=queue"
 ]

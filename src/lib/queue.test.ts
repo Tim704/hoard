@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { nextQueueOrder, orderQueue } from './queue';
+import { mergeAvailableOrder, nextQueueOrder, orderQueue, splitQueue } from './queue';
 import { makeActivity as make } from './test-fixtures';
 
 describe('orderQueue', () => {
@@ -43,5 +43,37 @@ describe('nextQueueOrder', () => {
   it('starts at 1000 and steps by 1000', () => {
     expect(nextQueueOrder(null)).toBe(1000);
     expect(nextQueueOrder(3000)).toBe(4000);
+  });
+});
+
+describe('splitQueue (5.4)', () => {
+  const today = '2026-10-28';
+  const q = [
+    make({ id: 'a', media: { id: 'ma', externalId: 'a', title: 'a', imageUrl: null, description: null, year: 2020 } }),
+    make({ id: 'b', media: { id: 'mb', externalId: 'b', title: 'b', imageUrl: null, description: null, year: 2027 } }),
+    make({ id: 'c', media: { id: 'mc', externalId: 'c', title: 'c', imageUrl: null, description: null, year: 2026, releaseDate: '2026-12-01' } }),
+    make({ id: 'd', media: { id: 'md', externalId: 'd', title: 'd', imageUrl: null, description: null, year: 2026, releaseDate: '2026-10-28' } }),
+    make({ id: 'e', media: { id: 'me', externalId: 'e', title: 'e', imageUrl: null, description: null, year: 2027, releaseDate: '2027-01-05' } }),
+    make({ id: 'f', media: { id: 'mf', externalId: 'f', title: 'f', imageUrl: null, description: null, year: null } }),
+  ];
+  it('keeps out titles in queue order and sorts the rest soonest first', () => {
+    const { available, notYet } = splitQueue(q, today);
+    expect(available.map((a) => a.id)).toEqual(['a', 'd', 'f']);
+    expect(notYet.map((a) => a.id)).toEqual(['c', 'e', 'b']);
+  });
+});
+
+describe('mergeAvailableOrder', () => {
+  it('refills only the available slots; not-out-yet titles keep theirs', () => {
+    expect(mergeAvailableOrder(['a', 'X', 'b', 'c', 'Y'], ['a', 'b', 'c'], ['c', 'a', 'b'])).toEqual([
+      'c',
+      'X',
+      'a',
+      'b',
+      'Y',
+    ]);
+  });
+  it('ignores unknown ids and keeps missing available ones after the given', () => {
+    expect(mergeAvailableOrder(['a', 'X', 'b', 'c'], ['a', 'b', 'c'], ['zz', 'b', 'X'])).toEqual(['b', 'X', 'a', 'c']);
   });
 });

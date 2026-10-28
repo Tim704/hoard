@@ -8,6 +8,8 @@ import { formatScore, formatScoreOutOf } from '@/lib/rating';
 import { displayTitle, type TitledMedia } from '@/lib/title';
 
 const PrefsContext = createContext<DisplayPrefs>(DEFAULT_DISPLAY_PREFS);
+/** Today in the user's time zone (YYYY-MM-DD), computed on the server so hydration agrees. */
+const TodayContext = createContext<string | null>(null);
 
 /**
  * Hands the user's display settings (score format, hidden sections, …) to
@@ -17,23 +19,33 @@ const PrefsContext = createContext<DisplayPrefs>(DEFAULT_DISPLAY_PREFS);
 export function PrefsProvider({
   prefs,
   detectRegion: detect = false,
+  today = null,
   children,
 }: {
   prefs: DisplayPrefs;
+  /** Today in the user's effective time zone (G10), for countdowns (5.9). */
+  today?: string | null;
   /** True only until the region was first detected or chosen (needsRegionDetection). */
   detectRegion?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <PrefsContext.Provider value={prefs}>
-      {detect && <RegionDetector />}
-      {children}
+      <TodayContext.Provider value={today}>
+        {detect && <RegionDetector />}
+        {children}
+      </TodayContext.Provider>
     </PrefsContext.Provider>
   );
 }
 
 export function usePrefs(): DisplayPrefs {
   return useContext(PrefsContext);
+}
+
+/** Today (YYYY-MM-DD) in the user's time zone; null outside the (app) layout. */
+export function useToday(): string | null {
+  return useContext(TodayContext);
 }
 
 /** Score formatters bound to the user's chosen format. */

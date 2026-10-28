@@ -7,7 +7,8 @@ import { PrefsProvider } from '@/components/prefs-provider';
 import { Sidebar } from '@/components/sidebar';
 import { getNotificationSummary } from '@/lib/data-notifications';
 import { getPrefs } from '@/lib/data-prefs';
-import { needsRegionDetection, toDisplayPrefs } from '@/lib/prefs';
+import { effectiveTimeZone, needsRegionDetection, toDisplayPrefs } from '@/lib/prefs';
+import { todayYmd } from '@/lib/release';
 import { loginUrlFor } from '@/lib/safe-next';
 import { getCurrentUser } from '@/lib/session';
 import { SIDEBAR_COOKIE } from '@/lib/ui-prefs';
@@ -33,7 +34,11 @@ export default async function AppLayout({
   const prefs = toDisplayPrefs(allPrefs);
 
   return (
-    <PrefsProvider prefs={prefs} detectRegion={needsRegionDetection(allPrefs)}>
+    <PrefsProvider
+      prefs={prefs}
+      detectRegion={needsRegionDetection(allPrefs)}
+      today={todayYmd(effectiveTimeZone(allPrefs))}
+    >
       <GlobalSearchProvider userId={user.id}>
         <div className="flex min-h-screen flex-col md:flex-row">
           <Sidebar

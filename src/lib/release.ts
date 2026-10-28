@@ -105,3 +105,14 @@ export function formatYmd(ymd: string): string {
     timeZone: 'UTC',
   }).format(new Date(Date.UTC(y, m - 1, d)));
 }
+
+/**
+ * The countdown badge (5.9) for a Planned title: "in 12 days" / "in 1 day"
+ * while its full release day is still ahead; null on or after the day, or
+ * when only a year is known.
+ */
+export function countdownLabel(media: ReleaseInfo, todayYmd: string): string | null {
+  const days = daysUntil(media, todayYmd);
+  if (days == null || days < 1) return null;
+  return `in ${days} day${days === 1 ? '' : 's'}`;
+}

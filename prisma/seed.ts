@@ -131,6 +131,14 @@ interface DemoEntry {
   /** The provider's community score (TMDB / MAL), for "You vs. the crowd". */
   crowd?: number;
   tags?: string[];
+  /** A release this many days from the seed run (5.4 / 5.9: "Not out yet", countdowns). */
+  releaseInDays?: number;
+  genres?: string[];
+}
+
+/** YYYY-MM-DD `days` from today (UTC), for the demo's upcoming release. */
+function daysFromNow(days: number): string {
+  return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 }
 
 const BOOKS: DemoEntry[] = [
@@ -148,7 +156,10 @@ const MOVIES: DemoEntry[] = [
   { key: 'aliens', title: 'Aliens', year: 1986, status: 'COMPLETED', rating: 8.8, tier: 'S', crowd: 7.9 },
   { key: 'heat', title: 'Heat', year: 1995, status: 'COMPLETED', rating: 8.1, crowd: 7.9 },
   { key: 'arrival', title: 'Arrival', year: 2016, status: 'DROPPED', rating: 5.5, crowd: 7.6 },
-  { key: 'stalker', title: 'Stalker', year: 1979, status: 'PLANNED', queued: true },
+  { key: 'stalker', title: 'Stalker', year: 1979, status: 'PLANNED', queued: true, genres: ['Science Fiction', 'Drama'] },
+  // Always ~3 weeks out (refreshed on every seed run): Up next's "Not out yet",
+  // the countdown badge and the dashboard's "Coming up".
+  { key: 'upcoming', title: 'The Next Big Thing', year: 2026, status: 'PLANNED', queued: true, releaseInDays: 21, genres: ['Science Fiction'] },
 ];
 
 const ANIME: DemoEntry[] = [
@@ -169,12 +180,23 @@ async function seedLibrary(userId: string) {
     }),
     'bookId',
   );
-  await seedCategory(userId, 'MOVIE', MOVIES, (e) =>
-    prisma.movie.upsert({
+  await seedCategory(userId, 'MOVIE', MOVIES, (e) => {
+    const releaseDate = e.releaseInDays != null ? daysFromNow(e.releaseInDays) : null;
+    return prisma.movie.upsert({
       where: { externalId: `demo-movie-${e.key}` },
-      update: {},
-      create: { externalId: `demo-movie-${e.key}`, title: e.title, year: e.year, runtime: 120, tmdbRating: e.crowd ?? null },
-    }),
+      // Catalogue only: keep the demo release in the future on every run.
+      update: releaseDate ? { releaseDate, year: Number(releaseDate.slice(0, 4)) } : {},
+      create: {
+        externalId: `demo-movie-${e.key}`,
+        title: e.title,
+        year: releaseDate ? Number(releaseDate.slice(0, 4)) : e.year,
+        runtime: 120,
+        tmdbRating: e.crowd ?? null,
+        releaseDate,
+        genres: e.genres ?? [],
+      },
+    });
+  },
     'movieId',
   );
   await seedCategory(userId, 'ANIME', ANIME, (e) =>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  countdownLabel,
   daysUntil,
   formatYmd,
   isReleased,
@@ -102,5 +103,17 @@ describe('date helpers', () => {
 
   it('formats a day without shifting it', () => {
     expect(formatYmd('2026-10-28')).toBe('28 Oct 2026');
+  });
+});
+
+describe('countdownLabel (5.9)', () => {
+  it('counts whole days to a future release day', () => {
+    expect(countdownLabel({ releaseDate: '2026-11-09' }, '2026-10-28')).toBe('in 12 days');
+    expect(countdownLabel({ releaseDate: '2026-10-29' }, '2026-10-28')).toBe('in 1 day');
+  });
+  it('shows nothing on or after the day, or for a year only', () => {
+    expect(countdownLabel({ releaseDate: '2026-10-28' }, '2026-10-28')).toBeNull();
+    expect(countdownLabel({ releaseDate: '2026-01-01' }, '2026-10-28')).toBeNull();
+    expect(countdownLabel({ year: 2030 }, '2026-10-28')).toBeNull();
   });
 });

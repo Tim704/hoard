@@ -4,6 +4,7 @@ import {
   BookOpen,
   BookText,
   Boxes,
+  CalendarClock,
   CheckCircle2,
   Clapperboard,
   Disc3,
@@ -25,6 +26,8 @@ import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import { getDashboardStats, getFavourites, getNowConsuming, type CategoryStat } from '@/lib/data';
 import { favouritesShowcase, type ShowcaseSection } from '@/lib/favourites';
 import { getCurrentPrefs } from '@/lib/data-prefs';
+import { getComingUp, type ComingUpItem } from '@/lib/data-tonight';
+import { formatYmd } from '@/lib/release';
 import type { TitleLanguage } from '@/lib/display-prefs';
 import { getCurrentUser } from '@/lib/session';
 import { isTierEligible } from '@/lib/tiers';
@@ -50,12 +53,13 @@ const ROW_1_2_LEFT: CategorySlug[] = ['books', 'movies', 'anime', 'games'];
 const ROW_2_RIGHT_3: CategorySlug[] = ['tv', 'manga', 'music'];
 
 export default async function DashboardPage() {
-  const [user, allStats, allConsuming, prefs, favourites] = await Promise.all([
+  const [user, allStats, allConsuming, prefs, favourites, comingUp] = await Promise.all([
     getCurrentUser(),
     getDashboardStats(),
     getNowConsuming(),
     getCurrentPrefs(),
     getFavourites(),
+    getComingUp(5),
   ]);
 
   // Sections hidden in Settings drop out of the tiles, the totals and "Now consuming".
@@ -96,6 +100,8 @@ export default async function DashboardPage() {
         <NowConsumingCard items={consuming} titleLanguage={prefs.titleLanguage} />
       </div>
 
+      <ComingUpCard items={comingUp} />
+
       {showcase.length > 0 && (
         <FavouritesRow sections={showcase} titleLanguage={prefs.titleLanguage} />
       )}
@@ -104,6 +110,55 @@ export default async function DashboardPage() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+
+/** "Coming up" (5.9): the next five Planned releases with a known day. */
+function ComingUpCard({ items }: { items: ComingUpItem[] }) {
+  return (
+    <Card className="mt-4">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+        <CardTitle className="text-base font-semibold">Coming up</CardTitle>
+        <CalendarClock className="h-5 w-5 text-sky-500" aria-hidden />
+      </CardHeader>
+      <CardContent>
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No announced release dates among your planned titles.
+          </p>
+        ) : (
+          <ol className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            {items.map((item) => (
+              <li key={item.id} className="min-w-0">
+                <Link
+                  href={`/${item.slug}?open=${encodeURIComponent(item.id)}`}
+                  className="flex items-center gap-2.5 rounded-md p-1.5 transition-colors hover:bg-muted/60 lg:flex-col lg:items-start"
+                >
+                  <span className="relative block aspect-[2/3] w-10 shrink-0 overflow-hidden rounded bg-muted ring-1 ring-border lg:w-16">
+                    {item.imageUrl ? (
+                      <Image src={item.imageUrl} alt={item.title} fill sizes="64px" className="object-cover" />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-muted-foreground">
+                        <ImageOff className="h-4 w-4" aria-hidden />
+                      </span>
+                    )}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">{item.title}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {CATEGORIES[item.slug].singular} · {formatYmd(item.releaseDate)}
+                    </span>
+                    <span className="block text-xs font-medium text-sky-700 dark:text-sky-300">
+                      in {item.days} day{item.days === 1 ? '' : 's'}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function OverviewCard({ stats }: { stats: CategoryStat[] }) {
   const totalItems = stats.reduce((sum, s) => sum + s.total, 0);

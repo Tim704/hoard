@@ -3,6 +3,7 @@
 import { ChevronRight, Layers } from 'lucide-react';
 
 import { FranchiseGroupHeader, GroupRating } from '@/components/franchise-group';
+import { cardTimeToBeat, useCountdown } from '@/components/card-badges';
 import { StatusIcon } from '@/components/status-icon';
 import type { CategorySlug } from '@/lib/categories';
 import { statusLabel } from '@/lib/status';
@@ -97,6 +98,7 @@ function CompactRow({
   const { media, status, rating } = activity;
   const title = useDisplayTitle()(media);
   const { scoreOutOf } = useScoreFormat();
+  const countdown = useCountdown(activity);
   return (
     <button
       type="button"
@@ -112,7 +114,7 @@ function CompactRow({
           {title}
         </span>
         <span className="block truncate text-xs text-muted-foreground">
-          {[media.year, statusLabel(status, slug)].filter(Boolean).join(' · ')}
+          {[media.year, statusLabel(status, slug), cardTimeToBeat(activity), countdown].filter(Boolean).join(' · ')}
         </span>
       </span>
       <span

@@ -14,11 +14,13 @@ import {
   ListChecks,
   Library,
   NotebookPen,
+  Popcorn,
   Settings,
   Sparkles,
   Tag,
   Tv,
   Upload,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -125,6 +127,28 @@ export function NavLinks({ onNavigate, collapsed = false }: NavLinksProps) {
       >
         <NotebookPen className="h-4 w-4 shrink-0 text-muted-foreground" />
         {!collapsed && <span>Diary</span>}
+      </Link>
+
+      <Link
+        href="/tonight"
+        onClick={onNavigate}
+        title={collapsed ? 'Tonight' : undefined}
+        aria-label={collapsed ? 'Tonight' : undefined}
+        className={linkClass('/tonight')}
+      >
+        <Popcorn className="h-4 w-4 shrink-0 text-muted-foreground" />
+        {!collapsed && <span>Tonight</span>}
+      </Link>
+
+      <Link
+        href="/together"
+        onClick={onNavigate}
+        title={collapsed ? 'Watch together' : undefined}
+        aria-label={collapsed ? 'Watch together' : undefined}
+        className={linkClass('/together')}
+      >
+        <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
+        {!collapsed && <span>Watch together</span>}
       </Link>
 
       <Link

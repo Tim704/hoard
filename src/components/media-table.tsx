@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { ChevronDown, ChevronRight, ImageOff, Layers, Star } from 'lucide-react';
 
 import { ProgressBar } from '@/components/progress-field';
+import { CountdownBadge, cardTimeToBeat } from '@/components/card-badges';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { GroupRating, groupCover } from '@/components/franchise-group';
 import { RatingControl } from '@/components/rating-control';
@@ -160,8 +161,9 @@ function ItemRow({
           )}
         </div>
         <div className="mt-1 text-sm text-muted-foreground">
-          {[media.year, subtitle, ownershipText(activity)].filter(Boolean).join(' · ')}
+          {[media.year, subtitle, cardTimeToBeat(activity), ownershipText(activity)].filter(Boolean).join(' · ')}
         </div>
+        <CountdownBadge activity={activity} className="mt-1.5" />
         <ProgressBar activity={activity} className="mt-1.5 max-w-48" />
       </TableCell>
       <TableCell>

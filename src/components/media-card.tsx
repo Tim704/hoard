@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { ImageOff, Star } from 'lucide-react';
 
+import { CountdownBadge, cardTimeToBeat } from '@/components/card-badges';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { ProgressBar } from '@/components/progress-field';
 import { RatingControl } from '@/components/rating-control';
@@ -37,6 +38,7 @@ export function MediaCard({ activity, onClick }: MediaCardProps) {
   const title = useDisplayTitle()(media);
   const dropped = status === 'DROPPED';
   const Icon = STATUS_ICON[status];
+  const timeToBeat = cardTimeToBeat(activity);
 
   return (
     <button
@@ -88,9 +90,12 @@ export function MediaCard({ activity, onClick }: MediaCardProps) {
         <h3 className="line-clamp-2 text-sm font-semibold leading-tight" title={title}>
           {title}
         </h3>
-        {media.year != null && (
-          <p className="text-xs text-muted-foreground">{media.year}</p>
+        {(media.year != null || timeToBeat) && (
+          <p className="text-xs text-muted-foreground">
+            {[media.year, timeToBeat].filter((v) => v != null).join(' · ')}
+          </p>
         )}
+        <CountdownBadge activity={activity} />
         <ProgressBar activity={activity} />
         <div className="mt-auto flex flex-col gap-1.5 pt-1">
           <StatusBadge status={status} slug={activity.category} />
