@@ -18,6 +18,7 @@ import {
   type CategorySlug,
   type DbCategory,
 } from '@/lib/categories';
+import { upsertUpdatePayload } from '@/lib/media-upsert';
 import { normalizeRating } from '@/lib/rating';
 import { requireUser } from '@/lib/session';
 import { searchProvider, enrichResult } from '@/lib/apis';
@@ -69,10 +70,12 @@ export async function addToList(
     result = await enrichResult(slug, result);
 
     // Upsert the shared media row. `result.fields` is the exact column payload
-    // for this category's table (per the provider contract).
+    // for this category's table (per the provider contract). An existing row
+    // only takes the values this result actually has, so a thinner search hit
+    // never blanks stored details.
     const media = await (prisma as any)[cat.prismaModel].upsert({
       where: { externalId: result.externalId },
-      update: result.fields,
+      update: upsertUpdatePayload(result.fields),
       create: result.fields,
     });
 

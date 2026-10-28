@@ -8,7 +8,7 @@
 //  without the network.
 // ───────────────────────────────────────────────────────────────────────────
 
-import { normalizeGenres } from '@/lib/genres';
+import { normalizeGenres, uniqueNames } from '@/lib/genres';
 import { normalizeYmd } from '@/lib/release';
 import type { NormalizedResult } from '@/lib/types';
 
@@ -124,12 +124,12 @@ interface TmdbCredits {
 /** The top-billed cast names (by `order`), at most TOP_CAST. */
 export function topCast(credits: TmdbCredits | null | undefined): string[] {
   const cast = [...(credits?.cast ?? [])].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-  return normalizeGenres(cast.map((c) => c.name), TOP_CAST);
+  return uniqueNames(cast.map((c) => c.name), TOP_CAST);
 }
 
 /** Crew members credited with the job "Director". */
 export function directorsOf(credits: TmdbCredits | null | undefined): string[] {
-  return normalizeGenres((credits?.crew ?? []).filter((c) => c.job === 'Director').map((c) => c.name));
+  return uniqueNames((credits?.crew ?? []).filter((c) => c.job === 'Director').map((c) => c.name));
 }
 
 /** One movie search hit → a NormalizedResult (fields = Movie columns). */
@@ -308,7 +308,7 @@ export function mapTvDetails(data: TmdbTvDetailsJson): TvDetails {
     releaseDate: normalizeYmd(data.first_air_date),
     year: yearFrom(data.first_air_date),
     genres: normalizeGenres((data.genres ?? []).map((g) => g.name)),
-    directors: normalizeGenres((data.created_by ?? []).map((c) => c.name)),
+    directors: uniqueNames((data.created_by ?? []).map((c) => c.name)),
     cast: topCast(data.credits),
     status: data.status?.trim() || null,
     nextAirDate: normalizeYmd(data.next_episode_to_air?.air_date),

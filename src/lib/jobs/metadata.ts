@@ -2,15 +2,18 @@
 //  The nightly `metadata` job (spec F2, 03:30): fills release dates, genres,
 //  credits, AniList title variants (4.9 backfill), airing info and time to
 //  beat for catalogue rows whose `metaFetchedAt` is null or older than 30
-//  days. At most 200 rows a night, oldest (never fetched) first, with a short
-//  pause between provider calls.
+//  days. At most 200 rows a night: never-fetched rows first, then stale ones,
+//  then rows whose last lookup failed (retried at most every 3 days, so a row
+//  that keeps failing can't starve the budget). A pause between rows keeps
+//  IGDB (2 requests a row) under its 4 requests/second limit.
 //
 //  - Hand-made (`manual:…`) and demo (`demo-…`) rows are never looked up.
 //  - Categories whose provider has no key are skipped silently (G4).
 //  - AniList rows go in batches of 50 per request; the rest one call each.
 //  - A row the provider doesn't know is stamped too, so it waits 30 days
-//    instead of eating the budget every night. A failed call leaves the row
-//    unstamped for the next run; the job then reports the failures.
+//    instead of eating the budget every night. A failed call sets
+//    `metaFailedAt` instead (leaving `metaFetchedAt`), and the job reports
+//    the failures. A later success clears `metaFailedAt`.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { prisma } from '@/lib/prisma';
@@ -25,12 +28,15 @@ import {
 
 export const METADATA_MAX_ROWS = 200;
 export const METADATA_STALE_DAYS = 30;
-export const METADATA_DELAY_MS = 300;
+export const METADATA_FAILED_RETRY_DAYS = 3;
+/** ≥ 500 ms per row → IGDB's 2 requests a row stay under 4 requests/second. */
+export const METADATA_DELAY_MS = 600;
 
 export interface MetadataRow extends DetailSource {
   id: string;
   slug: CategorySlug;
   metaFetchedAt: Date | null;
+  metaFailedAt: Date | null;
 }
 
 /** Rows fetched before this instant are due again. */
@@ -38,20 +44,36 @@ export function staleCutoff(now: Date, days = METADATA_STALE_DAYS): Date {
   return new Date(now.getTime() - days * 86_400_000);
 }
 
+/** Rows whose lookup failed after this instant wait (no retry yet). */
+export function failedCutoff(now: Date, days = METADATA_FAILED_RETRY_DAYS): Date {
+  return new Date(now.getTime() - days * 86_400_000);
+}
+
+/** 0 = never fetched, 1 = stale, 2 = last lookup failed. */
+function priority(r: MetadataRow): number {
+  if (r.metaFailedAt) return 2;
+  return r.metaFetchedAt ? 1 : 0;
+}
+
 /**
  * Pick tonight's rows from every category's candidates: skip manual / demo
- * rows and fresh ones, never-fetched first, then the oldest fetch, capped.
+ * rows, fresh ones and recently failed ones; then never-fetched rows, stale
+ * rows (oldest fetch first) and finally failed rows (oldest failure first),
+ * capped at `limit`.
  */
 export function pickMetadataRows(
   candidates: MetadataRow[],
   now: Date,
   limit = METADATA_MAX_ROWS,
 ): MetadataRow[] {
-  const cutoff = staleCutoff(now).getTime();
+  const stale = staleCutoff(now).getTime();
+  const failed = failedCutoff(now).getTime();
+  const time = (r: MetadataRow) => (r.metaFailedAt ?? r.metaFetchedAt)?.getTime() ?? 0;
   return candidates
     .filter((r) => !isLookupSkipped(r.externalId))
-    .filter((r) => r.metaFetchedAt == null || r.metaFetchedAt.getTime() < cutoff)
-    .sort((a, b) => (a.metaFetchedAt?.getTime() ?? -1) - (b.metaFetchedAt?.getTime() ?? -1))
+    .filter((r) => r.metaFetchedAt == null || r.metaFetchedAt.getTime() < stale)
+    .filter((r) => r.metaFailedAt == null || r.metaFailedAt.getTime() < failed)
+    .sort((a, b) => priority(a) - priority(b) || time(a) - time(b))
     .slice(0, limit);
 }
 
@@ -59,7 +81,7 @@ export function pickMetadataRows(
 export interface MetadataDeps {
   configured: (slug: CategorySlug) => boolean;
   /** Up to `take` due candidates of one category. */
-  findDue: (slug: CategorySlug, cutoff: Date, take: number) => Promise<MetadataRow[]>;
+  findDue: (slug: CategorySlug, staleBefore: Date, failedBefore: Date, take: number) => Promise<MetadataRow[]>;
   update: (slug: CategorySlug, id: string, data: Record<string, unknown>) => Promise<void>;
   fetchPatch: (slug: CategorySlug, src: DetailSource) => Promise<Record<string, unknown> | null>;
   fetchAniList: (type: 'ANIME' | 'MANGA', ids: string[]) => Promise<Map<string, Record<string, unknown>>>;
@@ -72,14 +94,22 @@ const MODEL: Record<CategorySlug, string> = Object.fromEntries(
 
 const prismaDeps: MetadataDeps = {
   configured: detailsConfigured,
-  async findDue(slug, cutoff, take) {
+  async findDue(slug, staleBefore, failedBefore, take) {
     // Sanctioned dynamic-Prisma access across the seven media models.
     const rows = await (prisma as any)[MODEL[slug]].findMany({
       where: {
-        OR: [{ metaFetchedAt: null }, { metaFetchedAt: { lt: cutoff } }],
+        AND: [
+          { OR: [{ metaFetchedAt: null }, { metaFetchedAt: { lt: staleBefore } }] },
+          { OR: [{ metaFailedAt: null }, { metaFailedAt: { lt: failedBefore } }] },
+        ],
         NOT: [{ externalId: { startsWith: 'manual:' } }, { externalId: { startsWith: 'demo-' } }],
       },
-      orderBy: [{ metaFetchedAt: { sort: 'asc', nulls: 'first' } }, { createdAt: 'asc' }],
+      // Not-failed rows first (never fetched, then oldest), failed rows last.
+      orderBy: [
+        { metaFailedAt: { sort: 'asc', nulls: 'first' } },
+        { metaFetchedAt: { sort: 'asc', nulls: 'first' } },
+        { createdAt: 'asc' },
+      ],
       take,
     });
     return rows.map((r: any) => ({
@@ -91,6 +121,7 @@ const prismaDeps: MetadataDeps = {
       description: r.description ?? null,
       trackCount: r.trackCount ?? null,
       metaFetchedAt: r.metaFetchedAt ?? null,
+      metaFailedAt: r.metaFailedAt ?? null,
     }));
   },
   async update(slug, id, data) {
@@ -116,24 +147,30 @@ export async function runMetadata(
 ): Promise<MetadataSummary> {
   const limit = opts.limit ?? METADATA_MAX_ROWS;
   const delayMs = opts.delayMs ?? METADATA_DELAY_MS;
-  const cutoff = staleCutoff(now);
+  const staleBefore = staleCutoff(now);
+  const failedBefore = failedCutoff(now);
 
   const candidates: MetadataRow[] = [];
   for (const { slug } of CATEGORY_LIST) {
     if (!deps.configured(slug)) continue;
-    candidates.push(...(await deps.findDue(slug, cutoff, limit)));
+    candidates.push(...(await deps.findDue(slug, staleBefore, failedBefore, limit)));
   }
   const rows = pickMetadataRows(candidates, now, limit);
 
   const summary: MetadataSummary = { checked: rows.length, updated: 0, notFound: 0, failed: [] };
   const save = async (row: MetadataRow, patch: Record<string, unknown> | null | undefined) => {
-    await deps.update(row.slug, row.id, { ...(patch ?? {}), metaFetchedAt: now });
+    await deps.update(row.slug, row.id, { ...(patch ?? {}), metaFetchedAt: now, metaFailedAt: null });
     if (patch) summary.updated++;
     else summary.notFound++;
   };
-  const fail = (row: MetadataRow, err: unknown) => {
+  const fail = async (row: MetadataRow, err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
     summary.failed.push(`${row.slug} ${row.externalId}: ${message}`);
+    try {
+      await deps.update(row.slug, row.id, { metaFailedAt: now });
+    } catch {
+      // Recording the failure is best-effort; the summary still reports it.
+    }
   };
 
   // AniList: a few batched requests cover every anime / manga row.
@@ -147,14 +184,14 @@ export async function runMetadata(
         batch.map((r) => r.externalId),
       );
     } catch (err) {
-      batch.forEach((r) => fail(r, err));
+      for (const r of batch) await fail(r, err);
       continue;
     }
     for (const row of batch) {
       try {
         await save(row, found.get(row.externalId) ?? null);
       } catch (err) {
-        fail(row, err);
+        await fail(row, err);
       }
     }
   }
@@ -168,7 +205,7 @@ export async function runMetadata(
     try {
       await save(row, await deps.fetchPatch(row.slug, row));
     } catch (err) {
-      fail(row, err);
+      await fail(row, err);
     }
   }
 

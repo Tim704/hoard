@@ -91,8 +91,16 @@ export function genresFromSubjects(subjects: unknown, max = 3): string[] {
   return out;
 }
 
-/** Trim, drop blanks and case-insensitive duplicates, keep order, cap at `max`. */
+/** Genre names: trimmed, de-duplicated, capped (see `uniqueNames`). */
 export function normalizeGenres(list: unknown, max = Infinity): string[] {
+  return uniqueNames(list, max);
+}
+
+/**
+ * Any list of names (genres, people): trim, drop blanks and case-insensitive
+ * duplicates, keep order, cap at `max`.
+ */
+export function uniqueNames(list: unknown, max = Infinity): string[] {
   if (!Array.isArray(list)) return [];
   const seen = new Set<string>();
   const out: string[] = [];

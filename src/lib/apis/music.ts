@@ -111,9 +111,18 @@ export interface AlbumDetails {
   trackCount: number | null;
 }
 
-/** album.getInfo JSON → genres (top 3 tags) and the track count. Null on an API error. */
+/** Last.fm error code for an unknown artist / album ("Album not found"). */
+const LASTFM_NOT_FOUND = 6;
+
+/**
+ * album.getInfo JSON → genres (top 3 tags) and the track count. Null only when
+ * Last.fm says the album doesn't exist (error 6); any other API error (rate
+ * limit 29, service down 11/16, bad key 10, …) throws so the row is retried.
+ */
 export function mapAlbumInfo(json: LastfmAlbumInfoJson): AlbumDetails | null {
-  if (json.error || !json.album) return null;
+  if (json.error === LASTFM_NOT_FOUND) return null;
+  if (json.error) throw new Error(`Last.fm album info failed (error ${json.error}: ${json.message ?? 'unknown'})`);
+  if (!json.album) return null;
   const tags = json.album.tags ? asArray(json.album.tags.tag) : [];
   const tracks = json.album.tracks ? asArray(json.album.tracks.track) : [];
   return { genres: genresFromTags(tags), trackCount: tracks.length || null };

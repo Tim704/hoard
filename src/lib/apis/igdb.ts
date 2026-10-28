@@ -282,13 +282,11 @@ export async function fetchGameDetails(externalId: string): Promise<GameDetails 
   const [game] = (await gameRes.json()) as IgdbGameDetailsJson[];
   if (!game) return null;
 
-  // Time to beat is optional: a failure here keeps the rest of the details.
-  let ttb: { normally?: number | null } | undefined;
-  try {
-    const ttbRes = await post(IGDB_TTB_URL, `where game_id = ${id}; fields normally; limit 1;`);
-    if (ttbRes.ok) [ttb] = (await ttbRes.json()) as Array<{ normally?: number | null }>;
-  } catch {
-    ttb = undefined;
-  }
+  // No time-to-beat entry (an empty list) is a real answer. A failed request
+  // (429, 5xx, timeout) throws instead, so the row isn't stamped as done and
+  // is retried later rather than going 30 days without its time to beat.
+  const ttbRes = await post(IGDB_TTB_URL, `where game_id = ${id}; fields normally; limit 1;`);
+  if (!ttbRes.ok) throw new Error(`IGDB time to beat failed (${ttbRes.status})`);
+  const [ttb] = (await ttbRes.json()) as Array<{ normally?: number | null }>;
   return mapGameDetails(game, ttb);
 }

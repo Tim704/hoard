@@ -2,20 +2,33 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { CategorySlug } from '@/lib/categories';
 
-import { pickMetadataRows, runMetadata, staleCutoff, type MetadataDeps, type MetadataRow } from './metadata';
+import {
+  failedCutoff,
+  METADATA_DELAY_MS,
+  pickMetadataRows,
+  runMetadata,
+  staleCutoff,
+  type MetadataDeps,
+  type MetadataRow,
+} from './metadata';
 
 const NOW = new Date('2026-10-29T02:30:00Z'); // 03:30 Berlin
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000);
 
-function row(slug: CategorySlug, externalId: string, metaFetchedAt: Date | null = null): MetadataRow {
-  return { id: `${slug}-${externalId}`, slug, externalId, title: externalId, metaFetchedAt };
+function row(
+  slug: CategorySlug,
+  externalId: string,
+  metaFetchedAt: Date | null = null,
+  metaFailedAt: Date | null = null,
+): MetadataRow {
+  return { id: `${slug}-${externalId}`, slug, externalId, title: externalId, metaFetchedAt, metaFailedAt };
 }
 
 function fakeDeps(rows: MetadataRow[], over: Partial<MetadataDeps> = {}) {
   const updates: Array<{ slug: CategorySlug; id: string; data: Record<string, unknown> }> = [];
   const deps: MetadataDeps = {
     configured: () => true,
-    findDue: async (slug, _cutoff, take) => rows.filter((r) => r.slug === slug).slice(0, take),
+    findDue: async (slug, _stale, _failed, take) => rows.filter((r) => r.slug === slug).slice(0, take),
     update: async (slug, id, data) => {
       updates.push({ slug, id, data });
     },
@@ -57,6 +70,40 @@ describe('pickMetadataRows', () => {
   });
 });
 
+describe('pickMetadataRows with failures', () => {
+  it('orders never-fetched → stale → failed, and holds back failures younger than 3 days', () => {
+    const picked = pickMetadataRows(
+      [
+        row('games', 'failed-old', null, daysAgo(10)),
+        row('games', 'failed-older', daysAgo(60), daysAgo(20)),
+        row('games', 'failed-recent', null, daysAgo(1)), // waits
+        row('movies', 'stale', daysAgo(45)),
+        row('movies', 'stale-older', daysAgo(90)),
+        row('books', 'never'),
+      ],
+      NOW,
+    );
+    expect(picked.map((r) => r.externalId)).toEqual([
+      'never',
+      'stale-older',
+      'stale',
+      'failed-older',
+      'failed-old',
+    ]);
+  });
+
+  it('cannot let failing rows starve the budget', () => {
+    const failing = Array.from({ length: 300 }, (_, i) => row('games', `bad${i}`, null, daysAgo(4)));
+    const picked = pickMetadataRows([...failing, row('movies', 'new'), row('tv', 'old', daysAgo(31))], NOW, 200);
+    expect(picked.slice(0, 2).map((r) => r.externalId)).toEqual(['new', 'old']);
+    expect(picked).toHaveLength(200);
+  });
+
+  it('uses a 3-day retry window', () => {
+    expect(failedCutoff(NOW).toISOString()).toBe('2026-10-26T02:30:00.000Z');
+  });
+});
+
 describe('runMetadata', () => {
   it('does nothing for categories without keys, and never errors', async () => {
     const { deps, updates } = fakeDeps([row('movies', '1'), row('games', '2'), row('music', '3')], {
@@ -76,11 +123,15 @@ describe('runMetadata', () => {
     expect(deps.fetchAniList).toHaveBeenCalledWith('MANGA', ['7']);
     expect(deps.fetchPatch).toHaveBeenCalledTimes(2);
     expect(deps.sleep).toHaveBeenCalledTimes(1); // between the two single calls
-    expect(updates).toContainEqual({ slug: 'movies', id: 'movies-1', data: { genres: ['g-1'], metaFetchedAt: NOW } });
+    expect(updates).toContainEqual({
+      slug: 'movies',
+      id: 'movies-1',
+      data: { genres: ['g-1'], metaFetchedAt: NOW, metaFailedAt: null },
+    });
     expect(updates).toContainEqual({
       slug: 'anime',
       id: 'anime-52991',
-      data: { titleRomaji: 'r-52991', metaFetchedAt: NOW },
+      data: { titleRomaji: 'r-52991', metaFetchedAt: NOW, metaFailedAt: null },
     });
   });
 
@@ -93,8 +144,18 @@ describe('runMetadata', () => {
       }),
     });
     await expect(runMetadata(deps, NOW)).rejects.toThrow(/1 of 3 lookups failed: movies boom/);
-    expect(updates.map((u) => u.id).sort()).toEqual(['movies-gone', 'tv-ok']);
-    expect(updates.find((u) => u.id === 'movies-gone')?.data).toEqual({ metaFetchedAt: NOW });
+    expect(updates.find((u) => u.id === 'movies-gone')?.data).toEqual({ metaFetchedAt: NOW, metaFailedAt: null });
+    // The failed row is marked failed, never stamped as fetched.
+    expect(updates.filter((u) => u.id === 'movies-boom').map((u) => u.data)).toEqual([{ metaFailedAt: NOW }]);
+    expect(updates.find((u) => u.id === 'tv-ok')?.data).toEqual({ status: 'Ended', metaFetchedAt: NOW, metaFailedAt: null });
+  });
+
+  it('paces rows so IGDB (2 requests a row) stays under 4 requests/second', async () => {
+    expect(METADATA_DELAY_MS).toBeGreaterThanOrEqual(500);
+    const { deps } = fakeDeps([row('games', '1'), row('games', '2'), row('games', '3')]);
+    await runMetadata(deps, NOW);
+    expect(deps.sleep).toHaveBeenCalledTimes(2);
+    expect(deps.sleep).toHaveBeenCalledWith(METADATA_DELAY_MS);
   });
 
   it('respects the nightly limit across categories', async () => {
@@ -114,6 +175,10 @@ describe('runMetadata', () => {
       }),
     });
     await expect(runMetadata(deps, NOW)).rejects.toThrow(/2 of 3 lookups failed/);
-    expect(updates.map((u) => u.id)).toEqual(['movies-3']);
+    expect(updates.filter((u) => 'metaFetchedAt' in u.data).map((u) => u.id)).toEqual(['movies-3']);
+    expect(updates.filter((u) => 'metaFailedAt' in u.data && !('metaFetchedAt' in u.data)).map((u) => u.id)).toEqual([
+      'anime-1',
+      'anime-2',
+    ]);
   });
 });

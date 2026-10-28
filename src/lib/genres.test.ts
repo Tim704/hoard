@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { genreForSubject, genresFromSubjects, genresFromTags, normalizeGenres } from './genres';
+import { genreForSubject, genresFromSubjects, genresFromTags, normalizeGenres, uniqueNames } from './genres';
 
 describe('genresFromSubjects (OpenLibrary)', () => {
   it('maps the real Dune subjects to at most 3 allow-listed genres', () => {
@@ -57,8 +57,9 @@ describe('genresFromTags (Last.fm)', () => {
   });
 });
 
-describe('normalizeGenres', () => {
+describe('normalizeGenres / uniqueNames', () => {
   it('trims, de-duplicates and caps', () => {
     expect(normalizeGenres([' Action ', 'action', 'Drama', '', 'Fantasy'], 2)).toEqual(['Action', 'Drama']);
+    expect(uniqueNames(['Keanu  Reeves', 'keanu reeves', null, 'Carrie-Anne Moss'])).toEqual(['Keanu Reeves', 'Carrie-Anne Moss']);
   });
 });

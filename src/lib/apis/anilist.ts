@@ -341,14 +341,16 @@ export async function fetchAniListDetails(
   }
 
   const out = new Map<string, Record<string, unknown>>();
-  const run = async (query: string, ids: number[]) => {
+  // Key each answer by the id we asked with: an `al-N` row stays `al-N` even
+  // if AniList has since gained a MAL id (externalId() would prefer that).
+  const run = async (query: string, ids: number[], keyOf: (m: AniListMedia) => string) => {
     for (let i = 0; i < ids.length; i += DETAILS_BATCH) {
       const media = await anilistQuery(query, { ids: ids.slice(i, i + DETAILS_BATCH), type }, 'AniList details');
-      for (const m of media) out.set(externalId(m), aniListPatch(m, type));
+      for (const m of media) out.set(keyOf(m), aniListPatch(m, type));
     }
   };
-  await run(byMal, mal);
-  await run(byId, al);
+  await run(byMal, mal, (m) => String(m.idMal));
+  await run(byId, al, (m) => `al-${m.id}`);
   return out;
 }
 

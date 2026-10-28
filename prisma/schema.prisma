@@ -104,6 +104,8 @@ model Book {
   releaseDate   String?
   genres        String[]
   metaFetchedAt DateTime?
+  // Last failed lookup (metadata job); such rows wait 3 days and go last.
+  metaFailedAt  DateTime?
 
   activities UserMediaActivity[]
 }
@@ -130,6 +132,8 @@ model Movie {
   releaseDate   String?
   genres        String[]
   metaFetchedAt DateTime?
+  // Last failed lookup (metadata job); such rows wait 3 days and go last.
+  metaFailedAt  DateTime?
   // Credits (5.10 / 6.6): directors and the top 5 billed cast.
   directors     String[]
   cast          String[]
@@ -159,6 +163,8 @@ model TvShow {
   releaseDate   String?
   genres        String[]
   metaFetchedAt DateTime?
+  // Last failed lookup (metadata job); such rows wait 3 days and go last.
+  metaFailedAt  DateTime?
   // Credits (5.10 / 6.6): creators and the top 5 billed cast.
   directors     String[]
   cast          String[]
@@ -192,6 +198,8 @@ model Anime {
   releaseDate       String?
   genres            String[]
   metaFetchedAt     DateTime?
+  // Last failed lookup (metadata job); such rows wait 3 days and go last.
+  metaFailedAt      DateTime?
   // AniList title variants (4.9), shown per prefs.titleLanguage.
   titleEnglish      String?
   titleRomaji       String?
@@ -224,6 +232,8 @@ model Manga {
   releaseDate   String?
   genres        String[]
   metaFetchedAt DateTime?
+  // Last failed lookup (metadata job); such rows wait 3 days and go last.
+  metaFailedAt  DateTime?
   // AniList title variants (4.9), shown per prefs.titleLanguage.
   titleEnglish  String?
   titleRomaji   String?
@@ -253,6 +263,8 @@ model VideoGame {
   releaseDate     String?
   genres          String[]
   metaFetchedAt   DateTime?
+  // Last failed lookup (metadata job); such rows wait 3 days and go last.
+  metaFailedAt    DateTime?
   timeToBeatHours Float? // IGDB game_time_to_beats.normally, in hours (5.3)
   steamAppId      Int?
 
@@ -280,6 +292,8 @@ model MusicAlbum {
   releaseDate   String?
   genres        String[]
   metaFetchedAt DateTime?
+  // Last failed lookup (metadata job); such rows wait 3 days and go last.
+  metaFailedAt  DateTime?
 
   activities UserMediaActivity[]
 }
