@@ -9,7 +9,9 @@
 //  A title is "settled" once it is finished, retired or dropped
 //  (FINISHED_STATUSES): nothing still to do there. The franchise's "Next
 //  up" is its first unsettled title; a queued title gets a "Next in
-//  {franchise}" chip while an earlier title of the franchise is unsettled.
+//  {franchise}" chip while an earlier title holds it up: an unsettled one
+//  of the same section, or of another section once that one is under way
+//  or queued (`holdsUp`).
 // ───────────────────────────────────────────────────────────────────────────
 
 import { FINISHED_STATUSES, type Status } from '@/lib/status';
@@ -23,6 +25,9 @@ export const isOrderMode = (v: unknown): v is OrderMode => v === 'release' || v 
 export interface OrderMember {
   id: string;
   status: Status;
+  /** The section; members without one count as the same section. */
+  category?: string;
+  queueOrder?: number | null;
   franchiseOrder?: number | null;
   media: { title: string; year: number | null; releaseDate?: unknown };
 }
@@ -66,11 +71,28 @@ export function nextInFranchise<T extends OrderMember>(ordered: readonly T[]): T
   return ordered.find((m) => !isSettled(m.status)) ?? null;
 }
 
-/** The unsettled titles ordered before `activityId` (empty when it isn't a member). */
+/**
+ * Whether an earlier, unsettled `member` should hold up `target` in Up next:
+ * always within the same section; from another section only once it is
+ * under way (in progress, on hold) or queued itself (planned with a queue
+ * position). An unread manga you never queued doesn't flag a queued anime.
+ */
+export function holdsUp(member: OrderMember, target: OrderMember): boolean {
+  if (isSettled(member.status)) return false;
+  if (member.category === undefined || target.category === undefined || member.category === target.category) return true;
+  if (member.status === 'CONSUMING' || member.status === 'ON_HOLD') return true;
+  return member.status === 'PLANNED' && member.queueOrder != null;
+}
+
+/**
+ * The titles ordered before `activityId` that it should wait for (see
+ * `holdsUp`); empty when it is first or isn't a member.
+ */
 export function earlierUnfinished<T extends OrderMember>(ordered: readonly T[], activityId: string): T[] {
   const at = ordered.findIndex((m) => m.id === activityId);
   if (at <= 0) return [];
-  return ordered.slice(0, at).filter((m) => !isSettled(m.status));
+  const target = ordered[at];
+  return ordered.slice(0, at).filter((m) => holdsUp(m, target));
 }
 
 /** Up next's chip for a queued title: its franchise and the title to get to first. */

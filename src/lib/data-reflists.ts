@@ -53,25 +53,45 @@ export interface RefListView extends RefListSummary {
   items: RefItemView[];
 }
 
-/** The user's statuses and scores for some titles of one section, by refKey. */
+type LibraryEntry = { status: Status; rating: number | null };
+
+/**
+ * The user's statuses and scores for some titles, by refKey, in ONE query
+ * across every section involved.
+ */
 async function libraryFor(
   userId: string,
-  slug: CategorySlug,
-  externalIds: string[],
-): Promise<Map<string, { status: Status; rating: number | null }>> {
-  const cat = getCategory(slug);
-  const out = new Map<string, { status: Status; rating: number | null }>();
-  if (!cat || externalIds.length === 0) return out;
+  items: readonly { category: string; externalId: string }[],
+): Promise<Map<string, LibraryEntry>> {
+  const bySlug = new Map<CategorySlug, Set<string>>();
+  for (const it of items) {
+    if (!isCategorySlug(it.category)) continue;
+    const ids = bySlug.get(it.category) ?? new Set<string>();
+    ids.add(it.externalId);
+    bySlug.set(it.category, ids);
+  }
+  const out = new Map<string, LibraryEntry>();
+  if (bySlug.size === 0) return out;
+  const cats = [...bySlug.keys()].map((slug) => getCategory(slug)!);
   const rows: any[] = await prisma.userMediaActivity.findMany({
     where: {
       userId,
-      category: cat.dbCategory,
-      [cat.prismaModel]: { is: { externalId: { in: [...new Set(externalIds)] } } },
+      OR: cats.map((cat) => ({
+        category: cat.dbCategory,
+        [cat.prismaModel]: { is: { externalId: { in: [...bySlug.get(cat.slug)!] } } },
+      })),
     } as any,
-    select: { status: true, rating: true, [cat.prismaModel]: { select: { externalId: true } } } as any,
+    select: {
+      status: true,
+      rating: true,
+      category: true,
+      ...Object.fromEntries(cats.map((cat) => [cat.prismaModel, { select: { externalId: true } }])),
+    } as any,
   });
   for (const r of rows) {
-    out.set(refKey(slug, r[cat.prismaModel].externalId), { status: r.status, rating: r.rating });
+    const cat = cats.find((c) => c.dbCategory === r.category);
+    const media = cat ? r[cat.prismaModel] : null;
+    if (cat && media) out.set(refKey(cat.slug, media.externalId), { status: r.status, rating: r.rating });
   }
   return out;
 }
@@ -100,14 +120,11 @@ export async function getRefLists(userId: string): Promise<{ lists: RefListSumma
     include: { items: { select: { category: true, externalId: true } } },
     orderBy: { createdAt: 'desc' },
   });
-  const summaries: RefListSummary[] = [];
-  for (const l of lists) {
-    if (!isCategorySlug(l.category)) continue;
-    const lib = await libraryFor(userId, l.category, l.items.map((i) => i.externalId));
-    const statuses = new Map([...lib].map(([k, v]) => [k, v.status]));
-    const s = summaryOf(l, refProgress(l.items, statuses));
-    if (s) summaries.push(s);
-  }
+  const lib = await libraryFor(userId, lists.flatMap((l) => l.items));
+  const statuses = new Map([...lib].map(([k, v]) => [k, v.status]));
+  const summaries = lists
+    .map((l) => summaryOf(l, refProgress(l.items, statuses)))
+    .filter((s): s is RefListSummary => s !== null);
   const builtins = BUILTIN_SOURCES.map((source) => {
     const b = BUILTIN_REF_LISTS[source];
     return {
@@ -131,7 +148,7 @@ export async function getRefList(listId: string, userId: string): Promise<RefLis
     include: { items: { orderBy: { position: 'asc' } } },
   });
   if (!list || list.userId !== userId || !isCategorySlug(list.category)) return null;
-  const lib = await libraryFor(userId, list.category, list.items.map((i) => i.externalId));
+  const lib = await libraryFor(userId, list.items);
   const statuses = new Map([...lib].map(([k, v]) => [k, v.status]));
   const summary = summaryOf(list, refProgress(list.items, statuses));
   if (!summary) return null;

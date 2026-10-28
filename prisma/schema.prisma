@@ -625,6 +625,7 @@ model RefListItem {
 
   list RefList @relation(fields: [listId], references: [id], onDelete: Cascade)
 
+  @@unique([listId, externalId])
   @@index([listId, position])
 }
 

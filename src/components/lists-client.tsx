@@ -12,14 +12,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { createList } from '@/lib/actions/lists';
-import { addPastedRefItems, createBuiltinRefList, createPastedRefList, refreshRefListStep } from '@/lib/actions/reflists';
+import { addPastedRefItems, createBuiltinRefList, createPastedRefList, refreshRefList } from '@/lib/actions/reflists';
 import { CATEGORIES, NAV_ORDER, type CategorySlug } from '@/lib/categories';
 import type { ListSummary } from '@/lib/data-lists';
 import type { BuiltinChoice, RefListSummary } from '@/lib/data-reflists';
 import { AI_MAX_TEXT, type AiItem } from '@/lib/import/ai';
 import { MATCH_CHUNK } from '@/lib/import/types';
 import { LIST_DESCRIPTION_MAX, LIST_NAME_MAX } from '@/lib/lists';
-import { parsePlainLines, refPageCount, type BuiltinSource } from '@/lib/reflists';
+import { cleanPastedTitle, parsePlainLines } from '@/lib/reflists';
 import { cn } from '@/lib/utils';
 
 export type ListsTab = 'mine' | 'shared' | 'ref';
@@ -215,7 +215,7 @@ function RefTab({ lists, builtins, aiConfigured }: { lists: RefListSummary[]; bu
         toast.error(res.error ?? 'Could not create the list.');
         return;
       }
-      const ok = await fillBuiltin(res.id, b.source, setProgress);
+      const ok = res.existing ? true : await fillBuiltin(res.id, setProgress);
       if (ok) toast.success(`${b.name} is ready.`);
       router.push(`/lists/ref/${res.id}`);
     } finally {
@@ -287,23 +287,12 @@ function RefTab({ lists, builtins, aiConfigured }: { lists: RefListSummary[]; bu
   );
 }
 
-/** Fill a built-in list page by page; false when a page failed (the toast says why). */
-export async function fillBuiltin(
-  listId: string,
-  source: BuiltinSource,
-  onProgress: (text: string) => void,
-): Promise<boolean> {
-  const pages = refPageCount(source);
-  for (let page = 0; page < pages; page++) {
-    onProgress(`Fetching ${page + 1}/${pages}…`);
-    const res = await refreshRefListStep(listId, page);
-    if (!res.ok) {
-      toast.error(res.error ?? 'Could not fetch the list.');
-      return false;
-    }
-    if (res.done) break;
-  }
-  return true;
+/** Fetch (or refetch) a built-in list; false when it failed (the toast says why). */
+export async function fillBuiltin(listId: string, onProgress: (text: string) => void): Promise<boolean> {
+  onProgress('Fetching…');
+  const res = await refreshRefList(listId);
+  if (!res.ok) toast.error(res.error ?? 'Could not fetch the list.');
+  return res.ok;
 }
 
 export function RefProgressBar({ done, planned, total }: { done: number; planned: number; total: number }) {
@@ -330,6 +319,7 @@ function PasteForm({ aiConfigured }: { aiConfigured: boolean }) {
   const [useAi, setUseAi] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<{ id: string; added: number; missed: string[] } | null>(null);
 
   async function titlesFromAi(): Promise<{ title: string; year?: number }[] | null> {
     const body = new FormData();
@@ -343,15 +333,21 @@ function PasteForm({ aiConfigured }: { aiConfigured: boolean }) {
     return [...json.items]
       .map((it, i) => ({ it, i }))
       .sort((a, b) => (a.it.rank ?? Infinity) - (b.it.rank ?? Infinity) || a.i - b.i)
-      .map(({ it }) => (it.year ? { title: it.title, year: it.year } : { title: it.title }));
+      .map(({ it }) => cleanPastedTitle(it.title, it.year))
+      .filter((t): t is { title: string; year?: number } => t !== null);
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setOutcome(null);
     try {
       setProgress(useAi ? 'Reading the list…' : null);
-      const titles = useAi ? await titlesFromAi() : parsePlainLines(text);
+      const titles = useAi
+        ? await titlesFromAi()
+        : parsePlainLines(text)
+            .map((t) => cleanPastedTitle(t.title, t.year))
+            .filter((t): t is { title: string; year?: number } => t !== null);
       if (!titles) return;
       if (titles.length === 0) {
         toast.error('No titles were found in that.');
@@ -375,12 +371,12 @@ function PasteForm({ aiConfigured }: { aiConfigured: boolean }) {
         missed.push(...(res.missed ?? []));
       }
       if (missed.length) {
-        toast.warning(
-          `${added} matched. Not found: ${missed.slice(0, 5).join(', ')}${missed.length > 5 ? ` and ${missed.length - 5} more` : ''}.`,
-        );
-      } else {
-        toast.success(`${added} titles matched.`);
+        // Stay here and name every title that didn't go in.
+        setOutcome({ id: created.id, added, missed });
+        router.refresh();
+        return;
       }
+      toast.success(`${added} titles matched.`);
       router.push(`/lists/ref/${created.id}`);
     } catch {
       toast.error('Could not reach the server. Try again.');
@@ -396,8 +392,9 @@ function PasteForm({ aiConfigured }: { aiConfigured: boolean }) {
       <h2 className="text-lg font-semibold">Paste titles</h2>
       <form onSubmit={submit} className="space-y-3 rounded-lg border border-border bg-card p-3 sm:p-4">
         <p className="text-sm text-muted-foreground">
-          A top 100 from a magazine, a friend&apos;s recommendations: one title per line, a year in brackets helps.
-          Each title is matched in the section you pick.
+          A top 100 from a magazine, a friend&apos;s recommendations: one title per line, with the year in brackets.
+          Titles that match exactly (title and year) go straight in; the rest are listed so you can find them by
+          search.
         </p>
         <div className="grid gap-3 sm:grid-cols-[1fr_12rem]">
           <Input
@@ -429,6 +426,26 @@ function PasteForm({ aiConfigured }: { aiConfigured: boolean }) {
           onChange={(e) => setText(e.target.value)}
           className="font-mono text-base sm:text-sm"
         />
+        {outcome && (
+          <div role="status" className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+            <p>
+              <span className="font-medium">
+                {outcome.added} matched, {outcome.missed.length} not matched.
+              </span>{' '}
+              These need the exact title and year, or you can find them through the section&apos;s search:
+            </p>
+            <ul className="max-h-48 list-disc space-y-0.5 overflow-y-auto pl-5 text-xs">
+              {outcome.missed.map((t, i) => (
+                <li key={i} className="break-words">
+                  {t}
+                </li>
+              ))}
+            </ul>
+            <Link href={`/lists/ref/${outcome.id}`} className="inline-block font-medium underline underline-offset-2">
+              Open the list
+            </Link>
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className={cn('inline-flex items-center gap-2 text-sm', !aiConfigured && 'text-muted-foreground')}>
             <input

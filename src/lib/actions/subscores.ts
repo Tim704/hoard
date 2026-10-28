@@ -41,6 +41,7 @@ export async function setSubScores(
     revalidateCategory(cat.slug);
     return { ok: true, subScores: clean };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not save the sub-scores.' };
+    console.error('[subscores]', err instanceof Error ? err.message : err);
+    return { ok: false, error: 'Could not save the sub-scores.' };
   }
 }

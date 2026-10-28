@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  cleanPastedTitle,
   isBuiltinSource,
   newRefItems,
   parsePlainLines,
@@ -85,5 +86,18 @@ describe('parsePlainLines', () => {
   it('handles CRLF and caps the count', () => {
     expect(parsePlainLines('A\r\nB\r\n')).toEqual([{ title: 'A' }, { title: 'B' }]);
     expect(parsePlainLines(Array.from({ length: 300 }, (_, i) => `T${i}`).join('\n'))).toHaveLength(200);
+  });
+});
+
+describe('cleanPastedTitle', () => {
+  it('trims, caps the length and keeps only plausible years', () => {
+    expect(cleanPastedTitle('  Heat ', 1995)).toEqual({ title: 'Heat', year: 1995 });
+    expect(cleanPastedTitle('x'.repeat(400), 3000)).toEqual({ title: 'x'.repeat(300) });
+    expect(cleanPastedTitle('Up', 2009.5)).toEqual({ title: 'Up' });
+    expect(cleanPastedTitle('Up', null)).toEqual({ title: 'Up' });
+  });
+  it('drops empty or non-text titles', () => {
+    expect(cleanPastedTitle('   ', 2000)).toBeNull();
+    expect(cleanPastedTitle(42, 2000)).toBeNull();
   });
 });

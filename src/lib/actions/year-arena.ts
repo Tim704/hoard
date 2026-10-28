@@ -43,23 +43,39 @@ export async function submitYearDuel(
     const ids = new Set(await yearCandidateIds(user.id, y));
     if (!ids.has(winnerId) || !ids.has(loserId)) return { ok: false, error: 'Those titles are not from that year.' };
 
-    await prisma.$transaction(async (tx) => {
-      const ensure = (activityId: string) =>
-        tx.yearDuelScore.upsert({
-          where: { activityId_year: { activityId, year: y } },
-          update: {},
-          create: { userId: user.id, activityId, year: y },
-        });
-      const winner = await ensure(winnerId);
-      const loser = await ensure(loserId);
-      const elo = updateElo(winner.elo, loser.elo);
-      await tx.yearDuelScore.update({ where: { id: winner.id }, data: { elo: elo.winner, duels: { increment: 1 } } });
-      await tx.yearDuelScore.update({ where: { id: loser.id }, data: { elo: elo.loser, duels: { increment: 1 } } });
-    });
+    // Two duels at once can race on creating the same YearDuelScore row
+    // (unique activityId + year): the loser of that race retries once.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await recordYearDuel(user.id, y, winnerId, loserId);
+        break;
+      } catch (err) {
+        if (attempt < 2 && (err as { code?: string })?.code === 'P2002') continue;
+        throw err;
+      }
+    }
 
     revalidatePath(`/arena/year/${y}`);
     return { ok: true, next: yearMatchupFrom(await yearRanking(user.id, y)) };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Could not save the duel.' };
+    console.error('[year duel]', err instanceof Error ? err.message : err);
+    return { ok: false, error: 'Could not save the duel. Try again.' };
   }
+}
+
+/** Both year scores (created on first use), Elo and duel counts, in one transaction. */
+async function recordYearDuel(userId: string, year: number, winnerId: string, loserId: string) {
+  await prisma.$transaction(async (tx) => {
+    const ensure = (activityId: string) =>
+      tx.yearDuelScore.upsert({
+        where: { activityId_year: { activityId, year } },
+        update: {},
+        create: { userId, activityId, year },
+      });
+    const winner = await ensure(winnerId);
+    const loser = await ensure(loserId);
+    const elo = updateElo(winner.elo, loser.elo);
+    await tx.yearDuelScore.update({ where: { id: winner.id }, data: { elo: elo.winner, duels: { increment: 1 } } });
+    await tx.yearDuelScore.update({ where: { id: loser.id }, data: { elo: elo.loser, duels: { increment: 1 } } });
+  });
 }

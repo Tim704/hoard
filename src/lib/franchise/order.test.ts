@@ -54,6 +54,31 @@ describe('nextInFranchise', () => {
   });
 });
 
+describe('earlierUnfinished across sections', () => {
+  const x = (id: string, category: string, status: Status, queueOrder: number | null = null): OrderMember => ({
+    id,
+    status,
+    category,
+    queueOrder,
+    media: { title: id, year: null },
+  });
+  const anime = x('anime', 'anime', 'PLANNED', 1000);
+  it('an unread manga that was never queued does not hold up a queued anime', () => {
+    expect(earlierUnfinished([x('manga', 'manga', 'PLANNED'), anime], 'anime')).toEqual([]);
+  });
+  it('a manga in progress, on hold or queued does', () => {
+    for (const m of [x('m', 'manga', 'CONSUMING'), x('m', 'manga', 'ON_HOLD'), x('m', 'manga', 'PLANNED', 2000)]) {
+      expect(earlierUnfinished([m, anime], 'anime').map((e) => e.id)).toEqual(['m']);
+    }
+  });
+  it('a settled title of another section never does', () => {
+    expect(earlierUnfinished([x('m', 'manga', 'COMPLETED'), x('d', 'manga', 'DROPPED'), anime], 'anime')).toEqual([]);
+  });
+  it('the same section always counts, queued or not', () => {
+    expect(earlierUnfinished([x('s1', 'anime', 'PLANNED'), anime], 'anime').map((e) => e.id)).toEqual(['s1']);
+  });
+});
+
 describe('earlierUnfinished', () => {
   const ordered = [m('s1', 'COMPLETED', 1), m('s2', 'CONSUMING', 2), m('s3', 'PLANNED', 3), m('s4', 'PLANNED', 4)];
   it('lists unsettled titles before the given one', () => {

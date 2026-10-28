@@ -69,3 +69,11 @@ export function takeRate(key: string, limits: RateLimits, now: number = Date.now
 export function takeAiRate(userId: string, now?: number): RateDecision {
   return takeRate(`ai:${userId}`, AI_LIMITS, now);
 }
+
+/** List invitations per user (4.11): they notify someone else, so keep them modest. */
+export const INVITE_LIMITS: RateLimits = { perMinute: 5, perDay: 20 };
+
+/** One list invitation by `userId`. The message is the caller's to write. */
+export function takeInviteRate(userId: string, now?: number): RateDecision {
+  return takeRate(`invite:${userId}`, INVITE_LIMITS, now);
+}

@@ -4,12 +4,12 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, RefreshCw, Trash2, X } from 'lucide-react';
 
 import { AddResultRow, useAddRows } from '@/components/add-row';
 import { fillBuiltin, RefProgressBar } from '@/components/lists-client';
 import { Button } from '@/components/ui/button';
-import { deleteRefList } from '@/lib/actions/reflists';
+import { deleteRefList, removeRefListItem } from '@/lib/actions/reflists';
 import { CATEGORIES } from '@/lib/categories';
 import type { RefItemView, RefListView } from '@/lib/data-reflists';
 import { formatYmd } from '@/lib/release';
@@ -42,10 +42,21 @@ export function RefListClient({ list }: { list: RefListView }) {
 
   async function refresh() {
     if (!isBuiltinSource(list.source)) return;
-    setBusy('Refreshing…');
+    setBusy('Fetching…');
     try {
-      if (await fillBuiltin(list.id, list.source, setBusy)) toast.success('List refreshed.');
+      if (await fillBuiltin(list.id, setBusy)) toast.success('List refreshed.');
       router.refresh();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function removeItem(it: RefItemView) {
+    setBusy('Removing…');
+    try {
+      const res = await removeRefListItem(list.id, it.id);
+      if (!res.ok) toast.error(res.error ?? 'Could not remove that title.');
+      else router.refresh();
     } finally {
       setBusy(null);
     }
@@ -108,12 +119,12 @@ export function RefListClient({ list }: { list: RefListView }) {
         <div className="ml-auto flex flex-wrap gap-2">
           {builtin && (
             <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={busy !== null}>
-              {busy && busy !== 'Deleting…' ? (
+              {busy === 'Fetching…' ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
               ) : (
                 <RefreshCw className="mr-2 h-4 w-4" aria-hidden />
               )}
-              {busy && busy !== 'Deleting…' ? busy : 'Refresh'}
+              {busy === 'Fetching…' ? busy : 'Refresh'}
             </Button>
           )}
           {confirmDelete ? (
@@ -165,6 +176,18 @@ export function RefListClient({ list }: { list: RefListView }) {
                     onSkipRate={() => setRow(key, { phase: 'done', rating: null })}
                   />
                 </div>
+                {!builtin && (
+                  <button
+                    type="button"
+                    disabled={busy !== null}
+                    onClick={() => void removeItem(it)}
+                    aria-label={`Remove ${it.title} from this list`}
+                    title="Remove from list"
+                    className="shrink-0 rounded p-1 text-muted-foreground hover:text-rose-500 disabled:opacity-30"
+                  >
+                    <X className="h-4 w-4" aria-hidden />
+                  </button>
+                )}
               </li>
             );
           })}

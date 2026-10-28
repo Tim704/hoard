@@ -171,3 +171,17 @@ export function parsePlainLines(text: string): { title: string; year?: number }[
   }
   return out;
 }
+
+/**
+ * One pasted title as `addPastedRefItems` accepts it: trimmed to
+ * PASTE_MAX_TITLE, a year only when it is plausible (1800–2100), null when
+ * empty. Applied before sending, so one odd row (e.g. from the AI reader)
+ * can't make the server refuse its whole chunk; the server still validates.
+ */
+export function cleanPastedTitle(title: unknown, year: unknown): { title: string; year?: number } | null {
+  if (typeof title !== 'string') return null;
+  const t = title.trim().slice(0, PASTE_MAX_TITLE).trim();
+  if (!t) return null;
+  const y = typeof year === 'number' && Number.isInteger(year) && year >= 1800 && year <= 2100 ? year : undefined;
+  return y ? { title: t, year: y } : { title: t };
+}

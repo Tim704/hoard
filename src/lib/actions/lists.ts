@@ -27,13 +27,15 @@ import {
 } from '@/lib/lists';
 import { isManualId } from '@/lib/manual';
 import { notify } from '@/lib/notify';
+import { takeInviteRate } from '@/lib/rate-limit';
 import { requireUser } from '@/lib/session';
 import type { ActionResult, NormalizedResult } from '@/lib/types';
 
-const fail = (err: unknown, fallback: string): ActionResult => ({
-  ok: false,
-  error: err instanceof Error ? err.message : fallback,
-});
+/** A friendly failure; the real error goes to the server log, never to the client. */
+function fail(err: unknown, fallback: string): ActionResult {
+  console.error('[%s] %s', fallback, err instanceof Error ? err.message : err);
+  return { ok: false, error: fallback };
+}
 
 const NOT_FOUND: ActionResult = { ok: false, error: 'List not found.' };
 
@@ -251,6 +253,8 @@ export async function inviteToList(listId: unknown, username: unknown, canEdit: 
     const user = await requireUser();
     const list = await loadList(listId);
     if (!canManageList(list, user.id)) return NOT_FOUND;
+    const rate = takeInviteRate(user.id);
+    if (!rate.ok) return { ok: false, error: `Too many invitations. Try again in ${Math.ceil(rate.retryAfterSec / 60)} min.` };
     const invitee = await prisma.user.findUnique({ where: { username: username.trim() }, select: { id: true } });
     // The same answer for unknown users and yourself: usernames don't leak.
     if (!invitee || invitee.id === user.id) return { ok: false, error: 'No other user has that username.' };

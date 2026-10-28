@@ -38,3 +38,16 @@ describe('checkRate', () => {
     expect(takeRate('other:u1', { perMinute: 1, perDay: 1 }, now).ok).toBe(true);
   });
 });
+
+describe('invite limit', () => {
+  it('allows 5 a minute and 20 a day per user', async () => {
+    const { takeInviteRate } = await import('./rate-limit');
+    const t0 = 1_000_000_000_000;
+    for (let i = 0; i < 5; i++) expect(takeInviteRate('inv-u', t0 + i).ok).toBe(true);
+    expect(takeInviteRate('inv-u', t0 + 10).ok).toBe(false);
+    expect(takeInviteRate('inv-other', t0 + 10).ok).toBe(true);
+    let ok = 0;
+    for (let m = 1; m <= 30; m++) if (takeInviteRate('inv-u', t0 + m * 61_000).ok) ok++;
+    expect(ok).toBe(15);
+  });
+});
