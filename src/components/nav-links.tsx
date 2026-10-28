@@ -11,6 +11,7 @@ import {
   Gamepad2,
   Layers,
   LayoutDashboard,
+  ListChecks,
   Library,
   NotebookPen,
   Settings,
@@ -135,6 +136,17 @@ export function NavLinks({ onNavigate, collapsed = false }: NavLinksProps) {
       >
         <Tag className="h-4 w-4 shrink-0 text-muted-foreground" />
         {!collapsed && <span>Tags</span>}
+      </Link>
+
+      <Link
+        href="/lists"
+        onClick={onNavigate}
+        title={collapsed ? 'Lists' : undefined}
+        aria-label={collapsed ? 'Lists' : undefined}
+        className={linkClass('/lists')}
+      >
+        <ListChecks className="h-4 w-4 shrink-0 text-muted-foreground" />
+        {!collapsed && <span>Lists</span>}
       </Link>
 
       <Link

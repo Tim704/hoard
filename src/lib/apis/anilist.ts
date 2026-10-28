@@ -466,3 +466,21 @@ export async function fetchAniListByMalIds(
   }
   return out;
 }
+
+/** Reference lists (4.8): AniList's highest-scored entries, 50 per page. */
+export function aniListTopQuery(type: 'ANIME' | 'MANGA'): string {
+  return `query ($page: Int) {
+  Page(page: $page, perPage: 50) {
+    media(type: ${type}, sort: SCORE_DESC, isAdult: false) {
+      ${type === 'ANIME' ? ANIME_FIELDS : MANGA_FIELDS}
+    }
+  }
+}`;
+}
+
+/** Page `page` (1-based) of AniList's top anime or manga, mapped like search hits. */
+export async function fetchAniListTop(type: 'ANIME' | 'MANGA', page: number): Promise<NormalizedResult[]> {
+  if (!Number.isInteger(page) || page < 1 || page > 20) return [];
+  const media = await anilistQuery(aniListTopQuery(type), { page }, 'AniList top list');
+  return media.map(type === 'ANIME' ? mapAnime : mapManga);
+}

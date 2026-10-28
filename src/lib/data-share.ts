@@ -6,14 +6,15 @@
 //  registered for the link's kind. Each loader returns ONLY what the public
 //  page shows — for a tier list: the section, and per tier the titles (in the
 //  owner's title language) and covers in order. Never notes, scores, dates or
-//  anything else of the owner's library. Task 12 (lists) and Task 15 (year in
-//  review) add their kinds to SHARE_LOADERS.
+//  anything else of the owner's library. Custom lists (Task 12) show their
+//  items the same way; Task 15 (year in review) adds its kind here.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { prisma } from '@/lib/prisma';
 import { getCategory, type CategorySlug } from '@/lib/categories';
 import { flattenActivity } from '@/lib/data';
 import { getPrefs } from '@/lib/data-prefs';
+import { getCustomList } from '@/lib/data-lists';
 import { absoluteUrl } from '@/lib/public-url';
 import {
   isShareTokenShape,
@@ -40,9 +41,17 @@ export interface TiersShareView {
   tiers: { tier: Tier; items: SharedItem[] }[];
 }
 
-/** What each kind's public page renders. Year and list views join in Tasks 15 and 12. */
+export interface ListShareView {
+  kind: 'list';
+  name: string;
+  description: string | null;
+  items: SharedItem[];
+}
+
+/** What each kind's public page renders. The year view joins in Task 15. */
 export interface ShareViews {
   tiers: TiersShareView;
+  list: ListShareView;
 }
 
 export type ShareView = ShareViews[keyof ShareViews];
@@ -52,6 +61,7 @@ type Loader<V> = (link: ShareLinkRow & { kind: ShareKind }) => Promise<V | null>
 /** The loader per kind; a kind without one is not shareable yet (its links 404). */
 export const SHARE_LOADERS: { [K in ShareKind]?: Loader<K extends keyof ShareViews ? ShareViews[K] : never> } = {
   tiers: loadTiers,
+  list: loadList,
 };
 
 /** Kinds "Share link" may create now. */
@@ -89,6 +99,37 @@ async function loadTiers(link: ShareLinkRow): Promise<TiersShareView | null> {
 }
 
 /**
+ * A custom list (4.11): its name, description and items (titles in the
+ * OWNER's title language, covers) in order. Only while the link's creator
+ * still owns the list; a deleted list is a 404.
+ */
+async function loadList(link: ShareLinkRow): Promise<ListShareView | null> {
+  const list = await prisma.customList.findUnique({ where: { id: link.target } });
+  if (!list || list.ownerId !== link.userId) return null;
+  const [view, prefs] = await Promise.all([getCustomList(list.id, link.userId), getPrefs(link.userId)]);
+  if (!view) return null;
+  return {
+    kind: 'list',
+    name: view.name,
+    description: view.description,
+    items: view.items.map((it) => ({
+      title: displayTitle(it.media, prefs.titleLanguage),
+      imageUrl: httpsOnly(it.media.imageUrl),
+    })),
+  };
+}
+
+/**
+ * Whether `userId` may make a link to `target` of `kind`: tier lists and
+ * years are always their own; a custom list only when they own it.
+ */
+export async function ownsShareTarget(kind: ShareKind, target: string, userId: string): Promise<boolean> {
+  if (kind !== 'list') return true;
+  const list = await prisma.customList.findUnique({ where: { id: target }, select: { ownerId: true } });
+  return list !== null && list.ownerId === userId;
+}
+
+/**
  * The public view behind a token, or null for anything that must 404:
  * malformed, unknown, revoked, or of a kind without a loader.
  */
@@ -115,7 +156,7 @@ export interface MyShareLink {
 export function shareLabel(kind: string, target: string): string {
   if (kind === 'tiers') return `${getCategory(target)?.label ?? target} tier list`;
   if (kind === 'year') return `${target} in review`;
-  if (kind === 'list') return 'Custom list';
+  if (kind === 'list') return 'Custom list'; // getMyShareLinks adds the list's name
   return kind;
 }
 
@@ -125,6 +166,14 @@ export async function getMyShareLinks(userId: string): Promise<MyShareLink[]> {
     where: { userId, revokedAt: null },
     orderBy: { createdAt: 'desc' },
   });
+  const listIds = rows.filter((r) => r.kind === 'list').map((r) => r.target);
+  const listNames = new Map(
+    listIds.length
+      ? (
+          await prisma.customList.findMany({ where: { id: { in: listIds }, ownerId: userId }, select: { id: true, name: true } })
+        ).map((l) => [l.id, l.name])
+      : [],
+  );
   return rows
     .map((r) => publicShare(r))
     .filter((r): r is NonNullable<typeof r> & { createdAt: Date } => r !== null)
@@ -132,7 +181,7 @@ export async function getMyShareLinks(userId: string): Promise<MyShareLink[]> {
       id: r.id,
       kind: r.kind,
       target: r.target,
-      label: shareLabel(r.kind, r.target),
+      label: r.kind === 'list' && listNames.has(r.target) ? `List: ${listNames.get(r.target)}` : shareLabel(r.kind, r.target),
       url: absoluteUrl(sharePath(r.id)),
       createdAt: r.createdAt.toISOString(),
     }));

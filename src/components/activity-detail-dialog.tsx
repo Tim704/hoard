@@ -7,6 +7,7 @@ import { ImageOff, Layers, Loader2, PencilLine, Star, Trash2 } from 'lucide-reac
 import { toast } from 'sonner';
 
 import { ActivityExtras } from '@/components/activity-extras';
+import { AddToList } from '@/components/add-to-list';
 import { ManualFields } from '@/components/manual-fields';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { ProgressField } from '@/components/progress-field';
@@ -499,6 +500,8 @@ export function ActivityDetailDialog({
             </div>
 
             <TagInput key={`tags:${activity.id}`} activityId={activity.id} initial={activity.tags} disabled={busy} />
+
+            <AddToList key={`lists:${activity.id}`} activityId={activity.id} disabled={busy} />
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Favorite</label>

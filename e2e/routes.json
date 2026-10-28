@@ -27,5 +27,14 @@
   "/tags",
   "/tags?tag=Sci-fi",
   "/books?tag=Sci-fi",
-  "/s/demo-share-books"
+  "/s/demo-share-books",
+  "/arena/year",
+  "/arena/year/2026",
+  "/arena/year/2019",
+  "/lists",
+  "/lists?tab=shared",
+  "/lists?tab=ref",
+  "/lists/demo-list-comfort",
+  "/lists/ref/demo-reflist-scifi",
+  "/s/demo-share-list-comfort"
 ]

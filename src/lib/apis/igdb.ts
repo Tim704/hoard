@@ -385,3 +385,12 @@ export async function fetchGameBySteamAppId(appId: string): Promise<NormalizedRe
   const [game] = await igdbPost<IgdbGame>(IGDB_GAMES_URL, `where id = ${id}; fields ${GAME_HIT_FIELDS}; limit 1;`, 'game lookup');
   return game?.id ? mapGameSearchHit(game) : null;
 }
+
+/** Reference lists (4.8): the 100 best-rated games with more than 500 ratings. */
+export const IGDB_TOP_GAMES_QUERY = `fields ${GAME_HIT_FIELDS}; where rating_count > 500; sort rating desc; limit 100;`;
+
+/** IGDB's top 100 games, mapped like search hits. Throws without credentials. */
+export async function fetchIgdbTopGames(): Promise<NormalizedResult[]> {
+  const games = await igdbPost<IgdbGame>(IGDB_GAMES_URL, IGDB_TOP_GAMES_QUERY, 'top games');
+  return games.filter((g) => g && typeof g.id === 'number' && g.name).map(mapGameSearchHit);
+}

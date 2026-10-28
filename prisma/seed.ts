@@ -35,6 +35,7 @@ async function main() {
 
   await seedLibrary(user.id);
   await seedShareLink(user.id);
+  await seedLists(user.id);
 
   console.log('[seed] Demo user ready.');
   console.log(`[seed]   username: ${DEMO_USERNAME}`);
@@ -56,6 +57,63 @@ async function seedShareLink(userId: string) {
     update: {},
     create: { id: DEMO_SHARE_TOKEN, userId, kind: 'tiers', target: 'books' },
   });
+}
+
+/** Fixed ids of the demo lists (4.8 / 4.11), visited by the smoke test. */
+export const DEMO_LIST_ID = 'demo-list-comfort';
+export const DEMO_REF_LIST_ID = 'demo-reflist-scifi';
+export const DEMO_LIST_SHARE_TOKEN = 'demo-share-list-comfort';
+
+/**
+ * A demo custom list (with a public link) and a demo reference list, so the
+ * smoke test can open /lists/…, /lists/ref/… and /s/demo-share-list. Never in
+ * production (guessable ids). Items point at the demo catalogue rows.
+ */
+async function seedLists(userId: string) {
+  if (process.env.NODE_ENV === 'production') return;
+  const list = await prisma.customList.findUnique({ where: { id: DEMO_LIST_ID } });
+  if (!list) {
+    await prisma.customList.create({
+      data: { id: DEMO_LIST_ID, ownerId: userId, name: 'Comfort picks', description: 'Things to come back to on a slow Sunday.' },
+    });
+    const picks = [
+      { category: 'movies', row: await prisma.movie.findUnique({ where: { externalId: 'demo-movie-alien' } }) },
+      { category: 'books', row: await prisma.book.findUnique({ where: { externalId: 'demo-book-dune' } }) },
+      { category: 'anime', row: await prisma.anime.findUnique({ where: { externalId: 'demo-anime-cowboy-bebop' } }) },
+    ];
+    let position = 0;
+    for (const p of picks) {
+      if (!p.row) continue;
+      await prisma.customListItem.create({
+        data: { listId: DEMO_LIST_ID, category: p.category, mediaId: p.row.id, addedById: userId, position: (position += 1000) },
+      });
+    }
+  }
+  await prisma.shareLink.upsert({
+    where: { id: DEMO_LIST_SHARE_TOKEN },
+    update: {},
+    create: { id: DEMO_LIST_SHARE_TOKEN, userId, kind: 'list', target: DEMO_LIST_ID },
+  });
+
+  if (!(await prisma.refList.findUnique({ where: { id: DEMO_REF_LIST_ID } }))) {
+    await prisma.refList.create({
+      data: {
+        id: DEMO_REF_LIST_ID,
+        userId,
+        name: 'Sci-fi essentials',
+        source: 'custom',
+        category: 'movies',
+        items: {
+          create: [
+            { category: 'movies', externalId: 'demo-movie-alien', title: 'Alien', year: 1979, position: 1 },
+            { category: 'movies', externalId: 'demo-movie-stalker', title: 'Stalker', year: 1979, position: 2 },
+            { category: 'movies', externalId: 'demo-movie-arrival', title: 'Arrival', year: 2016, position: 3 },
+            { category: 'movies', externalId: 'demo-movie-solaris', title: 'Solaris', year: 1972, position: 4 },
+          ],
+        },
+      },
+    });
+  }
 }
 
 // ── Demo library ─────────────────────────────────────────────────────────────

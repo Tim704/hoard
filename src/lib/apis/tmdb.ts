@@ -479,3 +479,24 @@ export async function findByImdbId(
   if (!res.ok) throw new Error(`TMDB find failed (${res.status})`);
   return mapFindResult((await res.json()) as TmdbFindJson);
 }
+
+/**
+ * One page of GET /{movie|tv}/top_rated (20 per page) → search-shaped hits,
+ * in TMDB's order. Malformed entries are skipped.
+ */
+export function mapTmdbTopRated(kind: 'movie' | 'tv', data: unknown): NormalizedResult[] {
+  const results = (data as TmdbResponse<TmdbMovie & TmdbTv> | null)?.results;
+  if (!Array.isArray(results)) return [];
+  return results
+    .filter((r) => r && typeof r.id === 'number' && (kind === 'movie' ? r.title : r.name))
+    .map((r) => (kind === 'movie' ? mapMovieSearchHit(r) : mapTvSearchHit(r)));
+}
+
+/** Reference lists (4.8): page `page` (1-based) of TMDB's top rated movies or shows. Throws without a key. */
+export async function fetchTmdbTopRated(kind: 'movie' | 'tv', page: number): Promise<NormalizedResult[]> {
+  const key = requireKey();
+  if (!Number.isInteger(page) || page < 1 || page > 500) return [];
+  const res = await providerFetch(`${TMDB_BASE}/${kind}/top_rated?api_key=${key}&page=${page}`);
+  if (!res.ok) throw new Error(`TMDB top rated failed (${res.status})`);
+  return mapTmdbTopRated(kind, await res.json());
+}

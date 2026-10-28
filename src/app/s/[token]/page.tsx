@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { ImageOff } from 'lucide-react';
 
 import { TIER_HEX } from '@/components/tier-colors';
-import { loadPublicShare, type TiersShareView } from '@/lib/data-share';
+import { loadPublicShare, type ListShareView, type TiersShareView } from '@/lib/data-share';
 
 // Public, read-only share pages (spec 4.1). Outside the (app) group: no login,
 // no sidebar. A revoked link must stop working at once, so never cache.
@@ -25,6 +25,7 @@ export default async function SharePage({ params }: { params: { token: string } 
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
       {view.kind === 'tiers' && <SharedTiers view={view} />}
+      {view.kind === 'list' && <SharedList view={view} />}
       <footer className="mt-10 border-t border-border pt-4 text-center text-xs text-muted-foreground">
         Made with{' '}
         <Link href="/" className="font-semibold text-foreground underline-offset-4 hover:underline">
@@ -89,6 +90,44 @@ function SharedTiers({ view }: { view: TiersShareView }) {
                   ))}
                 </ol>
               )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </>
+  );
+}
+
+function SharedList({ view }: { view: ListShareView }) {
+  return (
+    <>
+      <header className="mb-6">
+        <p className="text-sm font-medium text-muted-foreground">Shared from Hoard</p>
+        <h1 className="mt-1 break-words text-2xl font-bold tracking-tight sm:text-3xl">{view.name}</h1>
+        {view.description && <p className="mt-2 whitespace-pre-line text-sm">{view.description}</p>}
+        <p className="mt-1 text-sm text-muted-foreground">
+          {view.items.length} {view.items.length === 1 ? 'title' : 'titles'}
+        </p>
+      </header>
+      {view.items.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+          This list is empty for now.
+        </p>
+      ) : (
+        <ol className="space-y-2">
+          {view.items.map((item, i) => (
+            <li key={i} className="flex items-center gap-3 rounded-lg border border-border bg-card p-2">
+              <span className="w-7 shrink-0 text-center text-sm font-semibold tabular-nums text-muted-foreground">{i + 1}</span>
+              <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded bg-muted ring-1 ring-border">
+                {item.imageUrl ? (
+                  <Image src={item.imageUrl} alt="" fill sizes="40px" referrerPolicy="no-referrer" className="object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <ImageOff className="h-4 w-4 text-muted-foreground" aria-hidden />
+                  </div>
+                )}
+              </div>
+              <p className="min-w-0 flex-1 text-sm font-medium leading-snug">{item.title}</p>
             </li>
           ))}
         </ol>

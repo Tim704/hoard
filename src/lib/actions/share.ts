@@ -9,7 +9,7 @@ import { revalidatePath } from 'next/cache';
 
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/session';
-import { shareableKind } from '@/lib/data-share';
+import { ownsShareTarget, shareableKind } from '@/lib/data-share';
 import { absoluteUrl } from '@/lib/public-url';
 import {
   canManageShare,
@@ -34,6 +34,7 @@ export async function createShareLink(
   }
   try {
     const user = await requireUser();
+    if (!(await ownsShareTarget(kind, target, user.id))) return { ok: false, error: 'That cannot be shared.' };
     const existing = reusableShare(
       await prisma.shareLink.findMany({ where: { userId: user.id, kind, target, revokedAt: null } }),
       user.id,

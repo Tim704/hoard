@@ -85,27 +85,7 @@ export async function addMediaForUser(
   const diaryPrefs = !opts.skipDiary && isDiaryStatus(status) ? await getPrefs(userId) : null;
 
   const outcome = await prisma.$transaction(async (tx) => {
-    const db = tx as any; // sanctioned dynamic model access (seven media tables)
-    // Client-sent `fields` never overwrite a shared row (spec G2): a new row
-    // is created with its externalId pinned; an existing one only has empty
-    // columns filled in. (Upsert with an empty update covers a concurrent add.)
-    const where = { externalId: result.externalId };
-    let media = await db[cat.prismaModel].findUnique({ where });
-    if (!media) {
-      media = await db[cat.prismaModel].upsert({
-        where,
-        update: {},
-        create: {
-          ...catalogueCreatePayload(result.externalId, result.fields),
-          ...(opts.metaFetchedAt ? { metaFetchedAt: opts.metaFetchedAt } : {}),
-        },
-      });
-    } else {
-      const fill = fillOnlyUpdate(media, result.fields);
-      if (Object.keys(fill).length > 0) {
-        media = await db[cat.prismaModel].update({ where: { id: media.id }, data: fill });
-      }
-    }
+    const media = await upsertCatalogueRow(tx, slug, result, opts.metaFetchedAt ?? null);
 
     if (slug === 'tv' && opts.seasons?.length) {
       await saveTvSeasons(tx, media.id, opts.seasons, { insertOnly: true });
@@ -167,6 +147,42 @@ export async function addMediaForUser(
     await autoGroupAfterAdd(userId, slug, outcome.media);
   }
   return { activityId: outcome.activityId, existing: outcome.existing };
+}
+
+/**
+ * The shared catalogue row for a search hit (spec G2): client-sent `fields`
+ * never overwrite it. A new row is created with its externalId pinned; an
+ * existing one only has empty columns filled in. (Upsert with an empty update
+ * covers a concurrent add.) Returns the row. Also used by custom lists (4.11),
+ * which point at catalogue rows without touching anyone's library.
+ */
+export async function upsertCatalogueRow(
+  tx: Prisma.TransactionClient,
+  slug: CategorySlug,
+  result: NormalizedResult,
+  metaFetchedAt: Date | null,
+): Promise<any> {
+  const cat = getCategory(slug);
+  if (!cat) throw new Error('Unknown category.');
+  const db = tx as any; // sanctioned dynamic model access (seven media tables)
+  const where = { externalId: result.externalId };
+  let media = await db[cat.prismaModel].findUnique({ where });
+  if (!media) {
+    media = await db[cat.prismaModel].upsert({
+      where,
+      update: {},
+      create: {
+        ...catalogueCreatePayload(result.externalId, result.fields),
+        ...(metaFetchedAt ? { metaFetchedAt } : {}),
+      },
+    });
+  } else {
+    const fill = fillOnlyUpdate(media, result.fields);
+    if (Object.keys(fill).length > 0) {
+      media = await db[cat.prismaModel].update({ where: { id: media.id }, data: fill });
+    }
+  }
+  return media;
 }
 
 /**
