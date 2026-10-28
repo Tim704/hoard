@@ -28,7 +28,7 @@ import { Button } from '@/components/ui/button';
 import { acceptSuggestedTiers, saveTiers } from '@/lib/actions/ranking';
 import type { CategorySlug } from '@/lib/categories';
 import { mediaSubtitle } from '@/lib/media-meta';
-import { useScoreFormat } from '@/components/prefs-provider';
+import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
 import {
   boardPlacement,
   findContainer,
@@ -285,7 +285,7 @@ const controlClass =
 function TierItem({ activity: a, container, index, isLast, disabled, onMove }: TierItemProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: a.id, disabled });
-  const title = a.media.title;
+  const title = useDisplayTitle()(a.media);
   const subtitle = [a.media.year, mediaSubtitle(a.media, a.category)].filter(Boolean).join(' · ');
   const suggestion = container === 'tray' ? suggestTier(a.rating) : null;
   const { scorePlain } = useScoreFormat();

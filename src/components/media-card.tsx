@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { ImageOff, Star } from 'lucide-react';
 
+import { useDisplayTitle } from '@/components/prefs-provider';
 import { RatingControl } from '@/components/rating-control';
 import { StatusBadge } from '@/components/status-badge';
 import { STATUS_BASE_LABEL, STATUS_ICON, type Status } from '@/lib/status';
@@ -30,6 +31,7 @@ const CHIP_TEXT: Record<Status, string> = {
  */
 export function MediaCard({ activity, onClick }: MediaCardProps) {
   const { media, status } = activity;
+  const title = useDisplayTitle()(media);
   const dropped = status === 'DROPPED';
   const Icon = STATUS_ICON[status];
 
@@ -43,7 +45,7 @@ export function MediaCard({ activity, onClick }: MediaCardProps) {
         {media.imageUrl ? (
           <Image
             src={media.imageUrl}
-            alt={media.title}
+            alt={title}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
             className={cn(
@@ -80,8 +82,8 @@ export function MediaCard({ activity, onClick }: MediaCardProps) {
       </div>
 
       <div className="flex flex-1 flex-col gap-1.5 p-2.5">
-        <h3 className="line-clamp-2 text-sm font-semibold leading-tight" title={media.title}>
-          {media.title}
+        <h3 className="line-clamp-2 text-sm font-semibold leading-tight" title={title}>
+          {title}
         </h3>
         {media.year != null && (
           <p className="text-xs text-muted-foreground">{media.year}</p>

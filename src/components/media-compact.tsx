@@ -6,7 +6,7 @@ import { FranchiseGroupHeader, GroupRating } from '@/components/franchise-group'
 import { StatusIcon } from '@/components/status-icon';
 import type { CategorySlug } from '@/lib/categories';
 import { statusLabel } from '@/lib/status';
-import { useScoreFormat } from '@/components/prefs-provider';
+import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
 import type { ActivityWithMedia, DisplayUnit } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -95,6 +95,7 @@ function CompactRow({
   onSelect: (a: ActivityWithMedia) => void;
 }) {
   const { media, status, rating } = activity;
+  const title = useDisplayTitle()(media);
   const { scoreOutOf } = useScoreFormat();
   return (
     <button
@@ -107,8 +108,8 @@ function CompactRow({
     >
       <StatusIcon status={status} />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium" title={media.title}>
-          {media.title}
+        <span className="block truncate text-sm font-medium" title={title}>
+          {title}
         </span>
         <span className="block truncate text-xs text-muted-foreground">
           {[media.year, statusLabel(status, slug)].filter(Boolean).join(' · ')}

@@ -23,7 +23,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import { getDashboardStats, getNowConsuming, type CategoryStat } from '@/lib/data';
 import { getCurrentPrefs } from '@/lib/data-prefs';
+import type { TitleLanguage } from '@/lib/display-prefs';
 import { getCurrentUser } from '@/lib/session';
+import { displayTitle } from '@/lib/title';
 import type { ActivityWithMedia } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -86,7 +88,7 @@ export default async function DashboardPage() {
           const stat = statFor(slug);
           return stat ? <CategoryCard key={slug} stat={stat} /> : null;
         })}
-        <NowConsumingCard items={consuming} />
+        <NowConsumingCard items={consuming} titleLanguage={prefs.titleLanguage} />
       </div>
     </div>
   );
@@ -136,7 +138,13 @@ function OverviewCard({ stats }: { stats: CategoryStat[] }) {
   );
 }
 
-function NowConsumingCard({ items }: { items: ActivityWithMedia[] }) {
+function NowConsumingCard({
+  items,
+  titleLanguage,
+}: {
+  items: ActivityWithMedia[];
+  titleLanguage: TitleLanguage;
+}) {
   const shown = items.slice(0, 5);
   const extra = items.length - shown.length;
 
@@ -157,13 +165,13 @@ function NowConsumingCard({ items }: { items: ActivityWithMedia[] }) {
               <Link
                 key={a.id}
                 href={`/${a.category}`}
-                title={`${a.media.title} · ${CATEGORIES[a.category].singular}`}
+                title={`${displayTitle(a.media, titleLanguage)} · ${CATEGORIES[a.category].singular}`}
                 className="relative aspect-[2/3] w-[18%] shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border transition hover:ring-primary/60"
               >
                 {a.media.imageUrl ? (
                   <Image
                     src={a.media.imageUrl}
-                    alt={a.media.title}
+                    alt={displayTitle(a.media, titleLanguage)}
                     fill
                     sizes="64px"
                     className="object-cover"

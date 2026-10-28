@@ -1,10 +1,11 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef } from 'react';
 
 import { detectRegion } from '@/lib/actions/prefs';
 import { DEFAULT_DISPLAY_PREFS, type DisplayPrefs } from '@/lib/display-prefs';
 import { formatScore, formatScoreOutOf } from '@/lib/rating';
+import { displayTitle, type TitledMedia } from '@/lib/title';
 
 const PrefsContext = createContext<DisplayPrefs>(DEFAULT_DISPLAY_PREFS);
 
@@ -49,6 +50,20 @@ export function useScoreFormat() {
     /** For places that already draw a star icon: "8.5/10" · "4.3/5" · "85/100" */
     scoreOutOfPlain: (v: number | null) => formatScoreOutOf(v, scoreFormat, { star: false }),
   };
+}
+
+/**
+ * `(media) => title` in the user's title language (spec 4.9): anime and manga
+ * show their English / romaji / native title; everything else its `title`.
+ */
+export function useDisplayTitle(): (media: TitledMedia) => string {
+  const { titleLanguage } = usePrefs();
+  return useCallback((media: TitledMedia) => displayTitle(media, titleLanguage), [titleLanguage]);
+}
+
+/** A media title in the user's title language, for server components (cf. `Score`). */
+export function MediaTitle({ media }: { media: TitledMedia }) {
+  return <>{useDisplayTitle()(media)}</>;
 }
 
 /**

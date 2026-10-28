@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import { ImageOff, Star, Trophy } from 'lucide-react';
 
-import { Score } from '@/components/prefs-provider';
+import { MediaTitle, Score } from '@/components/prefs-provider';
 import type { ActivityWithMedia } from '@/lib/types';
 
 interface RankingListProps {
@@ -56,7 +56,9 @@ export function RankingList({ items }: RankingListProps) {
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate font-medium leading-snug">{media.title}</p>
+              <p className="truncate font-medium leading-snug">
+                <MediaTitle media={media} />
+              </p>
               {media.year != null && (
                 <p className="text-xs text-muted-foreground">{media.year}</p>
               )}

@@ -4,6 +4,7 @@ import { Fragment } from 'react';
 import Image from 'next/image';
 import { ChevronDown, ChevronRight, ImageOff, Layers, Star } from 'lucide-react';
 
+import { useDisplayTitle } from '@/components/prefs-provider';
 import { GroupRating, groupCover } from '@/components/franchise-group';
 import { RatingControl } from '@/components/rating-control';
 import { StatusBadge } from '@/components/status-badge';
@@ -122,6 +123,7 @@ function ItemRow({
   nested?: boolean;
 }) {
   const { media } = activity;
+  const title = useDisplayTitle()(media);
   const subtitle = mediaSubtitle(media, activity.category);
   const dropped = activity.status === 'DROPPED';
   return (
@@ -136,7 +138,7 @@ function ItemRow({
           {media.imageUrl ? (
             <Image
               src={media.imageUrl}
-              alt={media.title}
+              alt={title}
               fill
               sizes="64px"
               className={cn('object-cover', dropped && 'opacity-60 grayscale')}
@@ -150,7 +152,7 @@ function ItemRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1.5">
-          <span className="text-base font-medium leading-tight">{media.title}</span>
+          <span className="text-base font-medium leading-tight">{title}</span>
           {activity.favorite && (
             <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" aria-label="Favorite" />
           )}

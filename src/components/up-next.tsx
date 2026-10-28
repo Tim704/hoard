@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Check } from 'lucide-react';
 
+import { useDisplayTitle } from '@/components/prefs-provider';
 import { RatingStep } from '@/components/rating-step';
 import { SortableRankList, type RankRow } from '@/components/sortable-rank-list';
 import { updateActivity } from '@/lib/actions/media';
@@ -18,9 +19,9 @@ interface UpNextProps {
   initial: ActivityWithMedia[];
 }
 
-const toRow = (a: ActivityWithMedia, slug: CategorySlug): RankRow => ({
+const toRow = (a: ActivityWithMedia, slug: CategorySlug, titleOf: (m: ActivityWithMedia['media']) => string): RankRow => ({
   id: a.id,
-  title: a.media.title,
+  title: titleOf(a.media),
   imageUrl: a.media.imageUrl,
   subtitle: mediaSubtitle(a.media as never, slug),
 });
@@ -31,7 +32,8 @@ const toRow = (a: ActivityWithMedia, slug: CategorySlug): RankRow => ({
  * send it to the tier tray.
  */
 export function UpNext({ slug, initial }: UpNextProps) {
-  const [rows, setRows] = useState<RankRow[]>(() => initial.map((a) => toRow(a, slug)));
+  const titleOf = useDisplayTitle();
+  const [rows, setRows] = useState<RankRow[]>(() => initial.map((a) => toRow(a, slug, titleOf)));
   const [ratingId, setRatingId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const rowsRef = useRef(rows);
@@ -39,8 +41,8 @@ export function UpNext({ slug, initial }: UpNextProps) {
 
   // Pick up server changes (e.g. after revalidation or adding titles).
   useEffect(() => {
-    setRows(initial.map((a) => toRow(a, slug)));
-  }, [initial, slug]);
+    setRows(initial.map((a) => toRow(a, slug, titleOf)));
+  }, [initial, slug, titleOf]);
 
   const reorder = async (next: RankRow[]) => {
     const prev = rowsRef.current;

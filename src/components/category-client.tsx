@@ -8,6 +8,7 @@ import { ActivityDetailDialog } from '@/components/activity-detail-dialog';
 import { MediaCompact } from '@/components/media-compact';
 import { MediaGrid } from '@/components/media-grid';
 import { MediaTable } from '@/components/media-table';
+import { useDisplayTitle } from '@/components/prefs-provider';
 import { RoastButton } from '@/components/roast-button';
 import { SearchDialog } from '@/components/search-dialog';
 import { StatusSection } from '@/components/status-section';
@@ -31,6 +32,7 @@ import {
   type Status,
 } from '@/lib/status';
 import { orderQueue } from '@/lib/queue';
+import { matchesTitle } from '@/lib/title';
 import { compareTierOrder, isTierEligible } from '@/lib/tiers';
 import { toDisplayUnits, type ActivityWithMedia, type ViewMode } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -108,12 +110,14 @@ export function CategoryClient({ slug, config, activities, franchises }: Categor
       prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status],
     );
 
+  const titleOf = useDisplayTitle();
   const visible = useMemo(() => {
-    const text = filter.trim().toLowerCase();
+    const text = filter.trim();
 
     const filtered = activities.filter((a) => {
       if (statusFilter !== 'ALL' && a.status !== statusFilter) return false;
-      if (text && !a.media.title.toLowerCase().includes(text)) return false;
+      // Matches every stored title (anime / manga: English, romaji and native).
+      if (text && !matchesTitle(a.media, text)) return false;
       return true;
     });
 
@@ -126,7 +130,7 @@ export function CategoryClient({ slug, config, activities, franchises }: Categor
           if (byStatus !== 0) return byStatus;
           const byRating = (b.rating ?? -1) - (a.rating ?? -1);
           if (byRating !== 0) return byRating;
-          return a.media.title.localeCompare(b.media.title);
+          return titleOf(a.media).localeCompare(titleOf(b.media));
         });
         break;
       case 'rating':
@@ -137,7 +141,7 @@ export function CategoryClient({ slug, config, activities, franchises }: Categor
         sorted.sort(compareTierOrder);
         break;
       case 'title':
-        sorted.sort((a, b) => a.media.title.localeCompare(b.media.title));
+        sorted.sort((a, b) => titleOf(a.media).localeCompare(titleOf(b.media)));
         break;
       case 'recent':
       default:
@@ -152,7 +156,7 @@ export function CategoryClient({ slug, config, activities, franchises }: Categor
       return sorted.map((a) => (a.status === 'PLANNED' ? queue[q++] : a));
     }
     return sorted;
-  }, [activities, filter, statusFilter, sort, grouped]);
+  }, [activities, filter, statusFilter, sort, grouped, titleOf]);
 
   // Tier list positions across the whole category (stable inside sections).
   const ranks = useMemo(() => {

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ImageOff, Layers, Loader2, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { useDisplayTitle } from '@/components/prefs-provider';
 import { RatingInput } from '@/components/rating-input';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +25,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { assignFranchise } from '@/lib/actions/franchise';
 import { removeActivity, updateActivity } from '@/lib/actions/media';
+import { formatTimeToBeat } from '@/lib/media-meta';
+import { formatYmd, isYmd } from '@/lib/release';
 import { STATUSES, statusLabel, type Status } from '@/lib/status';
 import type { ActivityWithMedia, MediaItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -68,6 +71,18 @@ function strArr(media: MediaItem, key: string): string[] {
  */
 function MediaExtras({ media }: { media: MediaItem }) {
   const rows: React.ReactNode[] = [];
+
+  // F2: the full release day when known (the year alone is shown above).
+  const releaseDate = str(media, 'releaseDate');
+  if (releaseDate && isYmd(releaseDate)) {
+    rows.push(<ExtraRow key="released" label="Released" value={formatYmd(releaseDate)} />);
+  }
+
+  const genres = strArr(media, 'genres');
+  if (genres.length) rows.push(<ExtraRow key="genres" label="Genres" value={genres.join(', ')} />);
+
+  const timeToBeat = formatTimeToBeat(num(media, 'timeToBeatHours'));
+  if (timeToBeat) rows.push(<ExtraRow key="timeToBeat" label="Time to beat" value={timeToBeat} />);
 
   const authors = strArr(media, 'authors');
   if (authors.length) rows.push(<ExtraRow key="authors" label="Authors" value={authors.join(', ')} />);
@@ -128,6 +143,7 @@ export function ActivityDetailDialog({
   franchises = [],
 }: ActivityDetailDialogProps) {
   const router = useRouter();
+  const titleOf = useDisplayTitle();
 
   const [status, setStatus] = useState<Status>('PLANNED');
   const [rating, setRating] = useState<number | null>(null);
@@ -163,6 +179,7 @@ export function ActivityDetailDialog({
   }
 
   const { media } = activity;
+  const title = titleOf(media);
   const busy = saving || removing || moving;
 
   // Franchise changes apply immediately (independent of Save) and are locked
@@ -237,7 +254,7 @@ export function ActivityDetailDialog({
           dialog exactly as before. */}
       <DialogContent className="bottom-0 top-auto flex max-h-[92dvh] max-w-full translate-y-0 flex-col overflow-hidden rounded-t-2xl border-b-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:bottom-auto sm:top-[50%] sm:grid sm:max-h-none sm:max-w-2xl sm:translate-y-[-50%] sm:overflow-visible sm:border-b sm:p-6">
         <DialogHeader>
-          <DialogTitle className="pr-6">{media.title}</DialogTitle>
+          <DialogTitle className="pr-6">{title}</DialogTitle>
         </DialogHeader>
 
         <div className="min-h-0 flex-1 grid gap-5 overflow-y-auto sm:grid-cols-[160px_1fr] sm:overflow-visible">
@@ -248,7 +265,7 @@ export function ActivityDetailDialog({
               {media.imageUrl ? (
                 <Image
                   src={media.imageUrl}
-                  alt={media.title}
+                  alt={title}
                   fill
                   sizes="(max-width: 640px) 112px, 160px"
                   className="object-cover"

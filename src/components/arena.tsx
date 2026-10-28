@@ -11,7 +11,7 @@ import type { ActivityWithMedia, Matchup } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { nextMatchup, submitMatchup } from '@/lib/actions/arena';
-import { useScoreFormat } from '@/components/prefs-provider';
+import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
 
 interface ArenaProps {
   slug: CategorySlug;
@@ -29,6 +29,7 @@ export function Arena({ slug, initial }: ArenaProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const { scorePlain: score } = useScoreFormat();
+  const titleOf = useDisplayTitle();
 
   // ── Empty state: not enough equally-rated items to form a duel. ────────────
   if (!matchup) {
@@ -49,7 +50,7 @@ export function Arena({ slug, initial }: ArenaProps) {
     startTransition(async () => {
       const next = await submitMatchup(slug, winner.id, loser.id);
       setMatchup(next);
-      toast.success(`"${winner.media.title}" wins the round.`);
+      toast.success(`"${titleOf(winner.media)}" wins the round.`);
       router.refresh();
     });
   }
@@ -105,6 +106,7 @@ interface DuelCardProps {
 /** A large, clickable contender card (poster + title + year). */
 function DuelCard({ activity, disabled, onClick }: DuelCardProps) {
   const { media } = activity;
+  const title = useDisplayTitle()(media);
   return (
     <button
       type="button"
@@ -120,7 +122,7 @@ function DuelCard({ activity, disabled, onClick }: DuelCardProps) {
         {media.imageUrl ? (
           <Image
             src={media.imageUrl}
-            alt={media.title}
+            alt={title}
             fill
             sizes="(max-width: 640px) 50vw, 300px"
             className="object-cover transition group-hover:scale-[1.02]"
@@ -133,7 +135,7 @@ function DuelCard({ activity, disabled, onClick }: DuelCardProps) {
       </div>
       <div className="p-2 sm:p-3">
         <p className="line-clamp-2 text-sm font-medium leading-snug sm:text-base">
-          {media.title}
+          {title}
         </p>
         {media.year != null && (
           <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">{media.year}</p>

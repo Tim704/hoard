@@ -46,3 +46,10 @@ export function mediaSubtitle(media: MediaItem, slug: CategorySlug): string | nu
       return typeof media.artist === 'string' ? media.artist : null;
   }
 }
+
+/** IGDB time to beat as "≈ 32 h" (one decimal below 10 h); null when unknown. */
+export function formatTimeToBeat(hours: number | null | undefined): string | null {
+  if (hours == null || !Number.isFinite(hours) || hours <= 0) return null;
+  const shown = hours >= 10 ? Math.round(hours) : Math.round(hours * 10) / 10;
+  return `≈ ${shown} h`;
+}

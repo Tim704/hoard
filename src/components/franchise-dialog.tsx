@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { Check, ImageOff, Loader2, Merge, Trash2, X } from 'lucide-react';
 
 import { memberAverage } from '@/components/franchise-group';
-import { useScoreFormat } from '@/components/prefs-provider';
+import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
 import { RatingControl } from '@/components/rating-control';
 import { RatingInput } from '@/components/rating-input';
 import { StatusBadge } from '@/components/status-badge';
@@ -47,6 +47,7 @@ interface FranchiseDialogProps {
 export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProps) {
   const router = useRouter();
   const { scoreOutOf } = useScoreFormat();
+  const titleOf = useDisplayTitle();
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
   const [mergeTarget, setMergeTarget] = useState<string>('');
@@ -151,7 +152,7 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
                     <button
                       key={m.id}
                       type="button"
-                      title={m.media.title}
+                      title={titleOf(m.media)}
                       onClick={() =>
                         run(() => updateFranchise(f.id, { imageUrl: m.media.imageUrl }), 'Cover updated.')
                       }
@@ -160,7 +161,7 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
                         active ? 'ring-primary' : 'ring-transparent opacity-70 hover:opacity-100',
                       )}
                     >
-                      <Image src={m.media.imageUrl as string} alt={m.media.title} fill sizes="56px" className="object-cover" />
+                      <Image src={m.media.imageUrl as string} alt={titleOf(m.media)} fill sizes="56px" className="object-cover" />
                     </button>
                   );
                 })}
@@ -176,7 +177,7 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
                 <li key={m.id} className="flex items-center gap-3 p-2">
                   <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded bg-muted">
                     {m.media.imageUrl ? (
-                      <Image src={m.media.imageUrl} alt={m.media.title} fill sizes="40px" className="object-cover" />
+                      <Image src={m.media.imageUrl} alt={titleOf(m.media)} fill sizes="40px" className="object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
                         <ImageOff className="h-4 w-4 text-muted-foreground" aria-hidden />
@@ -188,7 +189,7 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
                       href={`/${m.category}`}
                       className="block truncate text-sm font-medium hover:underline"
                     >
-                      {m.media.title}
+                      {titleOf(m.media)}
                     </Link>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span>{CATEGORIES[m.category].singular}</span>
@@ -200,8 +201,8 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => run(() => assignFranchise(m.id, null), `Removed "${m.media.title}".`)}
-                    aria-label={`Remove ${m.media.title} from this franchise`}
+                    onClick={() => run(() => assignFranchise(m.id, null), `Removed "${titleOf(m.media)}".`)}
+                    aria-label={`Remove ${titleOf(m.media)} from this franchise`}
                     title="Remove from franchise"
                     className="rounded p-1 text-muted-foreground hover:text-rose-500 disabled:opacity-30"
                   >

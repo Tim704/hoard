@@ -20,7 +20,7 @@ import { RatingStep } from '@/components/rating-step';
 import { addToList, searchMedia, updateActivity } from '@/lib/actions/media';
 import type { CategorySlug } from '@/lib/categories';
 import { cn } from '@/lib/utils';
-import { useScoreFormat } from '@/components/prefs-provider';
+import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
 import {
   createLatestGuard,
   libraryBadge,
@@ -64,6 +64,9 @@ export function SearchDialog({
 }: SearchDialogProps) {
   const router = useRouter();
   const { score, format: scoreFormat } = useScoreFormat();
+  const titleOf = useDisplayTitle();
+  // AniList hits carry their title variants in `fields` (spec 4.9).
+  const resultTitle = (r: NormalizedResult) => titleOf({ ...r.fields, title: r.title });
   const labels = addChoiceLabels(slug);
 
   const [open, setOpen] = useState(false);
@@ -194,13 +197,13 @@ export function SearchDialog({
       }
       if (res.existing) {
         setRow(key, { phase: 'existing' });
-        toast.info(`"${result.title}" is already in your library.`);
+        toast.info(`"${resultTitle(result)}" is already in your library.`);
       } else if (status === 'COMPLETED') {
         setRow(key, { phase: 'rating', activityId: res.activityId, saving: false });
-        toast.success(`Added "${result.title}" as ${labels.done}.`);
+        toast.success(`Added "${resultTitle(result)}" as ${labels.done}.`);
       } else {
         setRow(key, { phase: 'want' });
-        toast.success(`Added "${result.title}" to Up next.`);
+        toast.success(`Added "${resultTitle(result)}" to Up next.`);
       }
       router.refresh();
     } catch {
@@ -311,7 +314,7 @@ export function SearchDialog({
                   {result.imageUrl ? (
                     <Image
                       src={result.imageUrl}
-                      alt={result.title}
+                      alt={resultTitle(result)}
                       fill
                       sizes="44px"
                       className="object-cover"
@@ -323,8 +326,8 @@ export function SearchDialog({
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium" title={result.title}>
-                    {result.title}
+                  <p className="truncate text-sm font-medium" title={resultTitle(result)}>
+                    {resultTitle(result)}
                     {result.year != null && (
                       <span className="ml-1 font-normal text-muted-foreground">
                         ({result.year})
