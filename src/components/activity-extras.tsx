@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, History, Loader2, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { LinkPreview, LinkTextarea } from '@/components/linked-text';
 import { useDisplayTitle, usePrefs, useScoreFormat } from '@/components/prefs-provider';
 import { toastStatusChange } from '@/components/undo-toast';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import {
   deletePlaySession,
   getActivityLog,
@@ -78,7 +78,7 @@ export function ActivityExtras({ activity, disabled, onClose }: ActivityExtrasPr
         <>
           <Runs activity={activity} log={log} disabled={disabled} onClose={onClose} />
           {log.diary.length > 0 && (
-            <ReviewField key={log.diary[0].id} activityId={activity.id} initial={log.diary[0].review ?? ''} onSaved={changed} />
+            <ReviewField key={log.diary[0].id} activityId={activity.id} category={activity.category} initial={log.diary[0].review ?? ''} onSaved={changed} />
           )}
           {activity.category === 'games' && <Sessions activityId={activity.id} log={log} onChanged={changed} />}
           <HistoryList activity={activity} log={log} />
@@ -281,7 +281,17 @@ function Runs({
 
 // ── Review (3.4) ─────────────────────────────────────────────────────────────
 
-function ReviewField({ activityId, initial, onSaved }: { activityId: string; initial: string; onSaved: () => void }) {
+function ReviewField({
+  activityId,
+  category,
+  initial,
+  onSaved,
+}: {
+  activityId: string;
+  category: string;
+  initial: string;
+  onSaved: () => void;
+}) {
   const [value, setValue] = useState(initial);
   const [saving, setSaving] = useState(false);
   const dirty = value.trim() !== initial.trim();
@@ -306,15 +316,17 @@ function ReviewField({ activityId, initial, onSaved }: { activityId: string; ini
       <label className="text-sm font-medium" htmlFor={`review-${activityId}`}>
         Review
       </label>
-      <Textarea
+      <LinkTextarea
         id={`review-${activityId}`}
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onValueChange={setValue}
+        selfId={activityId}
         placeholder="What did you think? (on your latest diary entry)"
         className="text-base sm:text-sm"
         rows={3}
         maxLength={20_000}
       />
+      <LinkPreview text={value} from={{ id: activityId, category }} />
       {dirty && (
         <div className="flex justify-end">
           <Button type="button" size="sm" variant="secondary" disabled={saving} onClick={() => void save()}>

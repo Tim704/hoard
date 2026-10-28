@@ -37,6 +37,7 @@ async function main() {
   await seedShareLink(user.id);
   await seedLists(user.id);
   await seedStats(user.id);
+  await seedLinkedNotes(user.id);
 
   console.log('[seed] Demo user ready.');
   console.log(`[seed]   username: ${DEMO_USERNAME}`);
@@ -133,6 +134,23 @@ async function seedStats(userId: string) {
     where: { id: DEMO_YEAR_SHARE_TOKEN },
     update: {},
     create: { id: DEMO_YEAR_SHARE_TOKEN, userId, kind: 'year', target: String(year) },
+  });
+}
+
+/** The demo movie whose notes link to other titles (8.5), opened by the smoke test. */
+export const DEMO_NOTES_EXTERNAL_ID = 'demo-movie-aliens';
+
+/**
+ * Notes with `[[links]]` on Aliens: two resolve (one in another section), one
+ * is not in the library. Only fills empty notes, so app edits survive.
+ */
+async function seedLinkedNotes(userId: string) {
+  if (process.env.NODE_ENV === 'production') return;
+  const movie = await prisma.movie.findUnique({ where: { externalId: DEMO_NOTES_EXTERNAL_ID } });
+  if (!movie) return;
+  await prisma.userMediaActivity.updateMany({
+    where: { userId, movieId: movie.id, notes: null },
+    data: { notes: 'Louder than [[Alien]], and the crew banter is pure [[Cowboy Bebop]]. Skip [[Alien 3]].' },
   });
 }
 

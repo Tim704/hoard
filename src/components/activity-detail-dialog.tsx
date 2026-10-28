@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 
 import { ActivityExtras } from '@/components/activity-extras';
 import { AddToList } from '@/components/add-to-list';
+import { LinkPreview, LinkTextarea, MentionedIn } from '@/components/linked-text';
 import { ManualFields } from '@/components/manual-fields';
 import { MoreBySection } from '@/components/more-by';
 import { useDisplayTitle } from '@/components/prefs-provider';
@@ -32,7 +33,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { clearListenSuggestion } from '@/lib/actions/accounts';
 import { assignFranchise } from '@/lib/actions/franchise';
 import { acknowledgeNewSeason } from '@/lib/actions/new-seasons';
@@ -587,16 +587,23 @@ export function ActivityDetailDialog({
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Notes</label>
-              <Textarea
+              <label className="text-sm font-medium" htmlFor={`notes-${activity.id}`}>
+                Notes
+              </label>
+              <LinkTextarea
+                id={`notes-${activity.id}`}
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Private notes…"
+                onValueChange={setNotes}
+                selfId={activity.id}
+                placeholder="Private notes… [[Title]] links another title"
                 // text-base on phones stops iOS zooming the page on focus (<16px does).
                 className="text-base sm:text-sm"
                 rows={3}
               />
+              <LinkPreview text={notes} from={activity} />
             </div>
+
+            <MentionedIn key={`mentions:${activity.id}`} activityId={activity.id} />
 
             {!isManualId(media.externalId) && <MoreBySection key={`more-by:${activity.id}`} activityId={activity.id} />}
 

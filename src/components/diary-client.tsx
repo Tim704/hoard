@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { ImageOff, Loader2, NotebookPen, PencilLine, Plus, Repeat, Trash2, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { LinkedText } from '@/components/linked-text';
 import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
 import { RatingInput } from '@/components/rating-input';
 import { Button } from '@/components/ui/button';
@@ -155,7 +156,11 @@ export function DiaryClient({ entries, library, today }: DiaryClientProps) {
                         )}
                         {e.rating != null && <span className="font-medium text-foreground">{score(e.rating)}</span>}
                       </p>
-                      {e.review && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{e.review}</p>}
+                      {e.review && (
+                        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                          <LinkedText text={e.review} from={{ id: e.activityId, category: e.category }} />
+                        </p>
+                      )}
                     </div>
                     <div className="flex shrink-0 gap-1">
                       <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label="Edit entry" onClick={() => setEditing(e)}>

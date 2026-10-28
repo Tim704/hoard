@@ -17,9 +17,11 @@ import { cn } from '@/lib/utils';
 interface GlobalSearchApi {
   openSearch: (query?: string) => void;
   openPalette: () => void;
+  /** The signed-in user (keys client-side caches such as the library index). */
+  userId: string | null;
 }
 
-const GlobalSearchContext = createContext<GlobalSearchApi>({ openSearch: () => {}, openPalette: () => {} });
+const GlobalSearchContext = createContext<GlobalSearchApi>({ openSearch: () => {}, openPalette: () => {}, userId: null });
 
 export function useGlobalSearch(): GlobalSearchApi {
   return useContext(GlobalSearchContext);
@@ -69,7 +71,7 @@ export function GlobalSearchProvider({ userId, children }: { userId: string; chi
     return () => window.removeEventListener('keydown', onKey);
   }, [openSearch]);
 
-  const api = useMemo(() => ({ openSearch, openPalette }), [openSearch, openPalette]);
+  const api = useMemo(() => ({ openSearch, openPalette, userId }), [openSearch, openPalette, userId]);
 
   return (
     <GlobalSearchContext.Provider value={api}>
