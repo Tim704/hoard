@@ -107,7 +107,9 @@ export async function addMediaForUser(
       }
     }
 
-    if (slug === 'tv' && opts.seasons?.length) await saveTvSeasons(tx, media.id, opts.seasons);
+    if (slug === 'tv' && opts.seasons?.length) {
+      await saveTvSeasons(tx, media.id, opts.seasons, { insertOnly: true });
+    }
 
     const existing = await tx.userMediaActivity.findFirst({
       where: { userId, [cat.fkField]: media.id } as any,

@@ -32,6 +32,7 @@ import {
   buildSeasonBoard,
   isSeasonRankable,
   parseSeasonChange,
+  prefillSeasons,
   seasonProgress,
   type SeasonMatchup,
   type SeasonWatch,
@@ -99,6 +100,34 @@ export async function updateSeasonWatch(
     const { activity, season } = own;
 
     const out = await prisma.$transaction(async (tx) => {
+      // Lock the show's activity: concurrent season saves recompute the sum
+      // (and log its event) one after the other.
+      const locked = await tx.$queryRaw<{ progress: number | null }[]>`
+        SELECT "progress" FROM "UserMediaActivity" WHERE "id" = ${activity.id} FOR UPDATE`;
+      if (locked.length === 0) return null;
+      const oldProgress = locked[0].progress;
+
+      // The first season change on a show that already has progress: spread
+      // that progress over the seasons first, so the sum continues from it.
+      const tracked = await tx.seasonActivity.count({ where: { userId: user.id, activityId: activity.id } });
+      if (tracked === 0 && oldProgress != null && oldProgress > 0) {
+        const all = await tx.tvSeason.findMany({
+          where: { tvShowId: activity.tvShowId },
+          select: { id: true, seasonNumber: true, episodeCount: true },
+        });
+        const filled = prefillSeasons(all, oldProgress);
+        await tx.seasonActivity.createMany({
+          data: [...filled].map(([seasonId, watchedEpisodes]) => ({
+            userId: user.id,
+            activityId: activity.id,
+            seasonId,
+            watchedEpisodes,
+            episodesWatched: [],
+          })),
+          skipDuplicates: true,
+        });
+      }
+
       const key = { userId_seasonId: { userId: user.id, seasonId: season.id } };
       const existing = await tx.seasonActivity.findUnique({ where: key });
       if (existing && existing.activityId !== activity.id) return null;
@@ -116,20 +145,16 @@ export async function updateSeasonWatch(
 
       const all = await tx.seasonActivity.findMany({
         where: { userId: user.id, activityId: activity.id },
-        select: { watchedEpisodes: true, episodesWatched: true },
+        select: { watchedEpisodes: true, episodesWatched: true, season: { select: { episodeCount: true } } },
       });
-      const progress = seasonProgress(all);
-      const row = await tx.userMediaActivity.findUnique({
-        where: { id: activity.id },
-        select: { progress: true },
-      });
-      if (row && row.progress !== progress) {
+      const progress = seasonProgress(all.map((r) => ({ ...r, episodeCount: r.season.episodeCount })));
+      if (oldProgress !== progress) {
         await tx.userMediaActivity.update({ where: { id: activity.id }, data: { progress } });
         await recordEvent(tx, {
           userId: user.id,
           activityId: activity.id,
           kind: 'progress',
-          from: row.progress == null ? null : String(row.progress),
+          from: oldProgress == null ? null : String(oldProgress),
           to: String(progress),
           meta: { via: 'seasons', season: season.seasonNumber },
         });
@@ -164,7 +189,13 @@ export async function setSeasonRating(
     await prisma.seasonActivity.upsert({
       where: key,
       update: { rating: value },
-      create: { userId: user.id, activityId: own.activity.id, seasonId: own.season.id, rating: value },
+      create: {
+        userId: user.id,
+        activityId: own.activity.id,
+        seasonId: own.season.id,
+        rating: value,
+        episodesWatched: [],
+      },
     });
     refresh(own.activity.id);
     return { ok: true };

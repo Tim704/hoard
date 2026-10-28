@@ -5,6 +5,7 @@ import type { CategorySlug } from '@/lib/categories';
 import {
   failedCutoff,
   METADATA_DELAY_MS,
+  METADATA_MAX_ROWS,
   pickMetadataRows,
   runMetadata,
   staleCutoff,
@@ -61,6 +62,14 @@ describe('pickMetadataRows', () => {
       3,
     );
     expect(picked.map((r) => r.externalId)).toEqual(['3', '5', '4']);
+  });
+
+  it('takes never-fetched TV rows first (their lookup stores the seasons), then the rest', () => {
+    const picked = pickMetadataRows(
+      [row('movies', 'm'), row('tv', 'stale', daysAgo(40)), row('books', 'b'), row('tv', 't')],
+      NOW,
+    );
+    expect(picked.map((r) => r.externalId)).toEqual(['t', 'm', 'b', 'stale']);
   });
 
   it('uses a 30-day cutoff', () => {
@@ -159,13 +168,14 @@ describe('runMetadata', () => {
   });
 
   it('respects the nightly limit across categories', async () => {
-    const many = Array.from({ length: 150 }, (_, i) => row('movies', `m${i}`)).concat(
-      Array.from({ length: 150 }, (_, i) => row('books', `/works/OL${i}W`)),
+    expect(METADATA_MAX_ROWS).toBe(1000);
+    const many = Array.from({ length: 600 }, (_, i) => row('movies', `m${i}`)).concat(
+      Array.from({ length: 600 }, (_, i) => row('books', `/works/OL${i}W`)),
     );
     const { deps, updates } = fakeDeps(many);
     const summary = await runMetadata(deps, NOW, { delayMs: 0 });
-    expect(summary.checked).toBe(200);
-    expect(updates).toHaveLength(200);
+    expect(summary.checked).toBe(1000);
+    expect(updates).toHaveLength(1000);
   });
 
   it('fails a whole AniList batch softly when the request fails', async () => {

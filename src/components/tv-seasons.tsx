@@ -26,7 +26,16 @@ import { cn } from '@/lib/utils';
 const TAP_BATCH_MS = 800;
 
 /** Render with `key={activity.id}`, for TV titles only. */
-export function TvSeasons({ activityId, disabled }: { activityId: string; disabled?: boolean }) {
+export function TvSeasons({
+  activityId,
+  disabled,
+  onLoaded,
+}: {
+  activityId: string;
+  disabled?: boolean;
+  /** Told whether the show has seasons (then its progress is their sum). */
+  onLoaded?: (hasSeasons: boolean) => void;
+}) {
   const router = useRouter();
   const [rows, setRows] = useState<SeasonRow[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -36,14 +45,17 @@ export function TvSeasons({ activityId, disabled }: { activityId: string; disabl
     void getSeasons(activityId).then(
       (res) => {
         if (!live) return;
-        if (res.ok && res.seasons) setRows(res.seasons);
-        else setFailed(true);
+        if (res.ok && res.seasons) {
+          setRows(res.seasons);
+          onLoaded?.(res.seasons.length > 0);
+        } else setFailed(true);
       },
       () => live && setFailed(true),
     );
     return () => {
       live = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per title
   }, [activityId]);
 
   // Saves run one at a time, in order; each sends the season's whole state.

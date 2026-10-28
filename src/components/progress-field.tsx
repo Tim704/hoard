@@ -29,6 +29,11 @@ interface ProgressFieldProps {
   disabled?: boolean;
   /** Offered once progress reaches the total (status never changes on its own). */
   onMarkFinished: () => void;
+  /**
+   * Progress is computed elsewhere (a TV show's Seasons section): shown
+   * read-only with this hint instead of the box and +1.
+   */
+  readOnlyHint?: string;
 }
 
 /**
@@ -36,7 +41,7 @@ interface ProgressFieldProps {
  * +1 button (rapid taps are batched), each saving straight away as one
  * `progress` event. Render with `key={activity.id}`.
  */
-export function ProgressField({ activity, disabled, onMarkFinished }: ProgressFieldProps) {
+export function ProgressField({ activity, disabled, onMarkFinished, readOnlyHint }: ProgressFieldProps) {
   const router = useRouter();
   const slug = activity.category;
   const total = progressTotal(activity);
@@ -118,7 +123,7 @@ export function ProgressField({ activity, disabled, onMarkFinished }: ProgressFi
 
   if (!tracksProgress(slug)) return null;
 
-  if (!open) {
+  if (!open && !readOnlyHint) {
     return (
       <button
         type="button"
@@ -139,40 +144,49 @@ export function ProgressField({ activity, disabled, onMarkFinished }: ProgressFi
 
   return (
     <div className="space-y-1.5">
-      <label htmlFor={inputId} className="text-sm font-medium">
+      <label htmlFor={readOnlyHint ? undefined : inputId} className="text-sm font-medium">
         Progress
       </label>
       <div className="flex flex-wrap items-center gap-2">
-        <Input
-          id={inputId}
-          value={draft}
-          inputMode="numeric"
-          placeholder="0"
-          disabled={disabled}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commitDraft}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              commitDraft();
-            }
-          }}
-          // text-base on phones stops iOS zooming the page on focus (<16px does).
-          className="h-9 w-20 text-base tabular-nums sm:text-sm"
-        />
-        <span className="text-sm text-muted-foreground">
-          {total != null ? `/ ${total} ${progressUnit(slug, total)}` : progressUnit(slug, value ?? 0)}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={increment}
-          disabled={disabled}
-          aria-label={`Add one ${progressUnit(slug, 1)}`}
-        >
-          <Plus className="mr-1 h-3.5 w-3.5" aria-hidden />1
-        </Button>
+        {readOnlyHint ? (
+          <span className="text-sm tabular-nums">
+            {progressText(slug, value ?? 0, total)}
+            <span className="ml-2 text-xs text-muted-foreground">{readOnlyHint}</span>
+          </span>
+        ) : (
+          <>
+            <Input
+              id={inputId}
+              value={draft}
+              inputMode="numeric"
+              placeholder="0"
+              disabled={disabled}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitDraft}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commitDraft();
+                }
+              }}
+              // text-base on phones stops iOS zooming the page on focus (<16px does).
+              className="h-9 w-20 text-base tabular-nums sm:text-sm"
+            />
+            <span className="text-sm text-muted-foreground">
+              {total != null ? `/ ${total} ${progressUnit(slug, total)}` : progressUnit(slug, value ?? 0)}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={increment}
+              disabled={disabled}
+              aria-label={`Add one ${progressUnit(slug, 1)}`}
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" aria-hidden />1
+            </Button>
+          </>
+        )}
         {reached && !finished && (
           <Button
             type="button"

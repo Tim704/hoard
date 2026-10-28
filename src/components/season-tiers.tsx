@@ -70,16 +70,24 @@ export function SeasonArena({ activityId, initial }: { activityId: string; initi
 
   function choose(winner: SeasonItem, loser: SeasonItem) {
     startTransition(async () => {
-      const next = await submitSeasonMatchup(activityId, winner.id, loser.id);
-      setMatchup(next);
-      toast.success(`"${winner.title}" wins the round.`);
-      router.refresh();
+      try {
+        const next = await submitSeasonMatchup(activityId, winner.id, loser.id);
+        setMatchup(next);
+        toast.success(`"${winner.title}" wins the round.`);
+        router.refresh();
+      } catch {
+        toast.error('Could not record that duel.');
+      }
     });
   }
 
   function shuffle() {
     startTransition(async () => {
-      setMatchup(await nextSeasonMatchup(activityId));
+      try {
+        setMatchup(await nextSeasonMatchup(activityId));
+      } catch {
+        toast.error('Could not load another duel.');
+      }
     });
   }
 

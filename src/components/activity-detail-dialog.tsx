@@ -10,6 +10,7 @@ import { ActivityExtras } from '@/components/activity-extras';
 import { ManualFields } from '@/components/manual-fields';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { ProgressField } from '@/components/progress-field';
+import { TagInput } from '@/components/tag-input';
 import { TvSeasons } from '@/components/tv-seasons';
 import { RatingInput } from '@/components/rating-input';
 import { toastRemoved, toastStatusChange } from '@/components/undo-toast';
@@ -231,6 +232,8 @@ export function ActivityDetailDialog({
   const [removing, setRemoving] = useState(false);
   const [moving, setMoving] = useState(false);
   const [editingDetails, setEditingDetails] = useState(false);
+  // The TV title whose Seasons section has seasons: its progress is their sum.
+  const [seasonTracked, setSeasonTracked] = useState<string | null>(null);
 
   // Re-sync local editable state whenever a different activity is selected.
   // Keyed on the id so a background refresh doesn't wipe unsaved edits.
@@ -426,6 +429,7 @@ export function ActivityDetailDialog({
                 key={activity.category === 'tv' ? `${activity.id}:${activity.progress}` : activity.id}
                 activity={activity}
                 disabled={busy}
+                readOnlyHint={seasonTracked === activity.id ? 'Tracked by seasons' : undefined}
                 onMarkFinished={() => {
                   setStatus('COMPLETED');
                   void save('COMPLETED');
@@ -434,7 +438,12 @@ export function ActivityDetailDialog({
             </div>
 
             {activity.category === 'tv' && (
-              <TvSeasons key={activity.id} activityId={activity.id} disabled={busy} />
+              <TvSeasons
+                key={activity.id}
+                activityId={activity.id}
+                disabled={busy}
+                onLoaded={(has) => setSeasonTracked(has ? activity.id : null)}
+              />
             )}
 
             <div className="space-y-1.5">
@@ -478,6 +487,8 @@ export function ActivityDetailDialog({
                 </p>
               )}
             </div>
+
+            <TagInput key={activity.id} activityId={activity.id} initial={activity.tags} disabled={busy} />
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Favorite</label>

@@ -7,8 +7,10 @@ import {
   applySeasonChange,
   buildSeasonBoard,
   isSeasonRankable,
+  MAX_EPISODES,
   normalizeEpisodeTicks,
   parseSeasonChange,
+  prefillSeasons,
   pickSeasonMatchup,
   seasonProgress,
   watchedOf,
@@ -90,6 +92,40 @@ describe('season progress', () => {
     expect(seasonProgress([])).toBe(0);
   });
 
+  it('clamps counts and ticks to a season TMDB has shrunk', () => {
+    expect(watchedOf({ watchedEpisodes: 12, episodesWatched: [], episodeCount: 10 })).toBe(10);
+    expect(watchedOf({ watchedEpisodes: 3, episodesWatched: [1, 9, 11], episodeCount: 10 })).toBe(2);
+    expect(watchedOf({ watchedEpisodes: 12, episodesWatched: [], episodeCount: null })).toBe(12);
+    expect(
+      seasonProgress([
+        { watchedEpisodes: 12, episodesWatched: [], episodeCount: 10 },
+        { watchedEpisodes: 0, episodesWatched: [1, 2, 9], episodeCount: 8 },
+      ]),
+    ).toBe(12);
+  });
+
+  it('prefills seasons in order from existing progress', () => {
+    const seasons = [
+      { id: 's2', seasonNumber: 2, episodeCount: 13 },
+      { id: 's1', seasonNumber: 1, episodeCount: 10 },
+      { id: 's3', seasonNumber: 3, episodeCount: 13 },
+    ];
+    expect([...prefillSeasons(seasons, 30)]).toEqual([['s1', 10], ['s2', 13], ['s3', 7]]);
+    expect([...prefillSeasons(seasons, 4)]).toEqual([['s1', 4]]);
+    expect([...prefillSeasons(seasons, 99)]).toEqual([['s1', 10], ['s2', 13], ['s3', 13]]);
+    expect(prefillSeasons(seasons, 0).size).toBe(0);
+    expect(prefillSeasons(seasons, null).size).toBe(0);
+    // An unknown count takes the rest.
+    expect([...prefillSeasons([{ id: 'a', seasonNumber: 1, episodeCount: 2 }, { id: 'b', seasonNumber: 2, episodeCount: null }], 30)]).toEqual([
+      ['a', 2],
+      ['b', 28],
+    ]);
+    // Then the first change lands on top: 30 → 31.
+    const filled = prefillSeasons(seasons, 30);
+    const s3 = applySeasonChange({ watchedEpisodes: filled.get('s3') ?? 0, episodesWatched: [] }, { kind: 'inc' }, 13)!;
+    expect(10 + 13 + s3.watchedEpisodes).toBe(31);
+  });
+
   it('applies +1, set and all in count mode, clamped to the episode count', () => {
     const none = { watchedEpisodes: 0, episodesWatched: [] };
     expect(applySeasonChange(none, { kind: 'inc' }, 10)).toEqual({ watchedEpisodes: 1, episodesWatched: [] });
@@ -120,6 +156,8 @@ describe('season progress', () => {
     expect(parseSeasonChange({ kind: 'set', value: '3' })).toBeNull();
     expect(parseSeasonChange({ kind: 'ticks', episodes: [1] })).toEqual({ kind: 'ticks', episodes: [1] });
     expect(parseSeasonChange({ kind: 'ticks' })).toBeNull();
+    expect(parseSeasonChange({ kind: 'ticks', episodes: Array.from({ length: MAX_EPISODES + 1 }, (_, i) => i + 1) })).toBeNull();
+    expect(parseSeasonChange({ kind: 'ticks', episodes: Array.from({ length: MAX_EPISODES }, (_, i) => i + 1) })).not.toBeNull();
     expect(parseSeasonChange({ kind: 'nope' })).toBeNull();
     expect(parseSeasonChange(null)).toBeNull();
   });

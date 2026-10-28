@@ -36,14 +36,45 @@ export function normalizeEpisodeTicks(input: unknown, episodeCount: number | nul
   return [...set].sort((a, b) => a - b);
 }
 
-/** Watched episodes of a season: the tick count when ticks are used, else the count. */
-export function watchedOf(s: SeasonWatch): number {
-  return s.episodesWatched.length > 0 ? s.episodesWatched.length : Math.max(0, s.watchedEpisodes);
+/** A season's watch state with its (current) TMDB episode count, when known. */
+export type CountedWatch = SeasonWatch & { episodeCount?: number | null };
+
+/**
+ * Watched episodes of a season: the tick count when ticks are used, else the
+ * count. Clamped to the episode count when known, so a season TMDB later
+ * shrinks never counts episodes it no longer has.
+ */
+export function watchedOf(s: CountedWatch): number {
+  const max = s.episodeCount != null && s.episodeCount >= 0 ? s.episodeCount : Infinity;
+  if (s.episodesWatched.length > 0) return s.episodesWatched.filter((n) => n <= max).length;
+  return Math.max(0, Math.min(s.watchedEpisodes, max));
 }
 
 /** The show's progress: watched episodes summed over its seasons. */
-export function seasonProgress(seasons: SeasonWatch[]): number {
+export function seasonProgress(seasons: CountedWatch[]): number {
   return seasons.reduce((n, s) => n + watchedOf(s), 0);
+}
+
+/**
+ * The first season interaction on a show that already has progress: spread
+ * that progress over the seasons in order (each filled up to its episode
+ * count; a season with an unknown count takes the rest), so the season sum
+ * starts where the progress was. Returns seasonId → watched count (zeros
+ * left out). Anything beyond the last season's count is dropped.
+ */
+export function prefillSeasons(
+  seasons: { id: string; seasonNumber: number; episodeCount: number | null }[],
+  progress: number | null,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  let left = progress != null && progress > 0 ? Math.trunc(progress) : 0;
+  for (const s of [...seasons].sort((a, b) => a.seasonNumber - b.seasonNumber)) {
+    if (left <= 0) break;
+    const take = Math.min(left, s.episodeCount != null ? s.episodeCount : MAX_EPISODES);
+    if (take > 0) out.set(s.id, take);
+    left -= take;
+  }
+  return out;
 }
 
 /** A change from the Seasons section. */
@@ -111,7 +142,9 @@ export function parseSeasonChange(input: unknown): SeasonChange | null {
     case 'set':
       return typeof c.value === 'number' && Number.isFinite(c.value) ? { kind: 'set', value: c.value } : null;
     case 'ticks':
-      return Array.isArray(c.episodes) ? { kind: 'ticks', episodes: c.episodes as number[] } : null;
+      return Array.isArray(c.episodes) && c.episodes.length <= MAX_EPISODES
+        ? { kind: 'ticks', episodes: c.episodes as number[] }
+        : null;
     default:
       return null;
   }

@@ -2,7 +2,8 @@
 //  The nightly `metadata` job (spec F2, 03:30): fills release dates, genres,
 //  credits, AniList title variants (4.9 backfill), airing info and time to
 //  beat for catalogue rows whose `metaFetchedAt` is null or older than 30
-//  days. At most 200 rows a night: never-fetched rows first, then stale ones,
+//  days. At most 1000 rows a night: never-fetched rows first (TV first, since
+//  its lookup also stores the seasons), then stale ones,
 //  then rows whose last lookup failed (retried at most every 3 days, so a row
 //  that keeps failing can't starve the budget). A pause between rows keeps
 //  IGDB (2 requests a row) under its 4 requests/second limit.
@@ -28,7 +29,9 @@ import {
 } from '@/lib/apis/details';
 import { saveTvSeasons } from '@/lib/library/tv-seasons';
 
-export const METADATA_MAX_ROWS = 200;
+// 1000 rows × 600 ms ≈ 10 minutes a night. The first run after a deploy finds
+// every row never-fetched, so the cap is generous.
+export const METADATA_MAX_ROWS = 1000;
 export const METADATA_STALE_DAYS = 30;
 export const METADATA_FAILED_RETRY_DAYS = 3;
 /** ≥ 500 ms per row → IGDB's 2 requests a row stay under 4 requests/second. */
@@ -50,6 +53,9 @@ export function staleCutoff(now: Date, days = METADATA_STALE_DAYS): Date {
 export function failedCutoff(now: Date, days = METADATA_FAILED_RETRY_DAYS): Date {
   return new Date(now.getTime() - days * 86_400_000);
 }
+
+/** Among never-fetched rows TV goes first: its lookup also brings the seasons (3.3). */
+const slugRank = (r: MetadataRow) => (r.slug === 'tv' ? 0 : 1);
 
 /** 0 = never fetched, 1 = stale, 2 = last lookup failed. */
 function priority(r: MetadataRow): number {
@@ -75,7 +81,12 @@ export function pickMetadataRows(
     .filter((r) => !isLookupSkipped(r.externalId))
     .filter((r) => r.metaFetchedAt == null || r.metaFetchedAt.getTime() < stale)
     .filter((r) => r.metaFailedAt == null || r.metaFailedAt.getTime() < failed)
-    .sort((a, b) => priority(a) - priority(b) || time(a) - time(b))
+    .sort(
+      (a, b) =>
+        priority(a) - priority(b) ||
+        (priority(a) === 0 ? slugRank(a) - slugRank(b) : 0) ||
+        time(a) - time(b),
+    )
     .slice(0, limit);
 }
 
