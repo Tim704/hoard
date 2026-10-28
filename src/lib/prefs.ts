@@ -43,10 +43,33 @@ const timeZone = z
   .nullable();
 const optionalText = z.string().trim().max(200).nullable();
 
+/** Notification kinds (src/lib/notify.ts). `test` is the Settings "Send test". */
+export const NOTIFY_KINDS = ['releases', 'new-seasons', 'backup', 'sync', 'list-shared'] as const;
+export type NotifyKind = (typeof NOTIFY_KINDS)[number] | 'test';
+
+/** Push targets must be https (the URLs are the user's own ntfy topic / Discord webhook). */
+const httpsUrl = z
+  .string()
+  .trim()
+  .max(500)
+  .url('Enter a full URL.')
+  .refine((u) => u.toLowerCase().startsWith('https://'), 'Only https:// URLs are accepted.');
+
+/**
+ * `kinds` lists the kinds pushed to ntfy/Discord; empty means every kind. The
+ * in-app bell always shows every notification.
+ */
 const NotifySchema = z.object({
-  ntfyUrl: z.string().url().max(500).nullable().catch(null),
-  discordWebhook: z.string().url().max(500).nullable().catch(null),
+  ntfyUrl: httpsUrl.nullable().catch(null),
+  discordWebhook: httpsUrl.nullable().catch(null),
   kinds: z.array(z.string().max(40)).max(50).catch([]),
+});
+
+/** The strict write form: invalid URLs are rejected, not silently cleared. */
+const NotifyPatchSchema = z.object({
+  ntfyUrl: httpsUrl.nullable(),
+  discordWebhook: httpsUrl.nullable(),
+  kinds: z.array(z.enum(NOTIFY_KINDS)).max(NOTIFY_KINDS.length),
 });
 
 const fields = {
@@ -127,7 +150,7 @@ export const PrefsPatchSchema = z
     steamId: fields.steamId,
     lastfmUser: fields.lastfmUser,
     anilistUser: fields.anilistUser,
-    notify: NotifySchema,
+    notify: NotifyPatchSchema,
     compareOptIn: fields.compareOptIn,
     feedOptIn: fields.feedOptIn,
   })

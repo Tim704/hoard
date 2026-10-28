@@ -62,7 +62,8 @@ model User {
   sessions   Session[]
   activities UserMediaActivity[]
   franchises Franchise[]
-  events     ActivityEvent[]
+  events        ActivityEvent[]
+  notifications Notification[]
 }
 
 model Session {
@@ -326,4 +327,39 @@ model Franchise {
 
   @@unique([userId, matchName])
   @@index([userId])
+}
+
+// ── Notifications ────────────────────────────────────────────────────────────
+//  Shown in-app (the bell) and, when the user configured them, pushed to their
+//  own ntfy topic and/or Discord webhook by src/lib/notify.ts. `sentAt` is set
+//  once at least one push succeeded; `error` records failed pushes.
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  kind      String // releases|new-seasons|backup|sync|list-shared|test
+  title     String
+  body      String
+  url       String?
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+  sentAt    DateTime?
+  error     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
+// ── Scheduled jobs ───────────────────────────────────────────────────────────
+//  One row per job name (src/lib/jobs/scheduler.ts): the last run's start time,
+//  outcome and duration. Also drives "catch up after a restart".
+
+model JobRun {
+  name           String   @id
+  lastRunAt      DateTime
+  lastStatus     String // ok|error|skipped
+  lastError      String?
+  lastDurationMs Int      @default(0)
 }

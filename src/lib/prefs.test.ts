@@ -149,3 +149,30 @@ describe('region detection', () => {
     expect(PrefsPatchSchema.parse({ regionDetected: true })).toEqual({});
   });
 });
+
+describe('notification URLs', () => {
+  it('accepts only https URLs when saving', () => {
+    const ok = PrefsPatchSchema.safeParse({
+      notify: { ntfyUrl: 'https://ntfy.sh/my-topic', discordWebhook: null, kinds: [] },
+    });
+    expect(ok.success).toBe(true);
+    for (const bad of ['http://ntfy.sh/my-topic', 'ntfy.sh/my-topic', 'javascript:alert(1)']) {
+      const res = PrefsPatchSchema.safeParse({
+        notify: { ntfyUrl: null, discordWebhook: bad, kinds: [] },
+      });
+      expect(res.success).toBe(false);
+    }
+  });
+
+  it('rejects unknown kinds when saving', () => {
+    const res = PrefsPatchSchema.safeParse({
+      notify: { ntfyUrl: null, discordWebhook: null, kinds: ['nope'] },
+    });
+    expect(res.success).toBe(false);
+  });
+
+  it('drops a stored non-https URL on read', () => {
+    const p = parsePrefs({ notify: { ntfyUrl: 'http://ntfy.sh/x', discordWebhook: null, kinds: [] } });
+    expect(p.notify.ntfyUrl).toBeNull();
+  });
+});

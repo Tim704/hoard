@@ -63,14 +63,18 @@ This is the easiest way to run Hoard — including on a Raspberry Pi.
 cp .env.example .env
 $EDITOR .env
 
-# 2. Build and start the database + app.
+# 2. Create the backup folder (owned by you, so the backup service can write).
+mkdir -p ../backups/hoard
+
+# 3. Build and start the database, app and nightly backups.
 docker compose up -d --build
 
-# 3. Open the app.
+# 4. Open the app.
 #    Local:        http://localhost:3000
 #    On a Pi/LAN:  http://<pi-ip>:3000
 
-# 4. Register a user from the login screen and start hoarding.
+# 5. Register a user from the login screen and start hoarding.
+#    The first account is the owner (it gets backup warnings).
 ```
 
 The `app` container runs `prisma db push` on startup, which **idempotently syncs
@@ -84,6 +88,86 @@ restarts.
 > `openssl` (which the Prisma engine needs at runtime).
 
 A demo account can be seeded for kicking the tyres — see [Seeding](#-seeding-a-demo-user).
+
+---
+
+## 💾 Backups
+
+The `backup` service (the `postgres:16-alpine` image running
+[`scripts/backup.sh`](scripts/backup.sh)) dumps the database once a night.
+
+- **Where:** `${HOARD_BACKUP_DIR:-../backups/hoard}` on the host, i.e. a
+  `backups/hoard` folder next to this checkout. Inside it:
+  - `daily/hoard-YYYY-MM-DD.dump`: one `pg_dump --format=custom` per day;
+  - `weekly/hoard-YYYY-MM-DD.dump`: a copy of each Sunday's dump;
+  - `status.json`: `{lastSuccess, lastAttempt, lastError, file, bytes}`.
+- **When:** at `BACKUP_HOUR` (default 3, i.e. 03:00) in `TZ` (default
+  `Europe/Berlin`). If the service starts after that hour and today's dump is
+  missing, it makes one straight away.
+- **Retention:** the newest 14 daily and 8 weekly dumps; older ones are deleted.
+- **Safety:** each dump is written to a temp file and only renamed into place if
+  it is non-empty and `pg_restore --list` can read it.
+- **Ownership:** the service runs as `${HOARD_BACKUP_UID:-1000}:${HOARD_BACKUP_GID:-1000}`,
+  so the files belong to you. Create the folder yourself before the first
+  `docker compose up` (`mkdir -p ../backups/hoard`); a folder Docker creates is
+  owned by root and the service can't write to it.
+- **Monitoring:** Settings → System shows the last backup. The `backup-watch`
+  job (09:00) sends the owner (the first registered account) a notification when
+  the newest backup is older than 26 hours.
+
+Make a backup right now (for example before an upgrade):
+
+```bash
+docker compose exec backup sh /backup.sh --once
+```
+
+### Restoring
+
+`pg_restore` into the running `db` service. `--clean --if-exists` drops and
+recreates every object in the dump, so this **replaces the current data**. Stop
+the app first so nothing writes during the restore:
+
+```bash
+docker compose stop app
+
+# Pick a dump (newest daily shown here) and stream it into the db container.
+docker compose exec -T db sh -c 'pg_restore --clean --if-exists --no-owner \
+  -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backups/hoard/daily/hoard-2026-10-28.dump
+
+docker compose start app
+```
+
+To try a dump without touching live data, restore it into a scratch database
+instead (`createdb -U "$POSTGRES_USER" hoard_restore_test` inside the `db`
+container, then `-d hoard_restore_test`), and drop it afterwards.
+
+---
+
+## ⏰ Scheduled jobs
+
+There is no separate jobs container. The app starts an in-process scheduler
+(`src/instrumentation.ts` → `src/lib/jobs/`) that ticks every minute and runs
+each job at its time in the server's `TZ`:
+
+| Job            | When              | What it does                                         |
+| -------------- | ----------------- | ---------------------------------------------------- |
+| `migration`    | at every startup  | Idempotent data backfills that need new columns      |
+| `backup-watch` | 09:00             | Warns the owner if the newest backup is over 26 h old |
+
+- A run missed while the server was down runs **once** on the next start, not
+  once per missed day.
+- A Postgres advisory lock per job stops two app instances running the same job.
+- Each job's last run time, status, error and duration are kept in the `JobRun`
+  table and shown in Settings → System.
+- Set `HOARD_SCHEDULER=off` to disable it when running outside Docker.
+
+### Notifications
+
+Notifications appear under the bell in the header. Each user can also push them
+to their own [ntfy](https://ntfy.sh) topic URL and/or a Discord channel webhook
+(Settings → Notifications, https URLs only, with a "Send test" button). Pushes
+time out after 5 seconds; failures are recorded on the notification, never
+thrown.
 
 ---
 

@@ -7,6 +7,9 @@ const nextConfig = {
   // with a 403 ("x-forwarded-host does not match origin host"). Includes
   // localhost for local dev / direct container access.
   experimental: {
+    // Runs src/instrumentation.ts at server start, which starts the job
+    // scheduler (spec G9). Needed on Next 14; stable from Next 15.
+    instrumentationHook: true,
     serverActions: {
       allowedOrigins: ['hoard.timhufnagel.org', 'localhost:3000'],
     },

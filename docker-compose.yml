@@ -1,7 +1,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #  HOARD — docker-compose
 #
-#  Two services: a PostgreSQL database and the Next.js app. Compose reads the
+#  Three services: a PostgreSQL database, the Next.js app and a nightly
+#  `backup` job (scripts/backup.sh, see README "Backups"). Compose reads the
 #  sibling `.env` file automatically, so copy `.env.example` → `.env` and fill in
 #  your keys before running `docker compose up -d --build`.
 #
@@ -43,12 +44,39 @@ services:
       GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL: ${GEMINI_MODEL}
+      HOARD_PUBLIC_URL: ${HOARD_PUBLIC_URL:-https://hoard.timhufnagel.org}
+      # Scheduled jobs and day boundaries use this zone (spec G9/G10).
+      TZ: ${TZ:-Europe/Berlin}
       NODE_ENV: production
+    volumes:
+      # Read-only view of the backups, so Settings can show "Last backup …".
+      - ${HOARD_BACKUP_DIR:-../backups/hoard}:/backups:ro
     ports:
       # Local dev exposes 3000 on all interfaces. On the Pi (behind the
       # Cloudflare Tunnel) .env sets HOARD_PUBLISH to a unique localhost port,
       # e.g. 127.0.0.1:3010:3000 — so only cloudflared can reach it.
       - "${HOARD_PUBLISH:-3000:3000}"
+
+  backup:
+    # Nightly pg_dump into ${HOARD_BACKUP_DIR} (daily/ + weekly/ + status.json).
+    # Runs as the host user so the files belong to them, not root.
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    user: "${HOARD_BACKUP_UID:-1000}:${HOARD_BACKUP_GID:-1000}"
+    entrypoint: ["sh", "/backup.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      TZ: ${TZ:-Europe/Berlin}
+      BACKUP_HOUR: ${BACKUP_HOUR:-3}
+    volumes:
+      - ${HOARD_BACKUP_DIR:-../backups/hoard}:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
 
 volumes:
   pgdata: {}
