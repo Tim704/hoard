@@ -24,6 +24,9 @@ describe('releasesDueToday', () => {
     expect(releasesDueToday(rows, '2026-10-27', 'America/New_York').map((n) => n.activityId)).toEqual(['a1']);
     expect(releasesDueToday(rows, '2026-10-27', 'Europe/Berlin').map((n) => n.activityId)).toEqual([]);
   });
+  it('skips sections the user hid', () => {
+    expect(releasesDueToday(rows, '2026-10-28', 'Europe/Berlin', ['movies', 'anime']).map((n) => n.activityId)).toEqual(['t1']);
+  });
   it('"today" itself comes from the user’s zone (00:30 Berlin is still yesterday in UTC)', () => {
     const now = new Date('2026-10-27T23:30:00Z');
     expect(todayYmd('Europe/Berlin', now)).toBe('2026-10-28');

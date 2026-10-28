@@ -1,5 +1,5 @@
 // ───────────────────────────────────────────────────────────────────────────
-//  The `new-seasons` job (spec 5.5 / 5.6, 04:00 server time). Four steps:
+//  The `new-seasons` job (spec 5.5 / 5.6, 04:00 server time). Three steps:
 //
 //  1. Shows: refresh finished and ongoing TV whose status isn't Ended or
 //     Canceled through the TMDB details call (counts, status, next air date,
@@ -7,15 +7,18 @@
 //     first and only shows not refreshed in the last 20 h. With up to 700 a
 //     week, the calendar's next episodes stay fresh far inside the 30-day
 //     metadata cadence.
-//  2. Airing anime: refresh `nextAiringAt` / `nextAiringEpisode` of library
-//     anime that are airing or about to start, in batched AniList queries.
-//  3. Detection: every finished show with an aired season beyond its
+//  2. Detection: every finished show with an aired season beyond its
 //     `seenSeasonCount` gets one "new-seasons" notification per (activity,
 //     season number); `notify`'s dedupe key stops re-runs from re-sending.
 //     A finished show with no recorded count yet is baselined silently.
-//  4. Unreleased sequels: walk the AniList relations of franchises with anime
-//     or manga members (20 a night, least recently refreshed first) and
-//     cache their NOT_YET_RELEASED entries on `Franchise.upcoming`.
+//  3. Unreleased sequels: walk the AniList relations of franchises with anime
+//     or manga members (20 a night, least recently tried first) and cache
+//     their NOT_YET_RELEASED entries on `Franchise.upcoming`. A failed walk
+//     keeps the old entries but stamps the attempt, so it can't starve others.
+//
+//  (Airing anime are refreshed by the separate `airing` job at 06:30, AFTER
+//  the 06:00 `releases` job: refreshing at 04:00 would move an episode that
+//  aired at 01:00 on to next week before "New episode today" was sent.)
 //
 //  Each step fails on its own; the job reports every failure at the end.
 // ───────────────────────────────────────────────────────────────────────────
@@ -27,7 +30,7 @@ import { CATEGORY_LIST, type CategorySlug } from '@/lib/categories';
 import { aniListStart, GRAPH_FIELDS, walkAniList, type AniListGraphNode } from '@/lib/franchise/missing';
 import { extractUpcoming, parseUpcoming, type StatusNode } from '@/lib/franchise/upcoming';
 import { saveTvSeasons } from '@/lib/library/tv-seasons';
-import { canGetSeasons, newAiredSeasons, newSeasonKey } from '@/lib/new-seasons';
+import { airedSeasonCount, canGetSeasons, newAiredSeasons, newSeasonKey } from '@/lib/new-seasons';
 import { notify } from '@/lib/notify';
 import { serverTimeZone } from '@/lib/prefs';
 import { todayYmd } from '@/lib/release';
@@ -74,7 +77,8 @@ export function planSeasonNotices(
   const notices: SeasonNotice[] = [];
   for (const r of rows) {
     if (r.seenSeasonCount == null) {
-      if (r.seasonCount != null) baseline.push({ activityId: r.activityId, seasonCount: r.seasonCount });
+      const seen = airedSeasonCount(r.seasons, r.seasonCount, today);
+      if (seen != null) baseline.push({ activityId: r.activityId, seasonCount: seen });
       continue;
     }
     for (const season of newAiredSeasons(r, today)) {
@@ -143,6 +147,18 @@ async function refreshShows(now: Date, failed: string[]): Promise<void> {
       }
     }
   }
+}
+
+/**
+ * The `airing` job (06:30, after `releases`): refresh `nextAiringAt` /
+ * `nextAiringEpisode` of library anime that are airing or about to start,
+ * in batched AniList queries, so the calendar stays current between the
+ * 30-day metadata refreshes. Throws a summary on failures.
+ */
+export async function runAiring(now: Date = new Date()): Promise<void> {
+  const failed: string[] = [];
+  await refreshAiringAnime(now, failed);
+  if (failed.length) throw new Error(`Airing: ${failed.length} problem(s): ${failed.slice(0, 5).join('; ')}`);
 }
 
 async function refreshAiringAnime(now: Date, failed: string[]): Promise<void> {
@@ -258,7 +274,13 @@ async function refreshSequels(now: Date, failed: string[]): Promise<void> {
         items = extractUpcoming(nodes as StatusNode[], today);
       } catch (err) {
         failed.push(`sequels ${f.id}: ${message(err)}`);
-        continue; // keep the old cache; retried first next night
+        // Keep the old items but stamp the attempt, so a franchise that keeps
+        // failing goes to the back of the queue instead of starving the rest.
+        await prisma.franchise.update({
+          where: { id: f.id },
+          data: { upcoming: { fetchedAt: now.toISOString(), items: (parseUpcoming(f.upcoming)?.items ?? []) as any } },
+        });
+        continue;
       }
     }
     await prisma.franchise.update({
@@ -280,7 +302,6 @@ export async function runNewSeasons(now: Date = new Date()): Promise<{ notified:
   };
   let notified = 0;
   await step('shows', () => refreshShows(now, failed));
-  await step('anime', () => refreshAiringAnime(now, failed));
   await step('detect', async () => {
     notified = await detectNewSeasons(now, failed);
   });

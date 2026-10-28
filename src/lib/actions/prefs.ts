@@ -8,13 +8,11 @@
 
 import { revalidatePath } from 'next/cache';
 
-import { prisma } from '@/lib/prisma';
-import { getPrefs } from '@/lib/data-prefs';
+import { changePrefs } from '@/lib/data-prefs';
 import {
   PrefsPatchSchema,
   applyPrefsPatch,
   detectedPrefs,
-  type Prefs,
   type PrefsPatch,
 } from '@/lib/prefs';
 import { requireUser } from '@/lib/session';
@@ -24,11 +22,8 @@ import type { ActionResult } from '@/lib/types';
 /** Region used when the browser's zone is unknown or UTC-like (the owner's). */
 const FALLBACK_REGION = 'DE';
 
-async function writePrefs(userId: string, next: Prefs): Promise<void> {
-  await prisma.user.update({ where: { id: userId }, data: { prefs: next } });
-  // Score format and hidden sections affect every page under the (app) layout.
-  revalidatePath('/', 'layout');
-}
+// Score format and hidden sections affect every page under the (app) layout.
+const revalidateAll = () => revalidatePath('/', 'layout');
 
 /** Save some settings. Unknown keys are dropped; invalid values are rejected. */
 export async function updatePrefs(patch: PrefsPatch): Promise<ActionResult> {
@@ -38,8 +33,9 @@ export async function updatePrefs(patch: PrefsPatch): Promise<ActionResult> {
     if (!parsed.success) {
       return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid settings.' };
     }
-    const current = await getPrefs(user.id);
-    await writePrefs(user.id, applyPrefsPatch(current, parsed.data));
+    // Locked read-modify-write: a concurrent save can't be lost (changePrefs).
+    await changePrefs(user.id, (current) => applyPrefsPatch(current, parsed.data));
+    revalidateAll();
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Could not save settings.' };
@@ -57,11 +53,11 @@ export async function detectRegion(
   try {
     const user = await requireUser();
     const tz = typeof browserTimeZone === 'string' ? browserTimeZone.slice(0, 64) : '';
-    const current = await getPrefs(user.id);
-    const next = detectedPrefs(current, tz, countryForTimeZone, FALLBACK_REGION);
-    if (!next) return { ok: true, region: current.region ?? undefined };
-    await writePrefs(user.id, next);
-    return { ok: true, region: next.region ?? undefined };
+    const { prefs, changed } = await changePrefs(user.id, (current) =>
+      detectedPrefs(current, tz, countryForTimeZone, FALLBACK_REGION),
+    );
+    if (changed) revalidateAll();
+    return { ok: true, region: prefs.region ?? undefined };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Could not detect region.' };
   }

@@ -7,9 +7,8 @@
 
 import { revalidatePath } from 'next/cache';
 
-import { prisma } from '@/lib/prisma';
 import { calendarFeedUrl, newCalendarToken } from '@/lib/calendar-token';
-import { getPrefs } from '@/lib/data-prefs';
+import { changePrefs } from '@/lib/data-prefs';
 import { requireUser } from '@/lib/session';
 import type { ActionResult } from '@/lib/types';
 
@@ -17,9 +16,9 @@ import type { ActionResult } from '@/lib/types';
 export async function createCalendarLink(): Promise<ActionResult & { url?: string }> {
   try {
     const user = await requireUser();
-    const prefs = await getPrefs(user.id);
     const token = newCalendarToken();
-    await prisma.user.update({ where: { id: user.id }, data: { prefs: { ...prefs, calendarToken: token } } });
+    // Locked read-modify-write, so a concurrent Settings save can't undo it.
+    await changePrefs(user.id, (prefs) => ({ ...prefs, calendarToken: token }));
     revalidatePath('/settings');
     revalidatePath('/calendar');
     return { ok: true, url: calendarFeedUrl(token) };
@@ -32,8 +31,7 @@ export async function createCalendarLink(): Promise<ActionResult & { url?: strin
 export async function revokeCalendarLink(): Promise<ActionResult> {
   try {
     const user = await requireUser();
-    const prefs = await getPrefs(user.id);
-    await prisma.user.update({ where: { id: user.id }, data: { prefs: { ...prefs, calendarToken: null } } });
+    await changePrefs(user.id, (prefs) => ({ ...prefs, calendarToken: null }));
     revalidatePath('/settings');
     revalidatePath('/calendar');
     return { ok: true };

@@ -38,10 +38,19 @@ export function dayIn(at: Date, timeZone: string): string {
   return todayYmd(timeZone, at);
 }
 
-/** Today's notices for one user, given their rows, their today and their zone. */
-export function releasesDueToday(rows: readonly ReleaseRow[], today: string, timeZone: string): ReleaseNotice[] {
+/**
+ * Today's notices for one user, given their rows, their today and their zone.
+ * Sections the user hid (`hidden`) stay quiet, as on the calendar.
+ */
+export function releasesDueToday(
+  rows: readonly ReleaseRow[],
+  today: string,
+  timeZone: string,
+  hidden: readonly string[] = [],
+): ReleaseNotice[] {
   const out: ReleaseNotice[] = [];
   for (const r of rows) {
+    if (hidden.includes(r.slug)) continue;
     const url = `/${r.slug}?open=${encodeURIComponent(r.activityId)}`;
     if (r.status === 'PLANNED' && r.releaseDate === today) {
       out.push({

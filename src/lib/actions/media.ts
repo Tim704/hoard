@@ -19,7 +19,7 @@ import {
   type DbCategory,
 } from '@/lib/categories';
 import { addMediaForUser, newManualExternalId } from '@/lib/library/add';
-import { currentSeasonCount } from '@/lib/library/seen-seasons';
+import { seenSeasonCountNow, userToday } from '@/lib/library/seen-seasons';
 import { recordsSeenSeasons } from '@/lib/new-seasons';
 import {
   isManualId,
@@ -249,7 +249,7 @@ export async function updateActivity(
     // 5.5: finishing or starting a show records its season count (this also
     // clears a "New season" badge). Tiers are untouched.
     if (recordsSeenSeasons(activity.category, activity.status as Status, data.status)) {
-      patch.seenSeasonCount = await currentSeasonCount(activity.tvShowId);
+      patch.seenSeasonCount = await seenSeasonCountNow(activity.tvShowId, await userToday(user.id));
     }
 
     const events = eventsForUpdate(

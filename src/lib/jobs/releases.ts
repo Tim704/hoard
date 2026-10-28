@@ -3,22 +3,26 @@
 //  their titles out today and today's new episodes of what they are watching
 //  (src/lib/releases-today.ts decides), with "today" in THEIR time zone.
 //  `notify` dedupes per (user, item, day), so a re-run or a catch-up run
-//  never sends twice, and pushes only the kinds the user enabled.
+//  never sends twice, and pushes only the kinds the user enabled. Sections
+//  the user hid are skipped, like on the calendar.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { prisma } from '@/lib/prisma';
 import { CATEGORY_LIST } from '@/lib/categories';
 import { notify } from '@/lib/notify';
-import { effectiveTimeZone, parsePrefs } from '@/lib/prefs';
+import { effectiveTimeZone, parsePrefs, type Prefs } from '@/lib/prefs';
 import { todayYmd } from '@/lib/release';
 import { releasesDueToday, type ReleaseRow } from '@/lib/releases-today';
 import type { Status } from '@/lib/status';
 import { displayTitle } from '@/lib/title';
 
 /** The rows that might be due today for one user. */
-async function rowsFor(userId: string, today: string, now: Date, titleLanguage: Parameters<typeof displayTitle>[1]) {
+async function rowsFor(userId: string, today: string, now: Date, prefs: Prefs) {
   const rows: ReleaseRow[] = [];
+  const hidden = new Set<string>(prefs.hiddenSections);
   for (const cat of CATEGORY_LIST) {
+    // Hidden sections stay quiet, as on the calendar.
+    if (hidden.has(cat.slug)) continue;
     const extra =
       cat.slug === 'tv'
         ? [{ status: 'CONSUMING' as const, tvShow: { is: { nextAirDate: today } } }]
@@ -46,7 +50,7 @@ async function rowsFor(userId: string, today: string, now: Date, titleLanguage: 
         activityId: a.id,
         slug: cat.slug,
         status: a.status as Status,
-        title: displayTitle(m, titleLanguage),
+        title: displayTitle(m, prefs.titleLanguage),
         releaseDate: m.releaseDate ?? null,
         nextAirDate: m.nextAirDate ?? null,
         nextAiringAt: m.nextAiringAt ?? null,
@@ -66,7 +70,7 @@ export async function runReleases(now: Date = new Date()): Promise<{ sent: numbe
       const prefs = parsePrefs(u.prefs);
       const tz = effectiveTimeZone(prefs);
       const today = todayYmd(tz, now);
-      const notices = releasesDueToday(await rowsFor(u.id, today, now, prefs.titleLanguage), today, tz);
+      const notices = releasesDueToday(await rowsFor(u.id, today, now, prefs), today, tz, prefs.hiddenSections);
       for (const n of notices) {
         const res = await notify(u.id, { kind: 'releases', title: n.title, body: n.body, url: n.url, dedupeKey: n.dedupeKey });
         if (res.id) sent++;

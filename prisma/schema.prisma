@@ -561,14 +561,14 @@ model Notification {
   sentAt    DateTime?
   error     String?
   // Stops a job from sending the same news twice ("new-season:<activity>:<n>",
-  // "release:<activity>:<day>"); null for one-off notifications. notify()
-  // looks it up first (jobs run under their advisory lock, so no race). Not a
-  // unique index: adding one to an existing table needs --accept-data-loss.
+  // "release:<activity>:<day>"); null for one-off notifications (Postgres
+  // lets any number of NULLs share a unique index). notify() catches the
+  // unique violation and reports a duplicate.
   dedupeKey String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, dedupeKey])
+  @@unique([userId, dedupeKey])
   @@index([userId, createdAt])
   @@index([userId, readAt])
 }

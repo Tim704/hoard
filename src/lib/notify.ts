@@ -7,6 +7,8 @@
 //  Server-only (imports prisma). The pure push code is src/lib/notify-push.ts.
 // ───────────────────────────────────────────────────────────────────────────
 
+import { Prisma } from '@prisma/client';
+
 import { prisma } from '@/lib/prisma';
 import { getPrefs } from '@/lib/data-prefs';
 import type { NotifyKind } from '@/lib/prefs';
@@ -20,8 +22,8 @@ export interface NotifyInput {
   /** In-app path ("/settings") or absolute URL to open. */
   url?: string | null;
   /**
-   * Send this news only once per user: when a notification with the same key
-   * exists, nothing is created or pushed (`duplicate: true`).
+   * Send this news only once per user: the unique (userId, dedupeKey) index
+   * rejects a second row, and nothing is pushed (`duplicate: true`).
    */
   dedupeKey?: string | null;
 }
@@ -40,14 +42,17 @@ export async function notify(userId: string, input: NotifyInput): Promise<Notify
   let id: string | null = null;
   const dedupeKey = input.dedupeKey ? input.dedupeKey.slice(0, 300) : null;
   try {
-    if (dedupeKey) {
-      const seen = await prisma.notification.findFirst({ where: { userId, dedupeKey }, select: { id: true } });
-      if (seen) return { id: null, push: { sent: [], error: null }, duplicate: true };
+    let row: { id: string };
+    try {
+      row = await prisma.notification.create({
+        data: { userId, kind: input.kind, title, body, url: input.url ?? null, dedupeKey },
+        select: { id: true },
+      });
+    } catch (err) {
+      // The unique (userId, dedupeKey) index: this news was sent before.
+      if (dedupeKey && isUniqueViolation(err)) return { id: null, push: { sent: [], error: null }, duplicate: true };
+      throw err;
     }
-    const row = await prisma.notification.create({
-      data: { userId, kind: input.kind, title, body, url: input.url ?? null, dedupeKey },
-      select: { id: true },
-    });
     id = row.id;
 
     const prefs = await getPrefs(userId);
@@ -69,6 +74,10 @@ export async function notify(userId: string, input: NotifyInput): Promise<Notify
     console.error('[hoard] notify failed:', message);
     return { id, push: { sent: [], error: message } };
   }
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
 }
 
 /** The owner: the first registered user (spec 5.7). Null on an empty install. */

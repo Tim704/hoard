@@ -17,7 +17,7 @@ import { getCategory, type CategorySlug } from '@/lib/categories';
 import { entersFinished, writeImportDiary } from '@/lib/diary';
 import { recordEvent, recordEvents } from '@/lib/events';
 import { addMediaForUser, newManualExternalId } from '@/lib/library/add';
-import { currentSeasonCount } from '@/lib/library/seen-seasons';
+import { seenSeasonCountNow, userToday } from '@/lib/library/seen-seasons';
 import { recordsSeenSeasons } from '@/lib/new-seasons';
 import { manualResult, parseManualInput } from '@/lib/manual';
 import type { Status } from '@/lib/status';
@@ -175,6 +175,7 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
  * True when something changed.
  */
 async function updateExisting(userId: string, activityId: string, row: CommitRow): Promise<boolean> {
+  const today = await userToday(userId); // 5.5: seasons seen as of the user's today
   return prisma.$transaction(async (tx) => {
     const a = await tx.userMediaActivity.findUnique({ where: { id: activityId } });
     if (!a || a.userId !== userId) return false;
@@ -209,7 +210,7 @@ async function updateExisting(userId: string, activityId: string, row: CommitRow
     if (a.rewatching && entersFinished(a.status, plan.patch.status)) data.rewatching = false;
     // 5.5: finishing or starting a show records its season count.
     if (recordsSeenSeasons(a.category, a.status as Status, plan.patch.status)) {
-      data.seenSeasonCount = await currentSeasonCount(a.tvShowId, tx);
+      data.seenSeasonCount = await seenSeasonCountNow(a.tvShowId, today, tx);
     }
     await tx.userMediaActivity.update({ where: { id: activityId }, data });
     if (plan.events.length) await recordEvents(tx, plan.events);

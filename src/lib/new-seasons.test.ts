@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { pickSequelFranchises, planSeasonNotices, seasonNotification } from '@/lib/jobs/new-seasons';
-import { canGetSeasons, newAiredSeasons, newSeasonBadge, newSeasonKey, recordsSeenSeasons } from '@/lib/new-seasons';
+import { airedSeasonCount, canGetSeasons, newAiredSeasons, newSeasonBadge, newSeasonKey, recordsSeenSeasons } from '@/lib/new-seasons';
 
 const seasons = [
   { seasonNumber: 1, airDate: '2020-01-01' },
@@ -30,6 +30,32 @@ describe('newAiredSeasons', () => {
   });
 });
 
+describe('airedSeasonCount (what finishing records)', () => {
+  it('is the highest season aired by today, not the announced count', () => {
+    expect(airedSeasonCount(seasons, 4, '2026-10-01')).toBe(2);
+    expect(airedSeasonCount(seasons, 4, '2026-10-28')).toBe(3);
+    expect(airedSeasonCount(seasons, 4, '2027-03-01')).toBe(4);
+    expect(airedSeasonCount([{ seasonNumber: 1, airDate: '2030-01-01' }], 1, '2026-10-28')).toBe(0);
+  });
+  it('falls back to seasonCount only when no seasons are stored', () => {
+    expect(airedSeasonCount([], 5, '2026-10-28')).toBe(5);
+    expect(airedSeasonCount([], null, '2026-10-28')).toBeNull();
+  });
+  it('an announced but unaired season is still news when it airs', () => {
+    // TMDB already counts season 3 (seasonCount 3) when the user finishes on 1 Oct.
+    const show = { seasonCount: 3, seasons: seasons.slice(0, 3) };
+    const seen = airedSeasonCount(show.seasons, show.seasonCount, '2026-10-01');
+    expect(seen).toBe(2);
+    expect(newAiredSeasons({ ...show, seenSeasonCount: seen }, '2026-10-27')).toEqual([]);
+    expect(newAiredSeasons({ ...show, seenSeasonCount: seen }, '2026-10-28')).toEqual([3]);
+    const plan = planSeasonNotices(
+      [{ activityId: 'a9', userId: 'u', title: 'Show', seenSeasonCount: seen, ...show }],
+      '2026-10-28',
+    );
+    expect(plan.notices.map((n) => n.season)).toEqual([3]);
+  });
+});
+
 describe('recording and status rules', () => {
   it('finishing or starting a show records the count; other changes do not', () => {
     expect(recordsSeenSeasons('tv', 'PLANNED', 'COMPLETED')).toBe(true);
@@ -49,10 +75,14 @@ describe('recording and status rules', () => {
 
 describe('planSeasonNotices', () => {
   const row = { activityId: 'a1', userId: 'u1', title: 'Severance', seasonCount: 3, seasons };
-  it('baselines finished shows without a recorded count, silently', () => {
-    const plan = planSeasonNotices([{ ...row, seenSeasonCount: null }], '2030-01-01');
+  it('baselines finished shows without a recorded count to the seasons aired so far, silently', () => {
+    const plan = planSeasonNotices([{ ...row, seenSeasonCount: null }], '2026-12-01');
     expect(plan.baseline).toEqual([{ activityId: 'a1', seasonCount: 3 }]);
     expect(plan.notices).toEqual([]);
+    // Season 3 announced (counted by TMDB) but not aired yet: baseline is 2.
+    expect(planSeasonNotices([{ ...row, seenSeasonCount: null }], '2026-10-01').baseline).toEqual([
+      { activityId: 'a1', seasonCount: 2 },
+    ]);
   });
   it('one notice per aired new season, with a per-(activity, season) dedupe key', () => {
     const plan = planSeasonNotices([{ ...row, seenSeasonCount: 1 }], '2026-10-28');

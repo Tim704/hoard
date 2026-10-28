@@ -7,33 +7,35 @@
 import { runBackupWatch } from '@/lib/jobs/backup-watch';
 import { runMetadata } from '@/lib/jobs/metadata';
 import { runMigrations } from '@/lib/jobs/migration';
-import { runNewSeasons } from '@/lib/jobs/new-seasons';
+import { runAiring, runNewSeasons } from '@/lib/jobs/new-seasons';
 import { runReleases } from '@/lib/jobs/releases';
 import { registerJob, startScheduler } from '@/lib/jobs/scheduler';
+import { JOB_TIMES } from '@/lib/jobs/times';
 
 registerJob({ name: 'migration', at: 'startup', run: () => runMigrations() });
 registerJob({
   name: 'metadata',
-  at: '03:30',
+  at: JOB_TIMES.metadata,
   run: async () => {
     await runMetadata();
   },
 });
 registerJob({
   name: 'new-seasons',
-  at: '04:00',
+  at: JOB_TIMES['new-seasons'],
   run: async () => {
     await runNewSeasons();
   },
 });
 registerJob({
   name: 'releases',
-  at: '06:00',
+  at: JOB_TIMES.releases,
   run: async () => {
     await runReleases();
   },
 });
-registerJob({ name: 'backup-watch', at: '09:00', run: () => runBackupWatch() });
+registerJob({ name: 'airing', at: JOB_TIMES.airing, run: () => runAiring() });
+registerJob({ name: 'backup-watch', at: JOB_TIMES['backup-watch'], run: () => runBackupWatch() });
 
 export { runJob, registeredJobs } from '@/lib/jobs/scheduler';
 export { startScheduler };

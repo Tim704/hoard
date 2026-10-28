@@ -7,7 +7,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidateCategory } from '@/lib/actions/shared';
-import { currentSeasonCount } from '@/lib/library/seen-seasons';
+import { seenSeasonCountNow, userToday } from '@/lib/library/seen-seasons';
 import { requireUser } from '@/lib/session';
 import type { ActionResult } from '@/lib/types';
 
@@ -20,7 +20,7 @@ export async function acknowledgeNewSeason(activityId: string): Promise<ActionRe
       select: { userId: true, category: true, tvShowId: true },
     });
     if (!a || a.userId !== user.id || a.category !== 'TV') return { ok: false, error: 'Not found.' };
-    const count = await currentSeasonCount(a.tvShowId);
+    const count = await seenSeasonCountNow(a.tvShowId, await userToday(user.id));
     await prisma.userMediaActivity.update({ where: { id: activityId }, data: { seenSeasonCount: count } });
     revalidateCategory('tv');
     return { ok: true };

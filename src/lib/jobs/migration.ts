@@ -15,6 +15,8 @@
 import { backfillDiary } from '@/lib/jobs/diary-backfill';
 import { prismaMigrationStore, type MigrationStore } from '@/lib/jobs/migration-store';
 import { prisma } from '@/lib/prisma';
+import { serverTimeZone } from '@/lib/prefs';
+import { todayYmd } from '@/lib/release';
 
 export interface MigrationStep {
   /** Stable, unique id, e.g. "003-diary-from-finished". */
@@ -41,15 +43,23 @@ export const MIGRATION_STEPS: MigrationStep[] = [
       })),
   },
   // 5.5: shows finished before seasons were recorded have seen every season
-  // they have now, so the first "New season" is a real one. Only unset rows.
+  // aired so far (the highest aired season number, by the server's today), or
+  // their seasonCount when no seasons are stored — so the first "New season"
+  // is a real one. Only unset rows.
   {
     id: '014-seen-season-count',
-    run: async () =>
-      void (await prisma.$executeRaw`
-        UPDATE "UserMediaActivity" a SET "seenSeasonCount" = t."seasonCount"
+    run: async () => {
+      const today = todayYmd(serverTimeZone());
+      await prisma.$executeRaw`
+        UPDATE "UserMediaActivity" a SET "seenSeasonCount" =
+          CASE WHEN EXISTS (SELECT 1 FROM "TvSeason" s WHERE s."tvShowId" = t.id)
+            THEN COALESCE((SELECT MAX(s."seasonNumber") FROM "TvSeason" s
+                           WHERE s."tvShowId" = t.id AND s."airDate" <= ${today}), 0)
+            ELSE t."seasonCount" END
         FROM "TVShow" t
-        WHERE a."tvShowId" = t.id AND a.status = 'COMPLETED'
-          AND a."seenSeasonCount" IS NULL AND t."seasonCount" IS NOT NULL`),
+        WHERE a."tvShowId" = t.id AND a.status = 'COMPLETED' AND a."seenSeasonCount" IS NULL
+          AND (t."seasonCount" IS NOT NULL OR EXISTS (SELECT 1 FROM "TvSeason" s WHERE s."tvShowId" = t.id))`;
+    },
   },
 ];
 

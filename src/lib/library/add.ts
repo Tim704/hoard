@@ -15,6 +15,7 @@ import { getPrefs } from '@/lib/data-prefs';
 import { isDiaryStatus, onFinished } from '@/lib/diary';
 import { recordEvent } from '@/lib/events';
 import { autoGroupAfterAdd } from '@/lib/franchise/auto';
+import { seenSeasonCountNow, userToday } from '@/lib/library/seen-seasons';
 import { saveTvSeasons } from '@/lib/library/tv-seasons';
 import type { TvSeasonData } from '@/lib/apis/tmdb';
 import { catalogueCreatePayload, fillOnlyUpdate } from '@/lib/media-upsert';
@@ -85,6 +86,8 @@ export async function addMediaForUser(
   // Added as finished = finished today (3.1), unless the caller logs its own.
   const diaryPrefs = !opts.skipDiary && isDiaryStatus(status) ? await getPrefs(userId) : null;
 
+  const seenToday = recordsSeenSeasons(slug, null, status) ? await userToday(userId) : null;
+
   const outcome = await prisma.$transaction(async (tx) => {
     const media = await upsertCatalogueRow(tx, slug, result, opts.metaFetchedAt ?? null);
 
@@ -127,8 +130,8 @@ export async function addMediaForUser(
               ? new Date()
               : null,
         [cat.fkField]: media.id,
-        // 5.5: a show added as watched or ongoing has seen its current seasons.
-        ...(recordsSeenSeasons(slug, null, status) ? { seenSeasonCount: media.seasonCount ?? null } : {}),
+        // 5.5: a show added as watched or ongoing has seen the seasons aired so far.
+        ...(seenToday ? { seenSeasonCount: await seenSeasonCountNow(media.id, seenToday, tx) } : {}),
       } as any,
     });
     await recordEvent(tx, {

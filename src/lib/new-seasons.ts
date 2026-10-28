@@ -3,7 +3,9 @@
 //
 //  - Recording: when a TV title becomes Completed — or is started (Ongoing),
 //    which also acknowledges a new season — `seenSeasonCount` is set to the
-//    show's current `seasonCount`.
+//    highest season number that has aired by today (`airedSeasonCount`), so
+//    an announced but unaired season is still news when it airs. Only a show
+//    with no stored seasons falls back to its `seasonCount`.
 //  - Detection: a season numbered above `seenSeasonCount` (and within the
 //    show's `seasonCount`) whose `airDate` is today or earlier is new. A
 //    season without an air date is not out yet as far as we know.
@@ -59,6 +61,24 @@ export function newAiredSeasons(input: NewSeasonInput, today: string): number[] 
     .filter((s) => isYmd(s.airDate) && s.airDate <= today)
     .map((s) => s.seasonNumber)
     .sort((a, b) => a - b);
+}
+
+/**
+ * What a user has "seen" when they finish, start or acknowledge a show: the
+ * highest season number aired by `today` (0 when none has), or the show's
+ * `seasonCount` when no seasons are stored.
+ */
+export function airedSeasonCount(
+  seasons: readonly SeasonAirInfo[],
+  seasonCount: number | null | undefined,
+  today: string,
+): number | null {
+  if (!seasons.length) return seasonCount ?? null;
+  let max = 0;
+  for (const s of seasons) {
+    if (isYmd(s.airDate) && s.airDate <= today && s.seasonNumber > max) max = s.seasonNumber;
+  }
+  return max;
 }
 
 /** The newest aired new season (the badge's number), or null. */
