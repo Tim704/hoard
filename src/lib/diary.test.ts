@@ -262,6 +262,19 @@ describe('applyDiaryForUpdate / undoDiaryForRestore', () => {
   });
 });
 
+describe('undoDiaryForRestore leaves entries alone when the score does not change', () => {
+  it('a status Undo carrying the unchanged score does not rewrite today\'s entry', async () => {
+    // e.g. an imported entry dated today whose score differs from the activity's.
+    const imported: Entry = { id: 'imp', userId: 'u', activityId: 'a', date: '2026-10-28', rating: 6, rewatch: false, review: null, createdAt: now };
+    const { tx, entries } = fakeTx({ id: 'a', userId: 'u' }, [imported]);
+    await undoDiaryForRestore(tx, { userId: 'u', activityId: 'a' }, { status: 'COMPLETED', ratingBefore: 8, rating: 8 }, undefined, berlin, now);
+    expect(entries.map((e) => e.rating)).toEqual([6]);
+    // A real score change still applies the rescore rule.
+    await undoDiaryForRestore(tx, { userId: 'u', activityId: 'a' }, { status: 'COMPLETED', ratingBefore: 8, rating: 7 }, undefined, berlin, now);
+    expect(entries.map((e) => e.rating)).toEqual([7]);
+  });
+});
+
 describe('writeImportDiary', () => {
   it('writes dated entries and keeps an undated review in the notes', async () => {
     const { tx, entries, act } = fakeTx({ id: 'a', userId: 'u', notes: 'mine' });

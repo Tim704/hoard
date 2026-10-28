@@ -310,7 +310,9 @@ export async function undoDiaryForRestore(
   if (diaryEntryId) {
     await tx.diaryEntry.deleteMany({ where: { id: diaryEntryId, activityId: ids.activityId, userId: ids.userId } });
   }
-  if (restored.rating === undefined) return;
+  // Only an Undo that really changes the score touches an entry: every status
+  // Undo carries the old rating, mostly equal to the current one.
+  if (restored.rating === undefined || scoreValue(restored.rating) === scoreValue(restored.ratingBefore)) return;
   const latest = await latestEntry(tx, ids.activityId);
   const plan = planFinish(
     { status: restored.status, rating: restored.ratingBefore, rewatching: false },
