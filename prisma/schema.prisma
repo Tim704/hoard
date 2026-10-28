@@ -76,6 +76,8 @@ model User {
   goals            Goal[]
   tasteProfile     TasteProfile?
   externalLinks    ExternalLink[]
+  savedViews       SavedView[]
+  apiTokens        ApiToken[]
 }
 
 model Session {
@@ -763,4 +765,35 @@ model ExternalLink {
 
   @@unique([userId, provider])
   @@index([provider])
+}
+
+// 8.6: a named filter over the user's whole library, shown under "Views" in
+// the navigation. `query` is validated by src/lib/saved-views.ts (zod;
+// unknown keys dropped, arrays bounded) on every read and write.
+model SavedView {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  query     Json
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// 8.7: a bearer token for the read-only public API (/api/v1/*). Only the
+// SHA-256 hash of the token is stored (src/lib/api-tokens.ts); the token
+// itself is shown once, when it is created. Revoking deletes the row.
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

@@ -17,9 +17,14 @@ const DOWNLOADS = [
   },
   { href: '/api/export/franchises.csv', label: 'Franchises (CSV)', hint: 'Each franchise with its score and titles.' },
   {
+    href: '/api/export/markdown.zip',
+    label: 'Markdown (Obsidian)',
+    hint: 'One note per title, in a folder per section: status, score, tier, dates and tags up top, then your notes and reviews.',
+  },
+  {
     href: '/api/export/all.json',
     label: 'Everything (JSON)',
-    hint: 'Your whole library, history, franchises and settings — a complete copy of your data.',
+    hint: 'Your whole library, history, diary, lists, goals and settings — a complete copy of your data.',
   },
 ];
 
