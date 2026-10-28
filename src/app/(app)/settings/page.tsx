@@ -1,3 +1,4 @@
+import { SettingsData } from '@/components/settings-data';
 import { SettingsForm } from '@/components/settings-form';
 import { SettingsNotifications } from '@/components/settings-notifications';
 import { SettingsSystem } from '@/components/settings-system';
@@ -39,6 +40,7 @@ export default async function SettingsPage() {
       serverTimeZone={serverTimeZone()}
     >
       <SettingsNotifications initial={prefs.notify} />
+      <SettingsData />
       {backup && jobs && (
         <SettingsSystem backup={backup} jobs={jobs} timeZone={effectiveTimeZone(prefs)} now={new Date()} />
       )}
