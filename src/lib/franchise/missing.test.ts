@@ -12,6 +12,7 @@ import {
   walkAniList,
   type AniListGraphNode,
 } from './missing';
+import { initialTicked } from './missing-pick';
 
 const node = (
   id: number,
@@ -141,5 +142,12 @@ describe('missing titles', () => {
     expect(franchiseGamesQuery('igdb-col:34')).toMatch(/where collections = \(34\)/);
     expect(franchiseGamesQuery('igdb-fr:1; fields *')).toBeNull();
     expect(franchiseGamesQuery('tmdb-col:1')).toBeNull();
+  });
+
+  it('ticks a short list (≤ 10) and leaves a long one unticked', () => {
+    const keys = (n: number) => Array.from({ length: n }, (_, i) => `anime|${i}`);
+    expect(initialTicked(keys(10)).size).toBe(10);
+    expect(initialTicked(keys(11)).size).toBe(0);
+    expect(initialTicked([]).size).toBe(0);
   });
 });

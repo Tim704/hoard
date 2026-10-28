@@ -60,6 +60,14 @@ describe('csvRecords', () => {
 });
 
 describe('cell readers', () => {
+  it('parseDay reads DD.MM.YYYY with dots, but never ambiguous slash dates', () => {
+    expect(parseDay('09.03.2024')).toBe('2024-03-09');
+    expect(parseDay('9.3.2024 14:02')).toBe('2024-03-09');
+    expect(parseDay('31.02.2024')).toBeUndefined();
+    expect(parseDay('03/04/2021')).toBeUndefined();
+    expect(parseDay('3/4/21')).toBeUndefined();
+  });
+
   it('parseDay accepts dashes, slashes and a trailing time; rejects impossible days', () => {
     expect(parseDay('2024/03/09')).toBe('2024-03-09');
     expect(parseDay('2024-3-9')).toBe('2024-03-09');

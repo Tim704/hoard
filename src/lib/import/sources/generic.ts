@@ -81,6 +81,9 @@ export function statusKey(value: string): string {
 
 /** Status words and what they mean, first match wins (order matters). */
 const STATUS_WORDS: Array<[RegExp, Status]> = [
+  // Negations first: "not started" is not "started", "unfinished" not "finished".
+  [/\b(not started|not yet( \w+)?|unstarted|never started)\b/, 'PLANNED'],
+  [/\b(not finished|unfinished|never finished|not completed|incomplete)\b/, 'DROPPED'],
   [/\b(retired|shelved)\b/, 'RETIRED'],
   [/\b(abandoned|dropped|did not finish|dnf|quit)\b/, 'DROPPED'],
   [/\b(paused|on hold|hold)\b/, 'ON_HOLD'],
@@ -160,11 +163,17 @@ export function scaledRating(cell: string | undefined, scale: RatingScale): numb
 const FINISHED_LIKE = new Set<Status>(['COMPLETED', 'DROPPED', 'RETIRED']);
 const STARTED_LIKE = new Set<Status>(['CONSUMING', 'ON_HOLD']);
 
+/** "3 dates weren't read …" (shown in the mapping step and as an import warning). */
+export function unreadDatesMessage(n: number): string {
+  return `${n} date${n === 1 ? " wasn't" : "s weren't"} read (use YYYY-MM-DD or DD.MM.YYYY; slash dates like 03/04/2021 are ambiguous).`;
+}
+
 /** Records + mapping → rows. Rows without a title, a section, or whose status is "skip" are skipped. */
 export function mapGenericRecords(records: Record<string, string>[], m: GenericMapping): ParseResult {
   const rows: ImportRow[] = [];
   let skipped = 0;
   let noSection = 0;
+  let unreadDates = 0;
   const cell = (r: Record<string, string>, f: GenericField) => (m.columns[f] ? r[m.columns[f]!] ?? '' : '');
   for (const r of records) {
     const title = text(cell(r, 'title'));
@@ -184,14 +193,16 @@ export function mapGenericRecords(records: Record<string, string>[], m: GenericM
     if (rating !== undefined) row.rating = rating;
     const tags = splitList(cell(r, 'platform'), /[,;|]/);
     if (tags.length) row.tags = tags;
-    const day = parseDay(cell(r, 'date'));
+    const dateCell = cell(r, 'date').trim();
+    const day = parseDay(dateCell);
+    if (dateCell && !day) unreadDates++;
     if (day && FINISHED_LIKE.has(choice)) row.finishedOn = day;
     else if (day && STARTED_LIKE.has(choice)) row.startedOn = day;
     rows.push(row);
   }
-  const warnings = noSection
-    ? [`${noSection} row${noSection === 1 ? '' : 's'} had no recognisable section. Pick a section for them and try again.`]
-    : [];
+  const warnings: string[] = [];
+  if (noSection) warnings.push(`${noSection} row${noSection === 1 ? '' : 's'} had no recognisable section. Pick a section for them and try again.`);
+  if (unreadDates) warnings.push(unreadDatesMessage(unreadDates));
   return { rows: dedupeRows(rows), skipped, warnings };
 }
 
@@ -212,10 +223,14 @@ export function restoreMapping(raw: unknown, headers: string[]): GenericMapping 
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
   const columns: GenericMapping['columns'] = {};
+  // Resolve against the current headers ignoring case: the signature does, so
+  // "Name" remembered must find "name" in the next export.
+  const byLower = new Map(headers.map((h) => [h.trim().toLowerCase(), h] as const));
   if (o.columns && typeof o.columns === 'object') {
     for (const f of GENERIC_FIELDS) {
       const h = (o.columns as Record<string, unknown>)[f];
-      if (typeof h === 'string' && headers.includes(h)) columns[f] = h;
+      const current = typeof h === 'string' ? byLower.get(h.trim().toLowerCase()) : undefined;
+      if (current) columns[f] = current;
     }
   }
   const section = typeof o.section === 'string' && isCategorySlug(o.section) ? o.section : null;
@@ -251,6 +266,19 @@ export function saveMapping(storage: MappingStorage | null | undefined, headers:
 
 /** The mapping to start from: the remembered one, else a guess from the headers. */
 export function initialMapping(storage: MappingStorage | null | undefined, headers: string[]): { mapping: GenericMapping; remembered: boolean } {
+  const guess = guessMapping(headers);
   const saved = loadMapping(storage, headers);
-  return saved ? { mapping: saved, remembered: true } : { mapping: guessMapping(headers), remembered: false };
+  // Only a memory that still finds the title counts as remembered.
+  if (!saved?.columns.title) return { mapping: guess, remembered: false };
+  // Fields the memory can't resolve fall back to the guess (unless that header is taken).
+  const columns = { ...saved.columns };
+  const taken = new Set(Object.values(columns));
+  for (const f of GENERIC_FIELDS) {
+    const g = guess.columns[f];
+    if (!columns[f] && g && !taken.has(g)) {
+      columns[f] = g;
+      taken.add(g);
+    }
+  }
+  return { mapping: { ...saved, columns }, remembered: true };
 }

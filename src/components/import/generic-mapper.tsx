@@ -231,6 +231,14 @@ export function GenericMapper({ fileName, headers, records, onRows, onCancel }: 
         </section>
       )}
 
+      {preview.warnings.length > 0 && (
+        <ul className="space-y-1 text-xs text-amber-700 dark:text-amber-300" aria-live="polite">
+          {preview.warnings.map((w) => (
+            <li key={w}>{w}</li>
+          ))}
+        </ul>
+      )}
+
       <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
         <Button type="button" disabled={!ready} onClick={submit}>
           Review {preview.rows.length} title{preview.rows.length === 1 ? '' : 's'}

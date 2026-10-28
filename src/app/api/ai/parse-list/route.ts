@@ -14,6 +14,7 @@ import {
   parseAiAnswer,
   sniffImage,
 } from '@/lib/import/ai';
+import { takeAiRate } from '@/lib/rate-limit';
 import { getCurrentUser } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -21,8 +22,43 @@ export const dynamic = 'force-dynamic';
 /** A slow image read is normal for the model; still bounded (spec G4). */
 const AI_TIMEOUT_MS = 30_000;
 
-const json = (body: unknown, status = 200) =>
-  Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
+/** The most body bytes read: one 6 MB image plus the multipart framing. */
+const MAX_BODY_BYTES = AI_MAX_IMAGE_BYTES + 256 * 1024;
+
+const TOO_LARGE = `That is too large. Paste up to ${AI_MAX_TEXT.toLocaleString('en')} characters, or an image up to 6 MB.`;
+
+const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
+  Response.json(body, { status, headers: { 'Cache-Control': 'no-store', ...headers } });
+
+/**
+ * Read at most `max` bytes of the body, counting as it streams, so a lying
+ * or missing Content-Length can't make the server buffer more. Null when the
+ * body is larger.
+ */
+async function readCapped(req: Request, max: number): Promise<ArrayBuffer | null> {
+  if (!req.body) return new ArrayBuffer(0);
+  const reader = req.body.getReader();
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    parts.push(value);
+  }
+  const out = new ArrayBuffer(total);
+  const view = new Uint8Array(out);
+  let at = 0;
+  for (const p of parts) {
+    view.set(p, at);
+    at += p.byteLength;
+  }
+  return out;
+}
 
 /**
  * Same-origin only: a cross-site form post must not spend the owner's key.
@@ -47,15 +83,19 @@ export async function POST(req: Request): Promise<Response> {
   if (!user) return json({ ok: false, error: 'Not signed in.' }, 401);
   if (!sameOrigin(req)) return json({ ok: false, error: 'Cross-site request refused.' }, 403);
 
-  // Refuse oversized bodies before reading them.
-  const length = Number(req.headers.get('content-length') ?? 0);
-  if (length > AI_MAX_IMAGE_BYTES + 256 * 1024) {
-    return json({ ok: false, error: 'That image is larger than 6 MB.' }, 413);
+  // Size first: a numeric Content-Length is required, and the read is capped
+  // anyway (the header could lie).
+  const lengthHeader = req.headers.get('content-length');
+  if (!lengthHeader || !/^\d+$/.test(lengthHeader)) {
+    return json({ ok: false, error: 'Send the list with a Content-Length.' }, 411);
   }
+  if (Number(lengthHeader) > MAX_BODY_BYTES) return json({ ok: false, error: TOO_LARGE }, 413);
+  const body = await readCapped(req, MAX_BODY_BYTES).catch(() => null);
+  if (!body) return json({ ok: false, error: TOO_LARGE }, 413);
 
   let form: FormData;
   try {
-    form = await req.formData();
+    form = await new Response(body, { headers: { 'content-type': req.headers.get('content-type') ?? '' } }).formData();
   } catch {
     return json({ ok: false, error: 'Send the list as a form (text or image).' }, 400);
   }
@@ -65,17 +105,15 @@ export async function POST(req: Request): Promise<Response> {
   let part: { text: string } | { inlineData: { mimeType: string; data: string } };
   let kind: 'text' | 'image';
   if (image && typeof image !== 'string') {
-    if (image.size > AI_MAX_IMAGE_BYTES) return json({ ok: false, error: 'That image is larger than 6 MB.' }, 413);
+    if (image.size > AI_MAX_IMAGE_BYTES) return json({ ok: false, error: TOO_LARGE }, 413);
     const bytes = new Uint8Array(await image.arrayBuffer());
-    if (bytes.length > AI_MAX_IMAGE_BYTES) return json({ ok: false, error: 'That image is larger than 6 MB.' }, 413);
+    if (bytes.length > AI_MAX_IMAGE_BYTES) return json({ ok: false, error: TOO_LARGE }, 413);
     const mimeType = sniffImage(bytes);
     if (!mimeType) return json({ ok: false, error: 'Only PNG, JPEG and WebP images can be read.' }, 400);
     part = { inlineData: { mimeType, data: Buffer.from(bytes).toString('base64') } };
     kind = 'image';
   } else if (typeof text === 'string' && text.trim()) {
-    if (text.length > AI_MAX_TEXT) {
-      return json({ ok: false, error: `That text is longer than ${AI_MAX_TEXT.toLocaleString('en')} characters. Paste it in parts.` }, 413);
-    }
+    if (text.length > AI_MAX_TEXT) return json({ ok: false, error: TOO_LARGE }, 413);
     part = { text: text.trim() };
     kind = 'text';
   } else {
@@ -86,6 +124,10 @@ export async function POST(req: Request): Promise<Response> {
   if (!apiKey) {
     return json({ ok: false, error: "The AI reader isn't configured on this server. Ask the owner to add GEMINI_API_KEY." }, 503);
   }
+
+  // Registration is open: each user gets a share of the owner's AI quota.
+  const rate = takeAiRate(user.id);
+  if (!rate.ok) return json({ ok: false, error: rate.message }, 429, { 'Retry-After': String(rate.retryAfterSec) });
 
   let answer: string | undefined;
   try {

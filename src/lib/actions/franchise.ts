@@ -198,6 +198,31 @@ export async function assignFranchise(
   }
 }
 
+/**
+ * Put several of the user's titles into one of their franchises, locked so
+ * regrouping keeps them there (used after "Add missing titles"). Up to 100
+ * ids; ids that aren't the caller's are ignored.
+ */
+export async function addToFranchise(franchiseId: string, activityIds: string[]): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    if (typeof franchiseId !== 'string' || !(await ownFranchise(user.id, franchiseId))) {
+      return { ok: false, error: 'Franchise not found.' };
+    }
+    if (!Array.isArray(activityIds) || activityIds.length > 100 || activityIds.some((id) => typeof id !== 'string')) {
+      return { ok: false, error: 'Send at most 100 titles at a time.' };
+    }
+    await prisma.userMediaActivity.updateMany({
+      where: { id: { in: activityIds }, userId: user.id },
+      data: { franchiseId, franchiseLocked: true },
+    });
+    revalidateAll();
+    return { ok: true };
+  } catch (err) {
+    return fail(err, 'Failed to update franchise.');
+  }
+}
+
 /** Move every title of `sourceId` into `targetId`, then delete the source. */
 export async function mergeFranchise(sourceId: string, targetId: string): Promise<ActionResult> {
   try {

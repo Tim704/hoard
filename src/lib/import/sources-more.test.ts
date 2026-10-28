@@ -18,11 +18,12 @@ import {
   MAPPING_KEY_PREFIX,
   restoreMapping,
   saveMapping,
+  unreadDatesMessage,
   scaledRating,
   sectionFromCell,
 } from './sources/generic';
 import { decodeXmlText, malExportText, parseMalXml, readXmlRecords } from './sources/mal';
-import { mapTraktData, traktErrorMessage, traktUserFromInput, validTraktUser, type TraktData } from './sources/trakt';
+import { episodesWatched, mapTraktData, traktErrorMessage, traktUserFromInput, validTraktUser, type TraktData } from './sources/trakt';
 
 const fixture = (name: string) => readFileSync(join(__dirname, '__fixtures__', name), 'utf8');
 
@@ -277,3 +278,68 @@ describe('generic CSV', () => {
     expect(() => saveMapping(throwing, headers, mapping)).not.toThrow();
   });
 });
+
+describe('fix round 1', () => {
+  it('restores remembered columns case-insensitively (Name/Status → name/STATUS)', () => {
+    const store = new Map<string, string>();
+    const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) };
+    saveMapping(storage, ['Name', 'Status'], { ...guessMapping(['Name', 'Status']), section: 'games', statusMap: { done: 'COMPLETED' } });
+    const back = initialMapping(storage, ['name', 'STATUS']);
+    expect(back.remembered).toBe(true);
+    expect(back.mapping.columns).toEqual({ title: 'name', status: 'STATUS' });
+    expect(back.mapping.section).toBe('games');
+  });
+
+  it('fills unresolved remembered fields from the guess, and only counts as remembered when the title resolves', () => {
+    const store = new Map<string, string>();
+    const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) };
+    const headers = ['Game', 'Rating', 'Platform'];
+    // Remembered: the title and a custom rating column that is now gone.
+    store.set(`${MAPPING_KEY_PREFIX}${headerSignature(headers)}`, JSON.stringify({ columns: { title: 'GAME', rating: 'Old score' }, scale: 5 }));
+    const back = initialMapping(storage, headers);
+    expect(back).toMatchObject({ remembered: true, mapping: { scale: 5, columns: { title: 'Game', rating: 'Rating', platform: 'Platform' } } });
+    // A memory whose title column no longer resolves is not "remembered".
+    store.set(`${MAPPING_KEY_PREFIX}${headerSignature(headers)}`, JSON.stringify({ columns: { title: 'Gone' }, scale: 5 }));
+    expect(initialMapping(storage, headers)).toEqual({ mapping: guessMapping(headers), remembered: false });
+  });
+
+  it('reads negated status words before the plain ones', () => {
+    expect(defaultStatusFor('Not started')).toBe('PLANNED');
+    expect(defaultStatusFor('not yet played')).toBe('PLANNED');
+    expect(defaultStatusFor('Not finished')).toBe('DROPPED');
+    expect(defaultStatusFor('Unfinished')).toBe('DROPPED');
+    expect(defaultStatusFor('Started')).toBe('CONSUMING');
+    expect(defaultStatusFor('Finished')).toBe('COMPLETED');
+  });
+
+  it('reads dotted dates and reports the dates it could not read', () => {
+    const recs = [
+      { T: 'A', D: '04.03.2023' },
+      { T: 'B', D: '03/04/2021' },
+      { T: 'C', D: 'last summer' },
+      { T: 'D', D: '' },
+    ];
+    const out = mapGenericRecords(recs, { columns: { title: 'T', date: 'D' }, section: 'games', scale: 10, statusMap: {}, defaultStatus: 'COMPLETED' });
+    expect(out.rows[0].finishedOn).toBe('2023-03-04');
+    expect(out.rows[1].finishedOn).toBeUndefined();
+    expect(out.warnings).toEqual([unreadDatesMessage(2)]);
+    expect(unreadDatesMessage(2)).toMatch(/^2 dates weren't read/);
+    expect(unreadDatesMessage(1)).toMatch(/^1 date wasn't read/);
+  });
+
+  it('Trakt progress ignores episodes watched before reset_at', () => {
+    const w = {
+      reset_at: '2024-01-01T00:00:00.000Z',
+      seasons: [
+        { number: 1, episodes: [
+          { number: 1, plays: 2, last_watched_at: '2024-02-01T00:00:00.000Z' },
+          { number: 2, plays: 1, last_watched_at: '2023-06-01T00:00:00.000Z' },
+          { number: 3, plays: 1 },
+        ] },
+      ],
+    };
+    expect(episodesWatched(w)).toBe(1);
+    expect(episodesWatched({ ...w, reset_at: null })).toBe(3);
+  });
+});
+

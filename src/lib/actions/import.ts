@@ -142,7 +142,7 @@ const MAX_ANILIST_CHUNKS = 10;
  */
 export async function fetchAniListRows(
   username: string,
-): Promise<{ ok: boolean; error?: string; rows?: ImportRow[]; skipped?: number }> {
+): Promise<{ ok: boolean; error?: string; rows?: ImportRow[]; skipped?: number; cut?: number }> {
   try {
     await requireUser();
     const user = typeof username === 'string' ? username.trim() : '';
@@ -172,7 +172,8 @@ export async function fetchAniListRows(
       rows.push(...mapped.rows);
       skipped += mapped.skipped;
     }
-    return { ok: true, rows: rows.slice(0, MAX_IMPORT_ROWS), skipped };
+    // More than one import's worth: send the first part and say how many were left out.
+    return { ok: true, rows: rows.slice(0, MAX_IMPORT_ROWS), skipped, cut: Math.max(0, rows.length - MAX_IMPORT_ROWS) };
   } catch (err) {
     return { ok: false, error: fail(err, 'Could not read that AniList profile.') };
   }
@@ -185,7 +186,7 @@ export async function fetchAniListRows(
  */
 export async function fetchTraktRows(
   username: string,
-): Promise<{ ok: boolean; error?: string; rows?: ImportRow[]; skipped?: number }> {
+): Promise<{ ok: boolean; error?: string; rows?: ImportRow[]; skipped?: number; cut?: number }> {
   try {
     const me = await requireUser();
     const clientId = process.env.TRAKT_CLIENT_ID;
@@ -220,7 +221,12 @@ export async function fetchTraktRows(
     }
     const timeZone = effectiveTimeZone(await getPrefs(me.id));
     const mapped = mapTraktData(data, timeZone);
-    return { ok: true, rows: mapped.rows.slice(0, MAX_IMPORT_ROWS), skipped: mapped.skipped };
+    return {
+      ok: true,
+      rows: mapped.rows.slice(0, MAX_IMPORT_ROWS),
+      skipped: mapped.skipped,
+      cut: Math.max(0, mapped.rows.length - MAX_IMPORT_ROWS),
+    };
   } catch (err) {
     return { ok: false, error: fail(err, 'Could not read that Trakt profile.') };
   }

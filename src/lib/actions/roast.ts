@@ -15,13 +15,14 @@ import { getCategory, type CategorySlug } from '@/lib/categories';
 import { requireUser } from '@/lib/session';
 import { formatRating } from '@/lib/rating';
 import { getRanking } from '@/lib/data';
+import { takeAiRate } from '@/lib/rate-limit';
 import type { RoastMode } from '@/lib/types';
 
 export async function roastList(
   slug: CategorySlug,
   mode: RoastMode,
 ): Promise<{ text: string; error?: string }> {
-  await requireUser();
+  const user = await requireUser();
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -67,6 +68,10 @@ export async function roastList(
           'Their ranked list (best to worst, with their 1–10 scores):',
           list,
         ].join('\n');
+
+  // Shared per-user AI budget (registration is open; the key is the owner's).
+  const rate = takeAiRate(user.id);
+  if (!rate.ok) return { text: '', error: rate.message };
 
   try {
     const ai = new GoogleGenAI({ apiKey });

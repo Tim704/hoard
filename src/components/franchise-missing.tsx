@@ -2,9 +2,9 @@
 
 // "Add missing titles" (spec 2.10), inside the franchise dialog: the entries
 // of the IP the user doesn't have yet (AniList relations, the TMDB
-// collection, the IGDB franchise), ticked by default, added as Done or Want
-// through the import pipeline (`commitImportRows`, source "franchise"), then
-// grouped into this franchise.
+// collection, the IGDB franchise), ticked when there are at most 10, added as
+// Done or Want (Want by default) through the import pipeline
+// (`commitImportRows`, source "franchise"), then pinned to this franchise.
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
@@ -14,15 +14,17 @@ import { toast } from 'sonner';
 
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { Button } from '@/components/ui/button';
-import { franchiseMissing, type MissingGroup } from '@/lib/actions/franchise';
+import { addToFranchise, franchiseMissing, type MissingGroup } from '@/lib/actions/franchise';
 import { commitImportRows, finishImport, groupImportedFranchises } from '@/lib/actions/import';
 import { CATEGORIES } from '@/lib/categories';
 import type { MissingTitle } from '@/lib/franchise/missing';
+import { initialTicked } from '@/lib/franchise/missing-pick';
 import { chunk, chunkCommitRows } from '@/lib/import/review';
 import { COMMIT_CHUNK, type CommitRow } from '@/lib/import/types';
 import { statusLabel } from '@/lib/status';
 
 const keyOf = (t: MissingTitle) => `${t.slug}|${t.result.externalId}`;
+
 
 export function FranchiseMissing({ franchiseId, onBack }: { franchiseId: string; onBack: () => void }) {
   const router = useRouter();
@@ -43,7 +45,8 @@ export function FranchiseMissing({ franchiseId, onBack }: { franchiseId: string;
           return;
         }
         setGroups(res.groups);
-        setTicked(new Set(res.groups.flatMap((g) => g.titles.map(keyOf))));
+        // A short list starts ticked; a long one (a sprawling IP) starts empty.
+        setTicked(initialTicked(res.groups.flatMap((g) => g.titles.map(keyOf))));
       })
       .catch(() => !cancelled && setError('Could not look up the missing titles.'));
     return () => {
@@ -92,6 +95,9 @@ export function FranchiseMissing({ franchiseId, onBack }: { franchiseId: string;
       setProgress('Grouping…');
       for (const part of chunk(added, 10)) await groupImportedFranchises(part).catch(() => null);
       await finishImport().catch(() => null);
+      // Pin them to THIS franchise (a hand-merged group has no provider key
+      // that regrouping would find).
+      for (const part of chunk(added, 100)) await addToFranchise(franchiseId, part).catch(() => null);
     } finally {
       setProgress(null);
     }

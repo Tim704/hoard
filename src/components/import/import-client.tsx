@@ -129,6 +129,13 @@ const SOURCES: SourceInfo[] = [
   },
 ];
 
+/** The warning for an account with more titles than one import takes. */
+function cutWarning(cut: number | undefined): string[] {
+  return cut && cut > 0
+    ? [`Only the first ${MAX_IMPORT_ROWS} titles are imported at once; ${cut} more were left out.`]
+    : [];
+}
+
 /** Parse one source's files into rows. Throws a readable message on bad input. */
 async function parseFiles(source: FileSource, files: File[]): Promise<ParseResult> {
   for (const f of files) {
@@ -241,7 +248,9 @@ export function ImportClient({ tmdbConfigured, traktConfigured, aiConfigured }: 
     try {
       const res = await fetchAniListRows(username);
       if (!res.ok || !res.rows) toast.error(res.error ?? 'Could not read that AniList profile.');
-      else start({ rows: res.rows, skipped: res.skipped ?? 0, warnings: [] }, 'AniList');
+      else start({ rows: res.rows, skipped: res.skipped ?? 0, warnings: cutWarning(res.cut) }, 'AniList');
+    } catch {
+      toast.error('Could not reach the server. Try again.');
     } finally {
       setBusy(null);
     }
@@ -257,7 +266,9 @@ export function ImportClient({ tmdbConfigured, traktConfigured, aiConfigured }: 
     try {
       const res = await fetchTraktRows(user);
       if (!res.ok || !res.rows) toast.error(res.error ?? 'Could not read that Trakt profile.');
-      else start({ rows: res.rows, skipped: res.skipped ?? 0, warnings: [] }, 'Trakt');
+      else start({ rows: res.rows, skipped: res.skipped ?? 0, warnings: cutWarning(res.cut) }, 'Trakt');
+    } catch {
+      toast.error('Could not reach the server. Try again.');
     } finally {
       setBusy(null);
     }

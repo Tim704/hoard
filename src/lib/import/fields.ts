@@ -7,13 +7,20 @@ import { isYmd } from '@/lib/release';
 import { normalizeRating } from '@/lib/rating';
 
 /**
- * A calendar day from an export cell: "2024-03-09", "2024/03/09", or the
- * same with a time after it ("2024-03-09 14:02:11"). Anything else → undefined.
+ * A calendar day from an export cell: "2024-03-09", "2024/03/09",
+ * "09.03.2024", or the same with a time after it ("2024-03-09 14:02:11").
+ * Anything else (slash dates in either order included) → undefined.
  */
 export function parseDay(cell: string | null | undefined): string | undefined {
-  const m = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:$|[ T])/.exec((cell ?? '').trim());
-  if (!m) return undefined;
-  const ymd = `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  const t = (cell ?? '').trim();
+  const m = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:$|[ T])/.exec(t);
+  // DD.MM.YYYY (German and most of Europe) is unambiguous with dots. Slash
+  // dates like 03/04/2021 are not (US vs UK order), so they stay unread.
+  const d = m ? null : /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:$|[ T,])/.exec(t);
+  const parts = m ? [m[1], m[2], m[3]] : d ? [d[3], d[2], d[1]] : null;
+  if (!parts) return undefined;
+  const [y, mo, da] = parts;
+  const ymd = `${y}-${mo.padStart(2, '0')}-${da.padStart(2, '0')}`;
   return isYmd(ymd) ? ymd : undefined;
 }
 

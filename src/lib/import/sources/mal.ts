@@ -131,6 +131,9 @@ function readChildren(body: string): Record<string, string> {
       continue;
     }
     const closing = `</${name}>`;
+    // Edge case: a CDATA section that itself contains this closing tag (a
+    // comment quoting "</my_comments>") ends the element early. MAL never
+    // writes that, so the scanner doesn't track CDATA while looking for it.
     const endChild = body.indexOf(closing, gt + 1);
     if (endChild < 0) break;
     rec[name] = innerText(body.slice(gt + 1, endChild));

@@ -49,7 +49,10 @@ export interface TraktWatched {
   reset_at?: string | null;
   movie?: TraktMedia | null;
   show?: TraktMedia | null;
-  seasons?: Array<{ number?: number | null; episodes?: Array<{ number?: number | null; plays?: number | null }> | null }> | null;
+  seasons?: Array<{
+    number?: number | null;
+    episodes?: Array<{ number?: number | null; plays?: number | null; last_watched_at?: string | null }> | null;
+  }> | null;
 }
 
 export interface TraktRating {
@@ -123,12 +126,24 @@ function baseRow(media: TraktMedia | null | undefined, category: 'movies' | 'tv'
   return row;
 }
 
-/** Episodes watched in a show's regular seasons (season 0 = specials). */
+/**
+ * Episodes watched in a show's regular seasons (season 0 = specials). When
+ * the user restarted the show (`reset_at`), only episodes watched since then
+ * count, as Trakt's docs advise for re-watch progress.
+ */
 export function episodesWatched(w: TraktWatched): number {
+  const reset = w.reset_at ? Date.parse(w.reset_at) : NaN;
   let n = 0;
   for (const s of w.seasons ?? []) {
     if (!s.number || s.number < 1) continue;
-    n += (s.episodes ?? []).filter((e) => (e.plays ?? 1) > 0).length;
+    for (const e of s.episodes ?? []) {
+      if ((e.plays ?? 1) <= 0) continue;
+      if (!Number.isNaN(reset)) {
+        const at = e.last_watched_at ? Date.parse(e.last_watched_at) : NaN;
+        if (Number.isNaN(at) || at < reset) continue;
+      }
+      n++;
+    }
   }
   return n;
 }
