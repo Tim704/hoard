@@ -176,7 +176,7 @@ interface DuelCardProps {
 }
 
 /** A large, clickable contender card (poster + title + year). */
-function DuelCard({ activity, disabled, onClick }: DuelCardProps) {
+export function DuelCard({ activity, disabled, onClick }: DuelCardProps) {
   const { media } = activity;
   const title = useDisplayTitle()(media);
   return (

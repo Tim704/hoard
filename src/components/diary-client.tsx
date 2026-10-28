@@ -6,8 +6,9 @@
 
 import { useMemo, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ImageOff, Loader2, NotebookPen, PencilLine, Plus, Repeat, Trash2 } from 'lucide-react';
+import { ImageOff, Loader2, NotebookPen, PencilLine, Plus, Repeat, Trash2, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
@@ -82,6 +83,12 @@ export function DiaryClient({ entries, library, today }: DiaryClientProps) {
         <Button type="button" onClick={() => setAdding(true)} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" aria-hidden />
           Log a past one
+        </Button>
+        <Button asChild variant="outline" className="w-full sm:w-auto">
+          <Link href="/arena/year">
+            <Trophy className="mr-2 h-4 w-4" aria-hidden />
+            Best of the year
+          </Link>
         </Button>
         <Select value={section} onValueChange={setSection}>
           <SelectTrigger aria-label="Section" className="h-10 w-[calc(50%-0.25rem)] sm:ml-auto sm:h-9 sm:w-40">

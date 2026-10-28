@@ -22,7 +22,7 @@ import { normalizeRating } from './rating';
 import { STATUSES, type Status } from './status';
 import { isTierEligible, TIERS, type Tier } from './tiers';
 
-export const SNAPSHOT_CHILDREN = ['activityEvent', 'diaryEntry', 'playSession', 'seasonActivity'] as const;
+export const SNAPSHOT_CHILDREN = ['activityEvent', 'diaryEntry', 'playSession', 'seasonActivity', 'yearDuelScore'] as const;
 export type ChildModel = (typeof SNAPSHOT_CHILDREN)[number];
 
 /** A database row as Prisma returns it (column → value). */

@@ -87,9 +87,17 @@ describe('snapshot round trip', () => {
     expect(SNAPSHOT_CHILDREN).toContain('diaryEntry');
     expect(SNAPSHOT_CHILDREN).toContain('playSession');
     expect(SNAPSHOT_CHILDREN).toContain('seasonActivity');
+    expect(SNAPSHOT_CHILDREN).toContain('yearDuelScore');
     const snapshot = takeSnapshot(seed(), 'act1');
     const models = restorePlan(snapshot, 'u1').map((s) => s.model);
-    expect(models).toEqual(['userMediaActivity', 'activityEvent', 'diaryEntry', 'playSession', 'seasonActivity']);
+    expect(models).toEqual([
+      'userMediaActivity',
+      'activityEvent',
+      'diaryEntry',
+      'playSession',
+      'seasonActivity',
+      'yearDuelScore',
+    ]);
   });
 
   it('reads the activity and each child table by activity id', () => {
@@ -130,7 +138,7 @@ describe('snapshot round trip', () => {
 });
 
 describe('UndoStore', () => {
-  const snapshot = { activity: { id: 'a', userId: 'u1' }, children: { activityEvent: [], diaryEntry: [], playSession: [], seasonActivity: [] } } as ActivitySnapshot;
+  const snapshot = { activity: { id: 'a', userId: 'u1' }, children: { activityEvent: [], diaryEntry: [], playSession: [], seasonActivity: [], yearDuelScore: [] } } as ActivitySnapshot;
 
   it('hands the snapshot back only to its owner, and only while fresh', () => {
     const store = new UndoStore(1000, 10);

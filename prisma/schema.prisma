@@ -69,6 +69,10 @@ model User {
   playSessions  PlaySession[]
   seasonActivities SeasonActivity[]
   shareLinks       ShareLink[]
+  yearDuelScores   YearDuelScore[]
+  refLists         RefList[]
+  customLists      CustomList[]
+  listMemberships  CustomListMember[]
 }
 
 model Session {
@@ -346,6 +350,10 @@ model UserMediaActivity {
   format         String?
   // 3.1: a repeat run is in progress; the next finish logs a rewatch.
   rewatching     Boolean  @default(false)
+  // 4.10: per-medium sub-scores { [key]: 0–10 } (keys from src/lib/subscores.ts).
+  subScores      Json?
+  // 4.7: position inside the franchise when its order mode is "manual" (asc).
+  franchiseOrder Float?
 
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   franchise  Franchise?  @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
@@ -361,6 +369,7 @@ model UserMediaActivity {
   diaryEntries DiaryEntry[]
   playSessions PlaySession[]
   seasons      SeasonActivity[]
+  yearDuels    YearDuelScore[]
 
   // A user can only add a given media item once per category.
   @@unique([userId, bookId])
@@ -481,6 +490,25 @@ model PlaySession {
   @@index([activityId, date])
 }
 
+// ── Best of the year (4.6) ──────────────────────────────────────────────────
+//  One title's Arena standing inside one year's "best of" (everything with a
+//  diary finish dated in that year), created lazily on its first duel.
+
+model YearDuelScore {
+  id         String @id @default(cuid())
+  userId     String
+  activityId String
+  year       Int
+  elo        Float  @default(1200)
+  duels      Int    @default(0)
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity UserMediaActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, year])
+  @@index([userId, year])
+}
+
 // ── Franchises ───────────────────────────────────────────────────────────────
 //  A per-user grouping of titles from one IP (e.g. every Haikyuu season, movie
 //  and the manga). Carries its OWN rating and ranking, independent of the
@@ -496,6 +524,9 @@ model Franchise {
   elo       Float    @default(1200)
   rankOrder Float?
   notes     String?
+  // 4.7 watch order: "release" (release date, then year) or "manual" (drag
+  // order in UserMediaActivity.franchiseOrder).
+  orderMode String   @default("release")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -558,4 +589,91 @@ model JobRun {
   lastStatus     String // ok|error|seeded (first sighting; runs at its next slot)
   lastError      String?
   lastDurationMs Int      @default(0)
+}
+
+// ── Reference lists (4.8) ───────────────────────────────────────────────────
+//  A stored snapshot of an outside "top N" list (TMDB, AniList, IGDB) or of
+//  pasted titles, matched to catalogue ids. Progress is computed against the
+//  owner's library by category + externalId; nothing here links to activities.
+//  `source` is a built-in id (src/lib/reflists.ts) or "custom"; `category`
+//  is a section slug.
+
+model RefList {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  source      String
+  category    String
+  createdAt   DateTime  @default(now())
+  refreshedAt DateTime?
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items RefListItem[]
+
+  @@index([userId])
+}
+
+model RefListItem {
+  id         String  @id @default(cuid())
+  listId     String
+  category   String
+  externalId String
+  title      String
+  year       Int?
+  imageUrl   String?
+  position   Int
+
+  list RefList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([listId, position])
+}
+
+// ── Custom lists (4.11) ─────────────────────────────────────────────────────
+//  A user's own ordered list of catalogue rows (any section), optionally shared
+//  with other users of this instance as viewers or editors. Items point at the
+//  catalogue (`mediaId` = the media table row id), never at anyone's activity,
+//  so members only ever see titles and covers.
+
+model CustomList {
+  id          String   @id @default(cuid())
+  ownerId     String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner   User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  items   CustomListItem[]
+  members CustomListMember[]
+
+  @@index([ownerId])
+}
+
+model CustomListItem {
+  id        String   @id @default(cuid())
+  listId    String
+  category  String // section slug
+  mediaId   String // row id in that section's media table
+  addedById String
+  position  Float
+  createdAt DateTime @default(now())
+
+  list CustomList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, category, mediaId])
+  @@index([listId, position])
+}
+
+model CustomListMember {
+  id        String   @id @default(cuid())
+  listId    String
+  userId    String
+  canEdit   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  list CustomList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, userId])
+  @@index([userId])
 }
