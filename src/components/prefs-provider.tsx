@@ -35,6 +35,10 @@ export function useScoreFormat() {
     score: (v: number | null) => formatScore(v, scoreFormat),
     /** "8.5/10" · "4.3★" · "85/100" */
     scoreOutOf: (v: number | null) => formatScoreOutOf(v, scoreFormat),
+    /** For places that already draw a star icon: "8.5" · "4.3" · "85" */
+    scorePlain: (v: number | null) => formatScore(v, scoreFormat, { star: false }),
+    /** For places that already draw a star icon: "8.5/10" · "4.3/5" · "85/100" */
+    scoreOutOfPlain: (v: number | null) => formatScoreOutOf(v, scoreFormat, { star: false }),
   };
 }
 
@@ -62,7 +66,19 @@ function RegionDetector() {
  * A score as text in the user's format, for server components that cannot
  * call hooks: `<Score value={8.5} />` → "8.5" / "4.3★" / "85".
  */
-export function Score({ value, outOf = false }: { value: number | null; outOf?: boolean }) {
+export function Score({
+  value,
+  outOf = false,
+  star = true,
+}: {
+  value: number | null;
+  outOf?: boolean;
+  /** false where a star icon is already drawn next to the score. */
+  star?: boolean;
+}) {
   const f = useScoreFormat();
-  return <>{outOf ? f.scoreOutOf(value) : f.score(value)}</>;
+  const text = outOf
+    ? star ? f.scoreOutOf(value) : f.scoreOutOfPlain(value)
+    : star ? f.score(value) : f.scorePlain(value);
+  return <>{text}</>;
 }

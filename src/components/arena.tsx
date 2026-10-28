@@ -28,7 +28,7 @@ export function Arena({ slug, initial }: ArenaProps) {
   const [matchup, setMatchup] = useState<Matchup | null>(initial);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-  const { score } = useScoreFormat();
+  const { scorePlain: score } = useScoreFormat();
 
   // ── Empty state: not enough equally-rated items to form a duel. ────────────
   if (!matchup) {

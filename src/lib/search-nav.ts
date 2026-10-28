@@ -1,5 +1,5 @@
 import type { CategorySlug } from './categories';
-import { formatRating } from './rating';
+import { formatScore, type ScoreFormat } from './rating';
 import { statusLabel, type Status } from './status';
 
 /** Move the result highlight by one, wrapping; no results → -1 (nothing). */
@@ -26,9 +26,10 @@ export function createLatestGuard(): { next(): number; isLatest(id: number): boo
 export function libraryBadge(
   entry: { status: Status; rating: number | null },
   slug: CategorySlug,
+  format: ScoreFormat = 'ten',
 ): string {
   const label = statusLabel(entry.status, slug);
   return entry.rating === null
     ? `In library · ${label}`
-    : `In library · ${label} ${formatRating(entry.rating)}`;
+    : `In library · ${label} ${formatScore(entry.rating, format)}`;
 }

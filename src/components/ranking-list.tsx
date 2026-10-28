@@ -65,7 +65,7 @@ export function RankingList({ items }: RankingListProps) {
             {activity.rating != null && (
               <span className="inline-flex shrink-0 items-center gap-1 text-sm">
                 <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden />
-                <Score value={activity.rating} outOf />
+                <Score value={activity.rating} outOf star={false} />
               </span>
             )}
 

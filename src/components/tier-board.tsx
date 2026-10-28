@@ -288,7 +288,7 @@ function TierItem({ activity: a, container, index, isLast, disabled, onMove }: T
   const title = a.media.title;
   const subtitle = [a.media.year, mediaSubtitle(a.media, a.category)].filter(Boolean).join(' · ');
   const suggestion = container === 'tray' ? suggestTier(a.rating) : null;
-  const { score } = useScoreFormat();
+  const { scorePlain } = useScoreFormat();
 
   return (
     <li
@@ -327,7 +327,7 @@ function TierItem({ activity: a, container, index, isLast, disabled, onMove }: T
             {a.rating != null && (
               <span className="inline-flex shrink-0 items-center gap-0.5 font-medium text-amber-600 dark:text-amber-300">
                 <Star className="h-3 w-3 fill-current" aria-hidden />
-                {score(a.rating)}
+                {scorePlain(a.rating)}
               </span>
             )}
             {subtitle && <span className="truncate">{subtitle}</span>}

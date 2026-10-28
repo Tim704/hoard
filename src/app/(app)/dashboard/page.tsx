@@ -108,7 +108,7 @@ function OverviewCard({ stats }: { stats: CategoryStat[] }) {
     { icon: Library, value: totalItems.toLocaleString(), label: 'tracked' },
     { icon: CheckCircle2, value: totalCompleted.toLocaleString(), label: 'completed' },
     { icon: Layers, value: `${activeDomains}/${stats.length}`, label: 'domains' },
-    { icon: Star, value: <Score value={avg} />, label: 'avg rating' },
+    { icon: Star, value: <Score value={avg} star={false} />, label: 'avg rating' },
   ];
 
   return (
@@ -246,7 +246,7 @@ function CategoryCard({ stat }: { stat: CategoryStat }) {
             {stat.avgRating != null ? (
               <span>
                 <span className="font-semibold tabular-nums text-foreground">
-                  <Score value={stat.avgRating} />
+                  <Score value={stat.avgRating} star={false} />
                 </span>{' '}
                 avg rating
               </span>

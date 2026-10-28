@@ -63,7 +63,7 @@ export function SearchDialog({
   triggerClassName,
 }: SearchDialogProps) {
   const router = useRouter();
-  const { score } = useScoreFormat();
+  const { score, format: scoreFormat } = useScoreFormat();
   const labels = addChoiceLabels(slug);
 
   const [open, setOpen] = useState(false);
@@ -356,7 +356,7 @@ export function SearchDialog({
                   <ConfirmedLabel>In Up next</ConfirmedLabel>
                 ) : row?.phase === 'existing' || (inLibrary && !row) ? (
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    {inLibrary ? libraryBadge(inLibrary, slug) : 'In library'}
+                    {inLibrary ? libraryBadge(inLibrary, slug, scoreFormat) : 'In library'}
                   </span>
                 ) : row?.phase === 'rating' ? null : (
                   <div className="flex shrink-0 flex-col gap-1.5 sm:flex-row">

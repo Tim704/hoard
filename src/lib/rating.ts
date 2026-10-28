@@ -34,16 +34,25 @@ export function nudgeRating(v: number | null, delta: number): number {
 /** How scores are shown (input always stays on the 0–10 scale). */
 export type ScoreFormat = 'ten' | 'five' | 'hundred';
 
+export interface ScoreOptions {
+  /** Append ★ in the five format (default true). Pass false where a star icon is already drawn. */
+  star?: boolean;
+}
+
 /**
  * Show a 0–10 score in the user's format, or an em dash when unrated:
  * ten "8.5" (one decimal), five "4.3★" (score/2 to one decimal), hundred "85".
  */
-export function formatScore(v: number | null, format: ScoreFormat = 'ten'): string {
+export function formatScore(
+  v: number | null,
+  format: ScoreFormat = 'ten',
+  { star = true }: ScoreOptions = {},
+): string {
   if (v === null || !Number.isFinite(v)) return '—';
   switch (format) {
     case 'five':
       // round1 on the tenths avoids 8.5/2 = 4.25 rounding down through float error.
-      return `${(Math.round(Math.round(v * 10) / 2) / 10).toFixed(1)}★`;
+      return `${(Math.round(Math.round(v * 10) / 2) / 10).toFixed(1)}${star ? '★' : ''}`;
     case 'hundred':
       return String(Math.round(v * 10));
     default:
@@ -51,11 +60,20 @@ export function formatScore(v: number | null, format: ScoreFormat = 'ten'): stri
   }
 }
 
-/** Like formatScore, with the scale: "8.5/10", "4.3★", "85/100". */
-export function formatScoreOutOf(v: number | null, format: ScoreFormat = 'ten'): string {
+/**
+ * Like formatScore, with the scale: "8.5/10", "4.3★", "85/100". With
+ * `star: false` the five format reads "4.3/5" (for places with a star icon).
+ */
+export function formatScoreOutOf(
+  v: number | null,
+  format: ScoreFormat = 'ten',
+  { star = true }: ScoreOptions = {},
+): string {
   if (v === null || !Number.isFinite(v)) return '—';
-  const s = formatScore(v, format);
-  return format === 'ten' ? `${s}/10` : format === 'hundred' ? `${s}/100` : s;
+  const s = formatScore(v, format, { star });
+  if (format === 'ten') return `${s}/10`;
+  if (format === 'hundred') return `${s}/100`;
+  return star ? s : `${s}/5`;
 }
 
 /** "8.0", "7.5", or an em dash when unrated (the 0–10 format, used by inputs). */

@@ -111,7 +111,7 @@ interface SortableRowProps {
 function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRemove, actions }: SortableRowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id, disabled });
-  const { score } = useScoreFormat();
+  const { scorePlain } = useScoreFormat();
 
   return (
     <li
@@ -160,7 +160,7 @@ function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRe
       {item.rating != null && (
         <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-amber-600 dark:text-amber-300">
           <Star className="h-3.5 w-3.5 fill-current" aria-hidden />
-          {score(item.rating)}
+          {scorePlain(item.rating)}
         </span>
       )}
 

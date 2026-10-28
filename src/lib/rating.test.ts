@@ -80,4 +80,14 @@ describe('formatScore', () => {
     expect(formatScoreOutOf(8.5, 'hundred')).toBe('85/100');
     expect(formatScoreOutOf(null, 'hundred')).toBe('—');
   });
+
+  it('star: false drops the ★ where an icon is already drawn', () => {
+    expect(formatScore(8.5, 'five', { star: false })).toBe('4.3');
+    expect(formatScore(8.5, 'ten', { star: false })).toBe('8.5');
+    expect(formatScore(8.5, 'hundred', { star: false })).toBe('85');
+    expect(formatScore(null, 'five', { star: false })).toBe('—');
+    expect(formatScoreOutOf(8.5, 'five', { star: false })).toBe('4.3/5');
+    expect(formatScoreOutOf(8.5, 'ten', { star: false })).toBe('8.5/10');
+    expect(formatScoreOutOf(8.5, 'hundred', { star: false })).toBe('85/100');
+  });
 });

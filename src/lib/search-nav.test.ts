@@ -44,5 +44,7 @@ describe('libraryBadge', () => {
   it('shows status and score when rated', () => {
     expect(libraryBadge({ status: 'COMPLETED', rating: 8.5 }, 'movies')).toBe('In library · Watched 8.5');
     expect(libraryBadge({ status: 'PLANNED', rating: null }, 'movies')).toBe('In library · Unwatched');
+    expect(libraryBadge({ status: 'COMPLETED', rating: 8.5 }, 'movies', 'five')).toBe('In library · Watched 4.3★');
+    expect(libraryBadge({ status: 'COMPLETED', rating: 8.5 }, 'movies', 'hundred')).toBe('In library · Watched 85');
   });
 });
