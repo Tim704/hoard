@@ -17,7 +17,7 @@ import {
   progressUnit,
   tracksProgress,
 } from '@/lib/progress';
-import { statusLabel } from '@/lib/status';
+import { FINISHED_STATUSES, statusLabel } from '@/lib/status';
 import type { ActivityWithMedia } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -49,16 +49,28 @@ export function ProgressField({ activity, disabled, onMarkFinished }: ProgressFi
   const latest = useRef<number | null>(activity.progress); // what the user sees
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function persist(next: number | null) {
+  // Saves run one at a time, in order, so a +1 batch and a typed value can't
+  // land out of order and leave a stale value (or event) behind.
+  const queue = useRef<Promise<void>>(Promise.resolve());
+
+  function persist(next: number | null): Promise<void> {
+    queue.current = queue.current.then(() => save(next));
+    return queue.current;
+  }
+
+  async function save(next: number | null) {
     if (next === saved.current) return;
     const prev = saved.current;
     saved.current = next;
-    const res = await setProgress(activity.id, next);
+    const res = await setProgress(activity.id, next).catch(() => ({ ok: false, error: undefined }));
     if (!res.ok) {
       saved.current = prev;
-      latest.current = prev;
-      setValue(prev);
-      setDraft(prev?.toString() ?? '');
+      // Only roll the box back if nothing newer was entered meanwhile.
+      if (latest.current === next) {
+        latest.current = prev;
+        setValue(prev);
+        setDraft(prev?.toString() ?? '');
+      }
       toast.error(res.error ?? 'Could not save progress.');
       return;
     }
@@ -121,7 +133,8 @@ export function ProgressField({ activity, disabled, onMarkFinished }: ProgressFi
 
   const fraction = progressFraction(value, total);
   const reached = total != null && value != null && value >= total;
-  const finished = activity.status === 'COMPLETED';
+  // Already finished (completed, retired or dropped): nothing to offer.
+  const finished = FINISHED_STATUSES.includes(activity.status);
   const inputId = `progress-${activity.id}`;
 
   return (

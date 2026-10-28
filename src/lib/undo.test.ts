@@ -203,6 +203,14 @@ describe('status-change undo', () => {
     expect(events.map((e) => e.kind)).toEqual(['status', 'tier']);
   });
 
+  it('rounds a restored score like updateActivity does', () => {
+    const { data, events } = planStateRestore(ids, current, { rating: 7.25 });
+    expect(data.rating).toBe(7.3);
+    expect(events.map((e) => [e.kind, e.from, e.to])).toEqual([['score', '8', '7.3']]);
+    expect(planStateRestore(ids, current, { rating: 8.04 }).events).toEqual([]);
+    expect(planStateRestore(ids, current, { rating: null }).data.rating).toBeNull();
+  });
+
   it('writes no events when nothing changes', () => {
     expect(planStateRestore(ids, current, { ...current }).events).toEqual([]);
   });

@@ -18,6 +18,7 @@
 import { z } from 'zod';
 
 import { scoreValue, type EventInput } from './events';
+import { normalizeRating } from './rating';
 import { STATUSES, type Status } from './status';
 import { isTierEligible, TIERS, type Tier } from './tiers';
 
@@ -149,6 +150,8 @@ export function planStateRestore(
   wanted: ActivityStatePatch,
 ): { data: Row; events: EventInput[] } {
   const data: Row = { ...wanted };
+  // Same one-decimal rounding as updateActivity (the schema already bounds 0–10).
+  if (typeof wanted.rating === 'number') data.rating = normalizeRating(wanted.rating);
   if (wanted.finishedAt !== undefined) {
     data.finishedAt = wanted.finishedAt === null ? null : new Date(wanted.finishedAt);
   }
@@ -158,6 +161,7 @@ export function planStateRestore(
   const next: ActivityState = {
     ...current,
     ...wanted,
+    rating: data.rating !== undefined ? (data.rating as number | null) : current.rating,
     tier: data.tier !== undefined ? (data.tier as Tier | null) : current.tier,
   };
   const events: EventInput[] = [];
