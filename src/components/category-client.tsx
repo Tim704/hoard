@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Layers, ListTree, Rows3 } from 'lucide-react';
 
@@ -47,6 +47,8 @@ interface CategoryClientProps {
   franchises: { id: string; name: string }[];
   /** Open the "Score these" dialog on arrival (linked from the tier list). */
   scoreOpen?: boolean;
+  /** Open this activity's details on arrival (`?open=<id>`, from the Cmd/Ctrl+K palette). */
+  openId?: string;
 }
 
 type SortMode = 'status' | 'recent' | 'rating' | 'ranking' | 'title';
@@ -91,6 +93,7 @@ export function CategoryClient({
   activities,
   franchises,
   scoreOpen = false,
+  openId,
 }: CategoryClientProps) {
   // View preferences persist per category across visits.
   const key = (name: string) => `hoard:${slug}:${name}`;
@@ -120,7 +123,19 @@ export function CategoryClient({
   // Track the selection by id so the dialog always shows fresh server data.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = activities.find((a) => a.id === selectedId) ?? null;
-  const setSelected = (a: ActivityWithMedia | null) => setSelectedId(a?.id ?? null);
+  const setSelected = (a: ActivityWithMedia | null) => {
+    setSelectedId(a?.id ?? null);
+    // Closing details opened by ?open=… drops the parameter, so a reload
+    // doesn't reopen them.
+    if (!a && new URLSearchParams(window.location.search).has('open')) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('open');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    }
+  };
+  useEffect(() => {
+    if (openId) setSelectedId(openId);
+  }, [openId]);
 
   const toggleSection = (status: Status) =>
     setCollapsed((prev) =>

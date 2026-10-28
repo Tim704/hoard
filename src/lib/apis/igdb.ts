@@ -335,3 +335,53 @@ export async function fetchFranchiseGames(key: string): Promise<NormalizedResult
   if (!res.ok) throw new Error(`IGDB franchise games failed (${res.status})`);
   return ((await res.json()) as IgdbGame[]).map(mapGameSearchHit);
 }
+
+const IGDB_EXTERNAL_GAMES_URL = 'https://api.igdb.com/v4/external_games';
+const GAME_HIT_FIELDS = 'name,summary,first_release_date,cover.image_id,rating,platforms.name,genres.name';
+
+/** POST an Apicalypse body to an IGDB endpoint (credentials + token). */
+async function igdbPost<T>(url: string, body: string, what: string): Promise<T[]> {
+  const creds = requireCredentials();
+  const token = await getAccessToken(creds);
+  const res = await providerFetch(url, {
+    method: 'POST',
+    headers: { 'Client-ID': creds.clientId, Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    body,
+  });
+  if (!res.ok) throw new Error(`IGDB ${what} failed (${res.status})`);
+  return (await res.json()) as T[];
+}
+
+/** The Apicalypse body for one game by its igdb.com slug (null for a bad slug). */
+export function gameBySlugQuery(slug: string): string | null {
+  if (!/^[a-z0-9-]{1,200}$/.test(slug)) return null;
+  return `where slug = "${slug}"; fields ${GAME_HIT_FIELDS}; limit 1;`;
+}
+
+/** The Apicalypse body for the IGDB game behind a Steam app id. */
+export function steamExternalQuery(appId: string): string | null {
+  if (!/^\d{1,10}$/.test(appId)) return null;
+  return `where uid = "${appId}" & external_game_source = ${STEAM_SOURCE_ID}; fields game; limit 1;`;
+}
+
+/** A game by its igdb.com URL slug (add by link, 2.4), or null. */
+export async function fetchGameBySlug(slug: string): Promise<NormalizedResult | null> {
+  const body = gameBySlugQuery(slug);
+  if (!body) return null;
+  const [game] = await igdbPost<IgdbGame>(IGDB_GAMES_URL, body, 'game lookup');
+  return game?.id ? mapGameSearchHit(game) : null;
+}
+
+/**
+ * The game behind a Steam store link, through IGDB's external games (the
+ * same Steam `external_game_source` the metadata job reads), or null.
+ */
+export async function fetchGameBySteamAppId(appId: string): Promise<NormalizedResult | null> {
+  const body = steamExternalQuery(appId);
+  if (!body) return null;
+  const [ext] = await igdbPost<{ game?: number | null }>(IGDB_EXTERNAL_GAMES_URL, body, 'Steam lookup');
+  const id = ext?.game;
+  if (typeof id !== 'number' || !Number.isInteger(id)) return null;
+  const [game] = await igdbPost<IgdbGame>(IGDB_GAMES_URL, `where id = ${id}; fields ${GAME_HIT_FIELDS}; limit 1;`, 'game lookup');
+  return game?.id ? mapGameSearchHit(game) : null;
+}

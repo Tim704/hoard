@@ -7,7 +7,7 @@ import { getCategoryActivities, getFranchiseOptions } from '@/lib/data';
 interface CategoryPageProps {
   // Next 14: route params are a plain object (not a Promise).
   params: { category: string };
-  searchParams: { score?: string };
+  searchParams: { score?: string; open?: string };
 }
 
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
@@ -26,6 +26,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       activities={activities}
       franchises={franchises}
       scoreOpen={searchParams.score === '1'}
+      openId={typeof searchParams.open === 'string' ? searchParams.open : undefined}
     />
   );
 }

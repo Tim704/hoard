@@ -146,3 +146,87 @@ export async function fetchBookDetails(externalId: string): Promise<BookDetails 
   if (!res.ok) throw new Error(`OpenLibrary work lookup failed (${res.status})`);
   return mapWork((await res.json()) as OpenLibraryWorkJson);
 }
+
+/** The parts of an edition (GET /books/OL…M.json, /isbn/{isbn}.json) we read. */
+export interface OpenLibraryEditionJson {
+  key?: string | null;
+  title?: string | null;
+  works?: Array<{ key?: string | null }> | null;
+  covers?: unknown;
+  number_of_pages?: number | null;
+  publish_date?: string | null;
+}
+
+/** The work key ("/works/OL…W") an edition belongs to, or null. */
+export function editionWorkKey(edition: OpenLibraryEditionJson): string | null {
+  const key = edition.works?.find((w) => typeof w?.key === 'string')?.key ?? null;
+  return key && /^\/works\/OL\d+W$/.test(key) ? key : null;
+}
+
+/** A work as a search hit, through search.json's `key:` query, or null. */
+export async function fetchBookByWorkKey(workKey: string): Promise<NormalizedResult | null> {
+  if (!/^\/works\/OL\d+W$/.test(workKey)) return null;
+  const [doc] = await openLibrarySearch(`q=${encodeURIComponent(`key:${workKey}`)}`, 1);
+  return doc && doc.key === workKey ? mapBookDoc(doc) : null;
+}
+
+/**
+ * A bare result built from an edition when search doesn't (yet) list its
+ * work: title, cover, pages and year; the work key when known.
+ */
+export function mapEditionFallback(edition: OpenLibraryEditionJson, editionKey: string): NormalizedResult | null {
+  const title = edition.title?.trim();
+  if (!title) return null;
+  const own = [edition.key, editionKey].find((k) => typeof k === 'string' && /^\/books\/OL\d+M$/.test(k));
+  const externalId = editionWorkKey(edition) ?? own;
+  if (!externalId) return null;
+  const cover = Array.isArray(edition.covers)
+    ? edition.covers.find((c): c is number => typeof c === 'number' && Number.isInteger(c) && c > 0)
+    : undefined;
+  const image = cover ? `https://covers.openlibrary.org/b/id/${cover}-L.jpg` : null;
+  const y = Number(/\b(1[5-9]\d{2}|20\d{2})\b/.exec(edition.publish_date ?? '')?.[1]);
+  const year = Number.isFinite(y) ? y : null;
+  return {
+    externalId,
+    title,
+    imageUrl: image,
+    subtitle: year ? String(year) : null,
+    year,
+    description: null,
+    fields: {
+      externalId,
+      title,
+      imageUrl: image,
+      description: null,
+      year,
+      authors: [],
+      pageCount: edition.number_of_pages ?? null,
+      isbn: null,
+    },
+  };
+}
+
+/** GET an edition JSON (redirects followed: /isbn/… answers with a 302). */
+async function fetchEdition(path: string): Promise<OpenLibraryEditionJson | null> {
+  const res = await providerFetch(`${OPENLIBRARY}${path}.json`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`OpenLibrary edition lookup failed (${res.status})`);
+  return (await res.json()) as OpenLibraryEditionJson;
+}
+
+/** An edition key ("/books/OL…M") → its work as a search hit, or null. */
+export async function fetchBookByEditionKey(editionKey: string, isbn?: string): Promise<NormalizedResult | null> {
+  if (!/^\/books\/OL\d+M$/.test(editionKey) && !/^\/isbn\/[\dX]{10,13}$/.test(editionKey)) return null;
+  const edition = await fetchEdition(editionKey);
+  if (!edition) return null;
+  const workKey = editionWorkKey(edition);
+  const hit = (workKey && (await fetchBookByWorkKey(workKey))) || mapEditionFallback(edition, editionKey);
+  if (!hit) return null;
+  return isbn ? { ...hit, fields: { ...hit.fields, isbn } } : hit;
+}
+
+/** A book by ISBN (spec 2.9): /isbn/{isbn}.json → its work, or null. */
+export async function lookupIsbn(isbn: string): Promise<NormalizedResult | null> {
+  if (!/^(\d{13}|\d{9}[\dX])$/.test(isbn)) return null;
+  return fetchBookByEditionKey(`/isbn/${isbn}`, isbn);
+}

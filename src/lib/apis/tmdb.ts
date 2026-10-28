@@ -387,3 +387,48 @@ export async function fetchCollectionParts(collectionId: number): Promise<Normal
   if (!res.ok) throw new Error(`TMDB collection failed (${res.status})`);
   return mapCollectionParts((await res.json()) as TmdbCollectionJson);
 }
+
+/**
+ * One movie or show by TMDB id as a search-shaped hit (add by link, 2.4).
+ * The details JSON carries the search-hit fields the mapper reads (genres
+ * come later, from the add's enrichment). Null on 404; throws without a key.
+ */
+export async function fetchTmdbById(kind: 'movie' | 'tv', id: string): Promise<NormalizedResult | null> {
+  const key = requireKey();
+  if (!/^\d+$/.test(id)) return null;
+  const res = await providerFetch(`${TMDB_BASE}/${kind}/${id}?api_key=${key}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`TMDB ${kind} lookup failed (${res.status})`);
+  const data = (await res.json()) as TmdbMovie & TmdbTv;
+  if (typeof data?.id !== 'number') return null;
+  return kind === 'movie' ? mapMovieSearchHit(data) : mapTvSearchHit(data);
+}
+
+/** GET /find/{imdb_id}?external_source=imdb_id */
+export interface TmdbFindJson {
+  movie_results?: TmdbMovie[] | null;
+  tv_results?: TmdbTv[] | null;
+}
+
+/** The film (preferred) or show a /find answer names, or null. */
+export function mapFindResult(
+  data: TmdbFindJson,
+): { kind: 'movie' | 'tv'; result: NormalizedResult } | null {
+  const movie = (data.movie_results ?? []).find((m) => m && typeof m.id === 'number' && m.title);
+  if (movie) return { kind: 'movie', result: mapMovieSearchHit(movie) };
+  const tv = (data.tv_results ?? []).find((t) => t && typeof t.id === 'number' && t.name);
+  if (tv) return { kind: 'tv', result: mapTvSearchHit(tv) };
+  return null;
+}
+
+/** An IMDb title id (tt…) through TMDB's /find. Null when TMDB doesn't know it. */
+export async function findByImdbId(
+  imdbId: string,
+): Promise<{ kind: 'movie' | 'tv'; result: NormalizedResult } | null> {
+  const key = requireKey();
+  if (!/^tt\d{5,10}$/.test(imdbId)) return null;
+  const res = await providerFetch(`${TMDB_BASE}/find/${imdbId}?api_key=${key}&external_source=imdb_id`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`TMDB find failed (${res.status})`);
+  return mapFindResult((await res.json()) as TmdbFindJson);
+}

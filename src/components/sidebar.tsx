@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Boxes, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 import { logoutAction } from '@/lib/actions/auth';
+import { SearchEverythingButton } from '@/components/global-search';
 import { NavLinks } from '@/components/nav-links';
 import { NotificationBell } from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -83,6 +84,11 @@ export function Sidebar({ username, initialCollapsed = false, notifications }: S
             <ToggleIcon className="h-4 w-4" />
           </button>
         </div>
+      </div>
+
+      {/* Search everything (2.5); Cmd/Ctrl+K opens the palette (2.6). */}
+      <div className={cn('pb-2', collapsed ? 'px-2' : 'px-3')}>
+        <SearchEverythingButton collapsed={collapsed} />
       </div>
 
       {/* Navigation */}

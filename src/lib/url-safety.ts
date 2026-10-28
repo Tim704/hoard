@@ -44,6 +44,24 @@ function ipv6Blocked(host: string): boolean {
   );
 }
 
+/**
+ * True for an IP address (v4 or v6, no brackets) inside any private,
+ * loopback, link-local, CGNAT, unique-local, multicast or reserved range,
+ * including IPv4-mapped forms. Non-IP strings return false. Used by the
+ * page-fetch guard (src/lib/safe-fetch.ts) on every DNS answer.
+ */
+export function isBlockedIp(address: string): boolean {
+  const a = address.trim().toLowerCase().replace(/^\[|\]$/g, '').replace(/%.*$/, '');
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(a)) return ipv4Blocked(a);
+  if (a.includes(':')) {
+    if (a.split(':').every((g) => /^0*$/.test(g))) return true; // the unspecified address
+    // A full-length mapped form (0:0:0:0:0:ffff:7f00:1) normalises to ::ffff:….
+    const short = a.replace(/^(0{1,4}:){5}ffff:/, '::ffff:').replace(/^(0{1,4}:){7}0{0,3}1$/, '::1');
+    return ipv6Blocked(short);
+  }
+  return false;
+}
+
 /** Why a push URL is refused, or null when it is acceptable. */
 export function pushUrlProblem(raw: string): string | null {
   let url: URL;

@@ -14,6 +14,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { SearchEverythingButton } from '@/components/global-search';
 import { NavLinks } from '@/components/nav-links';
 import { NotificationBell } from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -91,6 +92,7 @@ export function MobileNav({
       </Link>
 
       <div className="ml-auto flex items-center">
+        <SearchEverythingButton compact />
         <NotificationBell summary={notifications} />
         <ThemeToggle />
       </div>

@@ -127,10 +127,53 @@ if (failures.length === 0) {
   }
 }
 
+// The keyboard surfaces (2.5 / 2.6): `/` opens Search everything and
+// Ctrl+K the palette, on top of a normal page.
+if (failures.length === 0) {
+  await step('search everything (/)', async () => {
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+    await page.locator('body').click({ position: { x: 5, y: 5 } }).catch(() => {});
+    await page.keyboard.press('/');
+    await page.getByRole('dialog', { name: 'Search everything' }).waitFor({ timeout: 10_000 });
+    await page.keyboard.type('frieren');
+    await page.getByRole('region', { name: 'Anime' }).waitFor({ timeout: 20_000 });
+    await page.keyboard.press('Escape');
+  });
+  await step('command palette (Ctrl+K)', async () => {
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+    await page.keyboard.press('Control+k');
+    const box = page.getByRole('combobox', { name: 'Find a title or page' });
+    await box.waitFor({ timeout: 10_000 });
+    await box.fill('sett');
+    await page.keyboard.press('Enter');
+    await page.waitForURL((url) => url.pathname === '/settings', { timeout: 15_000 });
+  });
+  // Signed out, a shared link survives the login (next=…).
+  await step('login keeps the shared /add link', async () => {
+    const fresh = await browser.newContext();
+    try {
+      const p = await fresh.newPage();
+      await p.goto(`${BASE_URL}/add?url=https%3A%2F%2Fanilist.co%2Fanime%2F1`, { waitUntil: 'networkidle' });
+      const at = new URL(p.url());
+      if (at.pathname !== '/login' || at.searchParams.get('next') !== '/add?url=https%3A%2F%2Fanilist.co%2Fanime%2F1') {
+        throw new Error(`expected /login?next=…, got ${p.url()}`);
+      }
+      await p.fill('#username', USER);
+      await p.fill('#password', PASSWORD);
+      await Promise.all([
+        p.waitForURL((url) => url.pathname === '/add' && url.searchParams.get('url') === 'https://anilist.co/anime/1', { timeout: 20_000 }),
+        p.click('button[type="submit"]'),
+      ]);
+    } finally {
+      await fresh.close();
+    }
+  });
+}
+
 await browser.close();
 
 if (failures.length) {
   console.log(`\nSmoke FAILED: ${failures.length} of ${routes.length + 1} steps had problems.`);
   process.exit(1);
 }
-console.log(`\nSmoke passed: login + ${routes.length} routes clean.`);
+console.log(`\nSmoke passed: login + ${routes.length} routes + the search surfaces clean.`);

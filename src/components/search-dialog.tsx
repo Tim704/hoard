@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Check, ImageOff, ListChecks, Loader2, PencilLine, Plus } from 'lucide-react';
+import { ArrowLeft, Check, ListChecks, Loader2, PencilLine, Plus, ScanBarcode } from 'lucide-react';
 import { toast } from 'sonner';
+
+import { AddResultRow, useAddRows } from '@/components/add-row';
+import { IsbnLookup } from '@/components/isbn-lookup';
+import { LinkResult } from '@/components/search-everything';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -17,18 +20,12 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ManualFields } from '@/components/manual-fields';
-import { RatingStep } from '@/components/rating-step';
-import { addManualEntry, addToList, searchMedia, updateActivity } from '@/lib/actions/media';
+import { addManualEntry, addToList, searchMedia } from '@/lib/actions/media';
+import { resolveLink, type ResolveLinkResult } from '@/lib/actions/search';
 import type { CategorySlug } from '@/lib/categories';
 import { parseManualInput, type ManualInput } from '@/lib/manual';
 import { cn } from '@/lib/utils';
-import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
-import {
-  createLatestGuard,
-  libraryBadge,
-  nextHighlight,
-  shouldSearch,
-} from '@/lib/search-nav';
+import { createLatestGuard, nextHighlight, shouldSearch } from '@/lib/search-nav';
 import { addChoiceLabels, type Status } from '@/lib/status';
 import type { NormalizedResult } from '@/lib/types';
 
@@ -44,13 +41,8 @@ interface SearchDialogProps {
 /** Search as you type waits this long after the last keystroke. */
 const SEARCH_DEBOUNCE_MS = 350;
 
-/** Per-result state once the user has acted on a row. */
-type RowState =
-  | { phase: 'saving' }
-  | { phase: 'rating'; activityId: string; saving: boolean }
-  | { phase: 'done'; rating: number | null }
-  | { phase: 'want' }
-  | { phase: 'existing' };
+/** A pasted link instead of a search (spec 2.4). */
+const isLink = (q: string) => /^https?:\/\/\S+$/i.test(q.trim());
 
 /**
  * Provider-search dialog. Searches as you type, ↑/↓ highlights a result and
@@ -58,6 +50,8 @@ type RowState =
  * titles before closing; "Select several" ticks results (across searches) and
  * adds them in one go (spec 1.8). "Add it yourself" opens a form for titles
  * the provider doesn't know (spec 1.5).
+ * Pasting a link instead looks that title up (spec 2.4); Books also take an
+ * ISBN, typed or scanned (2.9). The result rows are the shared AddResultRow.
  * On phones the dialog docks to the bottom of the screen as a sheet.
  */
 export function SearchDialog({
@@ -67,10 +61,6 @@ export function SearchDialog({
   triggerClassName,
 }: SearchDialogProps) {
   const router = useRouter();
-  const { score, format: scoreFormat } = useScoreFormat();
-  const titleOf = useDisplayTitle();
-  // AniList hits carry their title variants in `fields` (spec 4.9).
-  const resultTitle = (r: NormalizedResult) => titleOf({ ...r.fields, title: r.title });
   const labels = addChoiceLabels(slug);
 
   const [open, setOpen] = useState(false);
@@ -81,7 +71,9 @@ export function SearchDialog({
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [highlight, setHighlight] = useState(-1);
-  const [rows, setRows] = useState<Record<string, RowState>>({});
+  const { rows, setRow, clearRow, reset: resetRows, add: addRow, saveRating: saveRowRating } = useAddRows();
+  const [link, setLink] = useState<ResolveLinkResult | null>(null);
+  const [showIsbn, setShowIsbn] = useState(false);
   // "Select several": the ticked results, keyed by externalId, kept across searches.
   const [multi, setMulti] = useState(false);
   const [picked, setPicked] = useState<Record<string, NormalizedResult>>({});
@@ -114,7 +106,9 @@ export function SearchDialog({
     setSearched(false);
     setLoading(false);
     setHighlight(-1);
-    setRows({});
+    resetRows();
+    setLink(null);
+    setShowIsbn(false);
     setMulti(false);
     setPicked({});
     setBulk(null);
@@ -138,6 +132,21 @@ export function SearchDialog({
     const id = guard.current.next();
     setError(null);
     setLoading(true);
+    if (isLink(q)) {
+      try {
+        const res = await resolveLink(q);
+        if (!guard.current.isLatest(id)) return;
+        setLink(res);
+      } catch {
+        if (!guard.current.isLatest(id)) return;
+        setLink({ ok: false, error: 'Could not read that link.' });
+      }
+      setResults([]);
+      setSearched(true);
+      setLoading(false);
+      return;
+    }
+    setLink(null);
     try {
       const response = await searchMedia(slug, q);
       if (!guard.current.isLatest(id)) return;
@@ -163,6 +172,7 @@ export function SearchDialog({
       // Too short to search: drop any in-flight response and stale results.
       guard.current.next();
       setResults([]);
+      setLink(null);
       setError(null);
       setSearched(false);
       setLoading(false);
@@ -198,43 +208,8 @@ export function SearchDialog({
     }
   }
 
-  function setRow(id: string, state: RowState) {
-    setRows((prev) => ({ ...prev, [id]: state }));
-  }
-
-  function clearRow(id: string) {
-    setRows((prev) => {
-      const { [id]: _removed, ...rest } = prev;
-      return rest;
-    });
-  }
-
-  async function add(result: NormalizedResult, status: 'COMPLETED' | 'PLANNED') {
-    const key = result.externalId;
-    setRow(key, { phase: 'saving' });
-    try {
-      const res = await addToList(slug, result, status);
-      if (!res.ok || !res.activityId) {
-        clearRow(key);
-        toast.error(res.error ?? 'Could not add that item.');
-        return;
-      }
-      if (res.existing) {
-        setRow(key, { phase: 'existing' });
-        toast.info(`"${resultTitle(result)}" is already in your library.`);
-      } else if (status === 'COMPLETED') {
-        setRow(key, { phase: 'rating', activityId: res.activityId, saving: false });
-        toast.success(`Added "${resultTitle(result)}" as ${labels.done}.`);
-      } else {
-        setRow(key, { phase: 'want' });
-        toast.success(`Added "${resultTitle(result)}" to Up next.`);
-      }
-      router.refresh();
-    } catch {
-      clearRow(key);
-      toast.error('Could not add that item.');
-    }
-  }
+  const add = (result: NormalizedResult, status: 'COMPLETED' | 'PLANNED') =>
+    addRow(result.externalId, slug, result, status);
 
   function togglePick(result: NormalizedResult) {
     if (bulk) return;
@@ -331,23 +306,6 @@ export function SearchDialog({
     }
   }
 
-  async function saveRating(result: NormalizedResult, activityId: string, rating: number) {
-    const key = result.externalId;
-    setRow(key, { phase: 'rating', activityId, saving: true });
-    try {
-      const res = await updateActivity(activityId, { rating });
-      if (res.ok) {
-        setRow(key, { phase: 'done', rating });
-        router.refresh();
-        return;
-      }
-      toast.error(res.error ?? 'Could not save that rating.');
-    } catch {
-      toast.error('Could not save that rating.');
-    }
-    setRow(key, { phase: 'rating', activityId, saving: false });
-  }
-
   const activeId = highlight >= 0 ? `add-option-${highlight}` : undefined;
 
   const pickedCount = Object.keys(picked).length;
@@ -430,7 +388,7 @@ export function SearchDialog({
                 value={query}
                 onChange={(e) => onQueryChange(e.target.value)}
                 onKeyDown={onInputKeyDown}
-                placeholder={`Search for a ${singular.toLowerCase()}…`}
+                placeholder={`Search for a ${singular.toLowerCase()} or paste a link…`}
                 // text-base on phones stops iOS zooming the page on focus (<16px does).
                 className="text-base sm:text-sm"
                 role="combobox"
@@ -466,6 +424,25 @@ export function SearchDialog({
 
             {error && <p className="text-sm text-rose-400">{error}</p>}
 
+            {slug === 'books' && (
+              <div className="space-y-2">
+                {!showIsbn ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowIsbn(true)}
+                    className="inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                  >
+                    <ScanBarcode className="h-4 w-4" aria-hidden />
+                    Scan a barcode or type an ISBN
+                  </button>
+                ) : (
+                  <IsbnLookup library={library} />
+                )}
+              </div>
+            )}
+
+            {link && !loading && <LinkResult resolution={link} />}
+
             <div
               ref={listRef}
               id="add-results"
@@ -481,7 +458,7 @@ export function SearchDialog({
                 </div>
               )}
 
-              {!loading && searched && results.length === 0 && !error && (
+              {!loading && searched && results.length === 0 && !error && !link && (
                 <p className="py-8 text-center text-sm text-muted-foreground">
                   No results found.
                 </p>
@@ -490,121 +467,26 @@ export function SearchDialog({
               {results.map((result, index) => {
                 const key = result.externalId;
                 const row = rows[key];
-                const inLibrary = library[key];
-                const busy = row?.phase === 'saving';
-                const selectable = multi && !inLibrary && !row;
-                const isPicked = !!picked[key];
                 return (
-                  <div
+                  <AddResultRow
                     key={key}
                     id={`add-option-${index}`}
-                    role="option"
-                    aria-selected={multi ? isPicked : index === highlight}
-                    data-external-id={key}
-                    onClick={
-                      selectable
-                        ? (e) => {
-                            if ((e.target as HTMLElement).closest('input')) return;
-                            togglePick(result);
-                          }
+                    slug={slug}
+                    result={result}
+                    row={row}
+                    inLibrary={library[key] ?? null}
+                    highlighted={index === highlight}
+                    multi={
+                      multi
+                        ? { picked: !!picked[key], disabled: !!bulk, onToggle: () => togglePick(result) }
                         : undefined
                     }
-                    className={cn(
-                      'flex items-center gap-3 rounded-md border border-border p-2',
-                      index === highlight && 'border-primary bg-accent/50',
-                      selectable && 'cursor-pointer',
-                      isPicked && 'border-primary/70 bg-primary/5',
-                    )}
-                  >
-                    <div className="relative h-16 w-11 shrink-0 overflow-hidden rounded bg-muted">
-                      {result.imageUrl ? (
-                        <Image
-                          src={result.imageUrl}
-                          alt={resultTitle(result)}
-                          fill
-                          sizes="44px"
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                          <ImageOff className="h-4 w-4" aria-hidden />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium" title={resultTitle(result)}>
-                        {resultTitle(result)}
-                        {result.year != null && (
-                          <span className="ml-1 font-normal text-muted-foreground">
-                            ({result.year})
-                          </span>
-                        )}
-                      </p>
-                      {result.subtitle && (
-                        <p className="truncate text-xs text-muted-foreground">
-                          {result.subtitle}
-                        </p>
-                      )}
-                      {row?.phase === 'rating' && (
-                        <div className="mt-1.5">
-                          <RatingStep
-                            autoFocus
-                            disabled={row.saving}
-                            onSave={(v) => void saveRating(result, row.activityId, v)}
-                            onSkip={() => setRow(key, { phase: 'done', rating: null })}
-                          />
-                        </div>
-                      )}
-                    </div>
-                    {row?.phase === 'done' ? (
-                      <ConfirmedLabel>
-                        {labels.done}
-                        {row.rating !== null && ` ${score(row.rating)}`}
-                      </ConfirmedLabel>
-                    ) : row?.phase === 'want' ? (
-                      <ConfirmedLabel>In Up next</ConfirmedLabel>
-                    ) : row?.phase === 'existing' || (inLibrary && !row) ? (
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {inLibrary ? libraryBadge(inLibrary, slug, scoreFormat) : 'In library'}
-                      </span>
-                    ) : row?.phase === 'rating' ? null : multi ? (
-                      busy ? (
-                        <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" aria-label="Adding" />
-                      ) : (
-                        <input
-                          type="checkbox"
-                          checked={isPicked}
-                          disabled={!!bulk}
-                          onChange={() => togglePick(result)}
-                          aria-label={`Select ${resultTitle(result)}`}
-                          className="h-5 w-5 shrink-0 cursor-pointer accent-primary"
-                        />
-                      )
-                    ) : (
-                      <div className="flex shrink-0 flex-col gap-1.5 sm:flex-row">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          disabled={busy}
-                          onClick={() => void add(result, 'COMPLETED')}
-                        >
-                          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                          <span className="ml-1.5">{labels.done}</span>
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={busy}
-                          onClick={() => void add(result, 'PLANNED')}
-                        >
-                          <Plus className="h-4 w-4" />
-                          <span className="ml-1.5">{labels.want}</span>
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                    onAdd={(status) => void add(result, status)}
+                    onRate={(v) => {
+                      if (row?.phase === 'rating') void saveRowRating(key, row.activityId, v);
+                    }}
+                    onSkipRate={() => setRow(key, { phase: 'done', rating: null })}
+                  />
                 );
               })}
             </div>
@@ -663,14 +545,5 @@ export function SearchDialog({
         )}
       </DialogContent>
     </Dialog>
-  );
-}
-
-function ConfirmedLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-emerald-500">
-      <Check className="h-4 w-4" aria-hidden />
-      {children}
-    </span>
   );
 }
