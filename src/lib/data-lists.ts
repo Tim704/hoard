@@ -109,7 +109,11 @@ export async function getCustomList(listId: string, userId: string): Promise<Cus
         return m ? { id: it.id, category: it.category as CategorySlug, mediaId: it.mediaId, media: m } : null;
       })
       .filter((x): x is ListItemView => x !== null),
-    members: list.members.map((m) => ({ userId: m.userId, username: m.user.username, canEdit: m.canEdit })),
+    // Only the owner manages (and so sees) the member list.
+    members:
+      role === 'owner'
+        ? list.members.map((m) => ({ userId: m.userId, username: m.user.username, canEdit: m.canEdit }))
+        : [],
   };
 }
 
