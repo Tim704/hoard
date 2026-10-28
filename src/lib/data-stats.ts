@@ -12,12 +12,13 @@ import { prisma } from '@/lib/prisma';
 import { CATEGORY_LIST, NAV_ORDER, type CategorySlug } from '@/lib/categories';
 import { crowdScore } from '@/lib/crowd';
 import { getPrefs } from '@/lib/data-prefs';
-import { diaryYears, yearTopThree } from '@/lib/data-year';
+import { getCurrentUser } from '@/lib/session';
+import { diaryYears, yearRanking } from '@/lib/data-year';
 import { effectiveTimeZone, type Prefs } from '@/lib/prefs';
 import { progressTotal } from '@/lib/progress';
 import { todayYmd } from '@/lib/release';
 import { displayTitle } from '@/lib/title';
-import { yearBounds } from '@/lib/year-arena';
+import { yearBounds, yearsOf } from '@/lib/year-arena';
 import {
   avgScoreByYear,
   crowdOverview,
@@ -153,24 +154,20 @@ export async function loadFinishEntries(userId: string, range?: DayRange): Promi
 }
 
 /**
- * Days (in the user's zone) with any activity event or diary entry. Events
- * come back as distinct 15-minute buckets — every zone's offset is a multiple
- * of 15 minutes, so a bucket never straddles a local midnight — which keeps
- * the rows bounded however many events a day had.
+ * Days (in the user's zone) with any activity event. Events come back as
+ * distinct 15-minute buckets — every zone's offset is a multiple of 15
+ * minutes, so a bucket never straddles a local midnight — which keeps the
+ * rows bounded however many events a day had. (Diary days are added by the
+ * caller from the entries it already loaded.)
  */
-async function loadActiveDays(userId: string, timeZone: string): Promise<Set<string>> {
-  const [buckets, diary] = await Promise.all([
-    prisma.$queryRaw<{ b: Date }[]>`
-      SELECT DISTINCT to_timestamp(floor(extract(epoch FROM "at") / 900) * 900) AS b
-      FROM "ActivityEvent" WHERE "userId" = ${userId}`,
-    prisma.diaryEntry.findMany({ where: { userId }, select: { date: true }, distinct: ['date'] }),
-  ]);
-  const days = daysOf(
+async function loadEventDays(userId: string, timeZone: string): Promise<Set<string>> {
+  const buckets = await prisma.$queryRaw<{ b: Date }[]>`
+    SELECT DISTINCT to_timestamp(floor(extract(epoch FROM "at") / 900) * 900) AS b
+    FROM "ActivityEvent" WHERE "userId" = ${userId}`;
+  return daysOf(
     buckets.map((r) => r.b),
     timeZone,
   );
-  for (const d of diary) days.add(d.date);
-  return days;
 }
 
 // ── Overview (/stats) ───────────────────────────────────────────────────────
@@ -195,16 +192,18 @@ export interface StatsOverview {
 }
 
 /** Everything the Overview tab shows. `chartYear` null = the current year. */
-export async function getStatsOverview(userId: string, chartYear: number | null): Promise<StatsOverview> {
-  const prefs = await getPrefs(userId);
+export async function getStatsOverview(userId: string, chartYear: number | null, known?: Prefs): Promise<StatsOverview> {
+  const prefs = known ?? (await getPrefs(userId));
   const tz = effectiveTimeZone(prefs);
   const today = todayYmd(tz);
-  const [titles, entries, days, years] = await Promise.all([
+  const [titles, entries, days] = await Promise.all([
     loadStatTitles(userId, prefs),
     loadFinishEntries(userId),
-    loadActiveDays(userId, tz),
-    diaryYears(userId),
+    loadEventDays(userId, tz),
   ]);
+  // Diary days count for streaks; their years feed the chart's picker.
+  for (const e of entries) days.add(e.date);
+  const years = yearsOf(entries.map((e) => e.date));
   const year = chartYear ?? Number(today.slice(0, 4));
   const sections = NAV_ORDER.filter((slug) => !prefs.hiddenSections.includes(slug)).map((slug) => ({
     slug,
@@ -237,18 +236,20 @@ export interface YearReview {
 }
 
 /** The year in review of `userId` (also behind a year share link). */
-export async function getYearReview(userId: string, year: number): Promise<YearReview> {
-  const prefs = await getPrefs(userId);
-  const [entries, years, top] = await Promise.all([
+export async function getYearReview(userId: string, year: number, known?: Prefs): Promise<YearReview> {
+  const prefs = known ?? (await getPrefs(userId));
+  const [entries, years, ranking] = await Promise.all([
     loadFinishEntries(userId, yearBounds(year)),
     diaryYears(userId),
-    yearTopThree(userId, year),
+    yearRanking(userId, year),
   ]);
   const titles = await loadStatTitles(userId, prefs, [...new Set(entries.map((e) => e.activityId))]);
   const hidden = new Set<string>(prefs.hiddenSections);
-  const topThree = top.some((a) => a.duels > 0)
-    ? top
-        .filter((a) => !hidden.has(a.category))
+  // Hidden sections leave the ranking before the top 3 is taken.
+  const visible = ranking.filter((a) => !hidden.has(a.category));
+  const topThree = visible.some((a) => a.duels > 0)
+    ? visible
+        .slice(0, 3)
         .map((a) => ({
           id: a.id,
           category: a.category,
@@ -262,7 +263,7 @@ export async function getYearReview(userId: string, year: number): Promise<YearR
 // ── Goals (/stats?tab=goals and the dashboard tile) ─────────────────────────
 
 /** The user's goals for `year` with their progress (sorted for display). */
-export async function getGoalsProgress(userId: string, year: number): Promise<GoalProgress[]> {
+export async function getGoalsProgress(userId: string, year: number, known?: Prefs): Promise<GoalProgress[]> {
   const rows = await prisma.goal.findMany({
     where: { userId, year },
     select: { id: true, year: true, category: true, metric: true, target: true },
@@ -271,7 +272,7 @@ export async function getGoalsProgress(userId: string, year: number): Promise<Go
     .filter((g) => isGoalMetric(g.metric))
     .map((g) => ({ ...g, category: (g.category as CategorySlug | null) ?? null, metric: g.metric as Goal['metric'] }));
   if (goals.length === 0) return [];
-  const prefs = await getPrefs(userId);
+  const prefs = known ?? (await getPrefs(userId));
   const entries = await loadFinishEntries(userId, yearBounds(year));
   // Goals measure the section they name, even one hidden in Settings.
   const titles = await loadStatTitles(userId, { ...prefs, hiddenSections: [] }, [...new Set(entries.map((e) => e.activityId))]);
@@ -279,8 +280,15 @@ export async function getGoalsProgress(userId: string, year: number): Promise<Go
 }
 
 /** Today's year in the user's zone. */
-export async function currentYear(userId: string): Promise<number> {
-  return Number(todayYmd(effectiveTimeZone(await getPrefs(userId))).slice(0, 4));
+export const yearNow = (prefs: Prefs): number => Number(todayYmd(effectiveTimeZone(prefs)).slice(0, 4));
+
+/** The logged-in user's goals for this year (the dashboard tile); empty when logged out. */
+export async function getCurrentGoals(): Promise<{ year: number; goals: GoalProgress[] }> {
+  const user = await getCurrentUser();
+  if (!user) return { year: 0, goals: [] };
+  const prefs = await getPrefs(user.id);
+  const year = yearNow(prefs);
+  return { year, goals: await getGoalsProgress(user.id, year, prefs) };
 }
 
 // ── Taste (/stats?tab=taste) ────────────────────────────────────────────────
@@ -305,8 +313,8 @@ export interface CompareQuery {
 }
 
 /** Drop points, genre drift and the two compared periods. */
-export async function getTastePage(userId: string, q: CompareQuery): Promise<TastePage> {
-  const prefs = await getPrefs(userId);
+export async function getTastePage(userId: string, q: CompareQuery, known?: Prefs): Promise<TastePage> {
+  const prefs = known ?? (await getPrefs(userId));
   const today = todayYmd(effectiveTimeZone(prefs));
   const [titles, entries] = await Promise.all([loadStatTitles(userId, prefs), loadFinishEntries(userId)]);
 
@@ -343,8 +351,8 @@ export async function getTastePage(userId: string, q: CompareQuery): Promise<Tas
 
 // ── People (/stats?tab=people) ──────────────────────────────────────────────
 
-export async function getPeoplePage(userId: string) {
-  const prefs = await getPrefs(userId);
+export async function getPeoplePage(userId: string, known?: Prefs) {
+  const prefs = known ?? (await getPrefs(userId));
   const titles = (await loadStatTitles(userId, prefs)).filter(
     (t) => (t.category === 'movies' || t.category === 'tv') && countsAsFinished(t),
   );

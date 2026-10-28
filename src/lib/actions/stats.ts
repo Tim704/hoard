@@ -117,20 +117,18 @@ export async function yearVerdict(year: unknown): Promise<{ text: string; error?
   const rate = takeAiRate(user.id);
   if (!rate.ok) return { text: '', error: rate.message };
 
-  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const resp = await Promise.race([
-      ai.models.generateContent({ model: process.env.GEMINI_MODEL || 'gemini-2.5-flash', contents: prompt }),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('timeout')), GEMINI_TIMEOUT_MS);
-      }),
-    ]);
+    // The SDK aborts its HTTP request when the signal fires, so the call stops
+    // waiting at the timeout (client-side only: the service may still finish it).
+    const resp = await ai.models.generateContent({
+      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+      contents: prompt,
+      config: { abortSignal: AbortSignal.timeout(GEMINI_TIMEOUT_MS) },
+    });
     const text = (resp.text ?? '').trim();
     return text ? { text } : { text: '', error: 'The AI had nothing to say. Try again.' };
   } catch {
     return { text: '', error: 'The AI verdict is unavailable right now. Try again later.' };
-  } finally {
-    clearTimeout(timer);
   }
 }

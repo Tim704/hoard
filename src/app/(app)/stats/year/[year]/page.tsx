@@ -8,7 +8,8 @@ import { FinishedPerMonthChart } from '@/components/stats/stats-charts';
 import { StatsTabs } from '@/components/stats/stats-tabs';
 import { AiVerdict, YearShare, type YearCard } from '@/components/stats/year-share';
 import { CATEGORIES } from '@/lib/categories';
-import { currentYear, getYearReview } from '@/lib/data-stats';
+import { getPrefs } from '@/lib/data-prefs';
+import { getYearReview, yearNow } from '@/lib/data-stats';
 import { requireUser } from '@/lib/session';
 import { HOURS_NOTE } from '@/lib/stats/measures';
 import { sectionHex, sectionVar } from '@/lib/stats/palette';
@@ -27,7 +28,9 @@ export default async function YearInReviewPage({ params }: { params: { year: str
   const year = parseYear(params.year);
   if (year === null) notFound();
   const user = await requireUser();
-  const [review, cy] = await Promise.all([getYearReview(user.id, year), currentYear(user.id)]);
+  const prefs = await getPrefs(user.id);
+  const cy = yearNow(prefs);
+  const review = await getYearReview(user.id, year, prefs);
   const { summary: s, topThree } = review;
   const years = [...new Set([year, cy, ...review.years])].sort((a, b) => b - a);
 

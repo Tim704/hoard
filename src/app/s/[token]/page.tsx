@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -11,15 +12,30 @@ import { loadPublicShare, type ListShareView, type SharedItem, type TiersShareVi
 // no sidebar. A revoked link must stop working at once, so never cache.
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'A shared list · Hoard',
-  robots: { index: false, follow: false },
-  referrer: 'no-referrer',
-};
+// One database read per request, shared by generateMetadata and the page.
+const loadView = cache(loadPublicShare);
+
+/** The tab title names what is shared ("2026 in review", "Books tier list", a list's name). */
+export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
+  const view = await loadView(params.token);
+  const what =
+    view?.kind === 'year'
+      ? `${view.year} in review`
+      : view?.kind === 'tiers'
+        ? `${view.sectionLabel} tier list`
+        : view?.kind === 'list'
+          ? view.name
+          : 'Not found';
+  return {
+    title: `${what} · Hoard`,
+    robots: { index: false, follow: false },
+    referrer: 'no-referrer',
+  };
+}
 
 export default async function SharePage({ params }: { params: { token: string } }) {
   // Unknown, malformed and revoked tokens all get the same 404.
-  const view = await loadPublicShare(params.token);
+  const view = await loadView(params.token);
   if (!view) notFound();
 
   return (

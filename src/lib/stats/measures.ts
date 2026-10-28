@@ -41,11 +41,15 @@ function counted(t: StatTitle, total: number | null): number {
   return all;
 }
 
-/** Episodes of a TV show or anime (0 for other sections). */
+/**
+ * Episodes of a TV show or anime (0 for other sections). When the provider
+ * doesn't know the episode count (a show still airing, a manual entry), the
+ * progress reached stands in for it.
+ */
 export function episodesOf(t: StatTitle): number {
-  if (t.category === 'tv') return counted(t, t.media.episodeCount);
-  if (t.category === 'anime') return counted(t, t.media.episodes);
-  return 0;
+  const total = t.category === 'tv' ? t.media.episodeCount : t.category === 'anime' ? t.media.episodes : undefined;
+  if (total === undefined) return 0;
+  return counted(t, total) || positive(t.progress);
 }
 
 /** Pages of a book (0 for other sections). */

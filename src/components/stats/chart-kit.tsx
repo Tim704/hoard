@@ -258,7 +258,7 @@ export function StackedColumns({
   return (
     <div ref={ref} className="relative w-full" onMouseLeave={() => setActive(null)}>
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label={ariaLabel} className="block overflow-visible">
+        <svg width={width} height={height} role="group" aria-label={ariaLabel} className="block overflow-visible">
           {ticks.map((t) => (
             <g key={t}>
               <line x1={m.left} x2={width - m.right} y1={y(t)} y2={y(t)} stroke={t === 0 ? 'var(--viz-axis)' : 'var(--viz-grid)'} strokeWidth={1} shapeRendering="crispEdges" />
@@ -481,7 +481,7 @@ export function DotLine({
   return (
     <div ref={ref} className="relative w-full" onMouseLeave={() => setActive(null)}>
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label={ariaLabel} className="block overflow-visible">
+        <svg width={width} height={height} role="group" aria-label={ariaLabel} className="block overflow-visible">
           {yTicks.map((t) => (
             <g key={t}>
               <line x1={m.left} x2={width - m.right} y1={y(t)} y2={y(t)} stroke={t === 0 ? 'var(--viz-axis)' : 'var(--viz-grid)'} strokeWidth={1} shapeRendering="crispEdges" />

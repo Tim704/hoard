@@ -29,9 +29,8 @@ import { getDashboardStats, getFavourites, getNowConsuming, type CategoryStat } 
 import { favouritesShowcase, type ShowcaseSection } from '@/lib/favourites';
 import { getCurrentPrefs } from '@/lib/data-prefs';
 import { getComingUp, type ComingUpItem } from '@/lib/data-tonight';
-import { formatYmd, todayYmd } from '@/lib/release';
-import { getGoalsProgress } from '@/lib/data-stats';
-import { effectiveTimeZone } from '@/lib/prefs';
+import { formatYmd } from '@/lib/release';
+import { getCurrentGoals } from '@/lib/data-stats';
 import type { GoalProgress } from '@/lib/stats/goals';
 import type { TitleLanguage } from '@/lib/display-prefs';
 import { getCurrentUser } from '@/lib/session';
@@ -58,17 +57,16 @@ const ROW_1_2_LEFT: CategorySlug[] = ['books', 'movies', 'anime', 'games'];
 const ROW_2_RIGHT_3: CategorySlug[] = ['tv', 'manga', 'music'];
 
 export default async function DashboardPage() {
-  const [user, allStats, allConsuming, prefs, favourites, comingUp] = await Promise.all([
+  // `goals`: this year's goals (6.3) in the user's time zone; the tile hides without any.
+  const [user, allStats, allConsuming, prefs, favourites, comingUp, { year: goalYear, goals }] = await Promise.all([
     getCurrentUser(),
     getDashboardStats(),
     getNowConsuming(),
     getCurrentPrefs(),
     getFavourites(),
     getComingUp(5),
+    getCurrentGoals(),
   ]);
-  // This year's goals (6.3), in the user's time zone; the tile hides without any.
-  const goalYear = Number(todayYmd(effectiveTimeZone(prefs)).slice(0, 4));
-  const goals = user ? await getGoalsProgress(user.id, goalYear) : [];
 
   // Sections hidden in Settings drop out of the tiles, the totals and "Now consuming".
   const hidden = new Set<string>(prefs.hiddenSections);

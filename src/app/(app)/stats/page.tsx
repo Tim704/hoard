@@ -15,18 +15,20 @@ import {
 } from '@/components/stats/stats-charts';
 import { StatsTabs, type StatsTab } from '@/components/stats/stats-tabs';
 import { CATEGORIES, NAV_ORDER } from '@/lib/categories';
-import { getCurrentPrefs } from '@/lib/data-prefs';
+import { getPrefs } from '@/lib/data-prefs';
+import type { Prefs } from '@/lib/prefs';
 import {
-  currentYear,
   getGoalsProgress,
   getPeoplePage,
   getStatsOverview,
   getTastePage,
   type StatsOverview,
   type TastePage,
+  yearNow,
 } from '@/lib/data-stats';
 import { formatYmd } from '@/lib/release';
 import { requireUser } from '@/lib/session';
+import { statusLabel } from '@/lib/status';
 import { dropPointPhrase } from '@/lib/stats/taste';
 import type { PersonRow } from '@/lib/stats/people';
 import { parseYear } from '@/lib/year-arena';
@@ -43,7 +45,8 @@ type Search = { tab?: string; year?: string; preset?: string; a1?: string; a2?: 
  */
 export default async function StatsPage({ searchParams }: { searchParams: Search }) {
   const user = await requireUser();
-  const cy = await currentYear(user.id);
+  const prefs = await getPrefs(user.id);
+  const cy = yearNow(prefs);
   if (searchParams.tab === 'year') redirect(`/stats/year/${parseYear(searchParams.year) ?? cy}`);
   const tab: StatsTab =
     searchParams.tab === 'goals' || searchParams.tab === 'taste' || searchParams.tab === 'people' ? searchParams.tab : 'overview';
@@ -55,10 +58,10 @@ export default async function StatsPage({ searchParams }: { searchParams: Search
         <p className="mt-1 text-muted-foreground">What your hoard says about you.</p>
       </header>
       <StatsTabs active={tab} currentYear={cy} />
-      {tab === 'overview' && <Overview data={await getStatsOverview(user.id, parseYear(searchParams.year))} />}
-      {tab === 'goals' && <Goals userId={user.id} year={parseYear(searchParams.year) ?? cy} currentYear={cy} />}
-      {tab === 'taste' && <Taste data={await getTastePage(user.id, searchParams)} />}
-      {tab === 'people' && <People data={await getPeoplePage(user.id)} />}
+      {tab === 'overview' && <Overview data={await getStatsOverview(user.id, parseYear(searchParams.year), prefs)} />}
+      {tab === 'goals' && <Goals userId={user.id} prefs={prefs} year={parseYear(searchParams.year) ?? cy} currentYear={cy} />}
+      {tab === 'taste' && <Taste data={await getTastePage(user.id, searchParams, prefs)} />}
+      {tab === 'people' && <People data={await getPeoplePage(user.id, prefs)} />}
     </div>
   );
 }
@@ -110,10 +113,10 @@ function Overview({ data }: { data: StatsOverview }) {
                 </p>
                 <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                   <Pair term="Tracked" value={sec.total} />
-                  <Pair term="Done" value={sec.completed} />
-                  <Pair term="Ongoing" value={sec.ongoing} />
-                  <Pair term="Planned" value={sec.planned} />
-                  <Pair term="Dropped" value={sec.dropped} />
+                  <Pair term={statusLabel('COMPLETED', sec.slug)} value={sec.completed} />
+                  <Pair term={statusLabel('CONSUMING', sec.slug)} value={sec.ongoing} />
+                  <Pair term={statusLabel('PLANNED', sec.slug)} value={sec.planned} />
+                  <Pair term={statusLabel('DROPPED', sec.slug)} value={sec.dropped} />
                   <Pair term="Drop rate" value={ended ? `${Math.round((sec.dropped / ended) * 100)}%` : '—'} />
                   <Pair term="Avg score" value={<Score value={sec.avgRating} />} />
                 </dl>
@@ -168,8 +171,8 @@ function Pair({ term, value }: { term: string; value: React.ReactNode }) {
 
 // ── Goals ───────────────────────────────────────────────────────────────────
 
-async function Goals({ userId, year, currentYear: cy }: { userId: string; year: number; currentYear: number }) {
-  const [goals, prefs] = await Promise.all([getGoalsProgress(userId, year), getCurrentPrefs()]);
+async function Goals({ userId, prefs, year, currentYear: cy }: { userId: string; prefs: Prefs; year: number; currentYear: number }) {
+  const goals = await getGoalsProgress(userId, year, prefs);
   const hidden = new Set<string>(prefs.hiddenSections);
   return (
     <GoalsClient

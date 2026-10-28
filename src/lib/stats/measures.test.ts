@@ -42,6 +42,17 @@ describe('minutesOf / hoursOf (the documented approximation)', () => {
     expect(minutesOf(statTitle({ category: 'movies', status: 'RETIRED', media: { runtime: 120 } }))).toBe(0);
   });
 
+  it('a finished show or anime without a known episode count falls back to its progress', () => {
+    const show = statTitle({ category: 'tv', progress: 6, media: { episodeRunTime: 30 } });
+    expect(episodesOf(show)).toBe(6);
+    expect(minutesOf(show)).toBe(180);
+    expect(episodesOf(statTitle({ category: 'anime', progress: 10 }))).toBe(10);
+    expect(minutesOf(statTitle({ category: 'anime', progress: 10 }))).toBe(240);
+    expect(episodesOf(statTitle({ category: 'anime' }))).toBe(0);
+    // A known count wins over progress.
+    expect(episodesOf(statTitle({ category: 'tv', progress: 3, media: { episodeCount: 10 } }))).toBe(10);
+  });
+
   it('a retired title being rewatched counts in full', () => {
     expect(episodesOf(statTitle({ category: 'anime', status: 'RETIRED', rewatching: true, progress: 2, media: { episodes: 12 } }))).toBe(12);
   });
