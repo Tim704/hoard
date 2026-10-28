@@ -7,7 +7,7 @@
 import type { Status } from '@/lib/status';
 
 import { matchKey } from './match';
-import type { ImportRow } from './types';
+import type { ImportIds, ImportRow } from './types';
 
 export interface ParseResult {
   rows: ImportRow[];
@@ -112,7 +112,36 @@ export function sanitizeRow(r: ImportRow): ImportRow {
   if (r.review !== undefined) out.review = cap(r.review, 20_000);
   if (r.tags) out.tags = r.tags.map((t) => cap(t.trim(), 100)!).filter(Boolean).slice(0, 50);
   if (r.diary) out.diary = r.diary.slice(-1000).map((e) => (e.review ? { ...e, review: cap(e.review, 20_000) } : e));
-  const ids = Object.entries(r.ids).filter(([, v]) => typeof v === 'string' && v.length <= 64);
-  out.ids = Object.fromEntries(ids);
+  out.ids = sanitizeIds(r.ids);
+  if (out.year !== undefined && !(Number.isInteger(out.year) && out.year >= 1000 && out.year <= 3000)) delete out.year;
+  return out;
+}
+
+/** The id shapes `matchImportRows` accepts (src/lib/actions/import.ts). */
+const ID_SHAPE: Record<keyof ImportIds, RegExp> = {
+  tmdb: /^\d{1,20}$/,
+  imdb: /^tt\d{1,12}$/,
+  mal: /^\d{1,20}$/,
+  anilist: /^\d{1,20}$/,
+  isbn: /^(\d{13}|\d{9}[\dX])$/,
+  isbn10: /^(\d{13}|\d{9}[\dX])$/,
+  igdb: /^\d{1,20}$/,
+  steam: /^\d{1,20}$/,
+};
+
+/**
+ * Normalise a row's ids to the shapes the import actions accept: ISBNs lose
+ * hyphens and spaces ("978-0-14-311753-8" → "9780143117538", a lower-case x
+ * becomes X), and any id that still doesn't fit is dropped — one odd id must
+ * never fail its whole 10-row chunk; the row falls back to a title search.
+ */
+export function sanitizeIds(ids: ImportIds): ImportIds {
+  const out: ImportIds = {};
+  for (const [k, raw] of Object.entries(ids) as [keyof ImportIds, unknown][]) {
+    if (!(k in ID_SHAPE) || (typeof raw !== 'string' && typeof raw !== 'number')) continue;
+    let v = String(raw).trim();
+    if (k === 'isbn' || k === 'isbn10') v = v.replace(/[\s-]/g, '').toUpperCase();
+    if (ID_SHAPE[k].test(v)) out[k] = v;
+  }
   return out;
 }

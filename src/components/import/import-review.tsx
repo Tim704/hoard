@@ -291,8 +291,8 @@ export function ImportReview({ rows, onDone }: ImportReviewProps) {
           <span>
             Update existing titles
             <span className="block text-xs text-muted-foreground">
-              Titles already in your library get the imported status, score, dates, progress and tags. Off: they are
-              left as they are.
+              Titles already in your library get the imported score, dates, progress and tags, and their status
+              moves forward, never back. Off: they are left as they are.
             </span>
           </span>
         </label>

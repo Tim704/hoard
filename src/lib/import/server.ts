@@ -17,7 +17,6 @@ import { getCategory, type CategorySlug } from '@/lib/categories';
 import { recordEvent, recordEvents } from '@/lib/events';
 import { addMediaForUser, newManualExternalId } from '@/lib/library/add';
 import { manualResult, parseManualInput } from '@/lib/manual';
-import { nextQueueOrder } from '@/lib/queue';
 import type { Status } from '@/lib/status';
 import type { NormalizedResult } from '@/lib/types';
 
@@ -190,13 +189,6 @@ async function updateExisting(userId: string, activityId: string, row: CommitRow
 
     const data: Prisma.UserMediaActivityUpdateInput = { ...plan.patch };
     if (plan.queue === 'leave') data.queueOrder = null;
-    if (plan.queue === 'join') {
-      const top = await tx.userMediaActivity.aggregate({
-        where: { userId, category: a.category },
-        _max: { queueOrder: true },
-      });
-      data.queueOrder = nextQueueOrder(top._max.queueOrder);
-    }
     await tx.userMediaActivity.update({ where: { id: activityId }, data });
     if (plan.events.length) await recordEvents(tx, plan.events);
     await recordEvent(tx, {

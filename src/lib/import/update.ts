@@ -37,8 +37,11 @@ export interface ImportChange {
 export interface ImportUpdatePlan {
   /** Columns to write (empty = nothing changes). */
   patch: Partial<ActivityNow>;
-  /** Up next membership follows the status, as in updateActivity. */
-  queue: 'leave' | 'join' | null;
+  /**
+   * Up next membership follows the status, as in updateActivity. Only ever
+   * 'leave': the status only moves forward, so it can't become Planned here.
+   */
+  queue: 'leave' | null;
   events: EventInput[];
 }
 
@@ -60,10 +63,7 @@ export function planImportUpdate(
   if (change.favorite && !now.favorite) patch.favorite = true;
 
   let queue: ImportUpdatePlan['queue'] = null;
-  if (patch.status) {
-    if (now.status === 'PLANNED') queue = 'leave';
-    else if (patch.status === 'PLANNED') queue = 'join';
-  }
+  if (patch.status && now.status === 'PLANNED') queue = 'leave';
 
   const events = eventsForUpdate(ids, now, { status: patch.status, rating: patch.rating });
   if (patch.progress !== undefined) {

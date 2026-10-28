@@ -132,4 +132,16 @@ describe('sanitizeRow', () => {
     expect(out.tags![0]).toHaveLength(100);
     expect(out.ids).toEqual({ mal: '5' });
   });
+
+  it('normalises hyphenated ISBNs and drops ids the actions would reject', async () => {
+    const { sanitizeRow } = await import('./rows');
+    const out = sanitizeRow({
+      ...row('Gilead'),
+      category: 'books',
+      year: 99999,
+      ids: { isbn: '978-0-14-311753-8', isbn10: '0 14 311753 x', tmdb: 'abc', imdb: 'tt0111161', mal: ' 12 ' },
+    });
+    expect(out.ids).toEqual({ isbn: '9780143117538', isbn10: '014311753X', imdb: 'tt0111161', mal: '12' });
+    expect(out.year).toBeUndefined();
+  });
 });
