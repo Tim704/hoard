@@ -5,7 +5,7 @@ import { MobileNav } from '@/components/mobile-nav';
 import { PrefsProvider } from '@/components/prefs-provider';
 import { Sidebar } from '@/components/sidebar';
 import { getPrefs } from '@/lib/data-prefs';
-import { toDisplayPrefs } from '@/lib/prefs';
+import { needsRegionDetection, toDisplayPrefs } from '@/lib/prefs';
 import { getCurrentUser } from '@/lib/session';
 import { SIDEBAR_COOKIE } from '@/lib/ui-prefs';
 
@@ -22,10 +22,11 @@ export default async function AppLayout({
 
   // Read the sidebar state server-side so the first paint has the right width.
   const sidebarCollapsed = cookies().get(SIDEBAR_COOKIE)?.value === '1';
-  const prefs = toDisplayPrefs(await getPrefs(user.id));
+  const allPrefs = await getPrefs(user.id);
+  const prefs = toDisplayPrefs(allPrefs);
 
   return (
-    <PrefsProvider prefs={prefs}>
+    <PrefsProvider prefs={prefs} detectRegion={needsRegionDetection(allPrefs)}>
       <div className="flex min-h-screen flex-col md:flex-row">
         <Sidebar username={user.username} initialCollapsed={sidebarCollapsed} />
         <MobileNav username={user.username} />

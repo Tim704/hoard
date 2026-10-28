@@ -10,9 +10,15 @@ import { revalidatePath } from 'next/cache';
 
 import { prisma } from '@/lib/prisma';
 import { getPrefs } from '@/lib/data-prefs';
-import { PrefsPatchSchema, type Prefs, type PrefsPatch } from '@/lib/prefs';
+import {
+  PrefsPatchSchema,
+  applyPrefsPatch,
+  detectedPrefs,
+  type Prefs,
+  type PrefsPatch,
+} from '@/lib/prefs';
 import { requireUser } from '@/lib/session';
-import { countryForTimeZone, isValidTimeZone } from '@/lib/timezones';
+import { countryForTimeZone } from '@/lib/timezones';
 import type { ActionResult } from '@/lib/types';
 
 /** Region used when the browser's zone is unknown or UTC-like (the owner's). */
@@ -33,7 +39,7 @@ export async function updatePrefs(patch: PrefsPatch): Promise<ActionResult> {
       return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid settings.' };
     }
     const current = await getPrefs(user.id);
-    await writePrefs(user.id, { ...current, ...parsed.data });
+    await writePrefs(user.id, applyPrefsPatch(current, parsed.data));
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Could not save settings.' };
@@ -41,9 +47,9 @@ export async function updatePrefs(patch: PrefsPatch): Promise<ActionResult> {
 }
 
 /**
- * Fill in the region (and the time zone) from the browser's IANA time zone,
- * but only where they are still unset: an explicit choice is never overwritten.
- * No location API is involved (spec G3).
+ * The one-time automatic detection: fill the region (and the time zone, if
+ * unset) from the browser's IANA time zone. Runs only while the region was
+ * never detected or chosen (see detectedPrefs). No location API (spec G3).
  */
 export async function detectRegion(
   browserTimeZone: string,
@@ -52,11 +58,8 @@ export async function detectRegion(
     const user = await requireUser();
     const tz = typeof browserTimeZone === 'string' ? browserTimeZone.slice(0, 64) : '';
     const current = await getPrefs(user.id);
-    if (current.region && current.timeZone) return { ok: true, region: current.region };
-
-    const next = { ...current };
-    if (!next.region) next.region = countryForTimeZone(tz) ?? FALLBACK_REGION;
-    if (!next.timeZone && isValidTimeZone(tz)) next.timeZone = tz;
+    const next = detectedPrefs(current, tz, countryForTimeZone, FALLBACK_REGION);
+    if (!next) return { ok: true, region: current.region ?? undefined };
     await writePrefs(user.id, next);
     return { ok: true, region: next.region ?? undefined };
   } catch (err) {

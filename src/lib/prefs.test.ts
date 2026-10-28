@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { CATEGORY_LIST } from './categories';
 import {
+  applyPrefsPatch,
+  detectedPrefs,
+  needsRegionDetection,
   DEFAULT_DISPLAY_PREFS,
   DEFAULT_PREFS,
   HIDEABLE_SECTIONS,
@@ -104,5 +107,45 @@ describe('sections and display prefs', () => {
   it('uses the server time zone when the user has none', () => {
     expect(effectiveTimeZone({ timeZone: 'Asia/Tokyo' })).toBe('Asia/Tokyo');
     expect(typeof effectiveTimeZone({ timeZone: null })).toBe('string');
+  });
+});
+
+describe('region detection', () => {
+  const country = (tz: string) => (tz === 'Europe/Berlin' ? 'DE' : tz === 'Asia/Tokyo' ? 'JP' : null);
+
+  it('runs once for a fresh user and fills region and time zone', () => {
+    const fresh = parsePrefs({});
+    expect(needsRegionDetection(fresh)).toBe(true);
+    const next = detectedPrefs(fresh, 'Asia/Tokyo', country, 'DE');
+    expect(next).toMatchObject({ region: 'JP', timeZone: 'Asia/Tokyo', regionDetected: true });
+    expect(needsRegionDetection(next!)).toBe(false);
+    expect(detectedPrefs(next!, 'Europe/Berlin', country, 'DE')).toBeNull();
+  });
+
+  it('falls back for unknown zones and keeps an existing time zone', () => {
+    const p = parsePrefs({ timeZone: 'Asia/Tokyo' });
+    expect(detectedPrefs(p, 'UTC', country, 'DE')).toMatchObject({ region: 'DE', timeZone: 'Asia/Tokyo' });
+    expect(detectedPrefs(parsePrefs({}), 'Nowhere/Land', country, 'DE')).toMatchObject({ region: 'DE', timeZone: null });
+  });
+
+  it('skips users who already have a region (from before the flag)', () => {
+    expect(needsRegionDetection(parsePrefs({ region: 'US' }))).toBe(false);
+  });
+
+  it('keeps an explicit "Not set" / "Server default" choice', () => {
+    const detected = detectedPrefs(parsePrefs({}), 'Europe/Berlin', country, 'DE')!;
+    const cleared = applyPrefsPatch(detected, { region: null, timeZone: null });
+    expect(cleared).toMatchObject({ region: null, timeZone: null, regionDetected: true });
+    expect(needsRegionDetection(cleared)).toBe(false);
+    // even if the user clears it before detection ever ran
+    expect(needsRegionDetection(applyPrefsPatch(parsePrefs({}), { region: null }))).toBe(false);
+  });
+
+  it('other settings do not count as choosing a region', () => {
+    expect(applyPrefsPatch(parsePrefs({}), { scoreFormat: 'five' }).regionDetected).toBe(false);
+  });
+
+  it('the client cannot set the flag directly', () => {
+    expect(PrefsPatchSchema.parse({ regionDetected: true })).toEqual({});
   });
 });

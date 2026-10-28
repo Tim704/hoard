@@ -13,10 +13,19 @@ const PrefsContext = createContext<DisplayPrefs>(DEFAULT_DISPLAY_PREFS);
  * client components. Provided once by the (app) layout from the server-read
  * prefs; outside it, components see the defaults.
  */
-export function PrefsProvider({ prefs, children }: { prefs: DisplayPrefs; children: React.ReactNode }) {
+export function PrefsProvider({
+  prefs,
+  detectRegion: detect = false,
+  children,
+}: {
+  prefs: DisplayPrefs;
+  /** True only until the region was first detected or chosen (needsRegionDetection). */
+  detectRegion?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <PrefsContext.Provider value={prefs}>
-      {prefs.region == null && <RegionDetector />}
+      {detect && <RegionDetector />}
       {children}
     </PrefsContext.Provider>
   );
@@ -43,7 +52,7 @@ export function useScoreFormat() {
 }
 
 /**
- * While the region is unset, sends the browser's time zone (never a location)
+ * On the first visit (region never detected or chosen), sends the browser's time zone (never a location)
  * once so the server can fill in region and time zone. Renders nothing.
  */
 function RegionDetector() {

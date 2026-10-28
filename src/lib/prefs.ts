@@ -69,6 +69,8 @@ const fields = {
   feedOptIn: z.boolean(),
   // Calendar feed token (generated server-side, never patched by the client)
   calendarToken: z.string().nullable(),
+  // True once the region was detected or chosen, so "Not set" stays not set.
+  regionDetected: z.boolean(),
 };
 
 export const DEFAULT_PREFS = {
@@ -86,6 +88,7 @@ export const DEFAULT_PREFS = {
   compareOptIn: false,
   feedOptIn: false,
   calendarToken: null,
+  regionDetected: false,
 } satisfies z.input<z.ZodObject<typeof fields>>;
 
 /** Lenient read schema: each field falls back to its default on its own. */
@@ -106,6 +109,7 @@ export const PrefsSchema = z.object({
   compareOptIn: fields.compareOptIn.catch(DEFAULT_PREFS.compareOptIn),
   feedOptIn: fields.feedOptIn.catch(DEFAULT_PREFS.feedOptIn),
   calendarToken: fields.calendarToken.catch(DEFAULT_PREFS.calendarToken),
+  regionDetected: fields.regionDetected.catch(DEFAULT_PREFS.regionDetected),
 });
 
 export type Prefs = z.output<typeof PrefsSchema>;
@@ -146,6 +150,39 @@ export function toDisplayPrefs(p: Prefs): DisplayPrefs {
     titleLanguage: p.titleLanguage,
     weekStart: p.weekStart,
     hiddenSections: p.hiddenSections,
+  };
+}
+
+/** Detect the region from the browser only once, and only while it was never set. */
+export function needsRegionDetection(p: Pick<Prefs, 'region' | 'regionDetected'>): boolean {
+  return !p.regionDetected && p.region === null;
+}
+
+/**
+ * Apply an explicit settings patch. Choosing a region or time zone (even "Not
+ * set" / "Server default") counts as a decision, so detection never reruns.
+ */
+export function applyPrefsPatch(current: Prefs, patch: z.output<typeof PrefsPatchSchema>): Prefs {
+  const touchesRegion = 'region' in patch || 'timeZone' in patch;
+  return { ...current, ...patch, ...(touchesRegion ? { regionDetected: true } : {}) };
+}
+
+/**
+ * The first (and only) automatic detection: fill region and time zone from the
+ * browser's zone where unset, and mark detection done. Null when not needed.
+ */
+export function detectedPrefs(
+  current: Prefs,
+  browserTimeZone: string,
+  countryFor: (tz: string) => string | null,
+  fallbackRegion: string,
+): Prefs | null {
+  if (!needsRegionDetection(current)) return null;
+  return {
+    ...current,
+    region: countryFor(browserTimeZone) ?? fallbackRegion,
+    timeZone: current.timeZone ?? (isValidTimeZone(browserTimeZone) ? browserTimeZone : null),
+    regionDetected: true,
   };
 }
 
