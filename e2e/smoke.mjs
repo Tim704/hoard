@@ -192,6 +192,84 @@ if (failures.length === 0) {
       if (!missing.test([text, ...inputs].join('\n'))) throw new Error(`${name} section shows neither a form nor a note`);
     }
   });
+  // Exports (8.4): the Markdown zip and the full JSON download with the session.
+  await step('markdown + json export downloads', async () => {
+    const zip = await page.request.get(`${BASE_URL}/api/export/markdown.zip`);
+    if (zip.status() !== 200) throw new Error(`markdown.zip: HTTP ${zip.status()}`);
+    if (!/application\/zip/.test(zip.headers()['content-type'] ?? '')) throw new Error(`markdown.zip: ${zip.headers()['content-type']}`);
+    const bytes = await zip.body();
+    if (bytes.length < 22 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new Error('markdown.zip is not a zip');
+    const all = await page.request.get(`${BASE_URL}/api/export/all.json`);
+    if (all.status() !== 200) throw new Error(`all.json: HTTP ${all.status()}`);
+    const data = await all.json();
+    for (const key of ['diaryEntries', 'customLists', 'savedViews', 'apiTokens', 'shareLinks']) {
+      if (!Array.isArray(data[key])) throw new Error(`all.json lacks ${key}`);
+    }
+  });
+  // Linked notes (8.5): the demo Aliens notes link to Alien (opens it, which
+  // lists Aliens under "Mentioned in"); "Alien 3" isn't in the library.
+  await step('linked notes + mentioned in', async () => {
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+    await page.keyboard.press('ControlOrMeta+k');
+    const box = page.getByRole('combobox', { name: 'Find a title or page' });
+    await box.waitFor({ timeout: 10_000 });
+    await box.fill('Aliens');
+    await page.getByRole('option', { name: /^Aliens/ }).first().waitFor({ timeout: 10_000 });
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('heading', { name: 'Aliens', exact: true }).waitFor({ timeout: 15_000 });
+    const unresolved = dialog.locator('span[title="Not in your library"]', { hasText: 'Alien 3' });
+    await unresolved.waitFor({ timeout: 10_000 });
+    await dialog.getByRole('button', { name: 'Alien', exact: true }).click();
+    await dialog.getByRole('heading', { name: 'Alien', exact: true }).waitFor({ timeout: 15_000 });
+    await dialog.getByRole('heading', { name: 'Mentioned in' }).waitFor({ timeout: 10_000 });
+    await dialog.getByRole('button', { name: /^Aliens/ }).waitFor({ timeout: 10_000 });
+    // Autocomplete after [[ in the notes.
+    const notes = dialog.getByLabel('Notes');
+    await notes.click();
+    await notes.press('End');
+    await notes.pressSequentially(' [[Cowb');
+    await page.getByRole('listbox', { name: 'Link to a title' }).getByRole('option', { name: /Cowboy Bebop/ }).waitFor({ timeout: 10_000 });
+    await page.keyboard.press('Enter');
+    const value = await notes.inputValue();
+    if (!value.endsWith('[[Cowboy Bebop]]')) throw new Error(`autocomplete gave: ${value}`);
+    await page.keyboard.press('Escape');
+  });
+  // Saved views (8.6): the demo view opens from the navigation with results.
+  await step('saved view from the navigation', async () => {
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+    await Promise.all([
+      page.waitForURL((url) => url.pathname === '/views' && url.searchParams.get('view') === 'demo-view-scifi', { timeout: 15_000 }),
+      page.locator('aside').getByRole('link', { name: 'Sci-fi favourites' }).click(),
+    ]);
+    await page.getByRole('heading', { name: 'Sci-fi favourites' }).waitFor({ timeout: 15_000 });
+    await page.getByText(/^\d+ titles?$/).waitFor({ timeout: 10_000 });
+  });
+  // API tokens (8.7): create one, call the API with it (no cookies), revoke
+  // it, and see the API refuse it.
+  await step('api token create → call → revoke', async () => {
+    await page.goto(`${BASE_URL}/settings`, { waitUntil: 'networkidle' });
+    const card = page.locator('#api-tokens');
+    await card.getByText('API tokens', { exact: true }).waitFor({ timeout: 15_000 });
+    await card.getByLabel('Token name').fill('smoke test');
+    await card.getByRole('button', { name: 'Create token' }).click();
+    const field = card.getByLabel('New API token');
+    await field.waitFor({ timeout: 15_000 });
+    const token = await field.inputValue();
+    if (!/^hoard_[A-Za-z0-9_-]{43}$/.test(token)) throw new Error(`odd token: ${token}`);
+    const call = () => fetch(`${BASE_URL}/api/v1/library?limit=1`, { headers: { Authorization: `Bearer ${token}` } });
+    const ok = await call();
+    if (ok.status !== 200) throw new Error(`API with a fresh token: HTTP ${ok.status}`);
+    const body = await ok.json();
+    if (!Array.isArray(body.items)) throw new Error('API library has no items array');
+    await card.getByRole('button', { name: 'Done' }).click();
+    const row = card.locator('li', { hasText: 'smoke test' });
+    await row.getByRole('button', { name: 'Revoke' }).click();
+    await row.getByRole('button', { name: 'Revoke “smoke test”' }).click();
+    await page.getByText('Revoked “smoke test”.').waitFor({ timeout: 15_000 });
+    const gone = await call();
+    if (gone.status !== 401) throw new Error(`API with a revoked token: HTTP ${gone.status}`);
+  });
   // Signed out, a shared link survives the login (next=…).
   await step('login keeps the shared /add link', async () => {
     const fresh = await browser.newContext();

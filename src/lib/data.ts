@@ -202,13 +202,20 @@ export async function getDashboardStats(): Promise<CategoryStat[]> {
 
 /** All of the user's activities in a category, flattened (no ordering). */
 async function loadCategory(slug: CategorySlug): Promise<ActivityWithMedia[]> {
-  const cat = getCategory(slug);
-  if (!cat) return [];
   const user = await getCurrentUser();
   if (!user) return [];
+  return loadCategoryFor(user.id, slug);
+}
 
+/**
+ * `loadCategory` for a given user (trusts `userId`: the public API passes
+ * its token's owner).
+ */
+export async function loadCategoryFor(userId: string, slug: CategorySlug): Promise<ActivityWithMedia[]> {
+  const cat = getCategory(slug);
+  if (!cat) return [];
   const rows = await prisma.userMediaActivity.findMany({
-    where: { userId: user.id, category: cat.dbCategory },
+    where: { userId, category: cat.dbCategory },
     include: { [cat.prismaModel]: true } as any,
   });
   return rows

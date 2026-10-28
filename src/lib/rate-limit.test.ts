@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { AI_LIMITS, checkRate, takeAiRate, takeRate, takeTasteRefreshRate } from './rate-limit';
+import { AI_LIMITS, API_LIMITS, checkRate, takeAiRate, takeApiRate, takeRate, takeTasteRefreshRate } from './rate-limit';
 
 describe('checkRate', () => {
   const limits = { perMinute: 3, perDay: 5 };
@@ -74,5 +74,28 @@ describe('hourly window (taste refresh)', () => {
     for (let i = 0; i < 2; i++) expect(takeTasteRefreshRate('u-taste', now + i).ok).toBe(true);
     expect(takeTasteRefreshRate('u-taste', now + 2).ok).toBe(false);
     expect(takeAiRate('u-taste', now + 3).ok).toBe(true);
+  });
+});
+
+describe('the public API limit (8.7)', () => {
+  it('allows 60 a minute per token, keeping only a minute of history', () => {
+    expect(API_LIMITS).toEqual({ perMinute: 60 });
+    const t0 = 5_000_000;
+    for (let i = 0; i < 60; i++) expect(takeApiRate('tok-a', t0 + i).ok).toBe(true);
+    const blocked = takeApiRate('tok-a', t0 + 100);
+    expect(blocked).toMatchObject({ ok: false, retryAfterSec: 60 });
+    // Another token has its own budget.
+    expect(takeApiRate('tok-b', t0 + 100).ok).toBe(true);
+    // A minute later the window has moved on, and old stamps are dropped.
+    const later = takeApiRate('tok-a', t0 + 60_001);
+    expect(later.ok).toBe(true);
+    expect(later.stamps.length).toBeLessThanOrEqual(60);
+  });
+
+  it('never blocks on a day count without perDay', () => {
+    const stamps = Array.from({ length: 1000 }, (_, i) => i * 61_000);
+    const d = checkRate(stamps, { perMinute: 60 }, 1000 * 61_000);
+    expect(d.ok).toBe(true);
+    expect(d.stamps).toEqual([1000 * 61_000]);
   });
 });

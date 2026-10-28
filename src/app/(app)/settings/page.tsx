@@ -1,4 +1,5 @@
 import { SettingsAccounts } from '@/components/settings-accounts';
+import { SettingsApiTokens } from '@/components/settings-api-tokens';
 import { SettingsCalendar } from '@/components/settings-calendar';
 import { SettingsData } from '@/components/settings-data';
 import { SettingsForm } from '@/components/settings-form';
@@ -8,6 +9,7 @@ import { SettingsCompare, SettingsStreaming } from '@/components/settings-stream
 import { SettingsSystem } from '@/components/settings-system';
 import { readBackupStatus } from '@/lib/backups';
 import { calendarFeedUrl } from '@/lib/calendar-token';
+import { getApiTokens } from '@/lib/data-api';
 import { getMyShareLinks } from '@/lib/data-share';
 import { lastfmConfigured } from '@/lib/apis/music';
 import { steamConfigured } from '@/lib/apis/steam';
@@ -41,6 +43,7 @@ export default async function SettingsPage() {
   // Backups and job errors are server internals: only the owner (the first
   // registered user) sees the System card at all.
   const isOwner = ownerId === user.id;
+  const apiTokens = await getApiTokens(user.id, effectiveTimeZone(prefs));
   const [backup, jobs] = isOwner
     ? await Promise.all([readBackupStatus(), getJobRuns(registeredJobs())])
     : [null, null];
@@ -73,6 +76,7 @@ export default async function SettingsPage() {
       <SettingsCalendar initialUrl={prefs.calendarToken ? calendarFeedUrl(prefs.calendarToken) : null} />
       <SettingsCompare initial={prefs.compareOptIn} />
       <SettingsData />
+      <SettingsApiTokens tokens={apiTokens} />
       {backup && jobs && (
         <SettingsSystem backup={backup} jobs={jobs} timeZone={effectiveTimeZone(prefs)} now={new Date()} />
       )}

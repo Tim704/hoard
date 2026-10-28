@@ -13,7 +13,8 @@ export interface RateLimits {
   perMinute: number;
   /** Optional middle window (e.g. the taste profile's Refresh). */
   perHour?: number;
-  perDay: number;
+  /** Optional: without it, only the shorter windows' calls are kept (the public API). */
+  perDay?: number;
 }
 
 /** The AI features' shared budget per user. */
@@ -32,7 +33,9 @@ export type RateDecision =
  * Returns the pruned stamps (plus `now` when allowed) to store back.
  */
 export function checkRate(stamps: number[], limits: RateLimits, now: number): RateDecision {
-  const recent = stamps.filter((t) => t > now - DAY && t <= now);
+  // Keep only as much history as the longest window needs.
+  const horizon = limits.perDay != null ? DAY : limits.perHour != null ? HOUR : MINUTE;
+  const recent = stamps.filter((t) => t > now - horizon && t <= now);
   const lastMinute = recent.filter((t) => t > now - MINUTE);
   if (lastMinute.length >= limits.perMinute) {
     const retryAfterSec = Math.max(1, Math.ceil((lastMinute[0] + MINUTE - now) / 1000));
@@ -51,7 +54,7 @@ export function checkRate(stamps: number[], limits: RateLimits, now: number): Ra
       };
     }
   }
-  if (recent.length >= limits.perDay) {
+  if (limits.perDay != null && recent.length >= limits.perDay) {
     const retryAfterSec = Math.max(1, Math.ceil((recent[0] + DAY - now) / 1000));
     const hours = Math.ceil(retryAfterSec / 3600);
     return {
@@ -100,4 +103,12 @@ export const INVITE_LIMITS: RateLimits = { perMinute: 5, perDay: 20 };
 /** One list invitation by `userId`. The message is the caller's to write. */
 export function takeInviteRate(userId: string, now?: number): RateDecision {
   return takeRate(`invite:${userId}`, INVITE_LIMITS, now);
+}
+
+/** The public API (8.7): 60 requests a minute per token. */
+export const API_LIMITS: RateLimits = { perMinute: 60 };
+
+/** One public-API request with token `tokenId`. */
+export function takeApiRate(tokenId: string, now?: number): RateDecision {
+  return takeRate(`api:${tokenId}`, API_LIMITS, now);
 }
