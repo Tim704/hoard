@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import Image from 'next/image';
 import {
   closestCenter,
@@ -54,6 +54,8 @@ export function SortableRankList({ items, onReorder, onRemove, disabled, renderA
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+  // A stable id: dnd-kit's own counter differs between server and client (hydration warning).
+  const dndId = useId();
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -71,7 +73,7 @@ export function SortableRankList({ items, onReorder, onRemove, disabled, renderA
   };
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+    <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
         <ol className="flex flex-col gap-2">
           {items.map((item, index) => (

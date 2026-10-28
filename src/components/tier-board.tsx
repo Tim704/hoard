@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -80,6 +80,8 @@ export function TierBoard({ slug, initial }: TierBoardProps) {
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+  // A stable id: dnd-kit's own counter differs between server and client (hydration warning).
+  const dndId = useId();
 
   function persist(next: TierBoardData, prev: TierBoardData) {
     setBoard(next);
@@ -158,6 +160,7 @@ export function TierBoard({ slug, initial }: TierBoardProps) {
 
   return (
     <DndContext
+      id={dndId}
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={() => {
