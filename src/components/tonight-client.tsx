@@ -34,7 +34,7 @@ interface TonightClientProps {
   hasServices: boolean;
 }
 
-/** At most this many lazy badge lookups per filter change (60 titles). */
+/** At most this many lazy badge lookups per filter change or "Another" (60 titles each). */
 const MAX_BATCHES = 3;
 
 const chip = (on: boolean) =>
@@ -68,9 +68,11 @@ export function TonightClient({ queues, sections, hasServices }: TonightClientPr
   const onServices = servicesOnly ? (id: string) => (badges[id]?.length ?? 0) > 0 : null;
   const picks = pickTonight(queues, { ...base, onServices }, round);
 
+  // Each filter change and each "Another" may look up MAX_BATCHES more, so
+  // stepping through the picks keeps going deeper into long queues.
   useEffect(() => {
     batches.current = 0;
-  }, [poolKey, servicesOnly]);
+  }, [poolKey, servicesOnly, round]);
 
   // "On my services": look up the next unchecked streamable titles in pool order.
   useEffect(() => {

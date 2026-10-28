@@ -14,7 +14,8 @@ import { cn } from '@/lib/utils';
  * the server for 7 days. Returns null until the answer arrives.
  */
 export function useStreamingBadges(ids: string[]): Record<string, WatchOffer[]> | null {
-  const key = ids.slice(0, WATCH_BATCH_LIMIT).join(',');
+  // Sorted, so reordering the same rows (a drag) doesn't refetch.
+  const key = ids.slice(0, WATCH_BATCH_LIMIT).sort().join(',');
   const [state, setState] = useState<{ key: string; badges: Record<string, WatchOffer[]> } | null>(null);
 
   useEffect(() => {

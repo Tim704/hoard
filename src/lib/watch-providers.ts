@@ -5,7 +5,10 @@
 //
 //  Fails softly (spec G4): no TMDB key → TMDB titles report "not configured";
 //  a failed call falls back to a stale cached answer, else "unavailable".
-//  Failures are never cached; a 404 / unknown title is (as "nowhere").
+//  The first TMDB failure stops that batch's loop, and a failed provider is
+//  skipped for 10 minutes (src/lib/watch-refresh.ts), so a hanging upstream
+//  costs one timeout. Failures are never cached; a 404 / unknown title is
+//  (as "nowhere").
 // ───────────────────────────────────────────────────────────────────────────
 
 import type { Prisma } from '@prisma/client';
@@ -13,14 +16,15 @@ import type { Prisma } from '@prisma/client';
 import { fetchAniListExternalLinks } from '@/lib/apis/anilist';
 import { fetchProviderListJson, fetchWatchProvidersJson, tmdbConfigured } from '@/lib/apis/tmdb';
 import type { CategorySlug } from '@/lib/categories';
+import { PROVIDER_BACKOFF_MS, inBackoff, refreshTmdbKeys, type Backoff } from '@/lib/watch-refresh';
 import { prisma } from '@/lib/prisma';
 import {
   FALLBACK_PROVIDERS,
+  KNOWN_PROVIDER_NAMES,
   WATCH_BATCH_LIMIT,
   isCacheFresh,
   mapAniListStreaming,
   mapProviderList,
-  mapTmdbWatchProviders,
   providerListKey,
   watchCacheKey,
   type ProviderOption,
@@ -36,13 +40,9 @@ export interface WatchTitle {
   externalId: string;
 }
 
-const EMPTY = (source: WatchProviders['source']): WatchProviders => ({
-  source,
-  link: null,
-  stream: [],
-  rent: [],
-  buy: [],
-});
+/** Per-process backoff after a provider failure (see src/lib/watch-refresh.ts). */
+const TMDB_BACKOFF: Backoff = { until: 0 };
+const ANILIST_BACKOFF: Backoff = { until: 0 };
 
 async function writeCache(key: string, data: unknown): Promise<void> {
   const json = data as Prisma.InputJsonValue;
@@ -84,26 +84,29 @@ export async function lookupWatchProviders(titles: WatchTitle[], region: string 
     return data ? { status: 'ok', providers: data } : { status: 'unavailable' };
   };
 
-  // TMDB: one request per title (no batch endpoint), sequential to be polite.
-  for (const key of stale.filter((k) => !k.startsWith('anime:'))) {
-    if (!tmdbConfigured()) {
-      resolved.set(key, cached.get(key) ? fallback(key) : { status: 'not-configured' });
-      continue;
-    }
-    const [kind, id, reg] = key.split(':');
-    try {
-      const json = await fetchWatchProvidersJson(kind as 'movie' | 'tv', id);
-      const providers = json ? mapTmdbWatchProviders(json, reg) : EMPTY('tmdb');
-      await writeCache(key, providers);
-      resolved.set(key, { status: 'ok', providers });
-    } catch {
-      resolved.set(key, fallback(key));
+  // TMDB: one request per title, stopping at the first failure (src/lib/watch-refresh.ts).
+  const tmdbKeys = stale.filter((k) => !k.startsWith('anime:'));
+  if (tmdbKeys.length) {
+    const outcomes = await refreshTmdbKeys(tmdbKeys, {
+      configured: tmdbConfigured(),
+      fetchJson: fetchWatchProvidersJson,
+      save: writeCache,
+      backoff: TMDB_BACKOFF,
+      now: Date.now,
+    });
+    for (const key of tmdbKeys) {
+      const o = outcomes.get(key);
+      if (o?.status === 'ok') resolved.set(key, o);
+      else if (o?.status === 'not-configured') resolved.set(key, cached.get(key) ? fallback(key) : { status: 'not-configured' });
+      else resolved.set(key, fallback(key));
     }
   }
 
-  // AniList: one batched query for every stale anime.
+  // AniList: one batched query for every stale anime (skipped while backing off).
   const animeKeys = stale.filter((k) => k.startsWith('anime:'));
-  if (animeKeys.length) {
+  if (animeKeys.length && inBackoff(ANILIST_BACKOFF, Date.now())) {
+    for (const key of animeKeys) resolved.set(key, fallback(key));
+  } else if (animeKeys.length) {
     try {
       const links = await fetchAniListExternalLinks(animeKeys.map((k) => k.slice('anime:'.length)));
       for (const key of animeKeys) {
@@ -112,6 +115,7 @@ export async function lookupWatchProviders(titles: WatchTitle[], region: string 
         resolved.set(key, { status: 'ok', providers });
       }
     } catch {
+      ANILIST_BACKOFF.until = Date.now() + PROVIDER_BACKOFF_MS;
       for (const key of animeKeys) resolved.set(key, fallback(key));
     }
   }
@@ -160,7 +164,7 @@ export async function getProviderOptions(
  */
 export async function serviceNames(services: number[], region: string | null): Promise<string[]> {
   if (services.length === 0) return [];
-  const known = new Map<number, string>(FALLBACK_PROVIDERS.map((p) => [p.id, p.name]));
+  const known = new Map<number, string>(KNOWN_PROVIDER_NAMES);
   if (region && /^[A-Z]{2}$/.test(region)) {
     const row = await prisma.watchProviderCache.findUnique({ where: { key: providerListKey(region) } });
     if (row && Array.isArray(row.data)) {

@@ -4,6 +4,7 @@ import anilistLinks from './apis/__fixtures__/anilist-external-links.json';
 import providerList from './apis/__fixtures__/tmdb-provider-list.json';
 import watchProviders from './apis/__fixtures__/tmdb-watch-providers.json';
 import {
+  KNOWN_PROVIDER_NAMES,
   WATCH_CACHE_TTL_MS,
   isCacheFresh,
   isMyService,
@@ -100,5 +101,15 @@ describe('your services', () => {
     const sorted = mineFirst(p, [35, 2]);
     expect(sorted.stream.map((o) => o.id)).toEqual([35, 119, 8]);
     expect(sorted.rent.map((o) => o.id)).toEqual([2, 10]);
+  });
+});
+
+describe('KNOWN_PROVIDER_NAMES', () => {
+  it('names Prime Video under both of its ids, so AniList links match either', () => {
+    const names = new Map(KNOWN_PROVIDER_NAMES);
+    expect(names.get(9)).toBe('Amazon Prime Video');
+    expect(names.get(119)).toBe('Amazon Prime Video');
+    const anime = { source: 'anilist' as const, link: null, rent: [], buy: [], stream: [{ id: null, name: 'Amazon Prime Video', logo: null, url: null }] };
+    expect(myStreamOffers(anime, [119], [names.get(119)!])).toHaveLength(1);
   });
 });

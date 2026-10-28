@@ -197,6 +197,16 @@ export const FALLBACK_PROVIDERS: ProviderOption[] = [
   { id: 11, name: 'MUBI', logo: null },
 ];
 
+/**
+ * Names for provider ids even without the region's list: the fallback list
+ * plus regional twins (Prime Video is 9 in some regions, 119 in others, e.g.
+ * DE). Used to match AniList links by name and to label stale picks.
+ */
+export const KNOWN_PROVIDER_NAMES: ReadonlyArray<readonly [number, string]> = [
+  ...FALLBACK_PROVIDERS.map((p) => [p.id, p.name] as const),
+  [119, 'Amazon Prime Video'],
+];
+
 /** "Disney+" and "Disney Plus" → "disneyplus", for matching AniList site names. */
 export function normalizeProviderName(name: string): string {
   return name.toLowerCase().replace(/\+/g, 'plus').replace(/[^a-z0-9]/g, '');

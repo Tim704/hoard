@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { updatePrefs } from '@/lib/actions/prefs';
 import { loadProviderOptions } from '@/lib/actions/streaming';
-import type { ProviderOption } from '@/lib/streaming';
+import { KNOWN_PROVIDER_NAMES, type ProviderOption } from '@/lib/streaming';
 import { cn } from '@/lib/utils';
 
 /** How many unselected services are shown before you search. */
@@ -62,10 +62,21 @@ export function SettingsStreaming({ initial, region }: { initial: number[]; regi
   const shown = useMemo(() => {
     if (!options) return [];
     const q = query.trim().toLowerCase();
-    const selected = options.filter((o) => services.includes(o.id));
+    // Picks the region doesn't list (another region's id, an old fallback
+    // pick) stay visible so they can be turned off.
+    const known = new Map(KNOWN_PROVIDER_NAMES);
+    const offered = new Set(options.map((o) => o.id));
+    const missing = services
+      .filter((id) => !offered.has(id))
+      .map((id) => ({
+        id,
+        name: `${known.get(id) ?? `Service #${id}`}${region ? ` (not offered in ${region})` : ''}`,
+        logo: null,
+      }));
+    const selected = [...options.filter((o) => services.includes(o.id)), ...missing];
     const rest = options.filter((o) => !services.includes(o.id) && (!q || o.name.toLowerCase().includes(q)));
     return [...selected, ...(q ? rest : rest.slice(0, SHOWN))];
-  }, [options, services, query]);
+  }, [options, services, query, region]);
 
   return (
     <Card id="streaming">
