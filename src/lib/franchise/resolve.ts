@@ -25,7 +25,7 @@ export interface FranchiseInfo {
 // Relation types that mean "same story / same IP". CHARACTER and OTHER are
 // left out on purpose: they link crossovers and cameos, which would merge
 // unrelated franchises into one giant blob.
-const SAME_IP = new Set([
+export const SAME_IP = new Set([
   'PREQUEL',
   'SEQUEL',
   'PARENT',

@@ -359,3 +359,31 @@ export async function fetchTvDetails(externalId: string): Promise<TvDetails | nu
   if (!res.ok) throw new Error(`TMDB tv details failed (${res.status})`);
   return mapTvDetails((await res.json()) as TmdbTvDetailsJson);
 }
+
+/** GET /collection/{id}: the collection and its films ("parts"). */
+export interface TmdbCollectionJson {
+  id?: number;
+  name?: string | null;
+  parts?: TmdbMovie[] | null;
+}
+
+/** A collection's films → search-shaped results, oldest first (unreleased last). */
+export function mapCollectionParts(data: TmdbCollectionJson): NormalizedResult[] {
+  return (data.parts ?? [])
+    .filter((p) => p && typeof p.id === 'number' && p.title)
+    .map(mapMovieSearchHit)
+    .sort((a, b) => (a.year ?? Infinity) - (b.year ?? Infinity));
+}
+
+/**
+ * The films of a TMDB collection (2.10 "Add missing titles"). An unknown id
+ * (404) gives []. Throws on other failures and without a key.
+ */
+export async function fetchCollectionParts(collectionId: number): Promise<NormalizedResult[]> {
+  const key = requireKey();
+  if (!Number.isInteger(collectionId) || collectionId <= 0) return [];
+  const res = await providerFetch(`${TMDB_BASE}/collection/${collectionId}?api_key=${key}`);
+  if (res.status === 404) return [];
+  if (!res.ok) throw new Error(`TMDB collection failed (${res.status})`);
+  return mapCollectionParts((await res.json()) as TmdbCollectionJson);
+}

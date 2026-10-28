@@ -5,9 +5,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Check, ImageOff, Loader2, Merge, Trash2, X } from 'lucide-react';
+import { Check, ImageOff, ListPlus, Loader2, Merge, Trash2, X } from 'lucide-react';
 
 import { memberAverage } from '@/components/franchise-group';
+import { FranchiseMissing } from '@/components/franchise-missing';
 import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
 import { RatingControl } from '@/components/rating-control';
 import { RatingInput } from '@/components/rating-input';
@@ -53,12 +54,14 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
   const [mergeTarget, setMergeTarget] = useState<string>('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [addingMissing, setAddingMissing] = useState(false);
 
   useEffect(() => {
     setName(franchise?.name ?? '');
     setNotes(franchise?.notes ?? '');
     setMergeTarget('');
     setConfirmDelete(false);
+    setAddingMissing(false);
     // Only when switching to another franchise, so refreshes keep typed edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [franchise?.id]);
@@ -85,6 +88,8 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
   const avg = memberAverage(f.members);
   const covers = f.members.filter((m) => m.media.imageUrl);
   const others = all.filter((o) => o.id !== f.id);
+  // Only these sections have provider data to find the rest of the IP (2.10).
+  const canFindMissing = f.members.some((m) => ['anime', 'manga', 'movies', 'games'].includes(m.category));
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -93,173 +98,185 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
           <DialogTitle className="pr-6">{f.name}</DialogTitle>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-1">
-          {/* Name */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium" htmlFor="franchise-name">
-              Name
-            </label>
-            <div className="flex gap-2">
-              <Input
-                id="franchise-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="text-base sm:text-sm"
-              />
-              <Button
-                variant="outline"
-                disabled={busy || !name.trim() || name.trim() === f.name}
-                onClick={() => run(() => updateFranchise(f.id, { name }), 'Renamed.')}
-              >
-                <Check className="mr-1.5 h-4 w-4" />
-                Save
-              </Button>
-            </div>
-          </div>
-
-          {/* IP rating */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Your rating of the whole IP</label>
-              {f.rating != null && (
-                <button
-                  type="button"
-                  onClick={() => run(() => updateFranchise(f.id, { rating: null }), 'Rating cleared.')}
-                  className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-            <RatingInput
-              value={f.rating}
-              onChange={(v) => run(() => updateFranchise(f.id, { rating: v }), `Rated ${scoreOutOf(v)}.`)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Separate from each title&apos;s own rating.
-              {avg != null && ` Your titles average ${scoreOutOf(avg)}.`}
-            </p>
-          </div>
-
-          {/* Cover */}
-          {covers.length > 1 && (
+        {addingMissing ? (
+          <FranchiseMissing franchiseId={f.id} onBack={() => setAddingMissing(false)} />
+        ) : (
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-1">
+            {/* Name */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Cover</label>
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {covers.map((m) => {
-                  const active = (f.imageUrl ?? covers[0]?.media.imageUrl) === m.media.imageUrl;
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      title={titleOf(m.media)}
-                      onClick={() =>
-                        run(() => updateFranchise(f.id, { imageUrl: m.media.imageUrl }), 'Cover updated.')
-                      }
-                      className={cn(
-                        'relative aspect-[2/3] w-14 shrink-0 overflow-hidden rounded-md ring-2 transition',
-                        active ? 'ring-primary' : 'ring-transparent opacity-70 hover:opacity-100',
-                      )}
-                    >
-                      <Image src={m.media.imageUrl as string} alt={titleOf(m.media)} fill sizes="56px" className="object-cover" />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Members */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Titles · {f.members.length}</label>
-            <ul className="divide-y divide-border rounded-lg border border-border">
-              {f.members.map((m) => (
-                <li key={m.id} className="flex items-center gap-3 p-2">
-                  <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded bg-muted">
-                    {m.media.imageUrl ? (
-                      <Image src={m.media.imageUrl} alt={titleOf(m.media)} fill sizes="40px" className="object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <ImageOff className="h-4 w-4 text-muted-foreground" aria-hidden />
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/${m.category}`}
-                      className="block truncate text-sm font-medium hover:underline"
-                    >
-                      {titleOf(m.media)}
-                    </Link>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span>{CATEGORIES[m.category].singular}</span>
-                      {m.media.year != null && <span>· {m.media.year}</span>}
-                      <StatusBadge status={m.status} slug={m.category} className="px-1.5 py-0 text-[11px]" />
-                    </div>
-                  </div>
-                  <RatingControl value={m.rating} />
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => run(() => assignFranchise(m.id, null), `Removed "${titleOf(m.media)}".`)}
-                    aria-label={`Remove ${titleOf(m.media)} from this franchise`}
-                    title="Remove from franchise"
-                    className="rounded p-1 text-muted-foreground hover:text-rose-500 disabled:opacity-30"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Notes */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium" htmlFor="franchise-notes">
-              Notes
-            </label>
-            <Textarea
-              id="franchise-notes"
-              value={notes}
-              rows={3}
-              placeholder="Watch order, thoughts on the IP…"
-              onChange={(e) => setNotes(e.target.value)}
-              onBlur={() => {
-                if (notes !== (f.notes ?? '')) run(() => updateFranchise(f.id, { notes }), 'Notes saved.');
-              }}
-              className="text-base sm:text-sm"
-            />
-          </div>
-
-          {/* Merge */}
-          {others.length > 0 && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Merge into another franchise</label>
+              <label className="text-sm font-medium" htmlFor="franchise-name">
+                Name
+              </label>
               <div className="flex gap-2">
-                <Select value={mergeTarget} onValueChange={setMergeTarget}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Pick a franchise…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {others.map((o) => (
-                      <SelectItem key={o.id} value={o.id}>
-                        {o.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="franchise-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="text-base sm:text-sm"
+                />
                 <Button
                   variant="outline"
-                  disabled={busy || !mergeTarget}
-                  onClick={() => run(() => mergeFranchise(f.id, mergeTarget), 'Merged.', true)}
+                  disabled={busy || !name.trim() || name.trim() === f.name}
+                  onClick={() => run(() => updateFranchise(f.id, { name }), 'Renamed.')}
                 >
-                  <Merge className="mr-1.5 h-4 w-4" />
-                  Merge
+                  <Check className="mr-1.5 h-4 w-4" />
+                  Save
                 </Button>
               </div>
             </div>
-          )}
-        </div>
+
+            {/* IP rating */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Your rating of the whole IP</label>
+                {f.rating != null && (
+                  <button
+                    type="button"
+                    onClick={() => run(() => updateFranchise(f.id, { rating: null }), 'Rating cleared.')}
+                    className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <RatingInput
+                value={f.rating}
+                onChange={(v) => run(() => updateFranchise(f.id, { rating: v }), `Rated ${scoreOutOf(v)}.`)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Separate from each title&apos;s own rating.
+                {avg != null && ` Your titles average ${scoreOutOf(avg)}.`}
+              </p>
+            </div>
+
+            {/* Cover */}
+            {covers.length > 1 && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Cover</label>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {covers.map((m) => {
+                    const active = (f.imageUrl ?? covers[0]?.media.imageUrl) === m.media.imageUrl;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        title={titleOf(m.media)}
+                        onClick={() =>
+                          run(() => updateFranchise(f.id, { imageUrl: m.media.imageUrl }), 'Cover updated.')
+                        }
+                        className={cn(
+                          'relative aspect-[2/3] w-14 shrink-0 overflow-hidden rounded-md ring-2 transition',
+                          active ? 'ring-primary' : 'ring-transparent opacity-70 hover:opacity-100',
+                        )}
+                      >
+                        <Image src={m.media.imageUrl as string} alt={titleOf(m.media)} fill sizes="56px" className="object-cover" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Members */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Titles · {f.members.length}</label>
+                {canFindMissing && (
+                  <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setAddingMissing(true)}>
+                    <ListPlus className="mr-1.5 h-4 w-4" aria-hidden />
+                    Add missing titles
+                  </Button>
+                )}
+              </div>
+              <ul className="divide-y divide-border rounded-lg border border-border">
+                {f.members.map((m) => (
+                  <li key={m.id} className="flex items-center gap-3 p-2">
+                    <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded bg-muted">
+                      {m.media.imageUrl ? (
+                        <Image src={m.media.imageUrl} alt={titleOf(m.media)} fill sizes="40px" className="object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <ImageOff className="h-4 w-4 text-muted-foreground" aria-hidden />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/${m.category}`}
+                        className="block truncate text-sm font-medium hover:underline"
+                      >
+                        {titleOf(m.media)}
+                      </Link>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span>{CATEGORIES[m.category].singular}</span>
+                        {m.media.year != null && <span>· {m.media.year}</span>}
+                        <StatusBadge status={m.status} slug={m.category} className="px-1.5 py-0 text-[11px]" />
+                      </div>
+                    </div>
+                    <RatingControl value={m.rating} />
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => run(() => assignFranchise(m.id, null), `Removed "${titleOf(m.media)}".`)}
+                      aria-label={`Remove ${titleOf(m.media)} from this franchise`}
+                      title="Remove from franchise"
+                      className="rounded p-1 text-muted-foreground hover:text-rose-500 disabled:opacity-30"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium" htmlFor="franchise-notes">
+                Notes
+              </label>
+              <Textarea
+                id="franchise-notes"
+                value={notes}
+                rows={3}
+                placeholder="Watch order, thoughts on the IP…"
+                onChange={(e) => setNotes(e.target.value)}
+                onBlur={() => {
+                  if (notes !== (f.notes ?? '')) run(() => updateFranchise(f.id, { notes }), 'Notes saved.');
+                }}
+                className="text-base sm:text-sm"
+              />
+            </div>
+
+            {/* Merge */}
+            {others.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Merge into another franchise</label>
+                <div className="flex gap-2">
+                  <Select value={mergeTarget} onValueChange={setMergeTarget}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Pick a franchise…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {others.map((o) => (
+                        <SelectItem key={o.id} value={o.id}>
+                          {o.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    disabled={busy || !mergeTarget}
+                    onClick={() => run(() => mergeFranchise(f.id, mergeTarget), 'Merged.', true)}
+                  >
+                    <Merge className="mr-1.5 h-4 w-4" />
+                    Merge
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-between gap-2 pt-3">
           {confirmDelete ? (

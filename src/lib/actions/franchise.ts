@@ -15,6 +15,19 @@ import { requireUser } from '@/lib/session';
 import { resolveMediaRow } from '@/lib/franchise/auto';
 import { normalizeTitle } from '@/lib/franchise/normalize';
 import { syncUserFranchises } from '@/lib/franchise/sync';
+import { anilistQuery } from '@/lib/apis/anilist';
+import { fetchFranchiseGames, igdbConfigured } from '@/lib/apis/igdb';
+import { fetchCollectionParts, tmdbConfigured } from '@/lib/apis/tmdb';
+import {
+  aniListStart,
+  GRAPH_FIELDS,
+  missingTitles,
+  nodesToTitles,
+  providerKeys,
+  walkAniList,
+  type AniListGraphNode,
+  type MissingTitle,
+} from '@/lib/franchise/missing';
 import type { ActionResult } from '@/lib/types';
 
 /** Refresh every page that shows franchise data. */
@@ -255,5 +268,117 @@ export async function saveFranchiseRanking(orderedIds: string[]): Promise<Action
     return { ok: true };
   } catch (err) {
     return fail(err, 'Failed to save ranking.');
+  }
+}
+
+/** One provider's part of "Add missing titles". */
+export interface MissingGroup {
+  provider: 'AniList' | 'TMDB' | 'IGDB';
+  titles: MissingTitle[];
+  /** Why this part is empty or incomplete (not configured, provider down). */
+  message?: string;
+}
+
+const GRAPH_BY_MAL = `query ($ids: [Int], $type: MediaType) {
+  Page(perPage: 50) { media(idMal_in: $ids, type: $type) { ${GRAPH_FIELDS} } } }`;
+const GRAPH_BY_IDS = `query ($ids: [Int]) {
+  Page(perPage: 50) { media(id_in: $ids) { ${GRAPH_FIELDS} } } }`;
+
+/**
+ * The titles of a franchise's IP that the user doesn't have yet (spec 2.10),
+ * per provider: AniList relations for anime and manga, the TMDB collection
+ * for films, the IGDB franchise or collection for games. Only the caller's
+ * own franchise; a missing key or a provider failure only empties that
+ * provider's part, with a message (spec G4).
+ */
+export async function franchiseMissing(
+  franchiseId: string,
+): Promise<ActionResult & { groups?: MissingGroup[] }> {
+  try {
+    const user = await requireUser();
+    if (typeof franchiseId !== 'string' || !(await ownFranchise(user.id, franchiseId))) {
+      return { ok: false, error: 'Not found.' };
+    }
+
+    // The members' catalogue rows: their ids and provider franchise keys.
+    const members: Array<{ slug: CategorySlug; externalId: string; franchiseKey: string | null }> = [];
+    for (const cat of CATEGORY_LIST) {
+      const rows = await prisma.userMediaActivity.findMany({
+        where: { userId: user.id, franchiseId, category: cat.dbCategory },
+        select: { [cat.prismaModel]: { select: { externalId: true, franchiseKey: true } } } as any,
+      });
+      for (const r of rows as any[]) {
+        const m = r[cat.prismaModel];
+        if (m) members.push({ slug: cat.slug, externalId: m.externalId, franchiseKey: m.franchiseKey ?? null });
+      }
+    }
+
+    const groups: MissingGroup[] = [];
+    const failed = (err: unknown) => (err instanceof Error ? err.message : 'unknown error');
+
+    const start = aniListStart(members);
+    if (start.al.length || start.mal.ANIME.length || start.mal.MANGA.length) {
+      try {
+        const nodes = await walkAniList(start, {
+          byMal: (type, ids) => anilistQuery<AniListGraphNode>(GRAPH_BY_MAL, { ids, type }, 'AniList franchise'),
+          byIds: (ids) => anilistQuery<AniListGraphNode>(GRAPH_BY_IDS, { ids }, 'AniList franchise'),
+          pause: (ms) => new Promise((r) => setTimeout(r, ms)),
+        });
+        groups.push({ provider: 'AniList', titles: nodesToTitles(nodes) });
+      } catch (err) {
+        groups.push({ provider: 'AniList', titles: [], message: `AniList could not be reached (${failed(err)}). Try again later.` });
+      }
+    }
+
+    const keys = providerKeys(members.map((m) => m.franchiseKey));
+    if (keys.tmdbCollections.length) {
+      if (!tmdbConfigured()) {
+        groups.push({ provider: 'TMDB', titles: [], message: "TMDB isn't configured on this server, so the films can't be looked up." });
+      } else {
+        try {
+          const titles: MissingTitle[] = [];
+          for (const id of keys.tmdbCollections.slice(0, 5)) {
+            for (const result of await fetchCollectionParts(id)) titles.push({ slug: 'movies', result });
+          }
+          groups.push({ provider: 'TMDB', titles });
+        } catch (err) {
+          groups.push({ provider: 'TMDB', titles: [], message: `TMDB could not be reached (${failed(err)}).` });
+        }
+      }
+    }
+    if (keys.igdb.length) {
+      if (!igdbConfigured()) {
+        groups.push({ provider: 'IGDB', titles: [], message: "IGDB isn't configured on this server, so the games can't be looked up." });
+      } else {
+        try {
+          const titles: MissingTitle[] = [];
+          for (const key of keys.igdb.slice(0, 5)) {
+            for (const result of await fetchFranchiseGames(key)) titles.push({ slug: 'games', result });
+          }
+          groups.push({ provider: 'IGDB', titles });
+        } catch (err) {
+          groups.push({ provider: 'IGDB', titles: [], message: `IGDB could not be reached (${failed(err)}).` });
+        }
+      }
+    }
+
+    // Leave out everything already in the user's library (any franchise).
+    const owned = new Set<string>();
+    const wanted = new Map<CategorySlug, Set<string>>();
+    for (const g of groups) for (const t of g.titles) {
+      if (!wanted.has(t.slug)) wanted.set(t.slug, new Set());
+      wanted.get(t.slug)!.add(t.result.externalId);
+    }
+    for (const [slug, ids] of wanted) {
+      const cat = CATEGORY_LIST.find((c) => c.slug === slug)!;
+      const rows = await prisma.userMediaActivity.findMany({
+        where: { userId: user.id, category: cat.dbCategory, [cat.prismaModel]: { is: { externalId: { in: [...ids] } } } } as any,
+        select: { [cat.prismaModel]: { select: { externalId: true } } } as any,
+      });
+      for (const r of rows as any[]) owned.add(`${slug}|${r[cat.prismaModel].externalId}`);
+    }
+    return { ok: true, groups: groups.map((g) => ({ ...g, titles: missingTitles(g.titles, owned) })) };
+  } catch (err) {
+    return fail(err, 'Could not look up the missing titles.');
   }
 }

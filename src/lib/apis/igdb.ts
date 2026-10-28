@@ -303,3 +303,35 @@ export async function fetchGameDetails(externalId: string): Promise<GameDetails 
   const [ttb] = (await ttbRes.json()) as Array<{ normally?: number | null }>;
   return mapGameDetails(game, ttb);
 }
+
+/**
+ * The Apicalypse body listing the games of a franchise key from
+ * resolveFranchise ("igdb-fr:12" → franchises, "igdb-col:34" → collections),
+ * main entries only: no editions (`version_parent`) and no DLC or expansions
+ * (`parent_game`). Null for any other key.
+ */
+export function franchiseGamesQuery(key: string): string | null {
+  const m = /^igdb-(fr|col):(\d{1,12})$/.exec(key);
+  if (!m) return null;
+  const field = m[1] === 'fr' ? 'franchises' : 'collections';
+  return (
+    `fields name,summary,first_release_date,cover.image_id,rating,platforms.name,genres.name; ` +
+    `where ${field} = (${m[2]}) & version_parent = null & parent_game = null; ` +
+    `sort first_release_date asc; limit 100;`
+  );
+}
+
+/** The games of an IGDB franchise or collection (2.10). Throws on failures and without keys. */
+export async function fetchFranchiseGames(key: string): Promise<NormalizedResult[]> {
+  const body = franchiseGamesQuery(key);
+  if (!body) return [];
+  const creds = requireCredentials();
+  const token = await getAccessToken(creds);
+  const res = await providerFetch(IGDB_GAMES_URL, {
+    method: 'POST',
+    headers: { 'Client-ID': creds.clientId, Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    body,
+  });
+  if (!res.ok) throw new Error(`IGDB franchise games failed (${res.status})`);
+  return ((await res.json()) as IgdbGame[]).map(mapGameSearchHit);
+}
