@@ -175,6 +175,7 @@ describe('status-change undo', () => {
     rankOrder: null,
     progress: 24,
     rewatching: false,
+    seenSeasonCount: null,
   };
 
   it('accepts only the restorable fields', () => {
@@ -211,14 +212,35 @@ describe('status-change undo', () => {
     ]);
   });
 
-  it('converts finishedAt and drops a tier the restored status cannot hold', () => {
+  it('converts finishedAt and keeps a stored tier the restored status hides', () => {
     const { data, events } = planStateRestore(ids, { ...current, tier: 'A' }, {
       status: 'CONSUMING',
       finishedAt: '2026-10-01T00:00:00.000Z',
     });
     expect(data.finishedAt).toEqual(new Date('2026-10-01T00:00:00.000Z'));
+    expect('tier' in data).toBe(false);
+    expect(events.map((e) => e.kind)).toEqual(['status']);
+  });
+
+  it('undoing a finish of a title with a hidden tier keeps that tier (Ongoing → Completed → Undo)', () => {
+    // Before: Ongoing with a hidden S; the finish showed it; Undo goes back.
+    const { data, events } = planStateRestore(ids, { ...current, tier: 'S' }, { status: 'CONSUMING', tier: 'S' });
+    expect(data.tier).toBe('S');
+    expect(events.map((e) => e.kind)).toEqual(['status']);
+  });
+
+  it('leaves off only a tier that would newly appear on a status that cannot hold one', () => {
+    const { data, events } = planStateRestore(ids, { ...current, tier: null }, { status: 'PLANNED', tier: 'B' });
     expect(data.tier).toBeNull();
-    expect(events.map((e) => e.kind)).toEqual(['status', 'tier']);
+    expect(events.map((e) => e.kind)).toEqual(['status']);
+  });
+
+  it('restores seenSeasonCount (5.5)', () => {
+    expect(ActivityStateSchema.safeParse({ seenSeasonCount: 3 }).success).toBe(true);
+    expect(ActivityStateSchema.safeParse({ seenSeasonCount: -1 }).success).toBe(false);
+    expect(ActivityStateSchema.safeParse({ seenSeasonCount: 1.5 }).success).toBe(false);
+    const { data } = planStateRestore(ids, { ...current, seenSeasonCount: 4 }, { status: 'CONSUMING', seenSeasonCount: 2 });
+    expect(data).toMatchObject({ status: 'CONSUMING', seenSeasonCount: 2 });
   });
 
   it('rounds a restored score like updateActivity does', () => {

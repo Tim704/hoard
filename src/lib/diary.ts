@@ -3,9 +3,11 @@
 //
 //  Rules (pure planners below, the writers at the bottom):
 //  - A diary entry is written when the status moves INTO Completed or Retired
-//    from a status that isn't finished (FINISHED_STATUSES: Completed, Retired,
-//    Dropped). Dropping a title writes none. Moving between finished statuses
-//    (Retired → Completed) writes none either: that run was already logged.
+//    from any other status, Dropped included (picking a dropped title back up
+//    and finishing it is a real finish). Dropping a title writes none. Moving
+//    between Completed and Retired writes none either: that run was already
+//    logged. Adding a title directly as done writes none (the watch date is
+//    unknown); imports write their own dated entries.
 //  - The entry is dated today in the user's time zone (G10), carries the
 //    score at that moment and `rewatch = activity.rewatching`. ANY move into
 //    a finished status (Dropped too) ends a repeat run: `rewatching` is
@@ -24,7 +26,9 @@
 //    holds (no date, a Dropped title, a day already logged) is appended to
 //    the activity's notes as "Review (<source>): …", once.
 //  - The migration job backfills one entry per Completed / Retired activity
-//    with a `finishedAt` and no entry yet, dated in the server's TZ.
+//    with a `finishedAt` and no entry yet, dated in the server's TZ — except
+//    rows whose `finishedAt` is within 2 minutes of `createdAt` (added as
+//    done: the date is the add, not the watch).
 // ───────────────────────────────────────────────────────────────────────────
 
 import type { Prisma } from '@prisma/client';
@@ -52,7 +56,7 @@ export function entersFinished(before: string, after: string | undefined): boole
 
 /** True when going from `before` to `after` finishes a run (see the rules above). */
 export function isFinishTransition(before: string, after: string | undefined): boolean {
-  return after !== undefined && after !== before && isDiaryStatus(after) && !isFinished(before);
+  return after !== undefined && after !== before && isDiaryStatus(after) && !isDiaryStatus(before);
 }
 
 export interface FinishBefore {
@@ -195,8 +199,16 @@ export interface BackfillCandidate {
   userId: string;
   status: string;
   finishedAt: Date | null;
+  /** When the activity was added; a finish this close to it was "added as done". */
+  createdAt?: Date | null;
   rating: number | null;
 }
+
+/** A `finishedAt` closer than this to `createdAt` is an add-as-done stamp, not a watch date. */
+export const ADDED_AS_DONE_MS = 2 * 60_000;
+
+const addedAsDone = (r: BackfillCandidate) =>
+  r.createdAt != null && r.finishedAt != null && Math.abs(r.finishedAt.getTime() - r.createdAt.getTime()) < ADDED_AS_DONE_MS;
 
 /**
  * Entries for finished activities that have none yet (`withEntries` = the
@@ -209,7 +221,7 @@ export function planDiaryBackfill(
   timeZone: string,
 ): Prisma.DiaryEntryCreateManyInput[] {
   return rows
-    .filter((r) => r.finishedAt && isDiaryStatus(r.status) && !withEntries.has(r.id))
+    .filter((r) => r.finishedAt && isDiaryStatus(r.status) && !withEntries.has(r.id) && !addedAsDone(r))
     .map((r) => ({
       userId: r.userId,
       activityId: r.id,

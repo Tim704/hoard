@@ -28,7 +28,7 @@ import { dayToDate } from './fields';
 import type { MatchDeps } from './matcher';
 import { NEW_MANUAL_ID, type CommitRow, type CommitRowOutcome, type InLibrary } from './types';
 import { normalizeTags } from '@/lib/tags';
-import { planImportUpdate } from './update';
+import { planImportFinish, planImportUpdate } from './update';
 import { confirmSteamApp, rememberSteamMappings } from './steam-confirm';
 import { publicError } from '@/lib/action-error';
 
@@ -247,7 +247,22 @@ async function updateExisting(userId: string, activityId: string, row: CommitRow
     const logged = await writeImportDiary(tx, userId, activityId, row);
     if (Object.keys(plan.patch).length === 0) return logged;
 
+    // Moving into Completed / Retired (final review 13): finishedAt when
+    // unset, and a diary entry (the remote day's, written above, else today).
+    const finish = planImportFinish(
+      { status: a.status as Status, finishedAt: a.finishedAt, rating: a.rating, rewatching: a.rewatching },
+      plan.patch,
+      row,
+      today,
+      dayToDate,
+    );
+    if (finish.keepStoredFinishedAt) delete plan.patch.finishedAt;
     const data: Prisma.UserMediaActivityUpdateInput = { ...plan.patch };
+    if (finish.finishedAt) data.finishedAt = finish.finishedAt;
+    if (finish.todayEntry) {
+      const already = await tx.diaryEntry.findFirst({ where: { activityId, date: finish.todayEntry.date }, select: { id: true } });
+      if (!already) await tx.diaryEntry.create({ data: { userId, activityId, ...finish.todayEntry } });
+    }
     if (plan.queue === 'leave') data.queueOrder = null;
     // Finishing (or dropping) ends a repeat run (3.1).
     if (a.rewatching && entersFinished(a.status, plan.patch.status)) data.rewatching = false;

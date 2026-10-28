@@ -39,10 +39,21 @@ describe('isFinishTransition', () => {
     expect(isFinishTransition('ON_HOLD', 'RETIRED')).toBe(true);
   });
 
-  it('does not log drops, moves between finished statuses, or no change', () => {
+  it('logs finishing a dropped title (Dropped → Completed / Retired)', () => {
+    expect(isFinishTransition('DROPPED', 'COMPLETED')).toBe(true);
+    expect(isFinishTransition('DROPPED', 'RETIRED')).toBe(true);
+    expect(planFinish({ status: 'DROPPED', rating: 6, rewatching: false }, { status: 'COMPLETED' }, '2026-10-28', null).create).toEqual({
+      date: '2026-10-28',
+      rating: 6,
+      rewatch: false,
+    });
+  });
+
+  it('does not log drops, moves between Completed and Retired, or no change', () => {
     expect(isFinishTransition('CONSUMING', 'DROPPED')).toBe(false);
     expect(isFinishTransition('RETIRED', 'COMPLETED')).toBe(false);
-    expect(isFinishTransition('DROPPED', 'COMPLETED')).toBe(false);
+    expect(isFinishTransition('COMPLETED', 'RETIRED')).toBe(false);
+    expect(isFinishTransition('COMPLETED', 'DROPPED')).toBe(false);
     expect(isFinishTransition('COMPLETED', 'COMPLETED')).toBe(false);
     expect(isFinishTransition('COMPLETED', undefined)).toBe(false);
     expect(isFinishTransition('COMPLETED', 'CONSUMING')).toBe(false);
@@ -156,6 +167,21 @@ describe('planDiaryBackfill', () => {
     const first = planDiaryBackfill(rows, new Set(), 'Europe/Berlin');
     const done = new Set(first.map((e) => e.activityId));
     expect(planDiaryBackfill(rows, done, 'Europe/Berlin')).toEqual([]);
+  });
+
+  it('skips titles added as done (finishedAt within 2 minutes of createdAt)', () => {
+    const at = new Date('2026-05-01T10:00:00Z');
+    const plan = planDiaryBackfill(
+      [
+        { id: 'quick', userId: 'u', status: 'COMPLETED', finishedAt: new Date(at.getTime() + 500), createdAt: at, rating: 7 },
+        { id: 'edge', userId: 'u', status: 'COMPLETED', finishedAt: new Date(at.getTime() + 119_999), createdAt: at, rating: 7 },
+        { id: 'later', userId: 'u', status: 'COMPLETED', finishedAt: new Date(at.getTime() + 120_000), createdAt: at, rating: 7 },
+        { id: 'imported', userId: 'u', status: 'COMPLETED', finishedAt: new Date('2020-01-01T00:00:00Z'), createdAt: at, rating: null },
+      ],
+      new Set(),
+      'UTC',
+    );
+    expect(plan.map((e) => e.activityId)).toEqual(['later', 'imported']);
   });
 });
 

@@ -37,6 +37,7 @@ import { userToday } from '@/lib/library/seen-seasons';
 import { openToken, secretConfigured } from '@/lib/secret-box';
 import type { Status } from '@/lib/status';
 import { UserError } from '@/lib/action-error';
+import { isDiaryStatus } from '@/lib/diary';
 
 export const ANILIST_SYNC_ERROR_PREFIX = 'AniList';
 
@@ -112,6 +113,9 @@ export async function pullAniListForUser(userId: string, username: string): Prom
           status: change.status ?? (local.status as Status),
           ...(change.rating !== undefined && { rating: change.rating }),
           ...(change.progress !== undefined && { progress: change.progress }),
+          // Finishing here: AniList's completion day dates finishedAt (when
+          // unset) and the diary entry (final review 13).
+          ...(change.status !== undefined && isDiaryStatus(change.status) && row.finishedOn && { finishedOn: row.finishedOn }),
         };
       } else {
         commit = {

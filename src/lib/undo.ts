@@ -102,6 +102,8 @@ export interface ActivityState {
   progress: number | null;
   /** 3.1: a repeat run in progress (Watch again / finishing flips it). */
   rewatching: boolean;
+  /** 5.5: seasons seen (finishing or starting a show records it). */
+  seenSeasonCount: number | null;
   /** The diary entry the change being undone wrote (deleted on Undo). Not a column. */
   diaryEntryId?: string;
 }
@@ -117,6 +119,7 @@ export const ActivityStateSchema = z
     rankOrder: z.number().finite().nullable(),
     progress: z.number().int().min(0).max(100_000).nullable(),
     rewatching: z.boolean(),
+    seenSeasonCount: z.number().int().min(0).max(10_000).nullable(),
     diaryEntryId: z.string().min(1).max(64),
   })
   .partial()
@@ -134,6 +137,7 @@ export function stateOf(row: {
   rankOrder: number | null;
   progress: number | null;
   rewatching?: boolean;
+  seenSeasonCount: number | null;
 }): ActivityState {
   return {
     status: row.status as Status,
@@ -144,13 +148,16 @@ export function stateOf(row: {
     rankOrder: row.rankOrder,
     progress: row.progress,
     rewatching: row.rewatching ?? false,
+    seenSeasonCount: row.seenSeasonCount,
   };
 }
 
 /**
  * Turn a validated restore request into the row update and the events that
  * describe it (status, score, tier and progress — the same kinds a normal
- * edit writes). A tier only sticks while the restored status is tier-eligible.
+ * edit writes). A stored tier is kept when the restored status hides it
+ * (Ongoing, Planned, …: it shows again once finished); only a tier that
+ * would newly appear on a status that can't hold one is left off.
  */
 export function planStateRestore(
   ids: { userId: string; activityId: string },
@@ -165,7 +172,7 @@ export function planStateRestore(
     data.finishedAt = wanted.finishedAt === null ? null : new Date(wanted.finishedAt);
   }
   const status = wanted.status ?? current.status;
-  if (!isTierEligible(status) && (wanted.tier ?? current.tier) !== null) data.tier = null;
+  if (!isTierEligible(status) && wanted.tier != null && current.tier == null) data.tier = null;
 
   const next: ActivityState = {
     ...current,

@@ -9,6 +9,7 @@
 //  tags merged and a favourite only ever switched on.
 // ───────────────────────────────────────────────────────────────────────────
 
+import { isFinishTransition } from '@/lib/diary';
 import { eventsForUpdate, type EventInput } from '@/lib/events';
 import type { Status } from '@/lib/status';
 import { MAX_TAGS, normalizeTags, tagKey } from '@/lib/tags';
@@ -80,4 +81,63 @@ export function planImportUpdate(
     });
   }
   return { patch, queue, events };
+}
+
+// ── Finishing through an import update or the AniList pull (final review 13) ─
+
+export interface FinishNow {
+  status: Status;
+  finishedAt: Date | null;
+  rating: number | null;
+  rewatching: boolean;
+}
+
+export interface FinishRow {
+  /** 'anilist-sync' never moves a finish date that is already set. */
+  source: string;
+  /** The remote completion day (AniList completedAt / import finishedOn). */
+  finishedOn?: string | null;
+  /** A dated log: its entries are written by writeImportDiary instead. */
+  diary?: unknown[] | null;
+}
+
+export interface FinishPlanResult {
+  /** Write this `finishedAt` (null = leave the column as the patch has it). */
+  finishedAt: Date | null;
+  /** Drop a `finishedAt` the patch carries (the AniList pull keeps a set one). */
+  keepStoredFinishedAt: boolean;
+  /** A diary entry dated today in the user's zone (no remote day known). */
+  todayEntry: { date: string; rating: number | null; rewatch: boolean } | null;
+}
+
+/**
+ * What a status change INTO Completed / Retired (same rule as the Add /
+ * edit path: from any other status, Dropped included) means for `finishedAt`
+ * and the diary when it arrives through an import update or the AniList
+ * pull. `finishedAt` is written only when unset: the remote completion day,
+ * else now. The diary entry is the remote day's (writeImportDiary writes
+ * it from `finishedOn`); without a remote day or log, one entry dated
+ * `today` in the user's zone.
+ */
+export function planImportFinish(
+  now: FinishNow,
+  patch: { status?: Status; rating?: number | null; finishedAt?: Date | null },
+  row: FinishRow,
+  today: string,
+  dayToDate: (ymd: string) => Date | null,
+  clock: Date = new Date(),
+): FinishPlanResult {
+  const keepStoredFinishedAt = row.source === 'anilist-sync' && now.finishedAt != null && patch.finishedAt != null;
+  const none: FinishPlanResult = { finishedAt: null, keepStoredFinishedAt, todayEntry: null };
+  if (!isFinishTransition(now.status, patch.status)) return none;
+  const remote = row.finishedOn ? dayToDate(row.finishedOn) : null;
+  const finishedAt = now.finishedAt == null && patch.finishedAt == null ? (remote ?? clock) : null;
+  const hasRemoteEntry = Boolean(row.finishedOn) || Boolean(row.diary && row.diary.length);
+  return {
+    finishedAt,
+    keepStoredFinishedAt,
+    todayEntry: hasRemoteEntry
+      ? null
+      : { date: today, rating: patch.rating !== undefined ? patch.rating : now.rating, rewatch: now.rewatching },
+  };
 }
