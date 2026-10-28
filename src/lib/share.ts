@@ -102,3 +102,6 @@ export const sharePath = (token: string): string => `/s/${token}`;
 
 /** The tier list PNG's file name: hoard-books-tiers-2026-10-28.png. */
 export const tierPngFileName = (section: string, ymd: string): string => `hoard-${section}-tiers-${ymd}.png`;
+
+/** The year in review PNG's file name: hoard-2026-in-review.png. */
+export const yearPngFileName = (year: number): string => `hoard-${year}-in-review.png`;

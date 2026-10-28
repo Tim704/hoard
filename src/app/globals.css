@@ -27,6 +27,19 @@
     --input: 240 6% 87%;
     --ring: 262 70% 50%;
     --radius: 0.5rem;
+
+    /* Stats charts (dataviz palette, validated against the white card
+       surface; three slots sit below 3:1, so every chart has a table view).
+       Slots follow the navigation order of the sections. */
+    --viz-1: #2a78d6;
+    --viz-2: #eb6834;
+    --viz-3: #1baf7a;
+    --viz-4: #eda100;
+    --viz-5: #e87ba4;
+    --viz-6: #008300;
+    --viz-7: #6250d6;
+    --viz-grid: #e4e4e7;
+    --viz-axis: #c3c2b7;
   }
 
   .dark {
@@ -49,6 +62,17 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
+
+    /* The same hues stepped for the dark card surface (all ≥ 3:1). */
+    --viz-1: #3987e5;
+    --viz-2: #d95926;
+    --viz-3: #199e70;
+    --viz-4: #c98500;
+    --viz-5: #d55181;
+    --viz-6: #008300;
+    --viz-7: #9085e9;
+    --viz-grid: #27272a;
+    --viz-axis: #3f3f46;
   }
 }
 

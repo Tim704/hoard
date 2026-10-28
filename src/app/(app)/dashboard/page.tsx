@@ -16,18 +16,23 @@ import {
   Play,
   Sparkles,
   Star,
+  Target,
   Tv,
   type LucideIcon,
 } from 'lucide-react';
 
 import { Score } from '@/components/prefs-provider';
+import { GoalBar } from '@/components/stats/goals-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import { getDashboardStats, getFavourites, getNowConsuming, type CategoryStat } from '@/lib/data';
 import { favouritesShowcase, type ShowcaseSection } from '@/lib/favourites';
 import { getCurrentPrefs } from '@/lib/data-prefs';
 import { getComingUp, type ComingUpItem } from '@/lib/data-tonight';
-import { formatYmd } from '@/lib/release';
+import { formatYmd, todayYmd } from '@/lib/release';
+import { getGoalsProgress } from '@/lib/data-stats';
+import { effectiveTimeZone } from '@/lib/prefs';
+import type { GoalProgress } from '@/lib/stats/goals';
 import type { TitleLanguage } from '@/lib/display-prefs';
 import { getCurrentUser } from '@/lib/session';
 import { isTierEligible } from '@/lib/tiers';
@@ -61,6 +66,9 @@ export default async function DashboardPage() {
     getFavourites(),
     getComingUp(5),
   ]);
+  // This year's goals (6.3), in the user's time zone; the tile hides without any.
+  const goalYear = Number(todayYmd(effectiveTimeZone(prefs)).slice(0, 4));
+  const goals = user ? await getGoalsProgress(user.id, goalYear) : [];
 
   // Sections hidden in Settings drop out of the tiles, the totals and "Now consuming".
   const hidden = new Set<string>(prefs.hiddenSections);
@@ -102,6 +110,8 @@ export default async function DashboardPage() {
 
       <ComingUpCard items={comingUp} />
 
+      {goals.length > 0 && <GoalsCard year={goalYear} goals={goals} />}
+
       {showcase.length > 0 && (
         <FavouritesRow sections={showcase} titleLanguage={prefs.titleLanguage} />
       )}
@@ -110,6 +120,31 @@ export default async function DashboardPage() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+
+/** This year's goals (6.3) with their progress bars. */
+function GoalsCard({ year, goals }: { year: number; goals: GoalProgress[] }) {
+  return (
+    <Card className="mt-4">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+        <CardTitle className="text-base font-semibold">
+          <Link href={`/stats?tab=goals&year=${year}`} className="hover:underline">
+            Goals for {year}
+          </Link>
+        </CardTitle>
+        <Target className="h-5 w-5 text-muted-foreground" aria-hidden />
+      </CardHeader>
+      <CardContent>
+        <ul className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+          {goals.map((g) => (
+            <li key={g.id}>
+              <GoalBar goal={g} />
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
 
 /** "Coming up" (5.9): the next five Planned releases with a known day. */
 function ComingUpCard({ items }: { items: ComingUpItem[] }) {

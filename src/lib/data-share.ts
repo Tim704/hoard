@@ -7,14 +7,17 @@
 //  page shows — for a tier list: the section, and per tier the titles (in the
 //  owner's title language) and covers in order. Never notes, scores, dates or
 //  anything else of the owner's library. Custom lists (Task 12) show their
-//  items the same way; Task 15 (year in review) adds its kind here.
+//  items the same way; a year in review (6.1) its summary numbers and covers.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { prisma } from '@/lib/prisma';
-import { getCategory, type CategorySlug } from '@/lib/categories';
+import { CATEGORIES, getCategory, type CategorySlug } from '@/lib/categories';
 import { flattenActivity } from '@/lib/data';
 import { getPrefs } from '@/lib/data-prefs';
 import { getCustomList } from '@/lib/data-lists';
+import { getYearReview } from '@/lib/data-stats';
+import { MONTH_NAMES } from '@/lib/stats/year';
+import { parseYear } from '@/lib/year-arena';
 import { absoluteUrl } from '@/lib/public-url';
 import {
   isShareTokenShape,
@@ -48,10 +51,29 @@ export interface ListShareView {
   items: SharedItem[];
 }
 
-/** What each kind's public page renders. The year view joins in Task 15. */
+/**
+ * A year in review (6.1): the summary numbers and the titles + covers of the
+ * new S-tier titles and the year's top 3. Never scores, notes or reviews.
+ */
+export interface YearShareView {
+  kind: 'year';
+  year: number;
+  finished: number;
+  sections: { slug: CategorySlug; label: string; finished: number }[];
+  hours: number;
+  pages: number;
+  episodes: number;
+  busiestMonth: string | null;
+  topFranchise: string | null;
+  sTier: SharedItem[];
+  topThree: SharedItem[];
+}
+
+/** What each kind's public page renders. */
 export interface ShareViews {
   tiers: TiersShareView;
   list: ListShareView;
+  year: YearShareView;
 }
 
 export type ShareView = ShareViews[keyof ShareViews];
@@ -62,6 +84,7 @@ type Loader<V> = (link: ShareLinkRow & { kind: ShareKind }) => Promise<V | null>
 export const SHARE_LOADERS: { [K in ShareKind]?: Loader<K extends keyof ShareViews ? ShareViews[K] : never> } = {
   tiers: loadTiers,
   list: loadList,
+  year: loadYear,
 };
 
 /** Kinds "Share link" may create now. */
@@ -116,6 +139,26 @@ async function loadList(link: ShareLinkRow): Promise<ListShareView | null> {
       title: displayTitle(it.media, prefs.titleLanguage),
       imageUrl: httpsOnly(it.media.imageUrl),
     })),
+  };
+}
+
+/** A year in review: only the public summary (see YearShareView). */
+async function loadYear(link: ShareLinkRow): Promise<YearShareView | null> {
+  const year = parseYear(link.target);
+  if (year === null) return null;
+  const { summary: s, topThree } = await getYearReview(link.userId, year);
+  return {
+    kind: 'year',
+    year,
+    finished: s.finished,
+    sections: s.sections.map((x) => ({ slug: x.slug, label: CATEGORIES[x.slug].label, finished: x.finished })),
+    hours: s.hours,
+    pages: s.pages,
+    episodes: s.episodes,
+    busiestMonth: s.busiestMonth ? MONTH_NAMES[s.busiestMonth.month - 1] : null,
+    topFranchise: s.topFranchise?.name ?? null,
+    sTier: s.sTier.slice(0, 24).map((t) => ({ title: t.media.title, imageUrl: httpsOnly(t.media.imageUrl) })),
+    topThree: topThree.map((t) => ({ title: t.title, imageUrl: httpsOnly(t.imageUrl) })),
   };
 }
 

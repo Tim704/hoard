@@ -36,6 +36,7 @@ async function main() {
   await seedLibrary(user.id);
   await seedShareLink(user.id);
   await seedLists(user.id);
+  await seedStats(user.id);
 
   console.log('[seed] Demo user ready.');
   console.log(`[seed]   username: ${DEMO_USERNAME}`);
@@ -114,6 +115,25 @@ async function seedLists(userId: string) {
       },
     });
   }
+}
+
+/** The demo year in review's fixed share token (6.1), visited by the smoke test. */
+export const DEMO_YEAR_SHARE_TOKEN = 'demo-share-year-review';
+
+/**
+ * A goal for this year (so the dashboard tile and the Goals tab have data) and
+ * a public link to this year's review. Never in production (guessable token).
+ */
+async function seedStats(userId: string) {
+  if (process.env.NODE_ENV === 'production') return;
+  const year = new Date().getFullYear();
+  const goal = await prisma.goal.findFirst({ where: { userId, year, category: null, metric: 'count' } });
+  if (!goal) await prisma.goal.create({ data: { userId, year, category: null, metric: 'count', target: 24 } });
+  await prisma.shareLink.upsert({
+    where: { id: DEMO_YEAR_SHARE_TOKEN },
+    update: {},
+    create: { id: DEMO_YEAR_SHARE_TOKEN, userId, kind: 'year', target: String(year) },
+  });
 }
 
 // ── Demo library ─────────────────────────────────────────────────────────────

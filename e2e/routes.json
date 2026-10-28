@@ -43,5 +43,15 @@
   "/calendar",
   "/calendar?month=2026-12",
   "/anime/season",
-  "/anime/arena"
+  "/anime/arena",
+  "/stats",
+  "/stats?tab=goals",
+  "/stats?tab=taste",
+  "/stats?tab=taste&preset=quarter",
+  "/stats?tab=taste&preset=custom&a1=2026-01-01&a2=2026-06-30&b1=2025-01-01&b2=2025-06-30",
+  "/stats?tab=people",
+  "/stats?year=2025",
+  "/stats/year/2026",
+  "/stats/year/2019",
+  "/s/demo-share-year-review"
 ]

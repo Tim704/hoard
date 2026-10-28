@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  BarChart3,
   BookOpen,
   BookText,
   Boxes,
@@ -128,6 +129,17 @@ export function NavLinks({ onNavigate, collapsed = false }: NavLinksProps) {
       >
         <NotebookPen className="h-4 w-4 shrink-0 text-muted-foreground" />
         {!collapsed && <span>Diary</span>}
+      </Link>
+
+      <Link
+        href="/stats"
+        onClick={onNavigate}
+        title={collapsed ? 'Stats' : undefined}
+        aria-label={collapsed ? 'Stats' : undefined}
+        className={linkClass('/stats')}
+      >
+        <BarChart3 className="h-4 w-4 shrink-0 text-muted-foreground" />
+        {!collapsed && <span>Stats</span>}
       </Link>
 
       <Link

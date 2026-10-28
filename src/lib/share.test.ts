@@ -10,6 +10,7 @@ import {
   reusableShare,
   sharePath,
   tierPngFileName,
+  yearPngFileName,
   type ShareLinkRow,
 } from './share';
 
@@ -103,5 +104,11 @@ describe('sharePath', () => {
 describe('tierPngFileName', () => {
   it('names the section and the day', () => {
     expect(tierPngFileName('books', '2026-10-28')).toBe('hoard-books-tiers-2026-10-28.png');
+  });
+});
+
+describe('yearPngFileName', () => {
+  it('names the year', () => {
+    expect(yearPngFileName(2026)).toBe('hoard-2026-in-review.png');
   });
 });

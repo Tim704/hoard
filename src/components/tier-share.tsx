@@ -135,7 +135,7 @@ export function TierShare({ slug, label, board }: TierShareProps) {
 }
 
 /** Resolves once an image has loaded or failed. */
-function settled(img: HTMLImageElement): Promise<void> {
+export function settled(img: HTMLImageElement): Promise<void> {
   if (img.complete) return Promise.resolve();
   return new Promise((resolve) => {
     img.addEventListener('load', () => resolve(), { once: true });
@@ -143,7 +143,8 @@ function settled(img: HTMLImageElement): Promise<void> {
   });
 }
 
-async function copy(text: string): Promise<boolean> {
+/** Copy to the clipboard; false when the browser refuses. */
+export async function copy(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
     return true;

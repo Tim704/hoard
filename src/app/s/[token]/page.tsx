@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { ImageOff } from 'lucide-react';
 
 import { TIER_HEX } from '@/components/tier-colors';
-import { loadPublicShare, type ListShareView, type TiersShareView } from '@/lib/data-share';
+import { loadPublicShare, type ListShareView, type SharedItem, type TiersShareView, type YearShareView } from '@/lib/data-share';
 
 // Public, read-only share pages (spec 4.1). Outside the (app) group: no login,
 // no sidebar. A revoked link must stop working at once, so never cache.
@@ -26,6 +26,7 @@ export default async function SharePage({ params }: { params: { token: string } 
     <main className="mx-auto min-h-screen max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
       {view.kind === 'tiers' && <SharedTiers view={view} />}
       {view.kind === 'list' && <SharedList view={view} />}
+      {view.kind === 'year' && <SharedYear view={view} />}
       <footer className="mt-10 border-t border-border pt-4 text-center text-xs text-muted-foreground">
         Made with{' '}
         <Link href="/" className="font-semibold text-foreground underline-offset-4 hover:underline">
@@ -133,5 +134,82 @@ function SharedList({ view }: { view: ListShareView }) {
         </ol>
       )}
     </>
+  );
+}
+
+/** A year in review (6.1): the summary numbers and covers only, never scores or notes. */
+function SharedYear({ view }: { view: YearShareView }) {
+  const numbers = [
+    { label: view.finished === 1 ? 'title finished' : 'titles finished', value: view.finished },
+    { label: 'hours watched', value: view.hours },
+    { label: 'pages read', value: view.pages },
+    { label: 'episodes watched', value: view.episodes },
+  ].filter((n, i) => i === 0 || n.value > 0);
+  return (
+    <>
+      <header className="mb-6">
+        <p className="text-sm font-medium text-muted-foreground">Shared from Hoard</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{view.year} in review</h1>
+      </header>
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {numbers.map((n) => (
+          <li key={n.label} className="rounded-lg border border-border bg-card p-3">
+            <p className="text-2xl font-bold tabular-nums">{n.value.toLocaleString('en-US')}</p>
+            <p className="text-xs text-muted-foreground">{n.label}</p>
+          </li>
+        ))}
+      </ul>
+      {view.sections.length > 0 && (
+        <ul className="mt-4 flex flex-wrap gap-2 text-sm">
+          {view.sections.map((s) => (
+            <li key={s.slug} className="rounded-md border border-border px-2 py-1">
+              {s.label} <span className="font-semibold tabular-nums">{s.finished}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {(view.busiestMonth || view.topFranchise) && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          {view.busiestMonth && (
+            <>
+              Busiest month: <span className="font-medium text-foreground">{view.busiestMonth}</span>
+            </>
+          )}
+          {view.busiestMonth && view.topFranchise && ' · '}
+          {view.topFranchise && (
+            <>
+              Top franchise: <span className="font-medium text-foreground">{view.topFranchise}</span>
+            </>
+          )}
+        </p>
+      )}
+      {view.topThree.length > 0 && <CoverRow title={`Top 3 of ${view.year}`} items={view.topThree} numbered />}
+      {view.sTier.length > 0 && <CoverRow title="New in tier S" items={view.sTier} />}
+    </>
+  );
+}
+
+function CoverRow({ title, items, numbered }: { title: string; items: SharedItem[]; numbered?: boolean }) {
+  return (
+    <section className="mt-6">
+      <h2 className="mb-2 font-semibold">{title}</h2>
+      <ol className="flex flex-wrap gap-2">
+        {items.map((item, i) => (
+          <li key={i} className="w-20">
+            <div className="relative aspect-[2/3] w-full overflow-hidden rounded bg-muted ring-1 ring-border">
+              {item.imageUrl ? (
+                <Image src={item.imageUrl} alt="" fill sizes="80px" referrerPolicy="no-referrer" className="object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <ImageOff className="h-4 w-4 text-muted-foreground" aria-hidden />
+                </div>
+              )}
+              {numbered && <span className="absolute left-1 top-1 rounded bg-background/85 px-1 text-[10px] font-bold">{i + 1}</span>}
+            </div>
+            <p className="mt-1 line-clamp-2 text-xs leading-tight">{item.title}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }

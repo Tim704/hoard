@@ -73,6 +73,7 @@ model User {
   refLists         RefList[]
   customLists      CustomList[]
   listMemberships  CustomListMember[]
+  goals            Goal[]
 }
 
 model Session {
@@ -702,4 +703,26 @@ model WatchProviderCache {
   key       String   @id
   data      Json
   fetchedAt DateTime @default(now())
+}
+
+// ── Goals (6.3) ─────────────────────────────────────────────────────────────
+//  A yearly target: finish N titles (count), read N pages, watch N hours or N
+//  episodes, overall (`category` null) or in one section (a section slug).
+//  Progress is computed per request from the diary (src/lib/stats/goals.ts).
+//  Postgres lets several NULL categories share the unique index, so the
+//  create action also checks for an "all sections" duplicate under a lock.
+
+model Goal {
+  id        String   @id @default(cuid())
+  userId    String
+  year      Int
+  category  String? // section slug; null = all sections
+  metric    String // count|pages|hours|episodes
+  target    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year, category, metric])
+  @@index([userId, year])
 }

@@ -27,6 +27,7 @@ import { newSeasonBadge } from '@/lib/new-seasons';
 import { effectiveTimeZone } from '@/lib/prefs';
 import { todayYmd } from '@/lib/release';
 import { parseSubScores } from '@/lib/subscores';
+import { sectionStat } from '@/lib/stats/measures';
 import { bucketPair, challengePairs, fewestDuelsPair } from '@/lib/arena-pick';
 import { buildTierBoard, TIERS, withinTierPairs, type TierBoardData } from '@/lib/tiers';
 import type {
@@ -162,49 +163,15 @@ export interface CategoryStat {
   metricVerb: string; // 'read'|'watched'|'beaten'|'heard'
 }
 
-/** Approximate words on a printed book page — used for the books "words read" metric. */
-const WORDS_PER_PAGE = 275;
-
 /** An all-zero stat row for a category (used when not logged in / empty). */
 function emptyStat(cat: CategoryConfig): CategoryStat {
-  const { metricUnit, metricVerb } = metricMetaFor(cat.slug);
-  return {
-    slug: cat.slug,
-    label: cat.label,
-    total: 0,
-    ongoing: 0,
-    planned: 0,
-    completed: 0,
-    onHold: 0,
-    retired: 0,
-    dropped: 0,
-    avgRating: null,
-    metricValue: 0,
-    metricUnit,
-    metricVerb,
-  };
+  return { slug: cat.slug, label: cat.label, ...sectionStat(cat.slug, []) };
 }
 
-/** The unit/verb wording for a category's headline metric. */
-function metricMetaFor(slug: CategorySlug): { metricUnit: string; metricVerb: string } {
-  switch (slug) {
-    case 'books':
-      return { metricUnit: 'words', metricVerb: 'read' };
-    case 'movies':
-      return { metricUnit: 'hours', metricVerb: 'watched' };
-    case 'tv':
-      return { metricUnit: 'episodes', metricVerb: 'watched' };
-    case 'anime':
-      return { metricUnit: 'episodes', metricVerb: 'watched' };
-    case 'manga':
-      return { metricUnit: 'chapters', metricVerb: 'read' };
-    case 'games':
-      return { metricUnit: 'games', metricVerb: 'beaten' };
-    case 'music':
-      return { metricUnit: 'albums', metricVerb: 'heard' };
-  }
-}
-
+/**
+ * Per-category dashboard roll-up: status counts, average rating and the
+ * headline metric (src/lib/stats/measures.ts, shared with /stats).
+ */
 export async function getDashboardStats(): Promise<CategoryStat[]> {
   const user = await getCurrentUser();
   if (!user) {
@@ -214,72 +181,7 @@ export async function getDashboardStats(): Promise<CategoryStat[]> {
   return Promise.all(
     CATEGORY_LIST.map(async (cat) => {
       const activities = await getCategoryActivities(cat.slug);
-
-      // Status counts.
-      const total = activities.length;
-      const ongoing = activities.filter((a) => a.status === 'CONSUMING').length;
-      const planned = activities.filter((a) => a.status === 'PLANNED').length;
-      const completed = activities.filter((a) => a.status === 'COMPLETED').length;
-      const onHold = activities.filter((a) => a.status === 'ON_HOLD').length;
-      const retired = activities.filter((a) => a.status === 'RETIRED').length;
-      const dropped = activities.filter((a) => a.status === 'DROPPED').length;
-
-      // Average rating over rated rows, rounded to 1 decimal.
-      const rated = activities.filter((a) => a.rating != null);
-      const avgRating =
-        rated.length === 0
-          ? null
-          : Math.round(
-              (rated.reduce((sum, a) => sum + (a.rating ?? 0), 0) / rated.length) * 10,
-            ) / 10;
-
-      // Sum a numeric media field over the COMPLETED rows (nulls count as 0).
-      // Retired and Dropped titles were not finished, so they don't count.
-      const completedRows = activities.filter((a) => a.status === 'COMPLETED');
-      const sumField = (field: string) =>
-        completedRows.reduce((sum, a) => sum + (Number(a.media[field]) || 0), 0);
-
-      const { metricUnit, metricVerb } = metricMetaFor(cat.slug);
-      let metricValue = 0;
-      switch (cat.slug) {
-        case 'books':
-          metricValue = Math.round(sumField('pageCount') * WORDS_PER_PAGE);
-          break;
-        case 'movies':
-          metricValue = Math.round(sumField('runtime') / 60); // minutes → hours
-          break;
-        case 'tv':
-          metricValue = sumField('episodeCount');
-          break;
-        case 'anime':
-          metricValue = sumField('episodes');
-          break;
-        case 'manga':
-          metricValue = sumField('chapters');
-          break;
-        case 'games':
-          metricValue = completed;
-          break;
-        case 'music':
-          metricValue = completed;
-          break;
-      }
-
-      return {
-        slug: cat.slug,
-        label: cat.label,
-        total,
-        ongoing,
-        planned,
-        completed,
-        onHold,
-        retired,
-        dropped,
-        avgRating,
-        metricValue,
-        metricUnit,
-        metricVerb,
-      };
+      return { slug: cat.slug, label: cat.label, ...sectionStat(cat.slug, activities) };
     }),
   );
 }
