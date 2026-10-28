@@ -354,9 +354,24 @@ export async function fetchAniListDetails(
   return out;
 }
 
-/** The metadata-job patch for one AniList entry (details + fresh counts). */
+/**
+ * The lookup patch for one AniList entry (on add and in the metadata job):
+ * details, fresh counts, and the display core — title (English, else romaji,
+ * as in search), cover, cleaned description, score and studio. Core fields
+ * are only included when AniList has them, so they never blank stored ones.
+ */
 export function aniListPatch(m: AniListMedia, type: 'ANIME' | 'MANGA'): Record<string, unknown> {
   const patch = aniListDetails(m, type);
+  const title = m.title?.english?.trim() || m.title?.romaji?.trim();
+  if (title) patch.title = title;
+  const image = m.coverImage?.large ?? m.coverImage?.medium;
+  if (image) patch.imageUrl = image;
+  const description = cleanDescription(m.description);
+  if (description) patch.description = description;
+  const malScore = toMalScale(m.averageScore);
+  if (malScore) patch.malScore = malScore;
+  const studio = type === 'ANIME' ? m.studios?.nodes?.[0]?.name?.trim() : null;
+  if (studio) patch.studio = studio;
   const year = m.seasonYear ?? m.startDate?.year ?? null;
   if (year) patch.year = year;
   if (type === 'ANIME' && m.episodes) patch.episodes = m.episodes;

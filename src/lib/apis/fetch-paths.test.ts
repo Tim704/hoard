@@ -103,3 +103,58 @@ describe('Last.fm errors', () => {
     expect(await fetchAlbumDetails('Cher', 'Believe')).toEqual({ genres: ['Pop', 'Dance', 'Synth-Pop'], trackCount: 3 });
   });
 });
+
+describe('enrichResult (on add)', () => {
+  const hit = {
+    externalId: '/works/OL893414W',
+    title: 'dune (client text)',
+    imageUrl: null,
+    subtitle: null,
+    year: 1965,
+    description: null,
+    fields: { externalId: '/works/OL893414W', title: 'dune (client text)', imageUrl: 'https://evil.example/x.jpg' },
+  };
+
+  it('takes the display core from the provider and stamps the lookup outside `fields`', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ title: 'Dune', covers: [6979861], description: 'Spice.', subjects: ['Fiction'] })),
+    );
+    const { enrichResult } = await import('./index');
+    const { result, metaFetchedAt } = await enrichResult('books', hit);
+    expect(result.fields).toMatchObject({
+      title: 'Dune',
+      imageUrl: 'https://covers.openlibrary.org/b/id/6979861-L.jpg',
+      description: 'Spice.',
+    });
+    expect(result.fields).not.toHaveProperty('metaFetchedAt');
+    expect(metaFetchedAt).toBeInstanceOf(Date);
+  });
+
+  it('gives no stamp when the provider does not know the id or fails', async () => {
+    const { enrichResult } = await import('./index');
+    vi.stubGlobal('fetch', vi.fn(async () => json({}, 404)));
+    expect(await enrichResult('books', hit)).toEqual({ result: hit, metaFetchedAt: null });
+    vi.stubGlobal('fetch', vi.fn(async () => json({}, 503)));
+    expect(await enrichResult('books', hit)).toEqual({ result: hit, metaFetchedAt: null });
+  });
+
+  it('never looks up manual rows', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const { enrichResult } = await import('./index');
+    const manual = { ...hit, externalId: 'manual:x' };
+    expect(await enrichResult('books', manual)).toEqual({ result: manual, metaFetchedAt: null });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('looks AniList entries up instead of trusting the hit', async () => {
+    const [frieren] = anilistAnime.data.Page.media;
+    vi.stubGlobal('fetch', vi.fn(async () => json({ data: { Page: { media: [frieren] } } })));
+    const { enrichResult } = await import('./index');
+    const animeHit = { ...hit, externalId: '52991', fields: { externalId: '52991', title: 'Forged' } };
+    const { result, metaFetchedAt } = await enrichResult('anime', animeHit);
+    expect(result.fields).toMatchObject({ title: 'Frieren: Beyond Journey’s End', malScore: 9 });
+    expect(metaFetchedAt).toBeInstanceOf(Date);
+  });
+});

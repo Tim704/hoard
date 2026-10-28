@@ -1,6 +1,7 @@
 {
   "title": "Dune",
   "key": "/works/OL893414W",
+  "covers": [-1, 11481354, 6979861],
   "authors": [{ "author": { "key": "/authors/OL79034A" }, "type": { "key": "/type/author_role" } }],
   "description": { "type": "/type/text", "value": "Set on the desert planet Arrakis, Dune is the story of the boy Paul Atreides." },
   "subjects": ["Dune (Imaginary place)", "Fiction", "Science fiction", "Ecology", "Fantasy fiction"],

@@ -87,11 +87,12 @@ export async function fetchDetailPatch(
     }
     case 'books': {
       const d = await fetchBookDetails(src.externalId);
-      if (!d) return null;
-      // Search results carry no description; fill it, but never replace one.
-      return compact({ genres: d.genres, description: src.description ? null : d.description });
+      return d ? compact({ ...d }) : null;
     }
     case 'music': {
+      // Last.fm is looked up by artist + album name (from the stored row or
+      // the search hit), so it only adds genres and a missing track count —
+      // never the display core.
       const d = await fetchAlbumDetails(src.artist ?? null, src.title);
       if (!d) return null;
       return compact({ genres: d.genres, trackCount: src.trackCount ? null : d.trackCount });

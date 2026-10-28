@@ -44,6 +44,11 @@ describe('TMDB', () => {
   it('maps movie details with directors and the top 5 billed cast', () => {
     const d = mapMovieDetails(tmdbMovieDetails);
     expect(d).toEqual({
+      title: 'The Matrix',
+      imageUrl: 'https://image.tmdb.org/t/p/w500/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg',
+      backdropUrl: 'https://image.tmdb.org/t/p/w780/fNG7i7RqMErkcqhohV2a6cV1Ehy.jpg',
+      description: 'Set in the 22nd century, The Matrix tells the story of a computer hacker…',
+      tmdbRating: 8.2,
       runtime: 136,
       collection: { id: 2344, name: 'The Matrix Collection' },
       releaseDate: '1999-03-30',
@@ -57,6 +62,10 @@ describe('TMDB', () => {
   it('maps tv details: creators as directors, status, no next episode', () => {
     const d = mapTvDetails(tmdbTvDetails);
     expect(d).toEqual({
+      title: 'Game of Thrones',
+      imageUrl: 'https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg',
+      description: 'Seven noble families fight for control of the mythical land of Westeros.',
+      tmdbRating: 8.5,
       episodeCount: 73,
       seasonCount: 8,
       releaseDate: '2011-04-17',
@@ -67,6 +76,14 @@ describe('TMDB', () => {
       status: 'Ended',
       nextAirDate: null,
     });
+  });
+
+  it('uses the same poster URL format as search hits, and no votes is no rating', () => {
+    const hit = mapMovieSearchHit({ id: 1, title: 'X', poster_path: '/p.jpg', vote_average: 0 });
+    const d = mapMovieDetails({ poster_path: '/p.jpg', vote_average: 0, title: '  ' });
+    expect(d.imageUrl).toBe(hit.imageUrl);
+    expect(d.tmdbRating).toBeNull();
+    expect(d.title).toBeNull();
   });
 
   it('maps a returning show: next air date, and a partial date keeps only the year', () => {
@@ -125,13 +142,29 @@ describe('AniList', () => {
     expect(r.fields).not.toHaveProperty('nextAiringAt');
   });
 
-  it('builds the metadata-job patch with fresh counts', () => {
+  it('builds the lookup patch with fresh counts and the display core, as search maps it', () => {
+    const hit = mapAnime(frieren);
     expect(aniListPatch(frieren, 'ANIME')).toMatchObject({
       titleRomaji: 'Sousou no Frieren',
       year: 2023,
       episodes: 28,
       releaseDate: '2023-09-29',
+      title: hit.title,
+      imageUrl: hit.imageUrl,
+      description: hit.description,
+      malScore: 9,
+      studio: 'MADHOUSE',
     });
+    expect(hit.description).toBe(
+      'The adventure is over but life goes on for an elf mage just beginning to learn what living is all about.',
+    );
+  });
+
+  it('leaves the display core out when AniList has none (never blanks stored values)', () => {
+    const p = aniListPatch(upcoming, 'ANIME');
+    expect(p.title).toBe('Mada Mikan no Anime'); // romaji when there is no English title
+    for (const k of ['imageUrl', 'description', 'malScore', 'studio']) expect(p).not.toHaveProperty(k);
+    expect(aniListPatch({ id: 1, title: null }, 'MANGA')).not.toHaveProperty('title');
   });
 });
 
@@ -149,6 +182,10 @@ describe('IGDB', () => {
 
   it('maps details: Steam app id from external games and time to beat in hours', () => {
     expect(mapGameDetails(igdbDetails[0], igdbTtb[0])).toEqual({
+      title: 'Elden Ring',
+      imageUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co4jni.jpg',
+      description: 'Rise, Tarnished.',
+      igdbRating: 95,
       releaseDate: '2022-02-25',
       year: 2022,
       genres: ['Role-playing (RPG)', 'Adventure'],
@@ -170,7 +207,14 @@ describe('IGDB', () => {
     expect(timeToBeatHours({ normally: 5_400 })).toBe(1.5);
     expect(timeToBeatHours({ normally: 0 })).toBeNull();
     expect(timeToBeatHours(undefined)).toBeNull();
-    expect(mapGameDetails({}, undefined)).toMatchObject({ releaseDate: null, timeToBeatHours: null, steamAppId: null });
+    expect(mapGameDetails({}, undefined)).toMatchObject({
+      title: null,
+      imageUrl: null,
+      igdbRating: null,
+      releaseDate: null,
+      timeToBeatHours: null,
+      steamAppId: null,
+    });
   });
 });
 
@@ -184,10 +228,17 @@ describe('OpenLibrary', () => {
 
   it('maps a work: genres and the description object', () => {
     expect(mapWork(olWork)).toEqual({
+      title: 'Dune',
+      // -1 marks a removed cover; the first real one is used, at search's size.
+      imageUrl: 'https://covers.openlibrary.org/b/id/11481354-L.jpg',
       genres: ['Science Fiction', 'Fantasy'],
       description: 'Set on the desert planet Arrakis, Dune is the story of the boy Paul Atreides.',
     });
-    expect(mapWork({ description: 'Plain text.' }).description).toBe('Plain text.');
+    expect(mapWork({ description: 'Plain text.' })).toMatchObject({
+      description: 'Plain text.',
+      title: null,
+      imageUrl: null,
+    });
   });
 });
 

@@ -225,12 +225,21 @@ export function timeToBeatHours(ttb: { normally?: number | null } | null | undef
 }
 
 export interface IgdbGameDetailsJson {
+  name?: string | null;
+  summary?: string | null;
+  cover?: { image_id?: string | null } | null;
+  rating?: number | null;
   first_release_date?: number | null;
   genres?: Array<{ name?: string | null }> | null;
   external_games?: IgdbExternalGame[] | null;
 }
 
 export interface GameDetails {
+  // The display core (the provider is the source of truth for these).
+  title: string | null;
+  imageUrl: string | null;
+  description: string | null;
+  igdbRating: number | null;
   releaseDate: string | null;
   year: number | null;
   genres: string[];
@@ -244,6 +253,10 @@ export function mapGameDetails(
   ttb: { normally?: number | null } | null | undefined,
 ): GameDetails {
   return {
+    title: game.name?.trim() || null,
+    imageUrl: game.cover?.image_id ? `${IGDB_IMAGE_BASE}/${game.cover.image_id}.jpg` : null,
+    description: game.summary?.trim() || null,
+    igdbRating: game.rating != null && Number.isFinite(game.rating) ? Math.round(game.rating) : null,
     releaseDate: ymdFromUnix(game.first_release_date),
     year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null,
     genres: normalizeGenres((game.genres ?? []).map((g) => g.name)),
@@ -276,7 +289,7 @@ export async function fetchGameDetails(externalId: string): Promise<GameDetails 
 
   const gameRes = await post(
     IGDB_GAMES_URL,
-    `where id = ${id}; fields first_release_date,genres.name,external_games.uid,external_games.url,external_games.external_game_source.name; limit 1;`,
+    `where id = ${id}; fields name,summary,cover.image_id,rating,first_release_date,genres.name,external_games.uid,external_games.url,external_games.external_game_source.name; limit 1;`,
   );
   if (!gameRes.ok) throw new Error(`IGDB game details failed (${gameRes.status})`);
   const [game] = (await gameRes.json()) as IgdbGameDetailsJson[];

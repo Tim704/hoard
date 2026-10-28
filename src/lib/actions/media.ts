@@ -93,9 +93,12 @@ export async function addToList(
 
     // Best-effort enrich the result with extra provider detail (runtime,
     // episode counts, …) before persisting, so dashboard metrics have data.
-    result = await enrichResult(slug, result);
+    const enriched = await enrichResult(slug, result);
 
-    const { activityId, existing } = await addMediaForUser(user.id, slug, result, { status });
+    const { activityId, existing } = await addMediaForUser(user.id, slug, enriched.result, {
+      status,
+      metaFetchedAt: enriched.metaFetchedAt,
+    });
 
     revalidateCategory(slug);
     revalidatePath('/franchises');

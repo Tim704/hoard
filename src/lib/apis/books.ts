@@ -78,20 +78,36 @@ export async function searchBooks(query: string): Promise<NormalizedResult[]> {
 }
 
 export interface OpenLibraryWorkJson {
+  title?: string | null;
+  covers?: unknown;
   subjects?: unknown;
   description?: string | { value?: string | null } | null;
 }
 
 export interface BookDetails {
+  title: string | null;
+  imageUrl: string | null;
   genres: string[];
   description: string | null;
 }
 
-/** GET /works/{id}.json → genres (allow-listed subjects) and the description. */
+/**
+ * GET /works/{id}.json → title, cover (the work's first real cover id, at the
+ * size search uses; OpenLibrary marks removed covers with -1), genres
+ * (allow-listed subjects) and the description.
+ */
 export function mapWork(work: OpenLibraryWorkJson): BookDetails {
   const d = work.description;
   const description = typeof d === 'string' ? d : d?.value ?? null;
-  return { genres: genresFromSubjects(work.subjects), description: description?.trim() || null };
+  const cover = Array.isArray(work.covers)
+    ? work.covers.find((c): c is number => typeof c === 'number' && Number.isInteger(c) && c > 0)
+    : undefined;
+  return {
+    title: typeof work.title === 'string' ? work.title.trim() || null : null,
+    imageUrl: cover ? `https://covers.openlibrary.org/b/id/${cover}-L.jpg` : null,
+    genres: genresFromSubjects(work.subjects),
+    description: description?.trim() || null,
+  };
 }
 
 /**

@@ -64,27 +64,35 @@ export async function searchProvider(
   }
 }
 
+/** A search hit after the provider lookup, plus when that lookup succeeded. */
+export interface EnrichedResult {
+  result: NormalizedResult;
+  /**
+   * Server-side stamp for the new row's `metaFetchedAt`: set only when a real
+   * provider lookup answered, so the nightly job leaves the row alone for 30
+   * days. Never part of `fields` (those come back from the client and are
+   * not trusted with job bookkeeping).
+   */
+  metaFetchedAt: Date | null;
+}
+
 /**
- * Enrich a normalized result with provider details before it is upserted:
- * runtime and episode / season counts (so dashboard metrics have numbers to
- * sum), and the F2 details (release date, genres, credits, TV status, IGDB
- * time to beat and Steam app id, book genres, album tags). A successful lookup
- * stamps `metaFetchedAt`, so the nightly metadata job leaves the row alone for
- * 30 days. AniList search hits already carry everything, so anime and manga
- * are only stamped. Best-effort: a missing key or any failure returns the
- * result unchanged, so enrichment never blocks an add.
+ * Enrich a search hit with the provider's own details before a new catalogue
+ * row is created: the display core (title, cover, description, crowd score —
+ * the provider, not the client, is their source of truth), runtime and
+ * episode / season counts, and the F2 details (release date, genres, credits,
+ * TV status, IGDB time to beat and Steam app id, AniList title variants and
+ * airing, book genres, album tags). Best-effort: a missing key, an unknown id
+ * or any failure returns the hit unchanged with no stamp, so enrichment never
+ * blocks an add and the metadata job retries the lookup later.
  */
 export async function enrichResult(
   slug: CategorySlug,
   result: NormalizedResult,
-): Promise<NormalizedResult> {
-  if (isLookupSkipped(result.externalId) || !detailsConfigured(slug)) return result;
+): Promise<EnrichedResult> {
+  const unchanged = { result, metaFetchedAt: null };
+  if (isLookupSkipped(result.externalId) || !detailsConfigured(slug)) return unchanged;
   try {
-    if (slug === 'anime' || slug === 'manga') {
-      // Older clients may send a hit without the AniList variants; let the job fill those.
-      if (!('titleRomaji' in result.fields)) return result;
-      return { ...result, fields: { ...result.fields, metaFetchedAt: new Date() } };
-    }
     const f = result.fields;
     const patch = await fetchDetailPatch(slug, {
       externalId: result.externalId,
@@ -93,10 +101,10 @@ export async function enrichResult(
       description: typeof f.description === 'string' ? f.description : null,
       trackCount: typeof f.trackCount === 'number' ? f.trackCount : null,
     });
-    if (!patch) return result;
-    return { ...result, fields: { ...f, ...patch, metaFetchedAt: new Date() } };
+    if (!patch) return unchanged;
+    return { result: { ...result, fields: { ...f, ...patch } }, metaFetchedAt: new Date() };
   } catch {
     // Enrichment is best-effort; fall back to the un-enriched result.
-    return result;
+    return unchanged;
   }
 }

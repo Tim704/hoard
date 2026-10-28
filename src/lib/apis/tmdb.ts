@@ -231,6 +231,11 @@ export async function searchTv(query: string): Promise<NormalizedResult[]> {
 }
 
 export interface TmdbMovieDetailsJson {
+  title?: string | null;
+  overview?: string | null;
+  poster_path?: string | null;
+  backdrop_path?: string | null;
+  vote_average?: number | null;
   runtime?: number | null;
   release_date?: string | null;
   genres?: Array<{ id?: number; name?: string | null }> | null;
@@ -239,6 +244,12 @@ export interface TmdbMovieDetailsJson {
 }
 
 export interface MovieDetails {
+  // The display core (the provider is the source of truth for these).
+  title: string | null;
+  imageUrl: string | null;
+  backdropUrl: string | null;
+  description: string | null;
+  tmdbRating: number | null;
   runtime: number | null;
   collection: { id: number; name: string } | null;
   releaseDate: string | null;
@@ -248,10 +259,20 @@ export interface MovieDetails {
   cast: string[];
 }
 
+/** TMDB's vote average, or null for 0 (= no votes yet; never stored over a real one). */
+function crowdRating(v: number | null | undefined): number | null {
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
+}
+
 /** GET /movie/{id}?append_to_response=credits → our movie details. */
 export function mapMovieDetails(data: TmdbMovieDetailsJson): MovieDetails {
   const col = data.belongs_to_collection;
   return {
+    title: data.title?.trim() || null,
+    imageUrl: imageUrl(data.poster_path, 'w500'),
+    backdropUrl: imageUrl(data.backdrop_path, 'w780'),
+    description: data.overview?.trim() || null,
+    tmdbRating: crowdRating(data.vote_average),
     runtime: data.runtime || null,
     collection: col?.id && col.name ? { id: col.id, name: col.name } : null,
     releaseDate: normalizeYmd(data.release_date),
@@ -277,6 +298,10 @@ export async function fetchMovieDetails(externalId: string): Promise<MovieDetail
 }
 
 export interface TmdbTvDetailsJson {
+  name?: string | null;
+  overview?: string | null;
+  poster_path?: string | null;
+  vote_average?: number | null;
   first_air_date?: string | null;
   number_of_episodes?: number | null;
   number_of_seasons?: number | null;
@@ -288,6 +313,10 @@ export interface TmdbTvDetailsJson {
 }
 
 export interface TvDetails {
+  title: string | null;
+  imageUrl: string | null;
+  description: string | null;
+  tmdbRating: number | null;
   episodeCount: number | null;
   seasonCount: number | null;
   releaseDate: string | null;
@@ -303,6 +332,10 @@ export interface TvDetails {
 /** GET /tv/{id}?append_to_response=credits → our tv details. */
 export function mapTvDetails(data: TmdbTvDetailsJson): TvDetails {
   return {
+    title: data.name?.trim() || null,
+    imageUrl: imageUrl(data.poster_path, 'w500'),
+    description: data.overview?.trim() || null,
+    tmdbRating: crowdRating(data.vote_average),
     episodeCount: data.number_of_episodes ?? null,
     seasonCount: data.number_of_seasons ?? null,
     releaseDate: normalizeYmd(data.first_air_date),

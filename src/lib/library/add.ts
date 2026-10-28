@@ -31,6 +31,12 @@ export interface AddOptions {
   skipFranchise?: boolean;
   eventKind?: 'added' | 'import';
   eventMeta?: Prisma.InputJsonValue;
+  /**
+   * When a provider lookup for this result succeeded (server-side, from
+   * `enrichResult`): stamped on a newly created row only. Client `fields`
+   * can never set it.
+   */
+  metaFetchedAt?: Date | null;
 }
 
 export interface AddOutcome {
@@ -67,7 +73,10 @@ export async function addMediaForUser(
       media = await db[cat.prismaModel].upsert({
         where,
         update: {},
-        create: catalogueCreatePayload(result.externalId, result.fields),
+        create: {
+          ...catalogueCreatePayload(result.externalId, result.fields),
+          ...(opts.metaFetchedAt ? { metaFetchedAt: opts.metaFetchedAt } : {}),
+        },
       });
     } else {
       const fill = fillOnlyUpdate(media, result.fields);

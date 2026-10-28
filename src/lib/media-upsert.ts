@@ -30,6 +30,9 @@ const SERVER_OWNED = new Set([
   'createdAt',
   'franchiseKey',
   'franchiseName',
+  // Metadata-job bookkeeping: a forged future metaFetchedAt would hide a row
+  // from the job forever. The add path stamps it server-side instead.
+  'metaFetchedAt',
   'metaFailedAt',
 ]);
 

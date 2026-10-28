@@ -609,52 +609,56 @@ export function SearchDialog({
               })}
             </div>
 
-            {multi && (
-              // Sticky: the dialog itself scrolls on phones, so keep the bar in view.
-              <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 rounded-md border border-border bg-background p-2 shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.25)]">
-                <span className="text-sm text-muted-foreground" aria-live="polite">
-                  {bulk
-                    ? `Adding ${Math.min(bulk.done + 1, bulk.total)} of ${bulk.total}…`
-                    : pickedCount === 0
-                      ? 'Nothing selected yet.'
-                      : `${pickedCount} selected`}
-                </span>
-                <div className="ml-auto flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    disabled={pickedCount === 0 || !!bulk}
-                    onClick={() => void addPicked('COMPLETED')}
-                  >
-                    {bulk ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                    <span className="ml-1.5">
-                      Add {pickedCount || ''} as {labels.done}
-                    </span>
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={pickedCount === 0 || !!bulk}
-                    onClick={() => void addPicked('PLANNED')}
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span className="ml-1.5">Add {pickedCount || ''} to Up next</span>
-                  </Button>
+            {/* Footer, sticky because the dialog itself scrolls on phones. It
+                reaches over the dialog's bottom padding (negative margin, same
+                padding back) so no result shows through beneath it. */}
+            <div className="sticky bottom-0 z-10 -mx-4 -mb-[max(1rem,env(safe-area-inset-bottom))] grid gap-3 bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1 sm:-mx-6 sm:-mb-6 sm:px-6 sm:pb-6">
+              {multi && (
+                <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 p-2">
+                  <span className="text-sm text-muted-foreground" aria-live="polite">
+                    {bulk
+                      ? `Adding ${Math.min(bulk.done + 1, bulk.total)} of ${bulk.total}…`
+                      : pickedCount === 0
+                        ? 'Nothing selected yet.'
+                        : `${pickedCount} selected`}
+                  </span>
+                  <div className="ml-auto flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={pickedCount === 0 || !!bulk}
+                      onClick={() => void addPicked('COMPLETED')}
+                    >
+                      {bulk ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                      <span className="ml-1.5">
+                        Add {pickedCount || ''} as {labels.done}
+                      </span>
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={pickedCount === 0 || !!bulk}
+                      onClick={() => void addPicked('PLANNED')}
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span className="ml-1.5">Add {pickedCount || ''} to Up next</span>
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <button
-              type="button"
-              onClick={openManual}
-              disabled={!!bulk}
-              className="inline-flex items-center gap-1.5 justify-self-start text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
-            >
-              <PencilLine className="h-3.5 w-3.5" aria-hidden />
-              Can’t find it? Add it yourself
-            </button>
+              <button
+                type="button"
+                onClick={openManual}
+                disabled={!!bulk}
+                className="inline-flex items-center gap-1.5 justify-self-start text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+              >
+                <PencilLine className="h-3.5 w-3.5" aria-hidden />
+                Can’t find it? Add it yourself
+              </button>
+            </div>
           </>
         )}
       </DialogContent>

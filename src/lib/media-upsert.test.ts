@@ -39,6 +39,15 @@ describe('catalogueCreatePayload', () => {
     expect(out).toEqual({ externalId: '550', title: 'Fight Club' });
   });
 
+  it('never takes job bookkeeping from the client (a future stamp would hide the row)', () => {
+    const out = catalogueCreatePayload('550', {
+      title: 'T',
+      metaFetchedAt: new Date('2999-01-01'),
+      metaFailedAt: new Date(),
+    });
+    expect(out).toEqual({ externalId: '550', title: 'T' });
+  });
+
   it('drops server-owned columns', () => {
     const out = catalogueCreatePayload('550', {
       id: 'hijack',
@@ -76,6 +85,11 @@ describe('fillOnlyUpdate', () => {
       fillOnlyUpdate(stored, { description: 'Soap.', runtime: 139, genres: ['Drama'], title: 'X' }),
     ).toEqual({ description: 'Soap.', runtime: 139, genres: ['Drama'] });
     expect(fillOnlyUpdate(stored, { description: '  ', runtime: null, genres: [] })).toEqual({});
+  });
+
+  it('never fills job bookkeeping, even when it is stored empty', () => {
+    const row = { ...stored, metaFetchedAt: null, metaFailedAt: null };
+    expect(fillOnlyUpdate(row, { metaFetchedAt: new Date('2999-01-01'), metaFailedAt: new Date() })).toEqual({});
   });
 
   it('never touches identity or grouping, even when empty, nor unknown columns', () => {
