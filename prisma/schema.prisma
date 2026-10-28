@@ -68,6 +68,7 @@ model User {
   diaryEntries  DiaryEntry[]
   playSessions  PlaySession[]
   seasonActivities SeasonActivity[]
+  shareLinks       ShareLink[]
 }
 
 model Session {
@@ -526,6 +527,25 @@ model Notification {
 
   @@index([userId, createdAt])
   @@index([userId, readAt])
+}
+
+// ── Share links (4.1) ───────────────────────────────────────────────────────
+//  A public, read-only link to one thing of one user: `id` is the random
+//  token in /s/[token]. `kind` says what it shows (tiers | year | list) and
+//  `target` which one (a section slug, a year, a list id). Revoked links stay
+//  as rows (revokedAt set) and answer 404 like unknown tokens.
+
+model ShareLink {
+  id        String    @id // random token, 128+ bits, base64url
+  userId    String
+  kind      String // tiers|year|list
+  target    String
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, target])
 }
 
 // ── Scheduled jobs ───────────────────────────────────────────────────────────

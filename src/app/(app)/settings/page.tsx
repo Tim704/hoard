@@ -1,8 +1,10 @@
 import { SettingsData } from '@/components/settings-data';
 import { SettingsForm } from '@/components/settings-form';
 import { SettingsNotifications } from '@/components/settings-notifications';
+import { SettingsSharing } from '@/components/settings-sharing';
 import { SettingsSystem } from '@/components/settings-system';
 import { readBackupStatus } from '@/lib/backups';
+import { getMyShareLinks } from '@/lib/data-share';
 import { getJobRuns } from '@/lib/data-system';
 import { getPrefs } from '@/lib/data-prefs';
 import { registeredJobs } from '@/lib/jobs';
@@ -19,7 +21,11 @@ export const dynamic = 'force-dynamic';
 // hydration use the same ICU data (no mismatched country names).
 export default async function SettingsPage() {
   const user = await requireUser();
-  const [prefs, ownerId] = await Promise.all([getPrefs(user.id), getOwnerId()]);
+  const [prefs, ownerId, shareLinks] = await Promise.all([
+    getPrefs(user.id),
+    getOwnerId(),
+    getMyShareLinks(user.id),
+  ]);
   // Backups and job errors are server internals: only the owner (the first
   // registered user) sees the System card at all.
   const isOwner = ownerId === user.id;
@@ -40,6 +46,7 @@ export default async function SettingsPage() {
       serverTimeZone={serverTimeZone()}
     >
       <SettingsNotifications initial={prefs.notify} />
+      <SettingsSharing links={shareLinks} />
       <SettingsData />
       {backup && jobs && (
         <SettingsSystem backup={backup} jobs={jobs} timeZone={effectiveTimeZone(prefs)} now={new Date()} />

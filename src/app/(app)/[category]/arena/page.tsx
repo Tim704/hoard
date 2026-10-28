@@ -7,6 +7,7 @@ import { RankingList } from '@/components/ranking-list';
 import { TierBoard } from '@/components/tier-board';
 import { UpNext } from '@/components/up-next';
 import { getCategory } from '@/lib/categories';
+import { TierShare } from '@/components/tier-share';
 import { getChallengeMatchup, getMatchup, getQueue, getRanking, getTierBoard } from '@/lib/data';
 import { cn } from '@/lib/utils';
 
@@ -84,10 +85,11 @@ export default async function RankPage({ params, searchParams }: RankPageProps) 
 
 type Slug = Parameters<typeof getMatchup>[0];
 
-async function TiersTab({ slug }: { slug: Slug; label: string }) {
+async function TiersTab({ slug, label }: { slug: Slug; label: string }) {
   const board = await getTierBoard(slug);
   return (
     <div className="max-w-3xl space-y-4">
+      <TierShare slug={slug} label={label} board={board} />
       <TierBoard slug={slug} initial={board} />
     </div>
   );

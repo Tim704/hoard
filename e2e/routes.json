@@ -26,5 +26,6 @@
   "/books/arena?tab=arena&mode=challenge",
   "/tags",
   "/tags?tag=Sci-fi",
-  "/books?tag=Sci-fi"
+  "/books?tag=Sci-fi",
+  "/s/demo-share-books"
 ]

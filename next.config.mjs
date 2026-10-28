@@ -14,6 +14,19 @@ const nextConfig = {
       allowedOrigins: ['hoard.timhufnagel.org', 'localhost:3000'],
     },
   },
+  // Public share pages (spec 4.1): never indexed, and the token in the URL is
+  // never sent on as a Referer (the covers load from provider CDNs).
+  async headers() {
+    return [
+      {
+        source: '/s/:path*',
+        headers: [
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+        ],
+      },
+    ];
+  },
   images: {
     // Serve posters/covers straight from the provider CDNs instead of through
     // Next's /_next/image optimizer. The optimizer is the attack surface for

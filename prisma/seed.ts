@@ -34,10 +34,28 @@ async function main() {
   });
 
   await seedLibrary(user.id);
+  await seedShareLink(user.id);
 
   console.log('[seed] Demo user ready.');
   console.log(`[seed]   username: ${DEMO_USERNAME}`);
   console.log(`[seed]   password: ${DEMO_PASSWORD}`);
+}
+
+/** The demo books tier list's fixed share token, visited by the smoke test. */
+export const DEMO_SHARE_TOKEN = 'demo-share-books';
+
+/**
+ * A public link to the demo books tier list (4.1), so `npm run smoke` can open
+ * /s/demo-share-books. Never in production: a guessable token there would be
+ * a public page nobody asked for.
+ */
+async function seedShareLink(userId: string) {
+  if (process.env.NODE_ENV === 'production') return;
+  await prisma.shareLink.upsert({
+    where: { id: DEMO_SHARE_TOKEN },
+    update: {},
+    create: { id: DEMO_SHARE_TOKEN, userId, kind: 'tiers', target: 'books' },
+  });
 }
 
 // ── Demo library ─────────────────────────────────────────────────────────────
