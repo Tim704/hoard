@@ -34,7 +34,7 @@ export default async function AppLayout({
 
   return (
     <PrefsProvider prefs={prefs} detectRegion={needsRegionDetection(allPrefs)}>
-      <GlobalSearchProvider>
+      <GlobalSearchProvider userId={user.id}>
         <div className="flex min-h-screen flex-col md:flex-row">
           <Sidebar
             username={user.username}

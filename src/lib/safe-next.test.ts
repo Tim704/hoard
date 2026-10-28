@@ -7,6 +7,8 @@ describe('safeNextPath', () => {
     expect(safeNextPath('/add?url=https%3A%2F%2Fanilist.co%2Fanime%2F1')).toBe('/add?url=https%3A%2F%2Fanilist.co%2Fanime%2F1');
     expect(safeNextPath('/books?open=abc#x')).toBe('/books?open=abc#x');
     expect(safeNextPath('/dashboard')).toBe('/dashboard');
+    expect(safeNextPath('/a/../books')).toBe('/books');
+    expect(safeNextPath('/add?url=%2F%2Fexample.com')).toBe('/add?url=%2F%2Fexample.com');
   });
 
   it('refuses anything that could leave the site', () => {
@@ -25,6 +27,15 @@ describe('safeNextPath', () => {
       42,
       '/login?next=/x',
       '/register',
+      '/.//evil.com',
+      '/..//evil.com',
+      '/a/..//evil.com',
+      '/a/.././/evil.com/x?y=1',
+      '/%2F%2Fevil.com',
+      '/%2f/evil.com',
+      '/%5Cevil.com',
+      '/%5C%5Cevil.com',
+      '/%E0%A4%A',
       `/${'a'.repeat(2100)}`,
     ]) {
       expect(safeNextPath(bad), String(bad)).toBeNull();

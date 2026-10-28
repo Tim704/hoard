@@ -132,6 +132,13 @@ describe('page parsing', () => {
     expect(pageTitle('<p>nothing</p>')).toBeNull();
   });
 
+  it('never throws on huge, zero or surrogate numeric entities', () => {
+    expect(pageTitle('<title>A &#99999999; B</title>')).toBe('A \uFFFD B');
+    expect(pageTitle('<title>&#xD800;x&#0;&#x110000;</title>')).toBe('\uFFFDx\uFFFD\uFFFD');
+    expect(pageTitle('<title>&#99999999999999999999;</title>')).toBe('&#99999999999999999999;');
+    expect(pageTitle('<title>caf&#xE9; &#233;</title>')).toBe('café é');
+  });
+
   it('finds an ISBN in meta tags or page JSON', () => {
     expect(isbnFromHtml('<meta content="9780441172719" property="books:isbn">')).toBe('9780441172719');
     expect(isbnFromHtml('<script>{"@type":"Book","isbn":"0441172717"}</script>')).toBe('0441172717');

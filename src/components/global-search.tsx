@@ -5,7 +5,7 @@ import { Search } from 'lucide-react';
 
 import { CommandPalette } from '@/components/command-palette';
 import { SearchEverythingDialog } from '@/components/search-everything';
-import { globalShortcut } from '@/lib/keys';
+import { globalShortcut, isApplePlatform } from '@/lib/keys';
 import { cn } from '@/lib/utils';
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ export function useGlobalSearch(): GlobalSearchApi {
   return useContext(GlobalSearchContext);
 }
 
-export function GlobalSearchProvider({ children }: { children: React.ReactNode }) {
+export function GlobalSearchProvider({ userId, children }: { userId: string; children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -41,15 +41,19 @@ export function GlobalSearchProvider({ children }: { children: React.ReactNode }
   }, []);
 
   useEffect(() => {
+    const apple = isApplePlatform(navigator.platform || navigator.userAgent);
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing) return;
-      const which = globalShortcut({
-        key: e.key,
-        ctrlKey: e.ctrlKey,
-        metaKey: e.metaKey,
-        altKey: e.altKey,
-        target: e.target as HTMLElement | null,
-      });
+      const which = globalShortcut(
+        {
+          key: e.key,
+          ctrlKey: e.ctrlKey,
+          metaKey: e.metaKey,
+          altKey: e.altKey,
+          target: e.target as HTMLElement | null,
+        },
+        apple,
+      );
       if (which === 'palette') {
         e.preventDefault();
         setSearchOpen(false);
@@ -71,7 +75,7 @@ export function GlobalSearchProvider({ children }: { children: React.ReactNode }
     <GlobalSearchContext.Provider value={api}>
       {children}
       <SearchEverythingDialog open={searchOpen} onOpenChange={setSearchOpen} initialQuery={searchQuery} />
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} onSearchEverything={openSearch} />
+      <CommandPalette userId={userId} open={paletteOpen} onOpenChange={setPaletteOpen} onSearchEverything={openSearch} />
     </GlobalSearchContext.Provider>
   );
 }

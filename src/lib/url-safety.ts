@@ -12,7 +12,7 @@
 function ipv4Blocked(host: string): boolean {
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
   if (!m) return false;
-  const [a, b] = [Number(m[1]), Number(m[2])];
+  const [a, b, c] = [Number(m[1]), Number(m[2]), Number(m[3])];
   return (
     a === 0 || // "this" network
     a === 10 ||
@@ -21,44 +21,69 @@ function ipv4Blocked(host: string): boolean {
     (a === 169 && b === 254) || // link-local
     (a === 172 && b >= 16 && b <= 31) ||
     (a === 192 && b === 168) ||
+    (a === 192 && b === 0 && c === 0) || // IETF protocol assignments
+    (a === 198 && (b === 18 || b === 19)) || // benchmarking
     a >= 224 // multicast and reserved
   );
 }
 
-function ipv6Blocked(host: string): boolean {
-  const h = host.toLowerCase();
-  if (h === '::' || h === '::1') return true;
-  // IPv4-mapped / -compatible: ::ffff:7f00:1 or ::ffff:127.0.0.1
-  const mapped = /^::(?:ffff:)?(?:(\d+\.\d+\.\d+\.\d+)|([0-9a-f]{1,4}):([0-9a-f]{1,4}))$/.exec(h);
-  if (mapped) {
-    if (mapped[1]) return ipv4Blocked(mapped[1]);
-    const hi = parseInt(mapped[2], 16);
-    const lo = parseInt(mapped[3], 16);
-    return ipv4Blocked(`${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`);
+/** An IPv6 address as its eight 16-bit groups (embedded dotted IPv4 allowed), or null. */
+function ipv6Groups(host: string): number[] | null {
+  let h = host.toLowerCase();
+  const v4 = /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  if (v4) {
+    const o = v4.slice(1).map(Number);
+    if (o.some((x) => x > 255)) return null;
+    h = `${h.slice(0, v4.index)}${((o[0] << 8) | o[1]).toString(16)}:${((o[2] << 8) | o[3]).toString(16)}`;
   }
-  const first = parseInt(h.split(':')[0] || '0', 16);
+  const halves = h.split('::');
+  if (halves.length > 2) return null;
+  const parse = (part: string) => (part ? part.split(':') : []);
+  const head = parse(halves[0]);
+  const tail = halves.length === 2 ? parse(halves[1]) : [];
+  const missing = 8 - head.length - tail.length;
+  if (halves.length === 2 ? missing < 1 : missing !== 0) return null;
+  const all = [...head, ...Array<string>(halves.length === 2 ? missing : 0).fill('0'), ...tail];
+  if (all.some((g) => !/^[0-9a-f]{1,4}$/.test(g))) return null;
+  return all.map((g) => parseInt(g, 16));
+}
+
+const v4Of = (hi: number, lo: number) => `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+
+function ipv6Blocked(host: string): boolean {
+  const g = ipv6Groups(host);
+  if (!g) return false;
+  const zeros = (from: number, to: number) => g.slice(from, to).every((x) => x === 0);
+  // ::/96: unspecified, loopback and the deprecated IPv4-compatible form.
+  if (zeros(0, 6)) return true;
+  // ::ffff:0:0/96 (IPv4-mapped).
+  if (zeros(0, 5) && g[5] === 0xffff) return ipv4Blocked(v4Of(g[6], g[7]));
+  // ::ffff:0:0:0/96 (SIIT translated).
+  if (zeros(0, 4) && g[4] === 0xffff && g[5] === 0) return ipv4Blocked(v4Of(g[6], g[7]));
+  // 64:ff9b::/96 (NAT64, embedded IPv4) and 64:ff9b:1::/48 (local-use NAT64).
+  if (g[0] === 0x64 && g[1] === 0xff9b) return g[2] === 1 || (zeros(2, 6) && ipv4Blocked(v4Of(g[6], g[7])));
+  // 2002::/16 (6to4, embedded IPv4).
+  if (g[0] === 0x2002) return ipv4Blocked(v4Of(g[1], g[2]));
   return (
-    (first & 0xfe00) === 0xfc00 || // fc00::/7 unique local
-    (first & 0xffc0) === 0xfe80 || // fe80::/10 link-local
-    (first & 0xff00) === 0xff00 // multicast
+    (g[0] & 0xfe00) === 0xfc00 || // fc00::/7 unique local
+    (g[0] & 0xffc0) === 0xfe80 || // fe80::/10 link-local
+    (g[0] & 0xffc0) === 0xfec0 || // fec0::/10 site-local (deprecated)
+    (g[0] & 0xff00) === 0xff00 // multicast
   );
 }
 
 /**
  * True for an IP address (v4 or v6, no brackets) inside any private,
- * loopback, link-local, CGNAT, unique-local, multicast or reserved range,
- * including IPv4-mapped forms. Non-IP strings return false. Used by the
+ * loopback, link-local, CGNAT, unique-local, site-local, multicast,
+ * benchmarking or reserved range, including IPv4 embedded in IPv6 (mapped,
+ * compatible, SIIT, NAT64, 6to4). Non-IP strings return false. Used by the
  * page-fetch guard (src/lib/safe-fetch.ts) on every DNS answer.
  */
 export function isBlockedIp(address: string): boolean {
   const a = address.trim().toLowerCase().replace(/^\[|\]$/g, '').replace(/%.*$/, '');
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(a)) return ipv4Blocked(a);
-  if (a.includes(':')) {
-    if (a.split(':').every((g) => /^0*$/.test(g))) return true; // the unspecified address
-    // A full-length mapped form (0:0:0:0:0:ffff:7f00:1) normalises to ::ffff:….
-    const short = a.replace(/^(0{1,4}:){5}ffff:/, '::ffff:').replace(/^(0{1,4}:){7}0{0,3}1$/, '::1');
-    return ipv6Blocked(short);
-  }
+  // An unparseable IPv6-looking string is refused rather than trusted.
+  if (a.includes(':')) return ipv6Groups(a) === null || ipv6Blocked(a);
   return false;
 }
 

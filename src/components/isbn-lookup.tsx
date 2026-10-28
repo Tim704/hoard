@@ -43,15 +43,26 @@ export function IsbnLookup({ library }: { library: Record<string, LibraryEntry> 
   const rows = useAddRows();
   const videoRef = useRef<HTMLVideoElement>(null);
   const stopRef = useRef<StopFn | null>(null);
+  // Bumped by every start, Stop and unmount: a start that awaited (camera
+  // prompt, scanner import) checks it and backs out if it is no longer current.
+  const scanId = useRef(0);
 
   function stopScan() {
+    scanId.current++;
     stopRef.current?.();
     stopRef.current = null;
     setScanning(false);
   }
 
   // Release the camera when the dialog closes.
-  useEffect(() => () => stopRef.current?.(), []);
+  useEffect(
+    () => () => {
+      scanId.current++;
+      stopRef.current?.();
+      stopRef.current = null;
+    },
+    [],
+  );
 
   async function lookup(raw: string) {
     const isbn = normalizeIsbn(raw);
@@ -85,28 +96,38 @@ export function IsbnLookup({ library }: { library: Record<string, LibraryEntry> 
       setCameraError('This browser can’t use the camera here. Type the ISBN instead.');
       return;
     }
+    stopRef.current?.();
+    stopRef.current = null;
+    const id = ++scanId.current;
+    const cancelled = () => scanId.current !== id;
     setScanning(true);
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
     } catch (err) {
+      if (cancelled()) return;
       setScanning(false);
       setCameraError(cameraMessage(err));
       return;
     }
+    const releaseStream = () => stream.getTracks().forEach((t) => t.stop());
     const video = videoRef.current;
-    if (!video) {
-      stream.getTracks().forEach((t) => t.stop());
-      setScanning(false);
+    if (cancelled() || !video) {
+      releaseStream();
+      if (!cancelled()) setScanning(false);
       return;
     }
-    const releaseStream = () => stream.getTracks().forEach((t) => t.stop());
 
     const Detector = (globalThis as { BarcodeDetector?: new (o: { formats: string[] }) => BarcodeDetectorLike })
       .BarcodeDetector;
     if (Detector) {
       video.srcObject = stream;
       await video.play().catch(() => {});
+      if (cancelled()) {
+        video.srcObject = null;
+        releaseStream();
+        return;
+      }
       const detector = new Detector({ formats: ['ean_13', 'ean_8', 'upc_a'] });
       let live = true;
       const tick = async () => {
@@ -134,16 +155,26 @@ export function IsbnLookup({ library }: { library: Record<string, LibraryEntry> 
         import('@zxing/library'),
       ]);
       const hints = new Map([[DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A]]]);
+      if (cancelled()) {
+        releaseStream();
+        return;
+      }
       const reader = new BrowserMultiFormatReader(hints);
       const controls = await reader.decodeFromStream(stream, video, (result) => {
-        if (result) onCode(result.getText());
+        if (result && !cancelled()) onCode(result.getText());
       });
+      if (cancelled()) {
+        controls.stop();
+        releaseStream();
+        return;
+      }
       stopRef.current = () => {
         controls.stop();
         releaseStream();
       };
     } catch {
       releaseStream();
+      if (cancelled()) return;
       setScanning(false);
       setCameraError('The barcode scanner could not start. Type the ISBN instead.');
     }

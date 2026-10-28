@@ -28,9 +28,19 @@ interface KeyLike {
   target?: TargetLike | null;
 }
 
-/** Which global shortcut a key press is: Cmd/Ctrl+K (palette), `/` (search) or none. */
-export function globalShortcut(e: KeyLike): 'palette' | 'search' | null {
-  if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') return 'palette';
+/** Apple platforms use Cmd for shortcuts (Ctrl+K is a text-editing key there). */
+export function isApplePlatform(platform: string): boolean {
+  return /Mac|iPhone|iPad|iPod/i.test(platform);
+}
+
+/**
+ * Which global shortcut a key press is: the palette (Cmd+K on Apple
+ * platforms, Ctrl+K elsewhere — never the other one, so macOS keeps Ctrl+K
+ * "delete to end of line" in text fields), `/` (search) or none.
+ */
+export function globalShortcut(e: KeyLike, apple = false): 'palette' | 'search' | null {
+  const mod = apple ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+  if (mod && !e.altKey && e.key.toLowerCase() === 'k') return 'palette';
   if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTypingTarget(e.target)) return 'search';
   return null;
 }

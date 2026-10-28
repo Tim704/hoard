@@ -12,13 +12,28 @@ describe('isBlockedIp', () => {
       '127.0.0.1', '10.1.2.3', '172.16.0.1', '192.168.1.1', '100.64.0.1', '169.254.169.254', '0.0.0.0', '224.0.0.1',
       '::1', '::', '0:0:0:0:0:0:0:0', '0:0:0:0:0:0:0:1', 'fd00::1', 'fe80::1', 'ff02::1', '::ffff:127.0.0.1', '::ffff:a00:1',
       '0:0:0:0:0:ffff:7f00:1', '[::1]',
+      // benchmarking 198.18/15, IETF 192.0.0/24
+      '198.18.0.1', '198.19.255.254', '192.0.0.8',
+      // IPv4-compatible and mapped (::ffff:0:0/96), SIIT
+      '::8.8.8.8', '::ffff:0.0.0.0', '::ffff:169.254.169.254', '::ffff:0:10.0.0.1', '0:0:0:0:ffff:0:7f00:1',
+      // NAT64 64:ff9b::/96 with private IPv4 inside, local-use NAT64
+      '64:ff9b::127.0.0.1', '64:ff9b::a9fe:a9fe', '64:ff9b:1::1',
+      // 6to4 2002::/16 wrapping private IPv4
+      '2002:7f00:1::', '2002:c0a8:101::1', '2002:a00:1:0:0:0:0:1',
+      // site-local fec0::/10
+      'fec0::1', 'feff::1',
+      // unparseable IPv6 is refused
+      '1::2::3', 'fe80:::1', '12345::',
     ]) {
       expect(isBlockedIp(ip), ip).toBe(true);
     }
   });
 
   it('allows public addresses and ignores names', () => {
-    for (const ip of ['8.8.8.8', '1.1.1.1', '100.128.0.1', '2606:4700::1111', 'example.com']) {
+    for (const ip of [
+      '8.8.8.8', '1.1.1.1', '100.128.0.1', '198.20.0.1', '198.17.255.255', '2606:4700::1111', 'example.com',
+      '::ffff:8.8.8.8', '64:ff9b::8.8.8.8', '64:ff9b::808:808', '2002:808:808::1', 'fe00::1', 'fbff::1',
+    ]) {
       expect(isBlockedIp(ip), ip).toBe(false);
     }
   });

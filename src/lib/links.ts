@@ -170,12 +170,18 @@ export function sharedInput(p: { url?: string; text?: string; title?: string }):
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'" };
 
+/** A numeric entity's character; out-of-range and surrogate values become U+FFFD. */
+function codePoint(n: number): string {
+  const valid = Number.isInteger(n) && n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff);
+  return valid ? String.fromCodePoint(n) : '\uFFFD';
+}
+
 function decodeEntities(s: string): string {
-  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+|#39);/gi, (all, e: string) => {
+  return s.replace(/&(#x[0-9a-f]{1,8}|#\d{1,10}|[a-z]+|#39);/gi, (all, e: string) => {
     const k = e.toLowerCase();
     if (k in ENTITIES) return ENTITIES[k];
-    if (k.startsWith('#x')) return String.fromCodePoint(parseInt(k.slice(2), 16) || 32);
-    if (k.startsWith('#')) return String.fromCodePoint(Number(k.slice(1)) || 32);
+    if (k.startsWith('#x')) return codePoint(parseInt(k.slice(2), 16));
+    if (k.startsWith('#')) return codePoint(Number(k.slice(1)));
     return all;
   });
 }

@@ -5,7 +5,8 @@
 //  Only a same-site relative path is accepted, so the parameter can never be
 //  turned into an open redirect: it must start with one "/", not "//" or
 //  "/\" (protocol-relative), contain no backslashes or control characters,
-//  and still be on our origin once parsed. The login pages themselves are
+//  and still be on our origin once parsed; the normalised (and decoded)
+//  path must not start with "//" either. The login pages themselves are
 //  refused (no loop).
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,18 @@ export function safeNextPath(raw: unknown): string | null {
     return null;
   }
   if (url.origin !== PLACEHOLDER_ORIGIN) return null;
+  // Check the NORMALISED path too: dot segments collapse ("/.//evil.com" →
+  // "//evil.com"), and a decoded "//" or "\\" could be re-read by a proxy or
+  // browser as a protocol-relative URL.
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(url.pathname);
+  } catch {
+    return null;
+  }
+  for (const p of [url.pathname, decoded]) {
+    if (p.startsWith('//') || p.includes('\\')) return null;
+  }
   if (/^\/(login|register)(\/|$)/.test(url.pathname)) return null;
   return url.pathname + url.search + url.hash;
 }

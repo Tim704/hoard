@@ -7,6 +7,7 @@ import { ArrowUpToLine, Check, CornerDownLeft, FileText, ImageOff, Loader2, Sear
 import { toast } from 'sonner';
 
 import { useDisplayTitle, usePrefs } from '@/components/prefs-provider';
+import { toastStatusChange } from '@/components/undo-toast';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,7 @@ import { CATEGORIES, NAV_ORDER } from '@/lib/categories';
 import type { LibraryIndexEntry } from '@/lib/data-search';
 import { rankFuzzy } from '@/lib/fuzzy';
 import { nextHighlight } from '@/lib/search-nav';
-import { statusLabel } from '@/lib/status';
+import { statusLabel, type Status } from '@/lib/status';
 import { titleVariants } from '@/lib/title';
 import { cn } from '@/lib/utils';
 
@@ -35,7 +36,10 @@ import { cn } from '@/lib/utils';
 //  session; later opens show it at once and refresh it in the background.
 // ───────────────────────────────────────────────────────────────────────────
 
-let cachedIndex: LibraryIndexEntry[] | null = null;
+/** The session cache, tagged with its owner so another sign-in never sees it. */
+let cache: { userId: string; entries: LibraryIndexEntry[] } | null = null;
+
+const cachedFor = (userId: string) => (cache && cache.userId === userId ? cache.entries : null);
 
 type Item =
   | { kind: 'title'; entry: LibraryIndexEntry }
@@ -45,10 +49,13 @@ type Item =
 const MAX_TITLES = 30;
 
 export function CommandPalette({
+  userId,
   open,
   onOpenChange,
   onSearchEverything,
 }: {
+  /** The signed-in user: the index cache only serves its owner. */
+  userId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSearchEverything: (query: string) => void;
@@ -56,7 +63,7 @@ export function CommandPalette({
   const router = useRouter();
   const titleOf = useDisplayTitle();
   const { hiddenSections } = usePrefs();
-  const [index, setIndex] = useState<LibraryIndexEntry[] | null>(cachedIndex);
+  const [index, setIndex] = useState<LibraryIndexEntry[] | null>(() => cachedFor(userId));
   const [query, setQuery] = useState('');
   const [highlight, setHighlight] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -67,19 +74,22 @@ export function CommandPalette({
     if (!open) return;
     setQuery('');
     setHighlight(0);
+    // A different user signed in on this browser: drop the old index first.
+    if (cache && cache.userId !== userId) cache = null;
+    setIndex(cachedFor(userId));
     let live = true;
     libraryIndex()
       .then((fresh) => {
-        cachedIndex = fresh;
+        cache = { userId, entries: fresh };
         if (live) setIndex(fresh);
       })
       .catch(() => {
-        if (live && !cachedIndex) setIndex([]);
+        if (live && !cachedFor(userId)) setIndex([]);
       });
     return () => {
       live = false;
     };
-  }, [open]);
+  }, [open, userId]);
 
   const pages = useMemo(() => {
     const hidden = new Set<string>(hiddenSections);
@@ -117,7 +127,15 @@ export function CommandPalette({
 
   function openDetails(entry: LibraryIndexEntry) {
     close();
-    router.push(`/${entry.category}?open=${encodeURIComponent(entry.id)}`);
+    // `t` makes every request new, so picking the same title again reopens it.
+    router.push(`/${entry.category}?open=${encodeURIComponent(entry.id)}&t=${Date.now().toString(36)}`);
+  }
+
+  /** Patch one title's status in the shown index and the session cache. */
+  function setStatus(id: string, status: Status) {
+    const patch = (list: LibraryIndexEntry[]) => list.map((e) => (e.id === id ? { ...e, status } : e));
+    if (cache?.userId === userId) cache = { userId, entries: patch(cache.entries) };
+    setIndex((prev) => (prev ? patch(prev) : prev));
   }
 
   async function markDone(entry: LibraryIndexEntry) {
@@ -129,11 +147,16 @@ export function CommandPalette({
         toast.error(res.error ?? 'Could not update that title.');
         return;
       }
-      const patch = (list: LibraryIndexEntry[] | null) =>
-        list?.map((e) => (e.id === entry.id ? { ...e, status: 'COMPLETED' as const } : e)) ?? null;
-      cachedIndex = patch(cachedIndex);
-      setIndex((prev) => patch(prev));
-      toast.success(`Marked “${titleOf(entry)}” as ${statusLabel('COMPLETED', entry.category)}.`);
+      setStatus(entry.id, 'COMPLETED');
+      toastStatusChange(
+        `Marked “${titleOf(entry)}” as ${statusLabel('COMPLETED', entry.category)}.`,
+        entry.id,
+        res.previous,
+        () => {
+          setStatus(entry.id, res.previous?.status ?? entry.status);
+          router.refresh();
+        },
+      );
       router.refresh();
     } catch {
       toast.error('Could not update that title.');

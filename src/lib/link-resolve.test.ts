@@ -62,6 +62,8 @@ describe('resolveMediaLink', () => {
     const page = vi.fn(async () => ({ url: 'x', html: '<title>Frieren - Wikipedia</title>' }));
     const res = await resolveMediaLink('https://en.wikipedia.org/wiki/Frieren', deps({ page }));
     expect(res).toEqual({ provider: null, slug: null, result: null, guess: 'Frieren' });
+    const odd = vi.fn(async () => ({ url: 'x', html: '<title>&#99999999;Dune</title>' }));
+    expect(await resolveMediaLink('https://example.com/x', deps({ page: odd }))).toMatchObject({ guess: '\uFFFDDune' });
     const failing = await resolveMediaLink('https://boxd.it/abc', deps({ page: vi.fn(async () => { throw new Error('x'); }) }));
     expect(failing).toEqual({ provider: null, slug: null, result: null, guess: '' });
   });

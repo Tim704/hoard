@@ -49,6 +49,8 @@ interface CategoryClientProps {
   scoreOpen?: boolean;
   /** Open this activity's details on arrival (`?open=<id>`, from the Cmd/Ctrl+K palette). */
   openId?: string;
+  /** Changes with every palette pick (`?t=`), so the same title reopens. */
+  openNonce?: string;
 }
 
 type SortMode = 'status' | 'recent' | 'rating' | 'ranking' | 'title';
@@ -94,6 +96,7 @@ export function CategoryClient({
   franchises,
   scoreOpen = false,
   openId,
+  openNonce,
 }: CategoryClientProps) {
   // View preferences persist per category across visits.
   const key = (name: string) => `hoard:${slug}:${name}`;
@@ -130,12 +133,13 @@ export function CategoryClient({
     if (!a && new URLSearchParams(window.location.search).has('open')) {
       const url = new URL(window.location.href);
       url.searchParams.delete('open');
+      url.searchParams.delete('t');
       window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
     }
   };
   useEffect(() => {
     if (openId) setSelectedId(openId);
-  }, [openId]);
+  }, [openId, openNonce]);
 
   const toggleSection = (status: Status) =>
     setCollapsed((prev) =>

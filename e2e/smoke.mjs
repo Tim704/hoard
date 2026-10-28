@@ -128,7 +128,7 @@ if (failures.length === 0) {
 }
 
 // The keyboard surfaces (2.5 / 2.6): `/` opens Search everything and
-// Ctrl+K the palette, on top of a normal page.
+// Cmd/Ctrl+K the palette, on top of a normal page.
 if (failures.length === 0) {
   await step('search everything (/)', async () => {
     await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
@@ -139,9 +139,9 @@ if (failures.length === 0) {
     await page.getByRole('region', { name: 'Anime' }).waitFor({ timeout: 20_000 });
     await page.keyboard.press('Escape');
   });
-  await step('command palette (Ctrl+K)', async () => {
+  await step('command palette (Cmd/Ctrl+K)', async () => {
     await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
-    await page.keyboard.press('Control+k');
+    await page.keyboard.press('ControlOrMeta+k');
     const box = page.getByRole('combobox', { name: 'Find a title or page' });
     await box.waitFor({ timeout: 10_000 });
     await box.fill('sett');

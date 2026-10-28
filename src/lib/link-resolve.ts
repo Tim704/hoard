@@ -7,7 +7,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import type { CategorySlug } from '@/lib/categories';
-import { isbnFromHtml, letterboxdQuery, pageTitle, parseMediaUrl, type ParsedLink } from '@/lib/links';
+import { isbnFromHtml, letterboxdQuery, pageTitle as parsePageTitle, parseMediaUrl, type ParsedLink } from '@/lib/links';
 import type { NormalizedResult } from '@/lib/types';
 
 export interface LinkDeps {
@@ -35,6 +35,24 @@ export interface LinkResolution {
   guess: string;
   /** Why the lookup could not run (e.g. a provider key is missing). */
   message?: string;
+}
+
+/** A page's title, never throwing (odd markup just gives no guess). */
+function pageTitle(html: string): string | null {
+  try {
+    return parsePageTitle(html);
+  } catch {
+    return null;
+  }
+}
+
+/** The page's ISBN, never throwing. */
+function pageIsbn(html: string): string | null {
+  try {
+    return isbnFromHtml(html);
+  } catch {
+    return null;
+  }
 }
 
 /** "TMDB_API_KEY not configured" and friends → a friendly line (spec G4). */
@@ -108,7 +126,7 @@ export async function resolveMediaLink(url: string, deps: LinkDeps): Promise<Lin
       return attempt('OpenLibrary', async () => {
         // The ISBN from the page, else the title from the slug (or the page).
         const page = await deps.page(url).catch(() => null);
-        const isbn = page ? isbnFromHtml(page.html) : null;
+        const isbn = page ? pageIsbn(page.html) : null;
         if (isbn) {
           const hit = await deps.isbn(isbn);
           if (hit) return { slug: 'books', result: hit };
