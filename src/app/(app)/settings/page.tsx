@@ -2,6 +2,7 @@ import { SettingsData } from '@/components/settings-data';
 import { SettingsForm } from '@/components/settings-form';
 import { SettingsNotifications } from '@/components/settings-notifications';
 import { SettingsSharing } from '@/components/settings-sharing';
+import { SettingsCompare, SettingsStreaming } from '@/components/settings-streaming';
 import { SettingsSystem } from '@/components/settings-system';
 import { readBackupStatus } from '@/lib/backups';
 import { getMyShareLinks } from '@/lib/data-share';
@@ -45,8 +46,10 @@ export default async function SettingsPage() {
       timeZones={zones}
       serverTimeZone={serverTimeZone()}
     >
+      <SettingsStreaming initial={prefs.streamingServices} region={prefs.region} />
       <SettingsNotifications initial={prefs.notify} />
       <SettingsSharing links={shareLinks} />
+      <SettingsCompare initial={prefs.compareOptIn} />
       <SettingsData />
       {backup && jobs && (
         <SettingsSystem backup={backup} jobs={jobs} timeZone={effectiveTimeZone(prefs)} now={new Date()} />

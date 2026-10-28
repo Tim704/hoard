@@ -33,6 +33,8 @@ export interface RankRow {
   rating?: number | null;
   /** A small hint chip under the title (e.g. "Next in Haikyuu: Season 1"). */
   chip?: string | null;
+  /** Extra inline content under the title (countdowns, streaming badges). */
+  extra?: ReactNode;
 }
 
 interface SortableRankListProps {
@@ -163,6 +165,7 @@ function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRe
             <span className="truncate">{item.chip}</span>
           </p>
         )}
+        {item.extra && <div className="mt-1 flex flex-wrap items-center gap-1.5">{item.extra}</div>}
       </div>
 
       {item.rating != null && (

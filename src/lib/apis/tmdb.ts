@@ -307,6 +307,7 @@ export interface TmdbTvDetailsJson {
   first_air_date?: string | null;
   number_of_episodes?: number | null;
   number_of_seasons?: number | null;
+  episode_run_time?: number[] | null;
   status?: string | null;
   genres?: Array<{ id?: number; name?: string | null }> | null;
   created_by?: Array<{ name?: string | null }> | null;
@@ -348,6 +349,8 @@ export interface TvDetails {
   cast: string[];
   status: string | null;
   nextAirDate: string | null;
+  /** Typical episode length in minutes (the first `episode_run_time`), for 5.2. */
+  episodeRunTime: number | null;
 }
 
 /** GET /tv/{id}?append_to_response=credits → our tv details. */
@@ -366,7 +369,15 @@ export function mapTvDetails(data: TmdbTvDetailsJson): TvDetails {
     cast: topCast(data.credits),
     status: data.status?.trim() || null,
     nextAirDate: normalizeYmd(data.next_episode_to_air?.air_date),
+    episodeRunTime: firstRunTime(data.episode_run_time),
   };
+}
+
+/** The first sane `episode_run_time` entry (minutes), or null (often an empty list). */
+function firstRunTime(v: unknown): number | null {
+  if (!Array.isArray(v)) return null;
+  const n = v.find((x) => typeof x === 'number' && Number.isInteger(x) && x > 0 && x < 600);
+  return typeof n === 'number' ? n : null;
 }
 
 /**
@@ -499,4 +510,27 @@ export async function fetchTmdbTopRated(kind: 'movie' | 'tv', page: number): Pro
   const res = await providerFetch(`${TMDB_BASE}/${kind}/top_rated?api_key=${key}&page=${page}`);
   if (!res.ok) throw new Error(`TMDB top rated failed (${res.status})`);
   return mapTmdbTopRated(kind, await res.json());
+}
+
+// ── Where to stream (5.1) ────────────────────────────────────────────────────
+//  JustWatch data served by TMDB. Callers cache the raw answers for 7 days
+//  (src/lib/watch-providers.ts); the mapping lives in src/lib/streaming.ts.
+
+/** GET /{movie|tv}/{id}/watch/providers: the raw answer (every region). Null on 404. */
+export async function fetchWatchProvidersJson(kind: 'movie' | 'tv', id: string): Promise<unknown | null> {
+  const key = requireKey();
+  if (!/^\d+$/.test(id)) return null;
+  const res = await providerFetch(`${TMDB_BASE}/${kind}/${id}/watch/providers?api_key=${key}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`TMDB watch providers failed (${res.status})`);
+  return res.json();
+}
+
+/** GET /watch/providers/movie?watch_region=XX: the services available in a region (raw). */
+export async function fetchProviderListJson(region: string): Promise<unknown> {
+  const key = requireKey();
+  if (!/^[A-Z]{2}$/.test(region)) throw new Error('Invalid region');
+  const res = await providerFetch(`${TMDB_BASE}/watch/providers/movie?api_key=${key}&watch_region=${region}`);
+  if (!res.ok) throw new Error(`TMDB provider list failed (${res.status})`);
+  return res.json();
 }

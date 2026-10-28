@@ -60,13 +60,13 @@ model User {
   // Per-user settings, typed and defaulted by src/lib/prefs.ts (unknown keys dropped).
   prefs        Json     @default("{}")
 
-  sessions      Session[]
-  activities    UserMediaActivity[]
-  franchises    Franchise[]
-  events        ActivityEvent[]
-  notifications Notification[]
-  diaryEntries  DiaryEntry[]
-  playSessions  PlaySession[]
+  sessions         Session[]
+  activities       UserMediaActivity[]
+  franchises       Franchise[]
+  events           ActivityEvent[]
+  notifications    Notification[]
+  diaryEntries     DiaryEntry[]
+  playSessions     PlaySession[]
   seasonActivities SeasonActivity[]
   shareLinks       ShareLink[]
   yearDuelScores   YearDuelScore[]
@@ -169,16 +169,17 @@ model TvShow {
 
   // F2 details: release date (YYYY-MM-DD when the full day is known; partial
   // provider dates keep only `year`), genres, and when they were last fetched.
-  releaseDate   String?
-  genres        String[]
-  metaFetchedAt DateTime?
+  releaseDate    String?
+  genres         String[]
+  metaFetchedAt  DateTime?
   // Last failed lookup (metadata job); such rows wait 3 days and go last.
-  metaFailedAt  DateTime?
+  metaFailedAt   DateTime?
   // Credits (5.10 / 6.6): creators and the top 5 billed cast.
-  directors     String[]
-  cast          String[]
-  status        String? // TMDB: Returning Series | Ended | Canceled | …
-  nextAirDate   String? // YYYY-MM-DD of the next episode, when announced
+  directors      String[]
+  cast           String[]
+  status         String? // TMDB: Returning Series | Ended | Canceled | …
+  nextAirDate    String? // YYYY-MM-DD of the next episode, when announced
+  episodeRunTime Int? // TMDB episode_run_time (minutes), for the tonight picker (5.2)
 
   activities UserMediaActivity[]
   seasons    TvSeason[]
@@ -431,17 +432,17 @@ model TvSeason {
 }
 
 model SeasonActivity {
-  id              String  @id @default(cuid())
+  id              String @id @default(cuid())
   userId          String
   activityId      String
   seasonId        String
-  watchedEpisodes Int     @default(0)
+  watchedEpisodes Int    @default(0)
   episodesWatched Int[] // ticked episode numbers, sorted and unique
   rating          Float?
   tier            Tier?
   rankOrder       Float?
-  elo             Float   @default(1200)
-  duels           Int     @default(0)
+  elo             Float  @default(1200)
+  duels           Int    @default(0)
 
   user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   activity UserMediaActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
@@ -677,4 +678,16 @@ model CustomListMember {
 
   @@unique([listId, userId])
   @@index([userId])
+}
+
+// ── Where to stream (5.1) ───────────────────────────────────────────────────
+//  Cached provider answers, 7 days each. Keys: "movie:<tmdbId>:<REGION>",
+//  "tv:<tmdbId>:<REGION>" (TMDB watch providers, JustWatch data),
+//  "anime:<externalId>" (AniList STREAMING links, region-agnostic) and
+//  "providers:<REGION>" (the region's service list for Settings).
+
+model WatchProviderCache {
+  key       String   @id
+  data      Json
+  fetchedAt DateTime @default(now())
 }

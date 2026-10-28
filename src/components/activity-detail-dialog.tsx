@@ -14,6 +14,7 @@ import { ProgressField } from '@/components/progress-field';
 import { SubScoresSection } from '@/components/sub-scores';
 import { TagInput } from '@/components/tag-input';
 import { TvSeasons } from '@/components/tv-seasons';
+import { WhereToWatch } from '@/components/where-to-watch';
 import { RatingInput } from '@/components/rating-input';
 import { toastRemoved, toastStatusChange } from '@/components/undo-toast';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ import { isManualId, manualInputFrom, parseManualInput, type ManualInput } from 
 import { formatTimeToBeat } from '@/lib/media-meta';
 import { formatYmd, isYmd } from '@/lib/release';
 import { STATUSES, statusLabel, type Status } from '@/lib/status';
+import { isStreamable } from '@/lib/streaming';
 import type { ActivityWithMedia, MediaItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -406,6 +408,10 @@ export function ActivityDetailDialog({
                   </Button>
                 )}
               </>
+            )}
+
+            {isStreamable(activity.category) && (
+              <WhereToWatch key={`watch:${activity.id}`} activityId={activity.id} />
             )}
 
             <div className="space-y-1.5">

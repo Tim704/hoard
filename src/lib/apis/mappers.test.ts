@@ -75,6 +75,7 @@ describe('TMDB', () => {
       cast: ['Peter Dinklage', 'Emilia Clarke', 'Kit Harington'],
       status: 'Ended',
       nextAirDate: null,
+      episodeRunTime: 60,
     });
   });
 
