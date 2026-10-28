@@ -177,6 +177,34 @@ describe('buildFeed horizon (capped sources)', () => {
     expect(second.next).toBeNull();
   });
 
+  it('returns an empty page that moves to the horizon when nothing newer survives', () => {
+    // Source capped at 2 rows (hours 1 and 3), both undone; hours 5 and 7 weren't read.
+    const read = [event('u1', 'a', hoursAgo(1)), event('u3', 'a', hoursAgo(3))];
+    const undos = read.map((e) => ({ activityId: e.activityId, kind: 'status', from: 'DROPPED', at: hoursAgo(0.5) }));
+    const base = { allowed: new Set(['a']), now: NOW, ymdOf: berlin, undos };
+    const first = buildFeed([], read, { ...base, horizon: sourceHorizon(read, 2) });
+    expect(first.entries).toEqual([]);
+    expect(first.next).toEqual({ at: hoursAgo(3), skip: 0 });
+    const rest = [3, 5, 7].map((h) => event(`r${h}`, 'a', hoursAgo(h)));
+    const second = buildFeed([], rest, { ...base, cursor: first.next });
+    expect(second.entries.map((e) => e.id)).toEqual(['e:r3', 'e:r5', 'e:r7']);
+  });
+
+  it('ignores the horizon only when stopping there would make no progress', () => {
+    // Every capped row sits at the cursor instant itself: the horizon equals the cursor.
+    const cursor = { at: hoursAgo(2), skip: 0 };
+    const rows = [event('x1', 'a', hoursAgo(2)), event('x2', 'a', hoursAgo(2)), event('x3', 'a', hoursAgo(4))];
+    const page = buildFeed([], rows, {
+      allowed: new Set(['a']),
+      now: NOW,
+      ymdOf: berlin,
+      cursor,
+      horizon: hoursAgo(2),
+    });
+    expect(page.entries.map((e) => e.id)).toEqual(['e:x2', 'e:x1', 'e:x3']);
+    expect(page.next).toBeNull();
+  });
+
   it('pages through many entries at the same instant without repeats', () => {
     const same = Array.from({ length: 5 }, (_, i) => event(`s${i}`, 'a', hoursAgo(1)));
     const seen: string[] = [];

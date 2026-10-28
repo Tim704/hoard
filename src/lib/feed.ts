@@ -215,16 +215,26 @@ export function buildFeed(
   let candidates = applyCursor(ordered, opts.cursor);
 
   // A capped source: stop at its horizon so nothing older is skipped for
-  // good. (If nothing at all is newer than the horizon, e.g. thousands of
-  // rows on one day, the page goes on without it rather than stall.)
+  // good, and continue from there on the next request (which rereads every
+  // source at or before the cursor).
   let cut = false;
   if (opts.horizon) {
     const h = opts.horizon.getTime();
     const kept = candidates.filter((e) => e.at.getTime() > h);
+    // Where this request started: the cursor, or the newest the window allows.
+    const start = opts.cursor ? opts.cursor.at.getTime() : opts.now.getTime() + 60_000;
     if (kept.length > 0) {
       candidates = kept;
       cut = true;
+    } else if (h < start) {
+      // Nothing newer survived (e.g. undone or outside the window): an empty
+      // page that moves the cursor back to the horizon. Rows exactly at the
+      // horizon are reread (skip 0), so nothing is lost and it makes progress.
+      return { entries: [], next: { at: opts.horizon, skip: 0 } };
     }
+    // Last resort: the horizon isn't older than where we started (over
+    // SOURCE_CAP rows at one instant, or diary entries within a couple of
+    // days), so stopping there would never move. Page on without it.
   }
 
   const entries = candidates.slice(0, limit);

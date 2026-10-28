@@ -131,6 +131,7 @@ export async function getFeedPage(
         ],
       },
       select: { activityId: true, kind: true, from: true, at: true },
+      orderBy: { at: 'desc' },
       take: 5 * SOURCE_CAP,
     }),
   ]);

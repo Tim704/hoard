@@ -14,6 +14,9 @@ import { doneVerb } from '@/lib/status';
 export const metadata = { title: 'Feed · Hoard' };
 export const dynamic = 'force-dynamic';
 
+/** Empty pages followed on the server before offering "Load more". */
+const AUTO_CONTINUE = 5;
+
 /**
  * The activity feed (9.2): finishes, drops and new S-tier placements of the
  * last 30 days by users who opted in (you too, only if you did). Built per
@@ -24,7 +27,12 @@ export default async function FeedPage({ searchParams }: { searchParams: { curso
   const prefs = await getPrefs(user.id);
   const cursor = decodeCursor(searchParams.cursor);
   const now = new Date();
-  const { items, next } = await getFeedPage(user.id, prefs, cursor, now);
+  // A page can come back empty but with a `next` (a capped source moved the
+  // cursor back to its horizon): follow it a few times before showing it.
+  let { items, next } = await getFeedPage(user.id, prefs, cursor, now);
+  for (let hop = 0; items.length === 0 && next && hop < AUTO_CONTINUE; hop++) {
+    ({ items, next } = await getFeedPage(user.id, prefs, next, now));
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
@@ -48,7 +56,11 @@ export default async function FeedPage({ searchParams }: { searchParams: { curso
         </div>
       )}
 
-      {items.length === 0 ? (
+      {items.length === 0 && next ? (
+        <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          Still looking through older activity. Load more to keep going.
+        </p>
+      ) : items.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
           {cursor ? 'No older activity.' : `Nothing in the feed from the last ${FEED_DAYS} days yet.`}
         </p>
@@ -71,7 +83,9 @@ export default async function FeedPage({ searchParams }: { searchParams: { curso
           )}
           {next && (
             <Button asChild variant="outline" size="sm">
-              <Link href={`/feed?cursor=${encodeURIComponent(encodeCursor(next))}`}>Older</Link>
+              <Link href={`/feed?cursor=${encodeURIComponent(encodeCursor(next))}`}>
+                {items.length === 0 ? 'Load more' : 'Older'}
+              </Link>
             </Button>
           )}
         </nav>
