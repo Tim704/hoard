@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { ImageOff, Layers, Loader2, PencilLine, Star, Trash2 } from 'lucide-react';
+import { ImageOff, Layers, Loader2, PencilLine, Sparkles, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ActivityExtras } from '@/components/activity-extras';
@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { assignFranchise } from '@/lib/actions/franchise';
+import { acknowledgeNewSeason } from '@/lib/actions/new-seasons';
 import { removeActivity, updateActivity, updateManualEntry } from '@/lib/actions/media';
 import { isManualId, manualInputFrom, parseManualInput, type ManualInput } from '@/lib/manual';
 import { formatTimeToBeat } from '@/lib/media-meta';
@@ -142,6 +143,47 @@ function MediaExtras({ media }: { media: MediaItem }) {
 
   if (!rows.length) return null;
   return <div className="space-y-1">{rows}</div>;
+}
+
+/**
+ * 5.5: "Season N is out" on a finished show, with "Got it" (records the
+ * current season count; starting the show again does the same).
+ */
+function NewSeasonNotice({ activityId, season }: { activityId: string; season: number }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  if (done) return null;
+
+  async function gotIt() {
+    setBusy(true);
+    try {
+      const res = await acknowledgeNewSeason(activityId);
+      if (res.ok) {
+        setDone(true);
+        router.refresh();
+      } else {
+        toast.error(res.error ?? 'Could not save that.');
+      }
+    } catch {
+      toast.error('Could not save that.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3">
+      <Sparkles className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300" aria-hidden />
+      <p className="min-w-0 flex-1 text-sm">
+        <span className="font-medium">New season.</span> Season {season} is out.
+      </p>
+      <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void gotIt()}>
+        {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        Got it
+      </Button>
+    </div>
+  );
 }
 
 /**
@@ -353,7 +395,7 @@ export function ActivityDetailDialog({
           <DialogTitle className="pr-6">{title}</DialogTitle>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 grid gap-5 overflow-y-auto sm:grid-cols-[160px_1fr] sm:items-start">
+        <div className="min-h-0 flex-1 grid grid-cols-1 gap-5 overflow-y-auto sm:grid-cols-[160px_minmax(0,1fr)] sm:items-start">
           {/* Poster + metadata — a compact horizontal row on phones, the
               original stacked column at sm+. */}
           <div className="flex gap-4 sm:block sm:space-y-3">
@@ -408,6 +450,10 @@ export function ActivityDetailDialog({
                   </Button>
                 )}
               </>
+            )}
+
+            {activity.newSeason != null && (
+              <NewSeasonNotice key={`new-season:${activity.id}`} activityId={activity.id} season={activity.newSeason} />
             )}
 
             {isStreamable(activity.category) && (

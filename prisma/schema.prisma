@@ -355,6 +355,9 @@ model UserMediaActivity {
   subScores      Json?
   // 4.7: position inside the franchise when its order mode is "manual" (asc).
   franchiseOrder Float?
+  // 5.5: the show's seasonCount when last finished (or started / acknowledged);
+  // a later season beyond it that has aired is "New season".
+  seenSeasonCount Int?
 
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   franchise  Franchise?  @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
@@ -528,6 +531,9 @@ model Franchise {
   // 4.7 watch order: "release" (release date, then year) or "manual" (drag
   // order in UserMediaActivity.franchiseOrder).
   orderMode String   @default("release")
+  // 5.6: unreleased AniList entries of this IP (NOT_YET_RELEASED with a start
+  // date), refreshed by the new-seasons job: { fetchedAt, items: [...] }.
+  upcoming  Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -554,9 +560,15 @@ model Notification {
   readAt    DateTime?
   sentAt    DateTime?
   error     String?
+  // Stops a job from sending the same news twice ("new-season:<activity>:<n>",
+  // "release:<activity>:<day>"); null for one-off notifications. notify()
+  // looks it up first (jobs run under their advisory lock, so no race). Not a
+  // unique index: adding one to an existing table needs --accept-data-loss.
+  dedupeKey String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId, dedupeKey])
   @@index([userId, createdAt])
   @@index([userId, readAt])
 }

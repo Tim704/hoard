@@ -76,6 +76,8 @@ export interface ActivityWithMedia {
   subScores: SubScores;
   /** 4.7: position inside the franchise in manual order; null = not placed. */
   franchiseOrder: number | null;
+  /** 5.5: the newest aired season the user hasn't seen ("New season"); TV only. */
+  newSeason?: number | null;
   /** The franchise / IP this title is grouped under, if any. */
   franchise: FranchiseRef | null;
   /** True when the user set the franchise by hand (auto-detection won't move it). */

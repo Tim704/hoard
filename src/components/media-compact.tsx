@@ -3,7 +3,7 @@
 import { ChevronRight, Layers } from 'lucide-react';
 
 import { FranchiseGroupHeader, GroupRating } from '@/components/franchise-group';
-import { cardTimeToBeat, useCountdown } from '@/components/card-badges';
+import { cardTimeToBeat, newSeasonLabel, useCountdown } from '@/components/card-badges';
 import { StatusIcon } from '@/components/status-icon';
 import type { CategorySlug } from '@/lib/categories';
 import { statusLabel } from '@/lib/status';
@@ -114,7 +114,7 @@ function CompactRow({
           {title}
         </span>
         <span className="block truncate text-xs text-muted-foreground">
-          {[media.year, statusLabel(status, slug), cardTimeToBeat(activity), countdown].filter(Boolean).join(' · ')}
+          {[media.year, statusLabel(status, slug), cardTimeToBeat(activity), countdown, newSeasonLabel(activity)].filter(Boolean).join(' · ')}
         </span>
       </span>
       <span

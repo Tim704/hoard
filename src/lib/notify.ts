@@ -19,11 +19,18 @@ export interface NotifyInput {
   body: string;
   /** In-app path ("/settings") or absolute URL to open. */
   url?: string | null;
+  /**
+   * Send this news only once per user: when a notification with the same key
+   * exists, nothing is created or pushed (`duplicate: true`).
+   */
+  dedupeKey?: string | null;
 }
 
 export interface NotifyResult {
   id: string | null;
   push: PushOutcome;
+  /** True when `dedupeKey` was already used (nothing was sent). */
+  duplicate?: boolean;
 }
 
 /** Create a notification and push it. Never throws. */
@@ -31,9 +38,14 @@ export async function notify(userId: string, input: NotifyInput): Promise<Notify
   const title = input.title.slice(0, 200);
   const body = input.body.slice(0, 2000);
   let id: string | null = null;
+  const dedupeKey = input.dedupeKey ? input.dedupeKey.slice(0, 300) : null;
   try {
+    if (dedupeKey) {
+      const seen = await prisma.notification.findFirst({ where: { userId, dedupeKey }, select: { id: true } });
+      if (seen) return { id: null, push: { sent: [], error: null }, duplicate: true };
+    }
     const row = await prisma.notification.create({
-      data: { userId, kind: input.kind, title, body, url: input.url ?? null },
+      data: { userId, kind: input.kind, title, body, url: input.url ?? null, dedupeKey },
       select: { id: true },
     });
     id = row.id;

@@ -40,6 +40,17 @@ export const MIGRATION_STEPS: MigrationStep[] = [
         data: { metaFetchedAt: null },
       })),
   },
+  // 5.5: shows finished before seasons were recorded have seen every season
+  // they have now, so the first "New season" is a real one. Only unset rows.
+  {
+    id: '014-seen-season-count',
+    run: async () =>
+      void (await prisma.$executeRaw`
+        UPDATE "UserMediaActivity" a SET "seenSeasonCount" = t."seasonCount"
+        FROM "TVShow" t
+        WHERE a."tvShowId" = t.id AND a.status = 'COMPLETED'
+          AND a."seenSeasonCount" IS NULL AND t."seasonCount" IS NOT NULL`),
+  },
 ];
 
 /**

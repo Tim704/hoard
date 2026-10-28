@@ -1,3 +1,4 @@
+import { SettingsCalendar } from '@/components/settings-calendar';
 import { SettingsData } from '@/components/settings-data';
 import { SettingsForm } from '@/components/settings-form';
 import { SettingsNotifications } from '@/components/settings-notifications';
@@ -5,6 +6,7 @@ import { SettingsSharing } from '@/components/settings-sharing';
 import { SettingsCompare, SettingsStreaming } from '@/components/settings-streaming';
 import { SettingsSystem } from '@/components/settings-system';
 import { readBackupStatus } from '@/lib/backups';
+import { calendarFeedUrl } from '@/lib/calendar-token';
 import { getMyShareLinks } from '@/lib/data-share';
 import { getJobRuns } from '@/lib/data-system';
 import { getPrefs } from '@/lib/data-prefs';
@@ -49,6 +51,7 @@ export default async function SettingsPage() {
       <SettingsStreaming initial={prefs.streamingServices} region={prefs.region} />
       <SettingsNotifications initial={prefs.notify} />
       <SettingsSharing links={shareLinks} />
+      <SettingsCalendar initialUrl={prefs.calendarToken ? calendarFeedUrl(prefs.calendarToken) : null} />
       <SettingsCompare initial={prefs.compareOptIn} />
       <SettingsData />
       {backup && jobs && (

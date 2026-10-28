@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarClock } from 'lucide-react';
+import { CalendarClock, Sparkles } from 'lucide-react';
 
 import { useToday } from '@/components/prefs-provider';
 import { formatTimeToBeat } from '@/lib/media-meta';
@@ -36,6 +36,28 @@ export function CountdownBadge({ activity, className }: { activity: ActivityWith
     >
       <CalendarClock className="h-3 w-3 shrink-0" aria-hidden />
       {label}
+    </span>
+  );
+}
+
+/** "New season" (5.5) for a finished show with an aired season beyond the one seen. */
+export function newSeasonLabel(activity: ActivityWithMedia): string | null {
+  return activity.newSeason != null ? 'New season' : null;
+}
+
+/** The "New season" chip shown on cards and rows. */
+export function NewSeasonBadge({ activity, className }: { activity: ActivityWithMedia; className?: string }) {
+  if (activity.newSeason == null) return null;
+  return (
+    <span
+      className={cn(
+        'inline-flex w-fit items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300',
+        className,
+      )}
+      title={`Season ${activity.newSeason} is out`}
+    >
+      <Sparkles className="h-3 w-3 shrink-0" aria-hidden />
+      New season
     </span>
   );
 }

@@ -17,6 +17,8 @@ import { CATEGORY_LIST, type CategorySlug } from '@/lib/categories';
 import { getPrefs } from '@/lib/data-prefs';
 import { isDiaryStatus, latestEntry, todayIn } from '@/lib/diary';
 import { recordEvent, recordEvents, type EventInput } from '@/lib/events';
+import { currentSeasonCount } from '@/lib/library/seen-seasons';
+import { recordsSeenSeasons } from '@/lib/new-seasons';
 import { cleanPlatforms, validFormat } from '@/lib/ownership';
 import { effectiveTimeZone } from '@/lib/prefs';
 import { normalizeRating } from '@/lib/rating';
@@ -24,6 +26,7 @@ import { isYmd } from '@/lib/release';
 import { requireUser } from '@/lib/session';
 import { revalidateCategory } from '@/lib/actions/shared';
 import { stateOf, type ActivityState } from '@/lib/undo';
+import type { Status } from '@/lib/status';
 import type { ActionResult } from '@/lib/types';
 
 const slugOf = (dbCategory: string): CategorySlug | undefined =>
@@ -118,10 +121,14 @@ export async function startRewatch(activityId: string): Promise<ActionResult & {
     ];
     const resetProgress = a.progress != null && a.progress !== 0;
     if (resetProgress) events.push({ ...ids, kind: 'progress', from: String(a.progress), to: '0' });
+    // 5.5: starting a show again acknowledges its current seasons.
+    const seen = recordsSeenSeasons(a.category, a.status as Status, 'CONSUMING')
+      ? { seenSeasonCount: await currentSeasonCount(a.tvShowId) }
+      : {};
     await prisma.$transaction([
       prisma.userMediaActivity.update({
         where: { id: a.id },
-        data: { status: 'CONSUMING', rewatching: true, ...(resetProgress ? { progress: 0 } : {}) },
+        data: { status: 'CONSUMING', rewatching: true, ...seen, ...(resetProgress ? { progress: 0 } : {}) },
       }),
       recordEvents(prisma, events),
     ]);

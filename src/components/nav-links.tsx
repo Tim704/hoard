@@ -6,6 +6,7 @@ import {
   BookOpen,
   BookText,
   Boxes,
+  CalendarDays,
   Clapperboard,
   Disc3,
   Gamepad2,
@@ -138,6 +139,17 @@ export function NavLinks({ onNavigate, collapsed = false }: NavLinksProps) {
       >
         <Popcorn className="h-4 w-4 shrink-0 text-muted-foreground" />
         {!collapsed && <span>Tonight</span>}
+      </Link>
+
+      <Link
+        href="/calendar"
+        onClick={onNavigate}
+        title={collapsed ? 'Calendar' : undefined}
+        aria-label={collapsed ? 'Calendar' : undefined}
+        className={linkClass('/calendar')}
+      >
+        <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+        {!collapsed && <span>Calendar</span>}
       </Link>
 
       <Link

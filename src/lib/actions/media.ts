@@ -19,6 +19,8 @@ import {
   type DbCategory,
 } from '@/lib/categories';
 import { addMediaForUser, newManualExternalId } from '@/lib/library/add';
+import { currentSeasonCount } from '@/lib/library/seen-seasons';
+import { recordsSeenSeasons } from '@/lib/new-seasons';
 import {
   isManualId,
   manualResult,
@@ -213,6 +215,7 @@ export async function updateActivity(
       notes?: string;
       finishedAt?: Date;
       queueOrder?: number | null;
+      seenSeasonCount?: number | null;
     } = {};
 
     if (data.status !== undefined) patch.status = data.status;
@@ -241,6 +244,12 @@ export async function updateActivity(
       } else if (data.status === 'PLANNED') {
         patch.queueOrder = await appendQueueOrder(user.id, activity.category as DbCategory);
       }
+    }
+
+    // 5.5: finishing or starting a show records its season count (this also
+    // clears a "New season" badge). Tiers are untouched.
+    if (recordsSeenSeasons(activity.category, activity.status as Status, data.status)) {
+      patch.seenSeasonCount = await currentSeasonCount(activity.tvShowId);
     }
 
     const events = eventsForUpdate(

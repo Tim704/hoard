@@ -202,13 +202,25 @@ async function seedLibrary(userId: string) {
   await seedCategory(userId, 'ANIME', ANIME, (e) =>
     prisma.anime.upsert({
       where: { externalId: `demo-anime-${e.key}` },
-      update: {},
-      create: { externalId: `demo-anime-${e.key}`, title: e.title, year: e.year, episodes: 24, malScore: e.crowd ?? null },
+      // Catalogue only: Frieren's next episode airs in 3 days (the calendar, 5.6).
+      update: e.key === 'frieren' ? frierenAiring() : {},
+      create: {
+        externalId: `demo-anime-${e.key}`,
+        title: e.title,
+        year: e.year,
+        episodes: 24,
+        malScore: e.crowd ?? null,
+        ...(e.key === 'frieren' ? frierenAiring() : {}),
+      },
     }),
     'animeId',
   );
   await seedTv(userId);
   console.log('[seed] Demo library ready.');
+}
+
+function frierenAiring() {
+  return { nextAiringAt: new Date(Date.now() + 3 * 86_400_000), nextAiringEpisode: 10 };
 }
 
 /** The demo show's activity id, fixed so the smoke test can visit its season tiers. */
@@ -226,9 +238,11 @@ const DEMO_SEASONS = [
  * and its Arena (two seasons share the whole score 8) all have data.
  */
 async function seedTv(userId: string) {
+  // Catalogue only: the calendar (5.6) always has a next episode ~5 days out.
+  const airing = { status: 'Returning Series', nextAirDate: daysFromNow(5) };
   const show = await prisma.tvShow.upsert({
     where: { externalId: 'demo-tv-expanse' },
-    update: {},
+    update: airing,
     create: {
       externalId: 'demo-tv-expanse',
       title: 'The Expanse',
@@ -236,6 +250,7 @@ async function seedTv(userId: string) {
       episodeCount: 36,
       seasonCount: 3,
       tmdbRating: 8.1,
+      ...airing,
     },
   });
   const seasons = [];

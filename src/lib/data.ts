@@ -23,6 +23,9 @@ import { orderQueue } from '@/lib/queue';
 import { earlierUnfinished, isOrderMode, orderFranchiseMembers, type QueueHint } from '@/lib/franchise/order';
 import { getPrefs } from '@/lib/data-prefs';
 import { displayTitle } from '@/lib/title';
+import { newSeasonBadge } from '@/lib/new-seasons';
+import { effectiveTimeZone } from '@/lib/prefs';
+import { todayYmd } from '@/lib/release';
 import { parseSubScores } from '@/lib/subscores';
 import { bucketPair, challengePairs, fewestDuelsPair } from '@/lib/arena-pick';
 import { buildTierBoard, TIERS, withinTierPairs, type TierBoardData } from '@/lib/tiers';
@@ -100,9 +103,42 @@ export async function getCategoryActivities(
     orderBy: { createdAt: 'desc' },
   });
 
-  return rows
+  const out = rows
     .map((row) => flattenActivity(row, cat))
     .filter((a): a is ActivityWithMedia => a !== null);
+  if (slug === 'tv') await markNewSeasons(user.id, rows as any[], out);
+  return out;
+}
+
+/**
+ * 5.5: set `newSeason` on finished shows with an aired season beyond the one
+ * recorded when they were finished (one query for the candidates' seasons).
+ */
+async function markNewSeasons(userId: string, rows: any[], out: ActivityWithMedia[]): Promise<void> {
+  const candidates = rows.filter(
+    (r) =>
+      r.status === 'COMPLETED' &&
+      r.seenSeasonCount != null &&
+      r.tvShow?.seasonCount != null &&
+      r.tvShow.seasonCount > r.seenSeasonCount,
+  );
+  if (!candidates.length) return;
+  const today = todayYmd(effectiveTimeZone(await getPrefs(userId)));
+  const seasons = await prisma.tvSeason.findMany({
+    where: { tvShowId: { in: candidates.map((r) => r.tvShow.id) } },
+    select: { tvShowId: true, seasonNumber: true, airDate: true },
+  });
+  const byShow = new Map<string, typeof seasons>();
+  for (const s of seasons) byShow.set(s.tvShowId, [...(byShow.get(s.tvShowId) ?? []), s]);
+  const byId = new Map(out.map((a) => [a.id, a]));
+  for (const r of candidates) {
+    const badge = newSeasonBadge(
+      { seenSeasonCount: r.seenSeasonCount, seasonCount: r.tvShow.seasonCount, seasons: byShow.get(r.tvShow.id) ?? [] },
+      today,
+    );
+    const a = byId.get(r.id);
+    if (a && badge != null) a.newSeason = badge;
+  }
 }
 
 /**

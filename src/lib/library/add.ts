@@ -19,6 +19,7 @@ import { saveTvSeasons } from '@/lib/library/tv-seasons';
 import type { TvSeasonData } from '@/lib/apis/tmdb';
 import { catalogueCreatePayload, fillOnlyUpdate } from '@/lib/media-upsert';
 import { MANUAL_PREFIX } from '@/lib/manual';
+import { recordsSeenSeasons } from '@/lib/new-seasons';
 import { nextQueueOrder } from '@/lib/queue';
 import type { Status } from '@/lib/status';
 import type { NormalizedResult } from '@/lib/types';
@@ -126,6 +127,8 @@ export async function addMediaForUser(
               ? new Date()
               : null,
         [cat.fkField]: media.id,
+        // 5.5: a show added as watched or ongoing has seen its current seasons.
+        ...(recordsSeenSeasons(slug, null, status) ? { seenSeasonCount: media.seasonCount ?? null } : {}),
       } as any,
     });
     await recordEvent(tx, {

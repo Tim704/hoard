@@ -39,5 +39,7 @@
   "/s/demo-share-list-comfort",
   "/tonight",
   "/together",
-  "/movies/arena?tab=queue"
+  "/movies/arena?tab=queue",
+  "/calendar",
+  "/calendar?month=2026-12"
 ]
