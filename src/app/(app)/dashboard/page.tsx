@@ -8,6 +8,7 @@ import {
   Clapperboard,
   Disc3,
   Gamepad2,
+  Heart,
   ImageOff,
   Layers,
   Library,
@@ -21,10 +22,12 @@ import {
 import { Score } from '@/components/prefs-provider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
-import { getDashboardStats, getNowConsuming, type CategoryStat } from '@/lib/data';
+import { getDashboardStats, getFavourites, getNowConsuming, type CategoryStat } from '@/lib/data';
+import { favouritesShowcase, type ShowcaseSection } from '@/lib/favourites';
 import { getCurrentPrefs } from '@/lib/data-prefs';
 import type { TitleLanguage } from '@/lib/display-prefs';
 import { getCurrentUser } from '@/lib/session';
+import { isTierEligible } from '@/lib/tiers';
 import { displayTitle } from '@/lib/title';
 import type { ActivityWithMedia } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -47,11 +50,12 @@ const ROW_1_2_LEFT: CategorySlug[] = ['books', 'movies', 'anime', 'games'];
 const ROW_2_RIGHT_3: CategorySlug[] = ['tv', 'manga', 'music'];
 
 export default async function DashboardPage() {
-  const [user, allStats, allConsuming, prefs] = await Promise.all([
+  const [user, allStats, allConsuming, prefs, favourites] = await Promise.all([
     getCurrentUser(),
     getDashboardStats(),
     getNowConsuming(),
     getCurrentPrefs(),
+    getFavourites(),
   ]);
 
   // Sections hidden in Settings drop out of the tiles, the totals and "Now consuming".
@@ -59,6 +63,7 @@ export default async function DashboardPage() {
   const stats = allStats.filter((s) => !hidden.has(s.slug));
   const consuming = allConsuming.filter((a) => !hidden.has(a.category));
   const shown = (slugs: CategorySlug[]) => slugs.filter((s) => !hidden.has(s));
+  const showcase = favouritesShowcase(favourites, prefs.hiddenSections);
 
   const bySlug = new Map(stats.map((s) => [s.slug, s]));
   const statFor = (slug: CategorySlug) => bySlug.get(slug);
@@ -90,6 +95,10 @@ export default async function DashboardPage() {
         })}
         <NowConsumingCard items={consuming} titleLanguage={prefs.titleLanguage} />
       </div>
+
+      {showcase.length > 0 && (
+        <FavouritesRow sections={showcase} titleLanguage={prefs.titleLanguage} />
+      )}
     </div>
   );
 }
@@ -192,6 +201,69 @@ function NowConsumingCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * "Favourites" (spec 1.10): each visible section's first four starred titles,
+ * in tier list order. Only rendered when there is at least one favourite.
+ */
+function FavouritesRow({
+  sections,
+  titleLanguage,
+}: {
+  sections: ShowcaseSection[];
+  titleLanguage: TitleLanguage;
+}) {
+  return (
+    <section className="mt-6 sm:mt-8" aria-labelledby="favourites-heading">
+      <h2 id="favourites-heading" className="mb-3 flex items-center gap-2 text-lg font-semibold">
+        <Heart className="h-5 w-5 fill-rose-500/30 text-rose-500" aria-hidden />
+        Favourites
+      </h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {sections.map(({ slug, items }) => (
+          <Card key={slug}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">
+                <Link href={`/${slug}`} className="hover:underline">
+                  {CATEGORIES[slug].label}
+                </Link>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ol className="grid grid-cols-4 gap-2">
+                {items.map((a) => {
+                  const title = displayTitle(a.media, titleLanguage);
+                  return (
+                    <li key={a.id} className="min-w-0">
+                      <Link
+                        href={`/${slug}`}
+                        title={title}
+                        className="relative block aspect-[2/3] overflow-hidden rounded-md bg-muted ring-1 ring-border transition hover:ring-primary/60"
+                      >
+                        {a.media.imageUrl ? (
+                          <Image src={a.media.imageUrl} alt={title} fill sizes="80px" className="object-cover" />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center overflow-hidden p-1 text-center text-[10px] leading-tight text-muted-foreground [overflow-wrap:anywhere]">
+                            {title}
+                          </span>
+                        )}
+                        {a.tier && isTierEligible(a.status) && (
+                          <span className="absolute left-1 top-1 rounded bg-background/85 px-1 text-[10px] font-bold">
+                            {a.tier}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ol>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </section>
   );
 }
 

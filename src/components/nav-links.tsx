@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 import { usePrefs } from '@/components/prefs-provider';
-import { CATEGORIES, type CategorySlug } from '@/lib/categories';
+import { CATEGORIES, NAV_ORDER } from '@/lib/categories';
 import { cn } from '@/lib/utils';
 
 // Resolve the icon-name strings stored in the category config to real lucide
@@ -36,18 +36,6 @@ const ICONS: Record<string, LucideIcon> = {
   Boxes,
   Library,
 };
-
-// Display order for the nav (independent of categories.ts declaration order):
-// Books, Movies, Anime, Video Games, then TV, Manga, Music.
-const NAV_ORDER: CategorySlug[] = [
-  'books',
-  'movies',
-  'anime',
-  'games',
-  'tv',
-  'manga',
-  'music',
-];
 
 interface NavLinksProps {
   /** Fired on any link click — lets the mobile drawer close itself on navigate. */

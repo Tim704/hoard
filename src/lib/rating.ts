@@ -80,3 +80,24 @@ export function formatScoreOutOf(
 export function formatRating(v: number | null): string {
   return formatScore(v, 'ten');
 }
+
+/**
+ * A signed difference between two 0–10 scores in the user's format:
+ * ten "+1.5", five "+0.8" (half), hundred "+15"; "±0" for no difference.
+ * Uses a real minus sign (−) for negatives.
+ */
+export function formatScoreDiff(diff: number, format: ScoreFormat = 'ten'): string {
+  if (!Number.isFinite(diff)) return '—';
+  const tenths = Math.round(diff * 10);
+  if (tenths === 0) return '±0';
+  const sign = tenths > 0 ? '+' : '−';
+  const abs = Math.abs(tenths);
+  switch (format) {
+    case 'five':
+      return sign + (Math.round(abs / 2) / 10).toFixed(1);
+    case 'hundred':
+      return sign + String(abs);
+    default:
+      return sign + (abs / 10).toFixed(1);
+  }
+}

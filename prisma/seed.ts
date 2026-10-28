@@ -51,10 +51,13 @@ interface DemoEntry {
   tier?: Tier;
   queued?: boolean;
   progress?: number;
+  favorite?: boolean;
+  /** The provider's community score (TMDB / MAL), for "You vs. the crowd". */
+  crowd?: number;
 }
 
 const BOOKS: DemoEntry[] = [
-  { key: 'dune', title: 'Dune', year: 1965, status: 'COMPLETED', rating: 9.2, tier: 'S' },
+  { key: 'dune', title: 'Dune', year: 1965, status: 'COMPLETED', rating: 9.2, tier: 'S', favorite: true },
   { key: 'neuromancer', title: 'Neuromancer', year: 1984, status: 'COMPLETED', rating: 8.5, tier: 'A' },
   { key: 'hyperion', title: 'Hyperion', year: 1989, status: 'COMPLETED', rating: 8.4 },
   { key: 'snow-crash', title: 'Snow Crash', year: 1992, status: 'COMPLETED' },
@@ -64,16 +67,16 @@ const BOOKS: DemoEntry[] = [
 ];
 
 const MOVIES: DemoEntry[] = [
-  { key: 'alien', title: 'Alien', year: 1979, status: 'COMPLETED', rating: 8.8, tier: 'S' },
-  { key: 'aliens', title: 'Aliens', year: 1986, status: 'COMPLETED', rating: 8.8, tier: 'S' },
-  { key: 'heat', title: 'Heat', year: 1995, status: 'COMPLETED', rating: 8.1 },
-  { key: 'arrival', title: 'Arrival', year: 2016, status: 'DROPPED', rating: 5.5 },
+  { key: 'alien', title: 'Alien', year: 1979, status: 'COMPLETED', rating: 8.8, tier: 'S', favorite: true, crowd: 8.2 },
+  { key: 'aliens', title: 'Aliens', year: 1986, status: 'COMPLETED', rating: 8.8, tier: 'S', crowd: 7.9 },
+  { key: 'heat', title: 'Heat', year: 1995, status: 'COMPLETED', rating: 8.1, crowd: 7.9 },
+  { key: 'arrival', title: 'Arrival', year: 2016, status: 'DROPPED', rating: 5.5, crowd: 7.6 },
   { key: 'stalker', title: 'Stalker', year: 1979, status: 'PLANNED', queued: true },
 ];
 
 const ANIME: DemoEntry[] = [
-  { key: 'cowboy-bebop', title: 'Cowboy Bebop', year: 1998, status: 'COMPLETED', rating: 9, tier: 'S' },
-  { key: 'haikyuu', title: 'Haikyuu!!', year: 2014, status: 'COMPLETED', rating: 8.6 },
+  { key: 'cowboy-bebop', title: 'Cowboy Bebop', year: 1998, status: 'COMPLETED', rating: 9, tier: 'S', favorite: true, crowd: 8.8 },
+  { key: 'haikyuu', title: 'Haikyuu!!', year: 2014, status: 'COMPLETED', rating: 8.6, crowd: 8.4 },
   { key: 'mushishi', title: 'Mushishi', year: 2005, status: 'ON_HOLD', rating: 8.2 },
   { key: 'frieren', title: 'Frieren', year: 2023, status: 'CONSUMING', progress: 9 },
   { key: 'one-piece', title: 'One Piece', year: 1999, status: 'RETIRED', rating: 7.5 },
@@ -93,7 +96,7 @@ async function seedLibrary(userId: string) {
     prisma.movie.upsert({
       where: { externalId: `demo-movie-${e.key}` },
       update: {},
-      create: { externalId: `demo-movie-${e.key}`, title: e.title, year: e.year, runtime: 120 },
+      create: { externalId: `demo-movie-${e.key}`, title: e.title, year: e.year, runtime: 120, tmdbRating: e.crowd ?? null },
     }),
     'movieId',
   );
@@ -101,7 +104,7 @@ async function seedLibrary(userId: string) {
     prisma.anime.upsert({
       where: { externalId: `demo-anime-${e.key}` },
       update: {},
-      create: { externalId: `demo-anime-${e.key}`, title: e.title, year: e.year, episodes: 24 },
+      create: { externalId: `demo-anime-${e.key}`, title: e.title, year: e.year, episodes: 24, malScore: e.crowd ?? null },
     }),
     'animeId',
   );
@@ -132,6 +135,7 @@ async function seedCategory(
         rankOrder: e.tier ? (rank += 1000) : null,
         queueOrder: e.queued ? (queue += 1000) : null,
         progress: e.progress ?? null,
+        favorite: e.favorite ?? false,
         finishedAt: e.status === 'COMPLETED' ? new Date() : null,
       },
     });

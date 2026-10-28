@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Layers, ListTree, Rows3 } from 'lucide-react';
 
 import { ActivityDetailDialog } from '@/components/activity-detail-dialog';
+import { CrowdPanel } from '@/components/crowd-panel';
 import { MediaCompact } from '@/components/media-compact';
 import { MediaGrid } from '@/components/media-grid';
 import { MediaTable } from '@/components/media-table';
@@ -387,6 +388,8 @@ export function CategoryClient({
       ) : (
         renderView(visible)
       )}
+
+      <CrowdPanel slug={slug} activities={activities} source={config.source} />
 
       <ActivityDetailDialog
         activity={selected}

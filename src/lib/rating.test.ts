@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatRating,
   formatScore,
+  formatScoreDiff,
   formatScoreOutOf,
   normalizeRating,
   nudgeRating,
@@ -89,5 +90,17 @@ describe('formatScore', () => {
     expect(formatScoreOutOf(8.5, 'five', { star: false })).toBe('4.3/5');
     expect(formatScoreOutOf(8.5, 'ten', { star: false })).toBe('8.5/10');
     expect(formatScoreOutOf(8.5, 'hundred', { star: false })).toBe('85/100');
+  });
+});
+
+describe('formatScoreDiff', () => {
+  it('signs the difference in each format', () => {
+    expect(formatScoreDiff(1.5)).toBe('+1.5');
+    expect(formatScoreDiff(-5.5, 'ten')).toBe('−5.5');
+    expect(formatScoreDiff(1.5, 'five')).toBe('+0.8');
+    expect(formatScoreDiff(-1, 'five')).toBe('−0.5');
+    expect(formatScoreDiff(1.5, 'hundred')).toBe('+15');
+    expect(formatScoreDiff(0.04)).toBe('±0');
+    expect(formatScoreDiff(Number.NaN)).toBe('—');
   });
 });

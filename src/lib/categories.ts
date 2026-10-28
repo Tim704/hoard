@@ -146,6 +146,13 @@ export const CATEGORIES: Record<CategorySlug, CategoryConfig> = {
 
 export const CATEGORY_LIST: CategoryConfig[] = Object.values(CATEGORIES);
 
+/**
+ * The order sections are shown in the navigation and on the dashboard
+ * (independent of the declaration order above): Books, Movies, Anime, Video
+ * Games, then TV, Manga, Music.
+ */
+export const NAV_ORDER: CategorySlug[] = ['books', 'movies', 'anime', 'games', 'tv', 'manga', 'music'];
+
 export const CATEGORY_SLUGS = Object.keys(CATEGORIES) as CategorySlug[];
 
 export function isCategorySlug(slug: string): slug is CategorySlug {

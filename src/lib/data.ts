@@ -39,7 +39,7 @@ const FRANCHISE_REF = { select: { id: true, name: true, imageUrl: true, rating: 
  * (defensive — exactly one fk should always be set, but never trust the DB
  * blindly) so callers can skip the row.
  */
-function flattenActivity(
+export function flattenActivity(
   // Sanctioned dynamic-Prisma access: the row carries one populated media
   // relation keyed by `cat.prismaModel`, which Prisma's types can't express
   // statically across all seven models.
@@ -348,6 +348,24 @@ export async function getNowConsuming(limit = 12): Promise<ActivityWithMedia[]> 
     take: limit,
   });
 
+  return rows
+    .map((row) => {
+      const cat = CATEGORY_LIST.find((c) => c.dbCategory === row.category);
+      return cat ? flattenActivity(row, cat) : null;
+    })
+    .filter((a): a is ActivityWithMedia => a !== null);
+}
+
+/** Every title the current user starred, across all domains (unordered). */
+export async function getFavourites(): Promise<ActivityWithMedia[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  const include = Object.fromEntries(CATEGORY_LIST.map((c) => [c.prismaModel, true]));
+  const rows = await prisma.userMediaActivity.findMany({
+    where: { userId: user.id, favorite: true },
+    include: include as any,
+  });
   return rows
     .map((row) => {
       const cat = CATEGORY_LIST.find((c) => c.dbCategory === row.category);
