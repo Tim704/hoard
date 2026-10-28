@@ -17,14 +17,15 @@
 
 import { prisma } from '@/lib/prisma';
 import { serverTimeZone } from '@/lib/prefs';
-import { dueJobs, jobLockKey, type JobSchedule, type JobTime } from '@/lib/jobs/schedule';
+import { dueJobs, jobLockKey, unseededJobs, type JobSchedule, type JobTime } from '@/lib/jobs/schedule';
 
 export interface Job extends JobSchedule {
   at: JobTime;
   run: () => Promise<void>;
 }
 
-export type JobOutcome = 'ok' | 'error' | 'skipped';
+/** `seeded` = first sighting of a timed job; it first runs at its next slot. */
+export type JobOutcome = 'ok' | 'error' | 'skipped' | 'seeded';
 
 /** Namespace for the two-key advisory lock ("HOAR"), so other apps can't collide. */
 const LOCK_NAMESPACE = 0x484f4152;
@@ -110,6 +111,20 @@ export async function tick(now = new Date()): Promise<void> {
   } catch (err) {
     console.error('[hoard] scheduler tick skipped (database):', err instanceof Error ? err.message : err);
     return;
+  }
+  // A timed job seen for the first time (fresh deploy, newly added job) is
+  // seeded instead of run, so it waits for its next slot.
+  for (const name of unseededJobs(jobs, lastRuns)) {
+    try {
+      // `update: {}` keeps a row another instance seeded or ran meanwhile.
+      await prisma.jobRun.upsert({
+        where: { name },
+        create: { name, lastRunAt: now, lastStatus: 'seeded', lastDurationMs: 0 },
+        update: {},
+      });
+    } catch (err) {
+      console.error(`[hoard] could not seed job ${name}:`, err instanceof Error ? err.message : err);
+    }
   }
   for (const name of dueJobs(now, serverTimeZone(), jobs, lastRuns)) {
     await runJob(name);

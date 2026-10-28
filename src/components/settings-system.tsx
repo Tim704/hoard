@@ -1,6 +1,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 //  Settings → System (server component): the backup status and each scheduled
-//  job's last run. Times are shown in the viewer's effective time zone.
+//  job's last run. Only rendered for the owner (it shows pg_dump and job
+//  errors). Times are shown in the viewer's effective time zone.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { AlertTriangle, CheckCircle2, CircleDashed } from 'lucide-react';
@@ -88,7 +89,9 @@ export function SettingsSystem({
                   {j.name} <span className="text-muted-foreground">({j.schedule})</span>
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {j.lastRunAt ? (
+                  {j.lastStatus === 'seeded' ? (
+                    'Waiting for its first run'
+                  ) : j.lastRunAt ? (
                     <>
                       <span className={j.lastStatus === 'error' ? 'text-destructive' : undefined}>
                         {j.lastStatus === 'ok' ? 'OK' : j.lastStatus}

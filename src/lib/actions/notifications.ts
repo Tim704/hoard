@@ -55,7 +55,8 @@ export async function sendTestNotification(): Promise<ActionResult & { pushed?: 
       url: '/settings#notifications',
     });
     revalidatePath('/', 'layout');
-    if (!res.id) return { ok: false, error: res.push.error ?? 'Could not create the notification.' };
+    if (!res.id) return { ok: false, error: 'Could not create the notification.' };
+    // push.error only holds generic categories ("ntfy: Could not connect").
     if (res.push.error) return { ok: false, error: res.push.error, pushed: res.push.sent };
     return { ok: true, pushed: res.push.sent };
   } catch (err) {

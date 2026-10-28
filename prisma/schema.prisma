@@ -359,7 +359,7 @@ model Notification {
 model JobRun {
   name           String   @id
   lastRunAt      DateTime
-  lastStatus     String // ok|error|skipped
+  lastStatus     String // ok|error|seeded (first sighting; runs at its next slot)
   lastError      String?
   lastDurationMs Int      @default(0)
 }

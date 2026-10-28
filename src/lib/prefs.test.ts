@@ -164,6 +164,16 @@ describe('notification URLs', () => {
     }
   });
 
+  it('rejects localhost and private IP literals when saving', () => {
+    for (const bad of ['https://localhost/x', 'https://192.168.1.2/x', 'https://[::1]/x', 'https://100.100.1.1/x']) {
+      const res = PrefsPatchSchema.safeParse({
+        notify: { ntfyUrl: bad, discordWebhook: null, kinds: [] },
+      });
+      expect(res.success, bad).toBe(false);
+      if (!res.success) expect(res.error.issues[0].message).toBe('Local and private network addresses are not accepted.');
+    }
+  });
+
   it('rejects unknown kinds when saving', () => {
     const res = PrefsPatchSchema.safeParse({
       notify: { ntfyUrl: null, discordWebhook: null, kinds: ['nope'] },

@@ -7,7 +7,7 @@
 #  (PGHOST, PGUSER, PGPASSWORD, PGDATABASE).
 #
 #  Every day at BACKUP_HOUR (default 3) in TZ it:
-#    1. dumps with `pg_dump --format=custom` to a temp file in daily/,
+#    1. dumps with `pg_dump --format=custom` to a pid-suffixed temp file in daily/,
 #    2. keeps it only if it is non-empty and `pg_restore --list` can read it,
 #       then renames it to daily/hoard-YYYY-MM-DD.dump,
 #    3. on Sundays also copies it to weekly/,
@@ -56,10 +56,10 @@ prev_bytes() {
 write_status() {
   bytes="$5"
   [ -n "$bytes" ] || bytes=null
-  tmp="$BACKUP_DIR/.status.json.tmp"
+  stmp="$BACKUP_DIR/.status.json.$$.tmp"
   printf '{"lastSuccess": %s, "lastAttempt": %s, "lastError": %s, "file": %s, "bytes": %s}\n' \
-    "$(json_str "$1")" "$(json_str "$2")" "$(json_str "$3")" "$(json_str "$4")" "$bytes" >"$tmp" \
-    && mv -f "$tmp" "$BACKUP_DIR/status.json"
+    "$(json_str "$1")" "$(json_str "$2")" "$(json_str "$3")" "$(json_str "$4")" "$bytes" >"$stmp" \
+    && mv -f "$stmp" "$BACKUP_DIR/status.json"
 }
 
 # Delete all but the newest N files matching a glob in a directory. The names
@@ -82,9 +82,11 @@ backup_once() {
   weekday="$(date '+%w')" # 0 = Sunday
   mkdir -p "$BACKUP_DIR/daily" "$BACKUP_DIR/weekly" || return 1
   final="$BACKUP_DIR/daily/hoard-$day.dump"
-  tmp="$BACKUP_DIR/daily/.hoard-$day.dump.tmp"
-  errlog="$BACKUP_DIR/.backup-error.log"
-  rm -f "$tmp"
+  # Temp names carry this process's pid ($$), so a manual `--once` can never
+  # touch the nightly run's files (or the other way round); each run only
+  # ever removes its own.
+  tmp="$BACKUP_DIR/daily/.hoard-$day.$$.dump.tmp"
+  errlog="$BACKUP_DIR/.backup-error.$$.log"
 
   log "dumping ${PGDATABASE:-?} on ${PGHOST:-local} to $final"
   error=""
@@ -107,7 +109,7 @@ backup_once() {
   fi
 
   if [ "$weekday" = "0" ]; then
-    wtmp="$BACKUP_DIR/weekly/.hoard-$day.dump.tmp"
+    wtmp="$BACKUP_DIR/weekly/.hoard-$day.$$.dump.tmp"
     if cp "$final" "$wtmp" && mv -f "$wtmp" "$BACKUP_DIR/weekly/hoard-$day.dump"; then
       log "weekly copy written"
     else

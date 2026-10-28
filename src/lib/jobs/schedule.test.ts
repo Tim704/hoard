@@ -5,6 +5,7 @@ import {
   jobLockKey,
   lastOccurrence,
   parseAt,
+  unseededJobs,
   zonedTimeToUtc,
   type JobSchedule,
 } from './schedule';
@@ -85,8 +86,15 @@ describe('dueJobs', () => {
     expect(dueJobs(iso('2026-10-28T12:00:00Z'), TZ, [migration], {})).toEqual([]);
   });
 
-  it('runs a job that never ran', () => {
-    expect(dueJobs(iso('2026-10-28T12:00:00Z'), TZ, [backupWatch], {})).toEqual(['backup-watch']);
+  it('does not run a timed job that never ran; it waits for its next slot once seeded', () => {
+    expect(dueJobs(iso('2026-10-28T12:00:00Z'), TZ, [backupWatch], {})).toEqual([]);
+    expect(unseededJobs([backupWatch, migration, weekly], {})).toEqual(['backup-watch', 'taste-profile']);
+    expect(unseededJobs([backupWatch], { 'backup-watch': iso('2026-10-28T12:00:00Z') })).toEqual([]);
+    // Seeded at deploy time (12:00 UTC = 13:00 Berlin): next run is tomorrow 09:00.
+    const runs = simulate([backupWatch], iso('2026-10-28T12:00:00Z'), iso('2026-10-29T23:00:00Z'), {
+      'backup-watch': iso('2026-10-28T12:00:00Z'),
+    });
+    expect(runs.map((r) => r.at.toISOString())).toEqual(['2026-10-29T08:00:00.000Z']);
   });
 
   it('runs at the local time, then not again the same day', () => {

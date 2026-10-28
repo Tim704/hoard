@@ -66,6 +66,16 @@ export function backupProblem(status: BackupStatus, now: Date): string | null {
   return `The newest backup is ${age} old.${status.lastError ? ` Last error: ${status.lastError}` : ''}`;
 }
 
+/**
+ * What backup-watch should warn about, or null. Like `backupProblem`, but
+ * quiet about "no backup yet" while the app has been up for less than 26 h,
+ * so a fresh deploy doesn't warn before the first nightly backup ran.
+ */
+export function backupWarning(status: BackupStatus, now: Date, uptimeMs: number): string | null {
+  if (!status.lastSuccess && uptimeMs < BACKUP_STALE_HOURS * 3_600_000) return null;
+  return backupProblem(status, now);
+}
+
 /** Where the backups are mounted (`HOARD_BACKUP_MOUNT`, default /backups). */
 export function backupDir(): string {
   return process.env.HOARD_BACKUP_MOUNT || '/backups';

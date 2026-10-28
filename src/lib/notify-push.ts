@@ -8,8 +8,13 @@
 //  - Discord: POST JSON `{ content }` (at most 2000 characters); 204 = sent.
 //
 //  Every push has a 5 s timeout and never throws: it resolves to an error
-//  string (or null on success).
+//  string (or null on success). Errors are collapsed to generic categories
+//  ("Could not connect", "Timed out", "HTTP <status>") so they can't be used
+//  to probe which hosts and ports the server can reach. Targets are checked
+//  again here with the same rules as the settings form (url-safety.ts).
 // ───────────────────────────────────────────────────────────────────────────
+
+import { isAllowedPushUrl } from '@/lib/url-safety';
 
 export interface PushMessage {
   title: string;
@@ -42,10 +47,6 @@ export function discordContent(msg: PushMessage): string {
   return text.length > DISCORD_LIMIT ? `${text.slice(0, DISCORD_LIMIT - 1)}…` : text;
 }
 
-function isHttps(url: string | null): url is string {
-  return !!url && /^https:\/\//i.test(url);
-}
-
 async function post(fetchImpl: FetchLike, url: string, init: RequestInit): Promise<string | null> {
   try {
     const res = await fetchImpl(url, {
@@ -57,9 +58,9 @@ async function post(fetchImpl: FetchLike, url: string, init: RequestInit): Promi
     return res.ok ? null : `HTTP ${res.status}`;
   } catch (err) {
     if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
-      return 'timed out';
+      return 'Timed out';
     }
-    return err instanceof Error ? err.message : 'request failed';
+    return 'Could not connect';
   }
 }
 
@@ -82,21 +83,21 @@ export function pushDiscord(fetchImpl: FetchLike, url: string, msg: PushMessage)
 export interface PushOutcome {
   /** Targets that accepted the message. */
   sent: ('ntfy' | 'discord')[];
-  /** "ntfy: HTTP 500; discord: timed out", or null when nothing failed. */
+  /** "ntfy: HTTP 500; discord: Timed out", or null when nothing failed. */
   error: string | null;
 }
 
-/** Push to every configured (https) target in parallel. Never throws. */
+/** Push to every configured, allowed target in parallel. Never throws. */
 export async function pushAll(
   targets: PushTargets,
   msg: PushMessage,
   fetchImpl: FetchLike = fetch,
 ): Promise<PushOutcome> {
   const jobs: Promise<['ntfy' | 'discord', string | null]>[] = [];
-  if (isHttps(targets.ntfyUrl)) {
+  if (isAllowedPushUrl(targets.ntfyUrl)) {
     jobs.push(pushNtfy(fetchImpl, targets.ntfyUrl, msg).then((e) => ['ntfy', e]));
   }
-  if (isHttps(targets.discordWebhook)) {
+  if (isAllowedPushUrl(targets.discordWebhook)) {
     jobs.push(pushDiscord(fetchImpl, targets.discordWebhook, msg).then((e) => ['discord', e]));
   }
   const results = await Promise.all(jobs);

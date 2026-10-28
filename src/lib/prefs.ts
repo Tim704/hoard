@@ -13,6 +13,7 @@
 import { z } from 'zod';
 
 import { isValidTimeZone } from '@/lib/timezones';
+import { pushUrlProblem } from '@/lib/url-safety';
 import type { DisplayPrefs, HideableSection, TitleLanguage } from '@/lib/display-prefs';
 import type { ScoreFormat } from '@/lib/rating';
 
@@ -47,13 +48,18 @@ const optionalText = z.string().trim().max(200).nullable();
 export const NOTIFY_KINDS = ['releases', 'new-seasons', 'backup', 'sync', 'list-shared'] as const;
 export type NotifyKind = (typeof NOTIFY_KINDS)[number] | 'test';
 
-/** Push targets must be https (the URLs are the user's own ntfy topic / Discord webhook). */
+/**
+ * Push targets (the user's own ntfy topic / Discord webhook): https only, and
+ * never localhost or a private / loopback / link-local IP literal.
+ */
 const httpsUrl = z
   .string()
   .trim()
   .max(500)
-  .url('Enter a full URL.')
-  .refine((u) => u.toLowerCase().startsWith('https://'), 'Only https:// URLs are accepted.');
+  .superRefine((u, ctx) => {
+    const problem = pushUrlProblem(u);
+    if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
+  });
 
 /**
  * `kinds` lists the kinds pushed to ntfy/Discord; empty means every kind. The

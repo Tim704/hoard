@@ -94,7 +94,7 @@ export function SettingsNotifications({ initial }: { initial: NotifySettings }) 
         <CardTitle className="text-base">Notifications</CardTitle>
         <CardDescription>
           Notifications always appear under the bell. You can also push them to your own ntfy topic
-          or a Discord channel webhook (https only).
+          or a Discord channel webhook (public https URLs only).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

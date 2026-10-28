@@ -113,7 +113,8 @@ The `backup` service (the `postgres:16-alpine` image running
   owned by root and the service can't write to it.
 - **Monitoring:** Settings → System shows the last backup. The `backup-watch`
   job (09:00) sends the owner (the first registered account) a notification when
-  the newest backup is older than 26 hours.
+  the newest backup is older than 26 hours (or, once the app has been up for
+  26 hours, when there is no backup at all).
 
 Make a backup right now (for example before an upgrade):
 
@@ -160,12 +161,18 @@ each job at its time in the server's `TZ`:
 - Each job's last run time, status, error and duration are kept in the `JobRun`
   table and shown in Settings → System.
 - Set `HOARD_SCHEDULER=off` to disable it when running outside Docker.
+- A job seen for the first time (fresh deploy, newly added job) does not run
+  straight away: it is recorded as "seeded" and first runs at its next slot.
+- While a job runs, the scheduler holds one database connection for its lock.
+  If you set `connection_limit` in `DATABASE_URL`, keep it at **3 or more**.
+- Settings → System (backups and job runs) is shown to the owner only.
 
 ### Notifications
 
 Notifications appear under the bell in the header. Each user can also push them
 to their own [ntfy](https://ntfy.sh) topic URL and/or a Discord channel webhook
-(Settings → Notifications, https URLs only, with a "Send test" button). Pushes
+(Settings → Notifications, public https URLs only (no localhost or private
+IP addresses), with a "Send test" button). Pushes
 time out after 5 seconds; failures are recorded on the notification, never
 thrown.
 

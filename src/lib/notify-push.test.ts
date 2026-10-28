@@ -63,12 +63,21 @@ describe('pushAll', () => {
       f,
     );
     expect(out.sent).toEqual([]);
-    expect(out.error).toBe('ntfy: timed out; discord: HTTP 500');
+    expect(out.error).toBe('ntfy: Timed out; discord: HTTP 500');
   });
 
-  it('skips non-https targets', async () => {
+  it('collapses connection errors to a generic message (no host/port details)', async () => {
+    const f = vi.fn<FetchLike>(async () => {
+      throw new TypeError('fetch failed: connect ECONNREFUSED 203.0.113.5:8443');
+    });
+    const out = await pushAll({ ntfyUrl: 'https://ntfy.example.org/t', discordWebhook: null }, msg, f);
+    expect(out.error).toBe('ntfy: Could not connect');
+  });
+
+  it('skips non-https and private targets', async () => {
     const f = okFetch();
-    await pushAll({ ntfyUrl: 'http://ntfy.sh/topic', discordWebhook: null }, msg, f);
+    await pushAll({ ntfyUrl: 'http://ntfy.sh/topic', discordWebhook: 'https://192.168.1.5/hook' }, msg, f);
+    await pushAll({ ntfyUrl: 'https://localhost/topic', discordWebhook: 'https://[::1]/hook' }, msg, f);
     expect(f).not.toHaveBeenCalled();
   });
 });

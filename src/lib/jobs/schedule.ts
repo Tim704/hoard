@@ -121,8 +121,10 @@ export function lastOccurrence(job: JobSchedule, now: Date, tz: string): Date | 
 
 /**
  * The names of the timed jobs due at `now`: those whose last scheduled moment
- * is after their last run (or that never ran). Startup jobs are never "due";
- * the scheduler runs them once when it starts.
+ * is after their last run. A job that never ran is NOT due: the scheduler
+ * seeds its JobRun row (see `unseededJobs`) and it first runs at its next
+ * slot, so a deploy doesn't fire every nightly job at once. Startup jobs are
+ * never "due"; the scheduler runs them once when it starts.
  */
 export function dueJobs(
   now: Date,
@@ -136,9 +138,17 @@ export function dueJobs(
     const occurrence = lastOccurrence(job, now, tz);
     if (!occurrence) continue;
     const last = lastRuns[job.name];
-    if (!last || last.getTime() < occurrence.getTime()) due.push(job.name);
+    if (last && last.getTime() < occurrence.getTime()) due.push(job.name);
   }
   return due;
+}
+
+/** Timed jobs with no recorded run yet; the scheduler seeds them with `now`. */
+export function unseededJobs(
+  jobs: readonly JobSchedule[],
+  lastRuns: Readonly<Record<string, Date | null | undefined>>,
+): string[] {
+  return jobs.filter((j) => j.at !== 'startup' && !lastRuns[j.name]).map((j) => j.name);
 }
 
 /**

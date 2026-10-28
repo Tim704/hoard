@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { backupProblem, parseBackupStatus, readBackupStatus } from './backups';
+import { backupProblem, backupWarning, parseBackupStatus, readBackupStatus } from './backups';
 
 const now = new Date('2026-10-28T09:00:00Z');
 
@@ -69,5 +69,22 @@ describe('readBackupStatus', () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('backupWarning', () => {
+  const base = parseBackupStatus('{}');
+  const h = 3_600_000;
+
+  it('stays quiet about a missing first backup while the app is young', () => {
+    expect(backupWarning(base, now, 2 * h)).toBeNull();
+    expect(backupWarning(base, now, 27 * h)).toBe('No backup has been made yet.');
+  });
+
+  it('still warns about a stale backup right after a restart', () => {
+    expect(backupWarning({ ...base, lastSuccess: '2026-10-25T06:00:00Z' }, now, 60_000)).toBe(
+      'The newest backup is 3 days old.',
+    );
+    expect(backupWarning({ ...base, lastSuccess: '2026-10-28T02:00:00Z' }, now, 60_000)).toBeNull();
   });
 });
