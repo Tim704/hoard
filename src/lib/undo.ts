@@ -102,6 +102,8 @@ export interface ActivityState {
   progress: number | null;
   /** 3.1: a repeat run in progress (Watch again / finishing flips it). */
   rewatching: boolean;
+  /** The diary entry the change being undone wrote (deleted on Undo). Not a column. */
+  diaryEntryId?: string;
 }
 
 /** The state a client may ask to restore: only these fields, each optional. */
@@ -115,6 +117,7 @@ export const ActivityStateSchema = z
     rankOrder: z.number().finite().nullable(),
     progress: z.number().int().min(0).max(100_000).nullable(),
     rewatching: z.boolean(),
+    diaryEntryId: z.string().min(1).max(64),
   })
   .partial()
   .strict();
@@ -154,7 +157,8 @@ export function planStateRestore(
   current: ActivityState,
   wanted: ActivityStatePatch,
 ): { data: Row; events: EventInput[] } {
-  const data: Row = { ...wanted };
+  const { diaryEntryId: _diaryEntryId, ...columns } = wanted;
+  const data: Row = { ...columns };
   // Same one-decimal rounding as updateActivity (the schema already bounds 0–10).
   if (typeof wanted.rating === 'number') data.rating = normalizeRating(wanted.rating);
   if (wanted.finishedAt !== undefined) {

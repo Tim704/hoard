@@ -32,7 +32,7 @@ import { appendQueueOrder, revalidateCategory } from '@/lib/actions/shared';
 import { eventsForUpdate, recordEvent, recordEvents } from '@/lib/events';
 import { validProgress } from '@/lib/progress';
 import { getPrefs } from '@/lib/data-prefs';
-import { applyDiaryForUpdate, isFinishTransition } from '@/lib/diary';
+import { applyDiaryForUpdate, touchesDiary, undoDiaryForRestore } from '@/lib/diary';
 import {
   ActivityStateSchema,
   planStateRestore,
@@ -247,22 +247,19 @@ export async function updateActivity(
       { status: activity.status, rating: activity.rating },
       { status: patch.status, rating: patch.rating },
     );
-    // The diary (3.1) only cares about finishes and score changes.
-    const diaryPrefs =
-      isFinishTransition(activity.status, patch.status) || patch.rating !== undefined
-        ? await getPrefs(user.id)
-        : null;
-    await prisma.$transaction(async (tx) => {
+    // The diary (3.1): finishes, score changes and the end of a repeat run.
+    const diaryChange = { status: patch.status, rating: patch.rating };
+    const diaryPrefs = touchesDiary(activity, diaryChange) ? await getPrefs(user.id) : null;
+    const { diaryEntryId } = await prisma.$transaction(async (tx) => {
       await tx.userMediaActivity.update({ where: { id }, data: patch as any });
       await recordEvents(tx, events);
-      if (diaryPrefs) {
-        await applyDiaryForUpdate(tx, activity, { status: patch.status, rating: patch.rating }, diaryPrefs);
-      }
+      return diaryPrefs ? applyDiaryForUpdate(tx, activity, diaryChange, diaryPrefs) : { diaryEntryId: undefined };
     });
 
     const slug = slugForDbCategory(activity.category as DbCategory);
     if (slug) revalidateCategory(slug);
-    return { ok: true, previous: stateOf(activity) };
+    // Undo deletes exactly the diary entry this finish wrote.
+    return { ok: true, previous: { ...stateOf(activity), ...(diaryEntryId ? { diaryEntryId } : {}) } };
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Failed to update item.';
     return { ok: false, error };
@@ -405,14 +402,13 @@ export async function restoreActivity(undoToken: string): Promise<ActionResult> 
   }
 }
 
-/** How recent a diary entry must be for a status undo to take it back. */
-const UNDO_DIARY_MS = 15 * 60 * 1000;
-
 /**
  * Undo a status change: put back the state `updateActivity` reported as
  * `previous`. The client sends it, so it is validated (only status, rating,
  * queueOrder, finishedAt, tier, rankOrder, progress and rewatching; sane values) and only
  * ever applied to the caller's own activity. Writes events like any edit.
+ * `diaryEntryId` (the entry the undone finish wrote) is deleted only when it
+ * is this user's entry of this activity.
  */
 export async function restoreActivityState(
   id: string,
@@ -433,19 +429,25 @@ export async function restoreActivityState(
       stateOf(activity),
       parsed.data,
     );
-    // Undoing a finish also takes back the diary entry it just wrote (3.1).
-    const unfinish =
-      parsed.data.status !== undefined && isFinishTransition(parsed.data.status, activity.status);
+    // The diary (3.1): delete exactly the entry the undone finish wrote, and
+    // give today's entry back the restored score.
+    const wanted = parsed.data;
+    const diaryPrefs = wanted.diaryEntryId || wanted.rating !== undefined ? await getPrefs(user.id) : null;
     await prisma.$transaction(async (tx) => {
       await tx.userMediaActivity.update({ where: { id }, data: data as any });
       await recordEvents(tx, events);
-      if (unfinish) {
-        const latest = await tx.diaryEntry.findFirst({
-          where: { activityId: id, userId: user.id, createdAt: { gte: new Date(Date.now() - UNDO_DIARY_MS) } },
-          orderBy: { createdAt: 'desc' },
-          select: { id: true },
-        });
-        if (latest) await tx.diaryEntry.delete({ where: { id: latest.id } });
+      if (diaryPrefs) {
+        await undoDiaryForRestore(
+          tx,
+          { userId: user.id, activityId: id },
+          {
+            status: wanted.status ?? activity.status,
+            ratingBefore: activity.rating,
+            rating: data.rating === undefined ? undefined : (data.rating as number | null),
+          },
+          wanted.diaryEntryId,
+          diaryPrefs,
+        );
       }
     });
 

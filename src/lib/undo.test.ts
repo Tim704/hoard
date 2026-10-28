@@ -230,6 +230,15 @@ describe('status-change undo', () => {
     expect(data).toMatchObject({ status: 'COMPLETED', rewatching: false, progress: 24 });
   });
 
+  it('carries the diary entry to delete, but never writes it as a column', () => {
+    expect(ActivityStateSchema.safeParse({ status: 'CONSUMING', diaryEntryId: 'cm123' }).success).toBe(true);
+    expect(ActivityStateSchema.safeParse({ diaryEntryId: '' }).success).toBe(false);
+    expect(ActivityStateSchema.safeParse({ diaryEntryId: 5 }).success).toBe(false);
+    const { data } = planStateRestore(ids, current, { status: 'CONSUMING', diaryEntryId: 'cm123' });
+    expect('diaryEntryId' in data).toBe(false);
+    expect(data.status).toBe('CONSUMING');
+  });
+
   it('writes no events when nothing changes', () => {
     expect(planStateRestore(ids, current, { ...current }).events).toEqual([]);
   });

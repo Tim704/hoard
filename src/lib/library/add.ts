@@ -41,6 +41,11 @@ export interface AddOptions {
    */
   skipDiary?: boolean;
   eventKind?: 'added' | 'import';
+  /**
+   * Runs inside the add's transaction right after a NEW activity was created
+   * (not for an existing one), so its extra rows land atomically with it.
+   */
+  afterCreate?: (tx: Prisma.TransactionClient, activityId: string) => Promise<unknown>;
   eventMeta?: Prisma.InputJsonValue;
   /**
    * When a provider lookup for this result succeeded (server-side, from
@@ -145,6 +150,7 @@ export async function addMediaForUser(
     if (diaryPrefs) {
       await onFinished(tx, { id: created.id, userId, rating: created.rating, rewatching: false }, diaryPrefs);
     }
+    if (opts.afterCreate) await opts.afterCreate(tx, created.id);
     return { activityId: created.id, existing: false, media };
   });
 

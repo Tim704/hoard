@@ -1,8 +1,11 @@
 // ───────────────────────────────────────────────────────────────────────────
 //  The `migration` job (spec G1 / G9): data backfills that need columns added
 //  by `prisma db push`, so they can't live in prisma/sql/ (which runs BEFORE
-//  db push). Runs once at every startup, so EVERY STEP MUST BE IDEMPOTENT:
-//  it should only touch rows that still need it and be cheap when none do.
+//  db push). The job runs at every startup, but each step runs ONCE: a clean
+//  run is recorded (src/lib/jobs/migration-store.ts) and skipped from then on,
+//  so a backfill never recreates rows a user deleted later. A failed step is
+//  not recorded and is retried at the next startup, so steps must still be
+//  IDEMPOTENT (only touch rows that still need it).
 //
 //  Later tasks append their steps to MIGRATION_STEPS (in order). A failing
 //  step is logged and the rest still run; the job then reports the failures
@@ -10,6 +13,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import { backfillDiary } from '@/lib/jobs/diary-backfill';
+import { prismaMigrationStore, type MigrationStore } from '@/lib/jobs/migration-store';
 
 export interface MigrationStep {
   /** Stable, unique id, e.g. "003-diary-from-finished". */
@@ -22,12 +26,21 @@ export const MIGRATION_STEPS: MigrationStep[] = [
   { id: '003-diary-from-finished', run: async () => void (await backfillDiary()) },
 ];
 
-/** Run every step in order. Throws a summary if any step failed. */
-export async function runMigrations(steps: readonly MigrationStep[] = MIGRATION_STEPS): Promise<void> {
+/**
+ * Run every step that hasn't finished before, in order, recording each clean
+ * run. Throws a summary if any step failed (those are retried next startup).
+ */
+export async function runMigrations(
+  steps: readonly MigrationStep[] = MIGRATION_STEPS,
+  store: MigrationStore = prismaMigrationStore,
+): Promise<void> {
   const failed: string[] = [];
   for (const step of steps) {
     try {
+      if (await store.isDone(step.id)) continue;
+      const started = Date.now();
       await step.run();
+      await store.markDone(step.id, Date.now() - started);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[hoard] migration step ${step.id} failed:`, message);

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  applyDiaryForUpdate,
+  importReviewNote,
   isFinishTransition,
+  touchesDiary,
+  undoDiaryForRestore,
+  writeImportDiary,
   planDiaryBackfill,
   planFinish,
   planImportDiary,
@@ -78,10 +83,24 @@ describe('planFinish', () => {
     expect(planFinish(before, { status: 'COMPLETED' }, today, { id: 'd', date: today, rating: 5 })).toEqual({ clearRewatching: false });
   });
 
-  it('writes nothing when dropping', () => {
+  it('writes no entry when dropping, but a drop still ends a repeat run', () => {
     expect(planFinish({ status: 'CONSUMING', rating: 3, rewatching: true }, { status: 'DROPPED' }, today, null)).toEqual({
+      clearRewatching: true,
+    });
+    expect(planFinish({ status: 'CONSUMING', rating: 3, rewatching: false }, { status: 'DROPPED' }, today, null)).toEqual({
       clearRewatching: false,
     });
+    // Any finished status ends it; leaving it unfinished does not.
+    expect(planFinish({ status: 'ON_HOLD', rating: null, rewatching: true }, { status: 'RETIRED' }, today, null).clearRewatching).toBe(true);
+    expect(planFinish({ status: 'CONSUMING', rating: null, rewatching: true }, { status: 'ON_HOLD' }, today, null).clearRewatching).toBe(false);
+  });
+
+  it('knows when an update touches the diary', () => {
+    expect(touchesDiary({ status: 'CONSUMING', rewatching: false }, { status: 'COMPLETED' })).toBe(true);
+    expect(touchesDiary({ status: 'CONSUMING', rewatching: false }, { rating: 5 })).toBe(true);
+    expect(touchesDiary({ status: 'CONSUMING', rewatching: true }, { status: 'DROPPED' })).toBe(true);
+    expect(touchesDiary({ status: 'CONSUMING', rewatching: false }, { status: 'DROPPED' })).toBe(false);
+    expect(touchesDiary({ status: 'PLANNED', rewatching: false }, { status: 'CONSUMING' })).toBe(false);
   });
 });
 
@@ -137,5 +156,127 @@ describe('planDiaryBackfill', () => {
     const first = planDiaryBackfill(rows, new Set(), 'Europe/Berlin');
     const done = new Set(first.map((e) => e.activityId));
     expect(planDiaryBackfill(rows, done, 'Europe/Berlin')).toEqual([]);
+  });
+});
+
+describe('importReviewNote', () => {
+  it('keeps a review no entry holds in the notes, once', () => {
+    expect(importReviewNote(null, 'Loved it', 'goodreads', [])).toBe('Review (Goodreads): Loved it');
+    expect(importReviewNote('My notes', ' Loved it ', 'storygraph', [])).toBe('My notes\n\nReview (StoryGraph): Loved it');
+    // Already there (a second import), or held by a diary entry: nothing to do.
+    expect(importReviewNote('Review (Goodreads): Loved it', 'Loved it', 'goodreads', [])).toBeNull();
+    expect(importReviewNote(null, 'Loved it', 'letterboxd', [{ review: 'Loved it' }])).toBeNull();
+    expect(importReviewNote(null, '  ', 'goodreads', [])).toBeNull();
+    expect(importReviewNote(null, undefined, 'goodreads', [])).toBeNull();
+    expect(importReviewNote(null, 'x', 'generic', [])).toBe('Review (CSV): x');
+  });
+});
+
+// ── The writers, over a tiny in-memory transaction ──────────────────────────
+
+interface Entry {
+  id: string;
+  userId: string;
+  activityId: string;
+  date: string;
+  rating: number | null;
+  rewatch: boolean;
+  review: string | null;
+  createdAt: Date;
+}
+
+function fakeTx(activity: { id: string; userId: string; notes?: string | null; rewatching?: boolean }, entries: Entry[] = []) {
+  let n = 0;
+  const act = { notes: null as string | null, rewatching: false, ...activity };
+  const match = (e: Entry, where: Record<string, unknown>) => Object.entries(where).every(([k, v]) => (e as any)[k] === v);
+  const newest = (list: Entry[]) =>
+    [...list].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null;
+  const tx = {
+    diaryEntry: {
+      create: async ({ data }: any) => {
+        const e = { id: `d${++n}`, rating: null, rewatch: false, review: null, createdAt: new Date(), ...data };
+        entries.push(e);
+        return e;
+      },
+      createMany: async ({ data }: any) => {
+        for (const d of data) entries.push({ id: `d${++n}`, rating: null, rewatch: false, review: null, createdAt: new Date(), ...d });
+      },
+      findMany: async ({ where }: any) => entries.filter((e) => match(e, where)),
+      findFirst: async ({ where }: any) => newest(entries.filter((e) => match(e, where))),
+      update: async ({ where, data }: any) => Object.assign(entries.find((e) => e.id === where.id)!, data),
+      deleteMany: async ({ where }: any) => {
+        const keep = entries.filter((e) => !match(e, where));
+        const count = entries.length - keep.length;
+        entries.splice(0, entries.length, ...keep);
+        return { count };
+      },
+    },
+    userMediaActivity: {
+      findUnique: async () => act,
+      update: async ({ data }: any) => Object.assign(act, data),
+    },
+  };
+  return { tx: tx as any, entries, act };
+}
+
+const berlin = { timeZone: 'Europe/Berlin' };
+const now = new Date('2026-10-28T10:00:00Z');
+
+describe('applyDiaryForUpdate / undoDiaryForRestore', () => {
+  it('reports the entry a finish wrote, and Undo deletes exactly that one', async () => {
+    const old: Entry = { id: 'old', userId: 'u', activityId: 'a', date: '2026-10-28', rating: 5, rewatch: false, review: null, createdAt: now };
+    const { tx, entries } = fakeTx({ id: 'a', userId: 'u' }, [old]);
+    const before = { id: 'a', userId: 'u', status: 'CONSUMING', rating: 7, rewatching: false };
+    const { diaryEntryId } = await applyDiaryForUpdate(tx, before, { status: 'COMPLETED' }, berlin, now);
+    expect(diaryEntryId).toBeDefined();
+    expect(entries).toHaveLength(2);
+
+    // Someone else's id, or this id on another activity, deletes nothing.
+    await undoDiaryForRestore(tx, { userId: 'u2', activityId: 'a' }, { status: 'CONSUMING', ratingBefore: 7 }, diaryEntryId, berlin, now);
+    await undoDiaryForRestore(tx, { userId: 'u', activityId: 'b' }, { status: 'CONSUMING', ratingBefore: 7 }, diaryEntryId, berlin, now);
+    expect(entries).toHaveLength(2);
+    await undoDiaryForRestore(tx, { userId: 'u', activityId: 'a' }, { status: 'CONSUMING', ratingBefore: 7 }, diaryEntryId, berlin, now);
+    expect(entries.map((e) => e.id)).toEqual(['old']);
+    // No id: nothing is deleted.
+    await undoDiaryForRestore(tx, { userId: 'u', activityId: 'a' }, { status: 'CONSUMING', ratingBefore: 7 }, undefined, berlin, now);
+    expect(entries.map((e) => e.id)).toEqual(['old']);
+  });
+
+  it('clears a repeat run on a drop without writing an entry', async () => {
+    const { tx, entries, act } = fakeTx({ id: 'a', userId: 'u', rewatching: true });
+    const res = await applyDiaryForUpdate(tx, { id: 'a', userId: 'u', status: 'CONSUMING', rating: null, rewatching: true }, { status: 'DROPPED' }, berlin, now);
+    expect(res.diaryEntryId).toBeUndefined();
+    expect(entries).toEqual([]);
+    expect(act.rewatching).toBe(false);
+  });
+
+  it('undoing a score after a same-day rescore restores the entry\'s score too', async () => {
+    const { tx, entries } = fakeTx({ id: 'a', userId: 'u' });
+    const before = { id: 'a', userId: 'u', status: 'CONSUMING', rating: null, rewatching: false };
+    await applyDiaryForUpdate(tx, before, { status: 'COMPLETED' }, berlin, now);
+    await applyDiaryForUpdate(tx, { ...before, status: 'COMPLETED' }, { rating: 9 }, berlin, now);
+    expect(entries.map((e) => e.rating)).toEqual([9]);
+    // Undo the score: the activity goes back to unrated, and so does today's entry.
+    await undoDiaryForRestore(tx, { userId: 'u', activityId: 'a' }, { status: 'COMPLETED', ratingBefore: 9, rating: null }, undefined, berlin, now);
+    expect(entries.map((e) => e.rating)).toEqual([null]);
+  });
+});
+
+describe('writeImportDiary', () => {
+  it('writes dated entries and keeps an undated review in the notes', async () => {
+    const { tx, entries, act } = fakeTx({ id: 'a', userId: 'u', notes: 'mine' });
+    const changed = await writeImportDiary(tx, 'u', 'a', { source: 'goodreads', status: 'DROPPED', review: 'Gave up halfway' });
+    expect(changed).toBe(true);
+    expect(entries).toEqual([]);
+    expect(act.notes).toBe('mine\n\nReview (Goodreads): Gave up halfway');
+    // Importing again changes nothing.
+    expect(await writeImportDiary(tx, 'u', 'a', { source: 'goodreads', status: 'DROPPED', review: 'Gave up halfway' })).toBe(false);
+  });
+
+  it('puts a dated review on its entry, not in the notes', async () => {
+    const { tx, entries, act } = fakeTx({ id: 'a', userId: 'u' });
+    await writeImportDiary(tx, 'u', 'a', { source: 'goodreads', status: 'COMPLETED', finishedOn: '2024-05-01', review: 'Great' });
+    expect(entries.map((e) => [e.date, e.review])).toEqual([['2024-05-01', 'Great']]);
+    expect(act.notes).toBeNull();
   });
 });
