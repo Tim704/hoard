@@ -21,12 +21,14 @@ import { Button } from '@/components/ui/button';
 
 interface AuthFormProps {
   mode: 'login' | 'register';
+  /** A safe same-site path to continue to after signing in (validated again on the server). */
+  next?: string | null;
 }
 
 const initialState: { error?: string } = {};
 
 /** The submit button, isolated so `useFormStatus` reads the parent <form>. */
-function SubmitButton({ mode }: AuthFormProps) {
+function SubmitButton({ mode }: { mode: AuthFormProps['mode'] }) {
   const { pending } = useFormStatus();
   const idleLabel = mode === 'login' ? 'Sign in' : 'Create account';
   const busyLabel = mode === 'login' ? 'Signing in…' : 'Creating account…';
@@ -38,7 +40,7 @@ function SubmitButton({ mode }: AuthFormProps) {
   );
 }
 
-export function AuthForm({ mode }: AuthFormProps) {
+export function AuthForm({ mode, next }: AuthFormProps) {
   const action = mode === 'login' ? loginAction : registerAction;
   const [state, formAction] = useFormState(action, initialState);
 
@@ -57,6 +59,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-4">
+          {next && <input type="hidden" name="next" value={next} />}
           <div className="space-y-2">
             <Label htmlFor="username">Username</Label>
             <Input

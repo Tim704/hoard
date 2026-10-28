@@ -12,6 +12,7 @@
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { authenticate, createUser } from '@/lib/auth';
+import { safeNextPath } from '@/lib/safe-next';
 import { createSessionForUser, destroySession } from '@/lib/session';
 
 const credentialsSchema = z.object({
@@ -57,7 +58,8 @@ export async function registerAction(
 
   // Outside the try/catch: redirect() throws NEXT_REDIRECT by design.
   if (succeeded) {
-    redirect('/dashboard');
+    // Back to where the visitor was headed (same-site paths only).
+    redirect(safeNextPath(formData.get('next')) ?? '/dashboard');
   }
   return {};
 }
@@ -95,7 +97,8 @@ export async function loginAction(
 
   // Outside the try/catch: redirect() throws NEXT_REDIRECT by design.
   if (succeeded) {
-    redirect('/dashboard');
+    // Back to where the visitor was headed (same-site paths only).
+    redirect(safeNextPath(formData.get('next')) ?? '/dashboard');
   }
   return {};
 }
