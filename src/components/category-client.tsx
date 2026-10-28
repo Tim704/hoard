@@ -278,6 +278,14 @@ export function CategoryClient({
         <p className="text-sm text-muted-foreground">{config.blurb}</p>
         <p className="text-xs text-muted-foreground">
           {activities.length} {activities.length === 1 ? 'item' : 'items'}
+          {slug === 'anime' && (
+            <>
+              {' · '}
+              <Link href="/anime/season" className="underline underline-offset-2 hover:text-foreground">
+                Browse this season
+              </Link>
+            </>
+          )}
         </p>
       </header>
 

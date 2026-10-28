@@ -394,3 +394,51 @@ export async function fetchIgdbTopGames(): Promise<NormalizedResult[]> {
   const games = await igdbPost<IgdbGame>(IGDB_GAMES_URL, IGDB_TOP_GAMES_QUERY, 'top games');
   return games.filter((g) => g && typeof g.id === 'number' && g.name).map(mapGameSearchHit);
 }
+
+// ── More by the same people (5.10) ─────────────────────────────────────────
+
+const IGDB_INVOLVED_URL = 'https://api.igdb.com/v4/involved_companies';
+
+/** The Apicalypse body for a game's developers (null for a bad id). */
+export function gameDevelopersQuery(gameId: string): string | null {
+  if (!/^\d{1,12}$/.test(gameId)) return null;
+  return `fields company.name; where game = ${gameId} & developer = true; limit 5;`;
+}
+
+/** The Apicalypse body for the games a company developed. */
+export function developedGamesQuery(companyId: number): string {
+  return `fields game; where company = ${companyId} & developer = true; limit 200;`;
+}
+
+/** The main games among ids (no editions or DLC), best known first. */
+export function gamesByIdsQuery(ids: number[], excludeId: number): string | null {
+  const list = [...new Set(ids)].filter((id) => Number.isInteger(id) && id > 0 && id !== excludeId).slice(0, 200);
+  if (!list.length) return null;
+  return (
+    `fields ${GAME_HIT_FIELDS}; where id = (${list.join(',')}) & version_parent = null & parent_game = null; ` +
+    `sort total_rating_count desc; limit 30;`
+  );
+}
+
+/**
+ * The first developer of a game and their other main games (most rated
+ * first), or null when IGDB lists no developer. Throws on failures and
+ * without keys.
+ */
+export async function fetchDeveloperGames(
+  gameId: string,
+): Promise<{ developer: string; games: NormalizedResult[] } | null> {
+  const devQuery = gameDevelopersQuery(gameId);
+  if (!devQuery) return null;
+  const devs = await igdbPost<{ company?: { id?: number; name?: string } | null }>(IGDB_INVOLVED_URL, devQuery, 'developers');
+  const dev = devs.map((d) => d.company).find((c) => typeof c?.id === 'number' && c.name);
+  if (!dev?.id || !dev.name) return null;
+  const involved = await igdbPost<{ game?: number | null }>(IGDB_INVOLVED_URL, developedGamesQuery(dev.id), 'developer games');
+  const body = gamesByIdsQuery(
+    involved.map((i) => i.game).filter((g): g is number => typeof g === 'number'),
+    Number(gameId),
+  );
+  if (!body) return { developer: dev.name, games: [] };
+  const games = await igdbPost<IgdbGame>(IGDB_GAMES_URL, body, 'games');
+  return { developer: dev.name, games: games.filter((g) => g && typeof g.id === 'number' && g.name).map(mapGameSearchHit) };
+}

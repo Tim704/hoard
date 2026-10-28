@@ -534,3 +534,78 @@ export async function fetchProviderListJson(region: string): Promise<unknown> {
   if (!res.ok) throw new Error(`TMDB provider list failed (${res.status})`);
   return res.json();
 }
+
+// ── More by the same people (5.10) ─────────────────────────────────────────
+
+/** One entry of `/person/{id}/combined_credits` → cast[] / crew[]. */
+export interface TmdbCreditJson {
+  id?: number;
+  media_type?: string | null;
+  title?: string | null;
+  name?: string | null;
+  overview?: string | null;
+  poster_path?: string | null;
+  backdrop_path?: string | null;
+  release_date?: string | null;
+  first_air_date?: string | null;
+  vote_average?: number | null;
+  genre_ids?: number[] | null;
+  popularity?: number | null;
+}
+
+export interface TmdbCombinedCreditsJson {
+  cast?: TmdbCreditJson[] | null;
+  crew?: TmdbCreditJson[] | null;
+}
+
+/** Talk shows, news and reality TV: guest spots, not "their work". */
+const SKIPPED_TV_GENRES = new Set([10763, 10764, 10767]);
+
+/**
+ * A person's films and shows (cast and crew together), each once, most
+ * popular first, as add-ready results (`movies` or `tv`). Talk, news and
+ * reality shows and entries without a title are left out.
+ */
+export function mapCombinedCredits(
+  json: TmdbCombinedCreditsJson,
+): Array<{ slug: 'movies' | 'tv'; result: NormalizedResult; popularity: number }> {
+  const seen = new Set<string>();
+  const out: Array<{ slug: 'movies' | 'tv'; result: NormalizedResult; popularity: number }> = [];
+  for (const c of [...(json.cast ?? []), ...(json.crew ?? [])]) {
+    if (!c || typeof c.id !== 'number') continue;
+    const kind = c.media_type === 'movie' ? 'movies' : c.media_type === 'tv' ? 'tv' : null;
+    if (!kind) continue;
+    if (kind === 'tv' && (c.genre_ids ?? []).some((g) => SKIPPED_TV_GENRES.has(g))) continue;
+    const key = `${kind}:${c.id}`;
+    if (seen.has(key)) continue;
+    const title = (kind === 'movies' ? c.title : c.name)?.trim();
+    if (!title) continue;
+    seen.add(key);
+    const result =
+      kind === 'movies'
+        ? mapMovieSearchHit({ ...c, id: c.id, title })
+        : mapTvSearchHit({ ...c, id: c.id, name: title });
+    out.push({ slug: kind, result, popularity: typeof c.popularity === 'number' ? c.popularity : 0 });
+  }
+  return out.sort((a, b) => b.popularity - a.popularity);
+}
+
+/**
+ * The TMDB person for a credited name (the most popular exact-name match,
+ * else the top hit), then their combined credits. Null when nobody matches.
+ */
+export async function fetchPersonCredits(name: string): Promise<TmdbCombinedCreditsJson | null> {
+  const key = requireKey();
+  const q = name.trim();
+  if (!q) return null;
+  const res = await providerFetch(`${TMDB_BASE}/search/person?api_key=${key}&include_adult=false&query=${encodeURIComponent(q)}`);
+  if (!res.ok) throw new Error(`TMDB person search failed (${res.status})`);
+  const people = ((await res.json()) as { results?: Array<{ id?: number; name?: string; popularity?: number }> }).results ?? [];
+  const exact = people.filter((p) => p.name?.toLowerCase() === q.toLowerCase());
+  const person = exact.length ? exact.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))[0] : people[0];
+  if (typeof person?.id !== 'number') return null;
+  const credits = await providerFetch(`${TMDB_BASE}/person/${person.id}/combined_credits?api_key=${key}`);
+  if (credits.status === 404) return null;
+  if (!credits.ok) throw new Error(`TMDB person credits failed (${credits.status})`);
+  return (await credits.json()) as TmdbCombinedCreditsJson;
+}

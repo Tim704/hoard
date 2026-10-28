@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { ActivityExtras } from '@/components/activity-extras';
 import { AddToList } from '@/components/add-to-list';
 import { ManualFields } from '@/components/manual-fields';
+import { MoreBySection } from '@/components/more-by';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { ProgressField } from '@/components/progress-field';
 import { SubScoresSection } from '@/components/sub-scores';
@@ -586,6 +587,8 @@ export function ActivityDetailDialog({
                 rows={3}
               />
             </div>
+
+            {!isManualId(media.externalId) && <MoreBySection key={`more-by:${activity.id}`} activityId={activity.id} />}
 
             <ActivityExtras key={`extras:${activity.id}`} activity={activity} disabled={busy} onClose={onClose} />
           </div>

@@ -41,5 +41,7 @@
   "/together",
   "/movies/arena?tab=queue",
   "/calendar",
-  "/calendar?month=2026-12"
+  "/calendar?month=2026-12",
+  "/anime/season",
+  "/anime/arena"
 ]

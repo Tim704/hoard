@@ -230,3 +230,38 @@ export async function lookupIsbn(isbn: string): Promise<NormalizedResult | null>
   if (!/^(\d{13}|\d{9}[\dX])$/.test(isbn)) return null;
   return fetchBookByEditionKey(`/isbn/${isbn}`, isbn);
 }
+
+// ── More by the same people (5.10) ─────────────────────────────────────────
+
+export interface OpenLibraryAuthorDoc {
+  key?: string | null;
+  name?: string | null;
+  work_count?: number | null;
+}
+
+/**
+ * The OpenLibrary author key for a credited name: among exact (case- and
+ * space-insensitive) name matches the one with the most works, else the top
+ * hit. Null when the search found nobody.
+ */
+export function pickAuthorKey(docs: OpenLibraryAuthorDoc[], name: string): string | null {
+  const norm = (s: string) => s.toLowerCase().replace(/[.\s]+/g, ' ').trim();
+  const valid = docs.filter((d) => typeof d.key === 'string' && /^OL\d+A$/.test(d.key));
+  const exact = valid.filter((d) => d.name && norm(d.name) === norm(name));
+  const pick = exact.length ? [...exact].sort((a, b) => (b.work_count ?? 0) - (a.work_count ?? 0))[0] : valid[0];
+  return pick?.key ?? null;
+}
+
+/**
+ * An author's best-known works (OpenLibrary search by author key, sorted by
+ * reading-log count), looked up by name. Empty when the author isn't found.
+ */
+export async function fetchAuthorWorks(name: string): Promise<NormalizedResult[]> {
+  const n = name.trim();
+  if (!n) return [];
+  const res = await providerFetch(`${OPENLIBRARY}/search/authors.json?limit=5&q=${encodeURIComponent(n)}`);
+  if (!res.ok) throw new Error(`OpenLibrary author search failed (${res.status})`);
+  const key = pickAuthorKey(((await res.json()) as { docs?: OpenLibraryAuthorDoc[] }).docs ?? [], n);
+  if (!key) return [];
+  return (await openLibrarySearch(`author_key=${key}&sort=readinglog`, 30)).map(mapBookDoc);
+}

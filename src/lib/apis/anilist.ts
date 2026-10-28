@@ -7,6 +7,7 @@
 //  Server-only. fetch with { cache: 'no-store' }.
 // ───────────────────────────────────────────────────────────────────────────
 
+import { seasonGraphql, seasonVariables, type SeasonQuery } from '@/lib/anime-season';
 import { normalizeGenres } from '@/lib/genres';
 import { ymdFromParts } from '@/lib/release';
 import type { NormalizedResult } from '@/lib/types';
@@ -527,4 +528,98 @@ export async function fetchAniListExternalLinks(
   await run(byMal, mal, (m) => String(m.idMal));
   await run(byId, al, (m) => `al-${m.id}`);
   return out;
+}
+
+/**
+ * One page of an anime season (5.11): AniList `Page(media: {season,
+ * seasonYear, type: ANIME})`, most popular first, mapped like search hits.
+ */
+export async function fetchAnimeSeason(q: SeasonQuery): Promise<NormalizedResult[]> {
+  const media = await anilistQuery(seasonGraphql(ANIME_FIELDS), seasonVariables(q), 'AniList season');
+  return media.map(mapAnime);
+}
+
+// ── More by the same people (5.10) ─────────────────────────────────────────
+
+type PeopleNode = AniListMedia & { type?: string | null; isAdult?: boolean | null; format?: string | null };
+
+/** One entry's main studio(s) and first-billed staff, each with their popular works. */
+export interface AniListPeopleJson {
+  studios?: { nodes?: Array<{ name?: string | null; media?: { nodes?: PeopleNode[] | null } | null }> | null } | null;
+  staff?: {
+    edges?: Array<{
+      role?: string | null;
+      node?: { name?: { full?: string | null } | null; staffMedia?: { nodes?: PeopleNode[] | null } | null } | null;
+    }> | null;
+  } | null;
+}
+
+/** "Original Creator", "Director (eps 1-12)" → "Original Creator", "Director". */
+function shortRole(role: string | null | undefined): string | null {
+  const r = role?.replace(/\s*\(.*\)\s*$/, '').trim();
+  return r || null;
+}
+
+/**
+ * Groups for "More by the same people": the main studio (anime) and the first
+ * two staff members, each with their works as add-ready results (adult
+ * entries and music videos left out, the entry itself too).
+ */
+export function mapAniListPeople(
+  json: AniListPeopleJson,
+  type: 'ANIME' | 'MANGA',
+  selfId: number,
+): Array<{ label: string; results: Array<{ slug: 'anime' | 'manga'; result: NormalizedResult }> }> {
+  const toResults = (nodes: PeopleNode[] | null | undefined) => {
+    const out: Array<{ slug: 'anime' | 'manga'; result: NormalizedResult }> = [];
+    for (const n of nodes ?? []) {
+      if (!n || n.id === selfId || n.isAdult || n.format === 'MUSIC') continue;
+      const t = n.type ?? type;
+      if (t === 'ANIME') out.push({ slug: 'anime', result: mapAnime(n) });
+      else if (t === 'MANGA') out.push({ slug: 'manga', result: mapManga(n) });
+    }
+    return out;
+  };
+  const groups: Array<{ label: string; results: Array<{ slug: 'anime' | 'manga'; result: NormalizedResult }> }> = [];
+  const studio = json.studios?.nodes?.find((s) => s?.name);
+  if (type === 'ANIME' && studio?.name) groups.push({ label: `More from ${studio.name}`, results: toResults(studio.media?.nodes) });
+  const seen = new Set<string>();
+  for (const e of json.staff?.edges ?? []) {
+    const name = e?.node?.name?.full?.trim();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    const role = shortRole(e?.role);
+    groups.push({ label: `More by ${name}${role ? ` (${role})` : ''}`, results: toResults(e?.node?.staffMedia?.nodes) });
+    if (seen.size >= 2) break;
+  }
+  return groups.filter((g) => g.results.length > 0);
+}
+
+/** The studio and staff of one stored anime / manga (by MAL id or `al-` id), or null. */
+export async function fetchAniListPeople(
+  type: 'ANIME' | 'MANGA',
+  externalId: string,
+): Promise<ReturnType<typeof mapAniListPeople> | null> {
+  const al = /^al-(\d+)$/.exec(externalId);
+  const mal = /^\d+$/.test(externalId) ? Number(externalId) : null;
+  if (!al && mal === null) return null;
+  const fields = `${type === 'ANIME' ? ANIME_FIELDS : MANGA_FIELDS}
+      type format isAdult`;
+  const by = al ? 'id: $id' : 'idMal: $id';
+  const query = `query ($id: Int, $type: MediaType) {
+  Page(perPage: 1) {
+    media(${by}, type: $type) {
+      id
+      studios(isMain: true) { nodes { name media(sort: POPULARITY_DESC, isMain: true, perPage: 20) { nodes { ${fields} } } } }
+      staff(sort: [RELEVANCE, ID], perPage: 4) { edges { role node { name { full } staffMedia(sort: POPULARITY_DESC, type: $type, perPage: 20) { nodes { ${fields} } } } } }
+    }
+  }
+}`;
+  const [media] = await anilistQuery<AniListMedia & AniListPeopleJson>(
+    query,
+    { id: al ? Number(al[1]) : mal, type },
+    'AniList people',
+  );
+  if (!media) return null;
+  return mapAniListPeople(media, type, media.id);
 }

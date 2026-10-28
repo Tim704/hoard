@@ -145,3 +145,64 @@ export async function fetchAlbumDetails(artist: string | null, album: string): P
   }
   return mapAlbumInfo((await res.json()) as LastfmAlbumInfoJson);
 }
+
+// ── More by the same people (5.10) ─────────────────────────────────────────
+
+/** `artist.getTopAlbums` (format=json). */
+export interface LastfmTopAlbumsJson {
+  topalbums?: {
+    album?: Array<{
+      name?: string | null;
+      mbid?: string | null;
+      playcount?: number | string | null;
+      artist?: { name?: string | null } | null;
+      image?: LastfmImage[] | null;
+    }> | null;
+  } | null;
+  error?: number;
+  message?: string;
+}
+
+/**
+ * An artist's top albums as add-ready results (the same externalId rule as
+ * search: the MusicBrainz id, else "artist::album"). Last.fm's "(null)"
+ * placeholder albums are dropped.
+ */
+export function mapTopAlbums(json: LastfmTopAlbumsJson, fallbackArtist: string): NormalizedResult[] {
+  const out: NormalizedResult[] = [];
+  const seen = new Set<string>();
+  for (const a of asArray(json.topalbums?.album ?? undefined)) {
+    const name = a?.name?.trim();
+    if (!name || name === '(null)') continue;
+    const artist = a.artist?.name?.trim() || fallbackArtist;
+    const externalId = a.mbid && a.mbid.length ? a.mbid : `${artist}::${name}`;
+    if (seen.has(externalId)) continue;
+    seen.add(externalId);
+    const image = pickImage(a.image);
+    out.push({
+      externalId,
+      title: name,
+      imageUrl: image,
+      subtitle: artist,
+      year: null,
+      description: null,
+      fields: { externalId, title: name, imageUrl: image, description: null, year: null, artist, trackCount: null },
+    });
+  }
+  return out;
+}
+
+/** An artist's top albums on Last.fm (up to 30). Throws on failures and without a key. */
+export async function fetchArtistTopAlbums(artist: string): Promise<NormalizedResult[]> {
+  const a = artist.trim();
+  if (!a) return [];
+  const key = requireKey();
+  const res = await providerFetch(
+    `${LASTFM_BASE}?method=artist.gettopalbums&artist=${encodeURIComponent(a)}&autocorrect=1&limit=30&api_key=${key}&format=json`,
+  );
+  if (!res.ok) throw new Error(`Last.fm top albums failed (${res.status})`);
+  const json = (await res.json()) as LastfmTopAlbumsJson;
+  if (json.error === 6) return []; // artist not found
+  if (json.error) throw new Error(`Last.fm top albums failed (${json.message ?? json.error})`);
+  return mapTopAlbums(json, a);
+}
