@@ -58,6 +58,7 @@ function flattenActivity(
     queueOrder: row.queueOrder ?? null,
     elo: row.elo,
     rankOrder: row.rankOrder ?? null,
+    progress: row.progress ?? null,
     favorite: row.favorite,
     notes: row.notes,
     franchise: (row.franchise as FranchiseRef | undefined) ?? null,
@@ -105,6 +106,7 @@ export interface CategoryStat {
   planned: number;
   completed: number;
   onHold: number;
+  retired: number;
   dropped: number;
   avgRating: number | null; // over rated rows, rounded to 1 decimal
   metricValue: number; // headline number
@@ -126,6 +128,7 @@ function emptyStat(cat: CategoryConfig): CategoryStat {
     planned: 0,
     completed: 0,
     onHold: 0,
+    retired: 0,
     dropped: 0,
     avgRating: null,
     metricValue: 0,
@@ -170,6 +173,7 @@ export async function getDashboardStats(): Promise<CategoryStat[]> {
       const planned = activities.filter((a) => a.status === 'PLANNED').length;
       const completed = activities.filter((a) => a.status === 'COMPLETED').length;
       const onHold = activities.filter((a) => a.status === 'ON_HOLD').length;
+      const retired = activities.filter((a) => a.status === 'RETIRED').length;
       const dropped = activities.filter((a) => a.status === 'DROPPED').length;
 
       // Average rating over rated rows, rounded to 1 decimal.
@@ -182,6 +186,7 @@ export async function getDashboardStats(): Promise<CategoryStat[]> {
             ) / 10;
 
       // Sum a numeric media field over the COMPLETED rows (nulls count as 0).
+      // Retired and Dropped titles were not finished, so they don't count.
       const completedRows = activities.filter((a) => a.status === 'COMPLETED');
       const sumField = (field: string) =>
         completedRows.reduce((sum, a) => sum + (Number(a.media[field]) || 0), 0);
@@ -220,6 +225,7 @@ export async function getDashboardStats(): Promise<CategoryStat[]> {
         planned,
         completed,
         onHold,
+        retired,
         dropped,
         avgRating,
         metricValue,

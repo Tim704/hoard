@@ -55,6 +55,8 @@ export interface ActivityWithMedia {
   elo: number;
   /** Position inside the item's tier (ascending); untiered rows may keep a legacy order. */
   rankOrder: number | null;
+  /** Pages / chapters / episodes / tracks done (1.4); null = not tracked. */
+  progress: number | null;
   favorite: boolean;
   notes: string | null;
   /** The franchise / IP this title is grouped under, if any. */

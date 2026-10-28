@@ -57,7 +57,14 @@ const isStatusList = (v: unknown): v is Status[] =>
   Array.isArray(v) && v.every((x) => typeof x === 'string' && isStatus(x));
 
 /** Which section a franchise with mixed statuses lands in, best first. */
-const FRANCHISE_SECTION_PRIORITY: Status[] = ['CONSUMING', 'COMPLETED', 'ON_HOLD', 'PLANNED', 'DROPPED'];
+const FRANCHISE_SECTION_PRIORITY: Status[] = [
+  'CONSUMING',
+  'COMPLETED',
+  'ON_HOLD',
+  'PLANNED',
+  'RETIRED',
+  'DROPPED',
+];
 
 /** Section order when grouping by status: in progress first, dropped last. */
 const SECTION_ORDER = [...STATUSES].sort((a, b) => STATUS_ORDER[a] - STATUS_ORDER[b]);

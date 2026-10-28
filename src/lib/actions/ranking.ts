@@ -7,7 +7,7 @@
 //  as 1000, 2000, … (only rows that actually change are written), and only ids
 //  the client explicitly shows in the tray are taken out of their tier — so a
 //  stale tab never clears items it does not know about. Items hidden from the
-//  tier list (not COMPLETED/DROPPED) are never touched.
+//  tier list (not COMPLETED/RETIRED/DROPPED) are never touched.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { prisma } from '@/lib/prisma';

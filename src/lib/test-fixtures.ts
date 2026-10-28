@@ -14,6 +14,7 @@ export function makeActivity(
     queueOrder: null,
     elo: 1200,
     rankOrder: null,
+    progress: null,
     favorite: false,
     notes: null,
     franchise: null,

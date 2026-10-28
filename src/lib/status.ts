@@ -9,6 +9,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import {
+  Archive,
   Check,
   Clock3,
   Pause,
@@ -24,6 +25,7 @@ export const STATUSES = [
   'CONSUMING',
   'COMPLETED',
   'ON_HOLD',
+  'RETIRED',
   'DROPPED',
 ] as const;
 
@@ -35,6 +37,7 @@ export const STATUS_BASE_LABEL: Record<Status, string> = {
   CONSUMING: 'Ongoing',
   COMPLETED: 'Completed',
   ON_HOLD: 'Paused',
+  RETIRED: 'Retired',
   DROPPED: 'Dropped',
 };
 
@@ -62,14 +65,16 @@ export function statusLabel(status: Status, slug?: CategorySlug): string {
 
 /**
  * Ordering for the default "by status" sort: in-progress first, then the
- * backlog, then finished, then the parked/abandoned tail.
+ * backlog, then finished, then the parked/abandoned tail (Paused, Retired,
+ * Dropped).
  */
 export const STATUS_ORDER: Record<Status, number> = {
   CONSUMING: 0,
   PLANNED: 1,
   COMPLETED: 2,
   ON_HOLD: 3,
-  DROPPED: 4,
+  RETIRED: 4,
+  DROPPED: 5,
 };
 
 /**
@@ -83,6 +88,7 @@ export const STATUS_BADGE_CLASS: Record<Status, string> = {
   COMPLETED:
     'border-violet-500/50 bg-violet-500/20 text-violet-700 dark:text-violet-300',
   ON_HOLD: 'border-amber-500/50 bg-amber-500/20 text-amber-700 dark:text-amber-300',
+  RETIRED: 'border-slate-500/50 bg-slate-500/15 text-slate-700 dark:text-slate-300',
   DROPPED: 'border-rose-500/50 bg-rose-500/20 text-rose-700 dark:text-rose-300',
 };
 
@@ -92,6 +98,7 @@ export const STATUS_ICON: Record<Status, LucideIcon> = {
   PLANNED: Clock3,
   COMPLETED: Check,
   ON_HOLD: Pause,
+  RETIRED: Archive,
   DROPPED: X,
 };
 
@@ -101,8 +108,16 @@ export const STATUS_TEXT_CLASS: Record<Status, string> = {
   PLANNED: 'text-sky-600 dark:text-sky-400',
   COMPLETED: 'text-violet-600 dark:text-violet-400',
   ON_HOLD: 'text-amber-600 dark:text-amber-400',
+  RETIRED: 'text-slate-500 dark:text-slate-400',
   DROPPED: 'text-rose-600 dark:text-rose-400',
 };
+
+/**
+ * "Finished" for scoring and tiering: completed, or set aside for good
+ * (Retired) or abandoned (Dropped). Only these appear on the tier list and in
+ * "Score these".
+ */
+export const FINISHED_STATUSES: readonly Status[] = ['COMPLETED', 'RETIRED', 'DROPPED'];
 
 export function isStatus(value: string): value is Status {
   return (STATUSES as readonly string[]).includes(value);

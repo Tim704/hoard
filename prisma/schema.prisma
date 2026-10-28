@@ -47,6 +47,7 @@ enum MediaStatus {
   COMPLETED
   DROPPED
   ON_HOLD
+  RETIRED // set aside for good without finishing (1.12); tier-eligible like DROPPED
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
@@ -310,6 +311,7 @@ model UserMediaActivity {
   queueOrder Float? // position in the "Up next" queue (asc); null = not queued
   elo        Float         @default(1200) // hidden Arena rating
   rankOrder  Float? // position in the user's manual ranking (asc); null = unranked
+  progress   Int? // pages / chapters / episodes / tracks done (1.4); null = not tracked
   favorite   Boolean       @default(false)
   notes      String?
   startedAt  DateTime?

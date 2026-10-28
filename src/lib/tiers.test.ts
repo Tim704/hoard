@@ -31,6 +31,8 @@ describe('tier rules', () => {
   it('eligibility and index', () => {
     expect(isTierEligible('COMPLETED')).toBe(true);
     expect(isTierEligible('DROPPED')).toBe(true);
+    expect(isTierEligible('RETIRED')).toBe(true);
+    expect(isTierEligible('ON_HOLD')).toBe(false);
     expect(isTierEligible('PLANNED')).toBe(false);
     expect(isTierEligible('CONSUMING')).toBe(false);
     expect(tierIndex('S')).toBe(0);
@@ -152,6 +154,16 @@ describe('tier rules', () => {
     expect(p.A).toEqual(['b', 'a']);
     expect(p.S).toEqual(['d']);
     expect(p.F).toEqual(['e']);
+  });
+
+  it('RETIRED titles are on the board like DROPPED ones; Paused ones are not', () => {
+    const b = buildTierBoard([
+      make({ id: 'r', status: 'RETIRED', tier: 'B', rankOrder: 1000 }),
+      make({ id: 'r2', status: 'RETIRED', tier: null, rating: 6 }),
+      make({ id: 'h', status: 'ON_HOLD', tier: 'B', rankOrder: 500 }),
+    ]);
+    expect(b.tiers.B.map((x) => x.id)).toEqual(['r']);
+    expect(b.tray.map((x) => x.id)).toEqual(['r2']);
   });
 
   it('acceptSuggestions leaves unrated tray items out', () => {

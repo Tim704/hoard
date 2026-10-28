@@ -50,6 +50,7 @@ interface DemoEntry {
   rating?: number;
   tier?: Tier;
   queued?: boolean;
+  progress?: number;
 }
 
 const BOOKS: DemoEntry[] = [
@@ -57,7 +58,7 @@ const BOOKS: DemoEntry[] = [
   { key: 'neuromancer', title: 'Neuromancer', year: 1984, status: 'COMPLETED', rating: 8.5, tier: 'A' },
   { key: 'hyperion', title: 'Hyperion', year: 1989, status: 'COMPLETED', rating: 8.4 },
   { key: 'snow-crash', title: 'Snow Crash', year: 1992, status: 'COMPLETED' },
-  { key: 'ubik', title: 'Ubik', year: 1969, status: 'CONSUMING', rating: 7 },
+  { key: 'ubik', title: 'Ubik', year: 1969, status: 'CONSUMING', rating: 7, progress: 120 },
   { key: 'foundation', title: 'Foundation', year: 1951, status: 'PLANNED', queued: true },
   { key: 'solaris', title: 'Solaris', year: 1961, status: 'PLANNED', queued: true },
 ];
@@ -74,7 +75,8 @@ const ANIME: DemoEntry[] = [
   { key: 'cowboy-bebop', title: 'Cowboy Bebop', year: 1998, status: 'COMPLETED', rating: 9, tier: 'S' },
   { key: 'haikyuu', title: 'Haikyuu!!', year: 2014, status: 'COMPLETED', rating: 8.6 },
   { key: 'mushishi', title: 'Mushishi', year: 2005, status: 'ON_HOLD', rating: 8.2 },
-  { key: 'frieren', title: 'Frieren', year: 2023, status: 'CONSUMING' },
+  { key: 'frieren', title: 'Frieren', year: 2023, status: 'CONSUMING', progress: 9 },
+  { key: 'one-piece', title: 'One Piece', year: 1999, status: 'RETIRED', rating: 7.5 },
   { key: 'monster', title: 'Monster', year: 2004, status: 'PLANNED', queued: true },
 ];
 
@@ -83,7 +85,7 @@ async function seedLibrary(userId: string) {
     prisma.book.upsert({
       where: { externalId: `demo-book-${e.key}` },
       update: {},
-      create: { externalId: `demo-book-${e.key}`, title: e.title, year: e.year, authors: ['Demo Author'] },
+      create: { externalId: `demo-book-${e.key}`, title: e.title, year: e.year, authors: ['Demo Author'], pageCount: 240 },
     }),
     'bookId',
   );
@@ -129,6 +131,7 @@ async function seedCategory(
         tier: e.tier ?? null,
         rankOrder: e.tier ? (rank += 1000) : null,
         queueOrder: e.queued ? (queue += 1000) : null,
+        progress: e.progress ?? null,
         finishedAt: e.status === 'COMPLETED' ? new Date() : null,
       },
     });

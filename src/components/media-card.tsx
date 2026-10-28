@@ -21,6 +21,7 @@ const CHIP_TEXT: Record<Status, string> = {
   PLANNED: 'text-sky-400',
   COMPLETED: 'text-violet-400',
   ON_HOLD: 'text-amber-400',
+  RETIRED: 'text-slate-300',
   DROPPED: 'text-rose-400',
 };
 

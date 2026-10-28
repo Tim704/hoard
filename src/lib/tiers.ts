@@ -1,14 +1,14 @@
 import type { ActivityWithMedia } from '@/lib/types';
-import type { Status } from '@/lib/status';
+import { FINISHED_STATUSES, type Status } from '@/lib/status';
 
 export const TIERS = ['S', 'A', 'B', 'C', 'D', 'F'] as const;
 export type Tier = (typeof TIERS)[number];
 
 const RANK_STEP = 1000;
 
-/** Only finished (or abandoned) titles can be placed on the tier list. */
+/** Only finished (or retired / abandoned) titles can be placed on the tier list. */
 export function isTierEligible(status: Status): boolean {
-  return status === 'COMPLETED' || status === 'DROPPED';
+  return FINISHED_STATUSES.includes(status);
 }
 
 export function suggestTier(rating: number | null): Tier | null {
@@ -80,7 +80,7 @@ export interface TierPosition {
  *  - `trayIds`: ids the client shows in the Unranked tray. Only these may be
  *    cleared (and only if currently tiered). Ids absent from both lists — e.g.
  *    an item that became eligible in another tab — are never touched.
- *  - `current`: every eligible row (COMPLETED/DROPPED, this user + category)
+ *  - `current`: every eligible row (COMPLETED/RETIRED/DROPPED, this user + category)
  *    with its stored position; any other id is ignored.
  */
 export function planTierSave(
