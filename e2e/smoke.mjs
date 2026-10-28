@@ -63,12 +63,17 @@ page.on('requestfailed', (req) => {
   problems.push(`request failed: ${req.method()} ${req.url()} ${reason}`);
 });
 
+// Next 14's dev overlay renders inside an open shadow root on <nextjs-portal>,
+// so reading the host's text sees nothing. Playwright's CSS engine pierces open
+// shadow roots: the error dialog and the collapsed "N errors" toast are found
+// by their data attributes (the toast is only ever used for errors).
+const OVERLAY = '[data-nextjs-dialog], [data-nextjs-toast]';
+
 async function checkErrorScreen() {
-  const overlay = await page.locator('nextjs-portal').count();
-  if (overlay > 0) {
-    const text = await page.locator('nextjs-portal').first().innerText().catch(() => '');
-    // The dev overlay's portal exists but stays empty when there is no error.
-    if (text.trim()) problems.push(`Next.js error overlay: ${text.slice(0, 300)}`);
+  const overlay = page.locator(OVERLAY);
+  if ((await overlay.count()) > 0) {
+    const text = await overlay.first().innerText().catch(() => '');
+    problems.push(`Next.js error overlay: ${text.replace(/\s+/g, ' ').slice(0, 300) || '(no text)'}`);
   }
   const body = await page.locator('body').innerText().catch(() => '');
   if (/Application error: a (client|server)-side exception|Unhandled Runtime Error|Internal Server Error/.test(body)) {
@@ -81,12 +86,14 @@ async function step(name, fn) {
   const started = Date.now();
   try {
     await fn();
-    // Let late effects (hydration, server actions fired on mount) settle.
-    await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
-    await checkErrorScreen();
   } catch (err) {
     problems.push(`threw: ${err instanceof Error ? err.message : String(err)}`);
   }
+  // Even after a failed step, let late effects (hydration, server actions fired
+  // on mount) settle and look for the error overlay, so its text is reported.
+  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+  await checkErrorScreen().catch(() => {});
+  problems = [...new Set(problems)];
   const ms = Date.now() - started;
   if (problems.length) {
     failures.push({ name, problems });
