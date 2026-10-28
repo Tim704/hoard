@@ -149,7 +149,10 @@ you it isn't configured.
 ## 🌱 Seeding a demo user
 
 A tiny, idempotent seed creates a demo account so you can log in without
-registering. It only inserts the user if it doesn't already exist.
+registering, plus a small demo library (books, movies and anime with scores,
+tiers and an Up next queue) so every page has content and `npm run smoke` is
+reproducible. It only inserts rows that don't exist yet; catalogue rows use
+`demo-` external ids.
 
 ```bash
 # Local (uses tsx via the prisma seed hook):

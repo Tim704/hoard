@@ -2,12 +2,16 @@
 //  HOARD — demo seed
 //
 //  Creates a single `demo` user (password `demo1234`) so you can log in without
-//  registering. Idempotent: re-running it is a no-op for the existing user, so
-//  it's safe to run on every fresh database. Runs under `tsx` via the prisma
-//  seed hook (`npx prisma db seed`).
+//  registering, plus a small demo library (books, movies, anime with mixed
+//  statuses, scores, tiers and an Up next queue) so every page has something to
+//  render and `npm run smoke` is reproducible from a fresh database.
+//  Idempotent: existing rows are left untouched, so re-running it never undoes
+//  changes made in the app. Catalogue rows use `demo-` externalIds, which can
+//  never collide with real provider ids. Runs under `tsx` via the prisma seed
+//  hook (`npx prisma db seed`).
 // ───────────────────────────────────────────────────────────────────────────
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type MediaStatus, type Tier } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -20,7 +24,7 @@ async function main() {
   // untouched (empty `update`), otherwise we create it with a hashed password.
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
-  await prisma.user.upsert({
+  const user = await prisma.user.upsert({
     where: { username: DEMO_USERNAME },
     update: {},
     create: {
@@ -29,9 +33,106 @@ async function main() {
     },
   });
 
+  await seedLibrary(user.id);
+
   console.log('[seed] Demo user ready.');
   console.log(`[seed]   username: ${DEMO_USERNAME}`);
   console.log(`[seed]   password: ${DEMO_PASSWORD}`);
+}
+
+// ── Demo library ─────────────────────────────────────────────────────────────
+
+interface DemoEntry {
+  key: string; // externalId suffix
+  title: string;
+  year: number;
+  status: MediaStatus;
+  rating?: number;
+  tier?: Tier;
+  queued?: boolean;
+}
+
+const BOOKS: DemoEntry[] = [
+  { key: 'dune', title: 'Dune', year: 1965, status: 'COMPLETED', rating: 9.2, tier: 'S' },
+  { key: 'neuromancer', title: 'Neuromancer', year: 1984, status: 'COMPLETED', rating: 8.5, tier: 'A' },
+  { key: 'hyperion', title: 'Hyperion', year: 1989, status: 'COMPLETED', rating: 8.4 },
+  { key: 'snow-crash', title: 'Snow Crash', year: 1992, status: 'COMPLETED' },
+  { key: 'ubik', title: 'Ubik', year: 1969, status: 'CONSUMING', rating: 7 },
+  { key: 'foundation', title: 'Foundation', year: 1951, status: 'PLANNED', queued: true },
+  { key: 'solaris', title: 'Solaris', year: 1961, status: 'PLANNED', queued: true },
+];
+
+const MOVIES: DemoEntry[] = [
+  { key: 'alien', title: 'Alien', year: 1979, status: 'COMPLETED', rating: 8.8, tier: 'S' },
+  { key: 'aliens', title: 'Aliens', year: 1986, status: 'COMPLETED', rating: 8.8, tier: 'S' },
+  { key: 'heat', title: 'Heat', year: 1995, status: 'COMPLETED', rating: 8.1 },
+  { key: 'arrival', title: 'Arrival', year: 2016, status: 'DROPPED', rating: 5.5 },
+  { key: 'stalker', title: 'Stalker', year: 1979, status: 'PLANNED', queued: true },
+];
+
+const ANIME: DemoEntry[] = [
+  { key: 'cowboy-bebop', title: 'Cowboy Bebop', year: 1998, status: 'COMPLETED', rating: 9, tier: 'S' },
+  { key: 'haikyuu', title: 'Haikyuu!!', year: 2014, status: 'COMPLETED', rating: 8.6 },
+  { key: 'mushishi', title: 'Mushishi', year: 2005, status: 'ON_HOLD', rating: 8.2 },
+  { key: 'frieren', title: 'Frieren', year: 2023, status: 'CONSUMING' },
+  { key: 'monster', title: 'Monster', year: 2004, status: 'PLANNED', queued: true },
+];
+
+async function seedLibrary(userId: string) {
+  await seedCategory(userId, 'BOOK', BOOKS, (e) =>
+    prisma.book.upsert({
+      where: { externalId: `demo-book-${e.key}` },
+      update: {},
+      create: { externalId: `demo-book-${e.key}`, title: e.title, year: e.year, authors: ['Demo Author'] },
+    }),
+    'bookId',
+  );
+  await seedCategory(userId, 'MOVIE', MOVIES, (e) =>
+    prisma.movie.upsert({
+      where: { externalId: `demo-movie-${e.key}` },
+      update: {},
+      create: { externalId: `demo-movie-${e.key}`, title: e.title, year: e.year, runtime: 120 },
+    }),
+    'movieId',
+  );
+  await seedCategory(userId, 'ANIME', ANIME, (e) =>
+    prisma.anime.upsert({
+      where: { externalId: `demo-anime-${e.key}` },
+      update: {},
+      create: { externalId: `demo-anime-${e.key}`, title: e.title, year: e.year, episodes: 24 },
+    }),
+    'animeId',
+  );
+  console.log('[seed] Demo library ready.');
+}
+
+async function seedCategory(
+  userId: string,
+  category: 'BOOK' | 'MOVIE' | 'ANIME',
+  entries: DemoEntry[],
+  upsertMedia: (e: DemoEntry) => Promise<{ id: string }>,
+  fk: 'bookId' | 'movieId' | 'animeId',
+) {
+  let rank = 0;
+  let queue = 0;
+  for (const e of entries) {
+    const media = await upsertMedia(e);
+    const existing = await prisma.userMediaActivity.findFirst({ where: { userId, [fk]: media.id } });
+    if (existing) continue; // never touch what the user changed in the app
+    await prisma.userMediaActivity.create({
+      data: {
+        userId,
+        category,
+        [fk]: media.id,
+        status: e.status,
+        rating: e.rating ?? null,
+        tier: e.tier ?? null,
+        rankOrder: e.tier ? (rank += 1000) : null,
+        queueOrder: e.queued ? (queue += 1000) : null,
+        finishedAt: e.status === 'COMPLETED' ? new Date() : null,
+      },
+    });
+  }
 }
 
 main()
