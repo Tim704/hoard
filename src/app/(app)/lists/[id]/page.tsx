@@ -11,5 +11,5 @@ export default async function CustomListPage({ params }: { params: { id: string 
   const user = await requireUser();
   const list = await getCustomList(params.id, user.id);
   if (!list) notFound();
-  return <CustomListClient list={list} me={user.id} />;
+  return <CustomListClient list={list} />;
 }

@@ -103,6 +103,9 @@ export function pushUrlProblem(raw: string): string | null {
   if (host === 'localhost' || host.endsWith('.localhost') || ipv4Blocked(host) || (host.includes(':') && ipv6Blocked(host))) {
     return 'Local and private network addresses are not accepted.';
   }
+  // The standard https port only (WHATWG URL drops an explicit :443): no
+  // probing which other ports the server can reach.
+  if (url.port && url.port !== '443') return 'Only the standard https port (443) is accepted.';
   return null;
 }
 

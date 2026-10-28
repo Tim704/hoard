@@ -15,14 +15,15 @@ import { CATEGORIES, getCategory, type CategorySlug } from '@/lib/categories';
 import { getPrefs } from '@/lib/data-prefs';
 import { getTasteProfile } from '@/lib/data-taste';
 import { requireUser } from '@/lib/session';
-import { formatRating } from '@/lib/rating';
 import { getRanking } from '@/lib/data';
 import { takeAiRate } from '@/lib/rate-limit';
+import { ROAST_MAX_TITLES, roastListLines } from '@/lib/roast-prompt';
 import { tastePromptLines, withoutHidden } from '@/lib/stats/profile';
 import type { RoastMode } from '@/lib/types';
 
 /** Generated paragraphs take longer than a lookup, so more than G4's 8 s. */
 const GEMINI_TIMEOUT_MS = 20_000;
+
 
 export async function roastList(
   slug: CategorySlug,
@@ -48,13 +49,8 @@ export async function roastList(
     };
   }
 
-  // One line per item: "1. Title (year) — 8/10".
-  const list = completed
-    .map((a, i) => {
-      const year = a.media.year ? ` (${a.media.year})` : '';
-      return `${i + 1}. ${a.media.title}${year} — ${formatRating(a.rating)}/10`;
-    })
-    .join('\n');
+  // One line per item, top-ranked titles only (src/lib/roast-prompt.ts).
+  const list = roastListLines(completed);
 
   // The cross-media taste profile (7.2), as a summary, when one exists.
   const labels = Object.fromEntries(Object.entries(CATEGORIES).map(([k, v]) => [k, v.label])) as Record<CategorySlug, string>;
@@ -69,7 +65,7 @@ export async function roastList(
           'Be brutally funny and merciless about their rankings and ratings, but keep it PG-13 — funny, not cruel or hateful, no slurs, no personal attacks beyond their taste.',
           'Reference specific titles. Keep it to a tight few punchy paragraphs.',
           '',
-          'Their ranked list (best to worst, with their 1–10 scores):',
+          `Their ranked list (best to worst, with their 1–10 scores; at most the top ${ROAST_MAX_TITLES}):`,
           list,
           ...profileBlock,
         ].join('\n')
@@ -78,7 +74,7 @@ export async function roastList(
           'Based on the ranked list below, recommend exactly ONE hidden gem the person has most likely NOT already seen — not an obvious mainstream pick.',
           'Justify the recommendation by connecting it to their highest-ranked choices. Keep it to a short, warm paragraph or two.',
           '',
-          'Their ranked list (best to worst, with their 1–10 scores):',
+          `Their ranked list (best to worst, with their 1–10 scores; at most the top ${ROAST_MAX_TITLES}):`,
           list,
           ...profileBlock,
         ].join('\n');

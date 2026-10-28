@@ -25,8 +25,8 @@ export interface ListItemView {
   media: ListMedia;
 }
 
+/** A member as the owner sees them: by username only (no internal user ids reach the browser). */
 export interface ListMemberView {
-  userId: string;
   username: string;
   canEdit: boolean;
 }
@@ -112,7 +112,7 @@ export async function getCustomList(listId: string, userId: string): Promise<Cus
     // Only the owner manages (and so sees) the member list.
     members:
       role === 'owner'
-        ? list.members.map((m) => ({ userId: m.userId, username: m.user.username, canEdit: m.canEdit }))
+        ? list.members.map((m) => ({ username: m.user.username, canEdit: m.canEdit }))
         : [],
   };
 }

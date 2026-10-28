@@ -32,6 +32,7 @@ import {
   deleteList,
   inviteToList,
   removeListItem,
+  leaveList,
   removeListMember,
   reorderListItems,
   setListMemberRole,
@@ -46,7 +47,6 @@ import type { ActionResult, NormalizedResult } from '@/lib/types';
 
 interface Props {
   list: CustomListView;
-  me: string;
 }
 
 /**
@@ -55,7 +55,7 @@ interface Props {
  * details), remove and drag to reorder; the owner renames, shares, invites
  * by username and deletes. Members never see each other's libraries.
  */
-export function CustomListClient({ list, me }: Props) {
+export function CustomListClient({ list }: Props) {
   const router = useRouter();
   const titleOf = useDisplayTitle();
   const canEdit = list.role === 'owner' || list.role === 'editor';
@@ -132,7 +132,7 @@ export function CustomListClient({ list, me }: Props) {
 
         <aside className="space-y-8">
           {canEdit && <ListSearch listId={list.id} />}
-          <Members list={list} me={me} isOwner={isOwner} />
+          <Members list={list} isOwner={isOwner} />
         </aside>
       </div>
     </div>
@@ -438,7 +438,7 @@ function ListSearch({ listId }: { listId: string }) {
   );
 }
 
-function Members({ list, me, isOwner }: { list: CustomListView; me: string; isOwner: boolean }) {
+function Members({ list, isOwner }: { list: CustomListView; isOwner: boolean }) {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [role, setRole] = useState<'viewer' | 'editor'>('viewer');
@@ -473,7 +473,7 @@ function Members({ list, me, isOwner }: { list: CustomListView; me: string; isOw
           variant="outline"
           size="sm"
           disabled={busy}
-          onClick={() => void run(() => removeListMember(list.id, me), 'You left the list.', () => router.push('/lists?tab=shared'))}
+          onClick={() => void run(() => leaveList(list.id), 'You left the list.', () => router.push('/lists?tab=shared'))}
         >
           <LogOut className="mr-2 h-4 w-4" aria-hidden />
           Leave list
@@ -527,13 +527,13 @@ function Members({ list, me, isOwner }: { list: CustomListView; me: string; isOw
       {list.members.length > 0 && (
         <ul className="divide-y divide-border rounded-lg border border-border">
           {list.members.map((m) => (
-            <li key={m.userId} className="flex items-center gap-2 p-2">
+            <li key={m.username} className="flex items-center gap-2 p-2">
               <span className="min-w-0 flex-1 truncate text-sm font-medium">{m.username}</span>
               <Select
                 value={m.canEdit ? 'editor' : 'viewer'}
                 disabled={busy}
                 onValueChange={(v) =>
-                  void run(() => setListMemberRole(list.id, m.userId, v === 'editor'), `${m.username} is now ${v === 'editor' ? 'an editor' : 'a viewer'}.`)
+                  void run(() => setListMemberRole(list.id, m.username, v === 'editor'), `${m.username} is now ${v === 'editor' ? 'an editor' : 'a viewer'}.`)
                 }
               >
                 <SelectTrigger className="h-8 w-28" aria-label={`Role of ${m.username}`}>
@@ -547,7 +547,7 @@ function Members({ list, me, isOwner }: { list: CustomListView; me: string; isOw
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => void run(() => removeListMember(list.id, m.userId), `Removed ${m.username}.`)}
+                onClick={() => void run(() => removeListMember(list.id, m.username), `Removed ${m.username}.`)}
                 aria-label={`Remove ${m.username}`}
                 className="rounded p-1 text-muted-foreground hover:text-rose-500 disabled:opacity-30"
               >

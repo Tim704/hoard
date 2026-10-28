@@ -5,6 +5,7 @@
 
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import { UserError } from '@/lib/action-error';
 
 const SALT_ROUNDS = 10;
 
@@ -26,9 +27,13 @@ export async function createUser(
   username: string,
   password: string,
 ): Promise<{ id: string; username: string }> {
-  const existing = await prisma.user.findUnique({ where: { username } });
+  // Case-insensitive: "Tim" can't be registered next to "tim".
+  const existing = await prisma.user.findFirst({
+    where: { username: { equals: username, mode: 'insensitive' } },
+    select: { id: true },
+  });
   if (existing) {
-    throw new Error('That username is already taken.');
+    throw new UserError('That username is already taken.');
   }
 
   const passwordHash = await hashPassword(password);

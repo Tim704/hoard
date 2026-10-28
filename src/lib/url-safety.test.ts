@@ -7,7 +7,7 @@ describe('pushUrlProblem', () => {
     for (const u of [
       'https://ntfy.sh/my-topic',
       'https://discord.com/api/webhooks/1/abc',
-      'https://ntfy.example.org:8443/topic',
+      'https://ntfy.example.org:443/topic',
       'https://8.8.8.8/x',
       'https://[2606:4700::1111]/x',
       'https://100.128.0.1/x', // just outside CGNAT
@@ -22,6 +22,12 @@ describe('pushUrlProblem', () => {
     expect(pushUrlProblem('ntfy.sh/x')).toBe('Enter a full URL.');
     expect(pushUrlProblem('javascript:alert(1)')).toBe('Only https:// URLs are accepted.');
     expect(pushUrlProblem('https://user:pw@ntfy.sh/x')).not.toBeNull();
+  });
+
+  it('rejects any port but 443 (M2)', () => {
+    expect(pushUrlProblem('https://ntfy.example.org:8443/topic')).toBe('Only the standard https port (443) is accepted.');
+    expect(pushUrlProblem('https://ntfy.sh:22/x')).toBe('Only the standard https port (443) is accepted.');
+    expect(pushUrlProblem('https://ntfy.sh:443/x')).toBeNull();
   });
 
   it('rejects localhost and private, loopback and link-local IP literals', () => {

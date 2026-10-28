@@ -9,11 +9,15 @@
 //  navigation would never happen.
 // ───────────────────────────────────────────────────────────────────────────
 
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { authenticate, createUser } from '@/lib/auth';
 import { safeNextPath } from '@/lib/safe-next';
 import { createSessionForUser, destroySession } from '@/lib/session';
+import { publicError } from '@/lib/action-error';
+import { clientIp } from '@/lib/api-auth';
+import { takeLoginRate, takeRegisterRate, usernameProblem } from '@/lib/auth-rules';
 
 const credentialsSchema = z.object({
   username: z
@@ -22,6 +26,14 @@ const credentialsSchema = z.object({
     .min(3, 'Username must be at least 3 characters.'),
   password: z.string().min(8, 'Password must be at least 8 characters.'),
 });
+
+/** New accounts: the username rules (3–32 of [A-Za-z0-9_.-]) on top. */
+const registerSchema = credentialsSchema.superRefine((v, ctx) => {
+  const problem = usernameProblem(v.username);
+  if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['username'], message: problem });
+});
+
+const requestIp = () => clientIp(headers());
 
 interface AuthState {
   error?: string;
@@ -38,7 +50,10 @@ export async function registerAction(
   let succeeded = false;
 
   try {
-    const parsed = credentialsSchema.safeParse({
+    const limited = takeRegisterRate(requestIp());
+    if (limited) return { error: limited };
+
+    const parsed = registerSchema.safeParse({
       username: formData.get('username'),
       password: formData.get('password'),
     });
@@ -52,7 +67,7 @@ export async function registerAction(
     succeeded = true;
   } catch (err) {
     return {
-      error: err instanceof Error ? err.message : 'Could not create that account.',
+      error: publicError(err, 'Could not create that account.'),
     };
   }
 
@@ -83,6 +98,8 @@ export async function loginAction(
     if (!parsed.success) {
       return { error: 'Invalid username or password' };
     }
+    const limited = takeLoginRate(parsed.data.username, requestIp());
+    if (limited) return { error: limited };
 
     const user = await authenticate(parsed.data.username, parsed.data.password);
     if (!user) {
