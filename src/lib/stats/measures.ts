@@ -15,12 +15,12 @@
 import type { CategorySlug } from '@/lib/categories';
 import type { Status } from '@/lib/status';
 import type { DayRange, FinishEntry, StatTitle } from './types';
+import { ANIME_EPISODE_MINUTES, TV_EPISODE_MINUTES } from '@/lib/episode-length';
 
 /** Statuses whose diary entries count as finishes (a drop is not a finish). */
 export const FINISHED_FOR_STATS: readonly Status[] = ['COMPLETED', 'RETIRED'];
 
-export const TV_EPISODE_MINUTES = 45;
-export const ANIME_EPISODE_MINUTES = 24;
+export { ANIME_EPISODE_MINUTES, TV_EPISODE_MINUTES };
 
 /** The hours approximation in words, shown wherever hours are. */
 export const HOURS_NOTE = `Hours are approximate: movie runtimes, plus TV episodes × the show's episode length (${TV_EPISODE_MINUTES} min when unknown) and anime episodes × ${ANIME_EPISODE_MINUTES} min.`;

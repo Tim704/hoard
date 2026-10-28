@@ -18,6 +18,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import type { CategorySlug } from '@/lib/categories';
+import { ANIME_EPISODE_MINUTES, TV_EPISODE_MINUTES } from '@/lib/episode-length';
 
 export type TimeChoice = '30m' | '1h' | '2h' | '3h' | 'sessions';
 
@@ -37,8 +38,8 @@ const LIMIT: Record<Exclude<TimeChoice, 'sessions'>, number | null> = {
   '3h': null,
 };
 
-export const ANIME_EPISODE_MIN = 24;
-export const TV_EPISODE_MIN = 45;
+export const ANIME_EPISODE_MIN = ANIME_EPISODE_MINUTES;
+export const TV_EPISODE_MIN = TV_EPISODE_MINUTES;
 export const ALBUM_MIN = 45;
 export const PAGES_PER_HOUR = 40;
 

@@ -16,6 +16,8 @@ import { parsePrefs, type Prefs } from '@/lib/prefs';
 import { prisma } from '@/lib/prisma';
 import { displayTitle } from '@/lib/title';
 import { canCompare } from '@/lib/together';
+import { isTierEligible } from '@/lib/tiers';
+import type { Status } from '@/lib/status';
 
 /** At most this many shared titles are listed (the count is always exact). */
 export const SHARED_LIST_LIMIT = 300;
@@ -70,7 +72,8 @@ function toEntries(rows: Record<string, unknown>[]): (CompareEntry & { id?: stri
       slug: cat.slug,
       mediaId,
       rating: typeof r.rating === 'number' ? r.rating : null,
-      tier: typeof r.tier === 'string' ? r.tier : null,
+      // A tier counts only while it is shown (a finished status), as in the export.
+      tier: typeof r.tier === 'string' && isTierEligible(r.status as Status) ? r.tier : null,
       ...(typeof r.id === 'string' ? { id: r.id } : {}),
     });
   }
@@ -124,12 +127,12 @@ export async function compareLibraries(meId: string, otherUsername: string): Pro
   const [mineRows, theirRows] = await Promise.all([
     prisma.userMediaActivity.findMany({
       where: { userId: me.id },
-      select: { id: true, category: true, rating: true, tier: true, ...fkSelect },
+      select: { id: true, category: true, status: true, rating: true, tier: true, ...fkSelect },
     }),
     // The other user: catalogue key, score and tier only.
     prisma.userMediaActivity.findMany({
       where: { userId: other.id },
-      select: { category: true, rating: true, tier: true, ...fkSelect },
+      select: { category: true, status: true, rating: true, tier: true, ...fkSelect },
     }),
   ]);
   const mine = toEntries(mineRows as Record<string, unknown>[]);

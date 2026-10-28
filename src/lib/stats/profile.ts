@@ -20,6 +20,7 @@ import { CATEGORY_SLUGS, NAV_ORDER, type CategorySlug } from '@/lib/categories';
 import { formatScore, formatScoreDiff, type ScoreFormat } from '@/lib/rating';
 import { countsAsFinished, mean1 } from './measures';
 import type { StatTitle } from './types';
+import { isTierEligible } from '@/lib/tiers';
 
 /** Finished titles a user needs before the Sunday job builds a profile. */
 export const MIN_FINISHED_FOR_PROFILE = 5;
@@ -149,7 +150,7 @@ export function computeTasteProfile(rows: readonly StatTitle[]): TasteProfile {
   // Top S/A titles per section: S before A, then score, then title.
   const top = NAV_ORDER.flatMap((slug) => {
     const titles = rows
-      .filter((t) => t.category === slug && t.tier != null && t.tier in TIER_RANK)
+      .filter((t) => t.category === slug && t.tier != null && t.tier in TIER_RANK && isTierEligible(t.status))
       .sort(
         (a, b) =>
           TIER_RANK[a.tier as string] - TIER_RANK[b.tier as string] ||

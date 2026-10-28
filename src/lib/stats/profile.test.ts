@@ -24,6 +24,14 @@ describe('computeTasteProfile', () => {
     expect(tastePromptLines(p, labels)).toEqual([]);
   });
 
+  it('lists only shown tiers among the top titles (a hidden tier on an ongoing title is left out)', () => {
+    const p = computeTasteProfile([
+      statTitle({ category: 'movies', status: 'COMPLETED', tier: 'A', media: { title: 'Shown' } }),
+      statTitle({ category: 'movies', status: 'CONSUMING', tier: 'S', media: { title: 'Hidden' } }),
+    ]);
+    expect(p.top).toEqual([{ slug: 'movies', titles: ['Shown'] }]);
+  });
+
   it('weights genres by count and score, finished titles only, top 10', () => {
     const rows = [
       statTitle({ rating: 9, media: { genres: ['Sports', 'Drama'] } }),

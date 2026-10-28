@@ -12,6 +12,7 @@ import { randomBytes } from 'crypto';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
+import { perRequest } from '@/lib/request-cache';
 
 export const SESSION_COOKIE = 'hoard_session';
 
@@ -46,9 +47,11 @@ export async function createSessionForUser(userId: string): Promise<void> {
 
 /**
  * Resolve the currently logged-in user from the session cookie, or `null` if
- * there is no cookie / no valid (non-expired) session.
+ * there is no cookie / no valid (non-expired) session. Memoised per
+ * server-component render (layout + page + components share one lookup);
+ * actions and route handlers always read afresh (src/lib/request-cache.ts).
  */
-export async function getCurrentUser(): Promise<{ id: string; username: string } | null> {
+export const getCurrentUser = perRequest(async (): Promise<{ id: string; username: string } | null> => {
   const token = cookies().get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
@@ -63,7 +66,7 @@ export async function getCurrentUser(): Promise<{ id: string; username: string }
   }
 
   return { id: session.user.id, username: session.user.username };
-}
+});
 
 /**
  * Like `getCurrentUser`, but redirects to `/login` when there is no valid

@@ -141,6 +141,9 @@ export function historyItems(
     const finish = e.kind === 'status' && (e.to === 'COMPLETED' || e.to === 'RETIRED') && metaOf(e.meta).undo !== true;
     if (finish && diaryDays.has(day)) continue;
     if (e.kind === 'status' && rewatchAt.has(e.at)) continue;
+    // An arena duel reordering two titles inside one tier is not a change of
+    // tier: the history would fill with "Moved from tier S to S".
+    if (e.kind === 'tier' && e.from === e.to && metaOf(e.meta).via === 'arena') continue;
     rows.push({ id: e.id, day, text: eventText(e, slug, score), kind: 'event', sort: `${day} ${e.at}` });
   }
   for (const d of diary) {

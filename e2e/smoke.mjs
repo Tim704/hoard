@@ -20,7 +20,10 @@ import { chromium } from 'playwright-core';
 const BASE_URL = (process.env.BASE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 const USER = process.env.SMOKE_USER ?? 'demo';
 const PASSWORD = process.env.SMOKE_PASSWORD ?? 'demo1234';
-const routes = JSON.parse(readFileSync(new URL('./routes.json', import.meta.url), 'utf8'));
+// `{currentYear}` keeps the year pages on this year without editing the list.
+const routes = JSON.parse(readFileSync(new URL('./routes.json', import.meta.url), 'utf8')).map((r) =>
+  r.replaceAll('{currentYear}', String(new Date().getFullYear())),
+);
 const origin = new URL(BASE_URL).origin;
 
 const sameOrigin = (url) => {

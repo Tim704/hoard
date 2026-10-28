@@ -10,6 +10,7 @@ import type { CategorySlug } from './categories';
 import type { Status } from './status';
 import { TIERS, type TierBoardData } from './tiers';
 import type { ActivityWithMedia } from './types';
+import { isTierEligible } from '@/lib/tiers';
 
 export interface ApiMedia {
   externalId: string;
@@ -67,7 +68,8 @@ export function apiActivity(
     category: a.category,
     status: a.status,
     score: a.rating,
-    tier: a.tier,
+    // Only a shown tier (finished statuses), as in the export.
+    tier: a.tier && isTierEligible(a.status) ? a.tier : null,
     favourite: a.favorite,
     progress: a.progress,
     tags: a.tags,

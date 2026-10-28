@@ -86,6 +86,21 @@ describe('historyItems', () => {
     ]);
   });
 
+  it('hides arena swaps inside one tier, keeps real tier moves', () => {
+    const items = historyItems(
+      [
+        ev({ id: 'swap', kind: 'tier', from: 'S', to: 'S', meta: { via: 'arena', above: 'x' }, at: '2026-05-01T10:00:00.000Z' }),
+        ev({ id: 'up', kind: 'tier', from: 'A', to: 'S', meta: { via: 'arena' }, at: '2026-05-01T10:01:00.000Z' }),
+        ev({ id: 'hand', kind: 'tier', from: 'B', to: 'B', at: '2026-05-01T10:02:00.000Z' }),
+      ],
+      [],
+      'movies',
+      'UTC',
+      score,
+    );
+    expect(items.map((i) => i.id)).toEqual(['hand', 'up']);
+  });
+
   it('shows Watch again once', () => {
     const at = '2026-05-01T10:00:00.000Z';
     const items = historyItems(

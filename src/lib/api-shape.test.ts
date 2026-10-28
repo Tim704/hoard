@@ -33,6 +33,12 @@ describe('api shapes', () => {
     for (const leak of ['elo', '1337', 'rankOrder', 'queueOrder', 'secretish', 'userId']) expect(text).not.toContain(leak);
   });
 
+  it('shows a tier only while the status shows it (as the export does)', () => {
+    expect(apiActivity(makeActivity({ id: 'x', status: 'COMPLETED', tier: 'S' })).tier).toBe('S');
+    expect(apiActivity(makeActivity({ id: 'x', status: 'CONSUMING', tier: 'S' })).tier).toBeNull();
+    expect(apiActivity(makeActivity({ id: 'x', status: 'PLANNED', tier: 'A' })).tier).toBeNull();
+  });
+
   it('number tier and queue places from 1', () => {
     const items = [
       makeActivity({ id: 'b', tier: 'S', rankOrder: 2 }),

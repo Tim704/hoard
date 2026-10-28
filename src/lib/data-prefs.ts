@@ -5,13 +5,18 @@
 
 import { prisma } from '@/lib/prisma';
 import { DEFAULT_PREFS, parsePrefs, type Prefs } from '@/lib/prefs';
+import { perRequest } from '@/lib/request-cache';
 import { getCurrentUser } from '@/lib/session';
 
-/** A user's settings, with defaults for anything unset or invalid. */
-export async function getPrefs(userId: string): Promise<Prefs> {
+/**
+ * A user's settings, with defaults for anything unset or invalid. Memoised
+ * per server-component render (src/lib/request-cache.ts); treat the result
+ * as read-only.
+ */
+export const getPrefs = perRequest(async (userId: string): Promise<Prefs> => {
   const row = await prisma.user.findUnique({ where: { id: userId }, select: { prefs: true } });
   return parsePrefs(row?.prefs ?? {});
-}
+});
 
 /** The logged-in user's settings (defaults when logged out). */
 export async function getCurrentPrefs(): Promise<Prefs> {

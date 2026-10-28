@@ -19,6 +19,7 @@ import {
   type TasteProfile,
   withoutHidden,
 } from '@/lib/stats/profile';
+import { isTierEligible } from '@/lib/tiers';
 
 export interface StoredTasteProfile {
   profile: TasteProfile;
@@ -84,7 +85,7 @@ export async function getRecommendInput(userId: string): Promise<RecommendInput>
   const [titles, stored] = await Promise.all([loadStatTitles(userId, prefs), getTasteProfile(userId)]);
   const seeds: RecommendSeed[] = [];
   for (const t of titles) {
-    if (t.tier !== 'S' && t.tier !== 'A') continue;
+    if ((t.tier !== 'S' && t.tier !== 'A') || !isTierEligible(t.status)) continue;
     seeds.push({ category: t.category, title: t.media.title, year: t.media.year, tier: t.tier, rating: t.rating });
   }
   return { seeds, sections, profile: stored ? withoutHidden(stored.profile, prefs.hiddenSections) : null };

@@ -59,7 +59,9 @@ export function ProgressField({ activity, disabled, onMarkFinished, readOnlyHint
   const queue = useRef<Promise<void>>(Promise.resolve());
 
   function persist(next: number | null): Promise<void> {
-    queue.current = queue.current.then(() => save(next));
+    // A failed save must not stop the ones queued after it (save() reports
+    // its own errors), nor surface as an unhandled rejection.
+    queue.current = queue.current.then(() => save(next)).catch(() => {});
     return queue.current;
   }
 
