@@ -112,6 +112,50 @@ export async function anilistQuery<T = AniListMedia>(
   throw new Error(`${label} failed (${lastStatus || 'unknown'})`);
 }
 
+/** A GraphQL answer from AniList, errors included (they carry e.g. "User not found"). */
+export interface AniListAnswer<D> {
+  data: D | null;
+  errors: Array<{ message?: string; status?: number }>;
+}
+
+/**
+ * POST a query to AniList and return its data and GraphQL errors as they are
+ * (an unknown or private user is an error, not a failure). Rate limits (429),
+ * 5xx and timeouts are retried like `anilistQuery`; anything else returns
+ * after one attempt. Throws `${label} failed (…)` when no answer arrives.
+ */
+export async function anilistGraphql<D>(
+  query: string,
+  variables: Record<string, unknown>,
+  label: string,
+): Promise<AniListAnswer<D>> {
+  let lastStatus = 0;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let retryAfterMs = 0;
+    try {
+      const res = await fetch(ANILIST_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ query, variables }),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
+      });
+      lastStatus = res.status;
+      if (!RETRYABLE.has(res.status)) {
+        const json = (await res.json().catch(() => null)) as { data?: D | null; errors?: AniListAnswer<D>['errors'] } | null;
+        if (!json) throw new Error(`${label} failed (${res.status})`);
+        return { data: json.data ?? null, errors: json.errors ?? [] };
+      }
+      if (res.status === 429) retryAfterMs = Math.min(10, Number(res.headers.get('retry-after')) || 5) * 1000;
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith(label)) throw err;
+      // Network error or timeout: retry below.
+    }
+    if (attempt < MAX_ATTEMPTS) await sleep(Math.max(retryAfterMs, 400 * attempt));
+  }
+  throw new Error(`${label} failed (${lastStatus || 'timeout/network'})`);
+}
+
 /**
  * AniList descriptions are HTML (<br>, <i>, entities). Strip tags and decode the
  * handful of entities AniList actually emits so the stored plain text is clean.
@@ -378,4 +422,25 @@ export function aniListPatch(m: AniListMedia, type: 'ANIME' | 'MANGA'): Record<s
   if (type === 'MANGA' && m.chapters) patch.chapters = m.chapters;
   if (type === 'MANGA' && m.volumes) patch.volumes = m.volumes;
   return patch;
+}
+
+/**
+ * Search-shaped results for AniList media ids (the import's id match), 50
+ * per request through `anilistQuery`. Keyed by the AniList id, so the caller
+ * can line them up with its rows; the results carry the usual externalId
+ * (MAL id when known, else `al-…`), identical to a search add.
+ */
+export async function fetchAniListByIds(
+  type: 'ANIME' | 'MANGA',
+  ids: number[],
+): Promise<Map<number, NormalizedResult>> {
+  const fields = type === 'ANIME' ? ANIME_FIELDS : MANGA_FIELDS;
+  const query = `query ($ids: [Int], $type: MediaType) {
+    Page(perPage: ${DETAILS_BATCH}) { media(id_in: $ids, type: $type) { ${fields} } } }`;
+  const out = new Map<number, NormalizedResult>();
+  for (let i = 0; i < ids.length; i += DETAILS_BATCH) {
+    const media = await anilistQuery(query, { ids: ids.slice(i, i + DETAILS_BATCH), type }, 'AniList lookup');
+    for (const m of media) out.set(m.id, type === 'ANIME' ? mapAnime(m) : mapManga(m));
+  }
+  return out;
 }

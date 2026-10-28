@@ -1,0 +1,10 @@
+﻿section,title,year,status,score,tier,tier position,queue position,favourite,progress,tags,started,finished,franchise,notes,externalId,createdAt
+movies,Parasite,2019,COMPLETED,9.5,S,1,,yes,,cinema; korea,,2023-01-04,,"Loved it, twice.",496243,2024-01-01T10:00:00.000Z
+books,'=SUM(A1) Spreadsheets for Fun,2001,PLANNED,,,,1,,,,,,,'-not a formula,/works/OL123W,2024-01-01T10:00:00.000Z
+anime,Cowboy Bebop,1998,CONSUMING,0,,,,,12,,2024-05-01,,,"multi
+line note",1,2024-01-01T10:00:00.000Z
+games,Hand Made,,RETIRED,7,,,,,,,,,,,manual:cabc123,2024-01-01T10:00:00.000Z
+podcasts,Nope,2020,COMPLETED,,,,,,,,,,,,x1,2024-01-01T10:00:00.000Z
+movies,Bad Status,2020,WATCHED,,,,,,,,,,,,x2,2024-01-01T10:00:00.000Z
+movies,Parasite,2019,COMPLETED,9.5,S,1,,yes,,,,2023-01-04,,,496243,2024-01-01T10:00:00.000Z
+

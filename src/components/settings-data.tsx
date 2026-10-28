@@ -1,7 +1,9 @@
 // Settings → Data (spec 1.11): download the library, the franchises or
-// everything as files. Plain links to the session-checked /api/export/* routes.
+// everything as files (plain links to the session-checked /api/export/*
+// routes), and the way in: a link to /import (2.1).
 
-import { Download } from 'lucide-react';
+import Link from 'next/link';
+import { Download, Upload } from 'lucide-react';
 
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,7 +28,9 @@ export function SettingsData() {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Data</CardTitle>
-        <CardDescription>Download your data. CSV files open in Excel, Numbers or Google Sheets.</CardDescription>
+        <CardDescription>
+          Download your data (CSV files open in Excel, Numbers or Google Sheets), or bring lists in from elsewhere.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {DOWNLOADS.map((d) => (
@@ -42,6 +46,18 @@ export function SettingsData() {
             </a>
           </div>
         ))}
+        <div className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground sm:pr-4">
+            Import from a Hoard CSV, AniList, Letterboxd, Goodreads or StoryGraph.
+          </p>
+          <Link
+            href="/import"
+            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'shrink-0 self-start sm:self-auto')}
+          >
+            <Upload className="mr-2 h-4 w-4" aria-hidden />
+            Import
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );

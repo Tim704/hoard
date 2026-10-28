@@ -204,12 +204,14 @@ export function mapTvSearchHit(t: TmdbTv): NormalizedResult {
   };
 }
 
-export async function searchMovies(query: string): Promise<NormalizedResult[]> {
+/** Movie search; `year` narrows it to films released that year (imports). */
+export async function searchMovies(query: string, year?: number): Promise<NormalizedResult[]> {
   const q = query.trim();
   if (!q) return [];
   const key = requireKey();
 
-  const url = `${TMDB_BASE}/search/movie?api_key=${key}&include_adult=false&query=${encodeURIComponent(q)}`;
+  const y = year && Number.isInteger(year) ? `&year=${year}` : '';
+  const url = `${TMDB_BASE}/search/movie?api_key=${key}&include_adult=false&query=${encodeURIComponent(q)}${y}`;
   const res = await providerFetch(url);
   if (!res.ok) throw new Error(`TMDB movie search failed (${res.status})`);
 

@@ -1,0 +1,46 @@
+{
+  "data": {
+    "MediaListCollection": {
+      "hasNextChunk": false,
+      "lists": [
+        {
+          "name": "Completed",
+          "isCustomList": false,
+          "entries": [
+            {
+              "status": "COMPLETED", "score": 8.5, "progress": 24, "repeat": 0, "notes": null,
+              "startedAt": { "year": 2023, "month": 1, "day": 2 },
+              "completedAt": { "year": 2023, "month": 3, "day": 30 },
+              "media": { "id": 11759, "idMal": 11759, "title": { "romaji": "Accel World", "english": "Accel World" }, "seasonYear": 2012, "startDate": { "year": 2012 } }
+            },
+            {
+              "status": "COMPLETED", "score": 0, "progress": 1, "repeat": 2, "notes": "  watched with friends ",
+              "startedAt": { "year": 2020, "month": null, "day": null },
+              "completedAt": { "year": null, "month": null, "day": null },
+              "media": { "id": 170000, "idMal": null, "title": { "romaji": "Kimi no Na wa. Special", "english": null }, "seasonYear": null, "startDate": { "year": 2017 } }
+            }
+          ]
+        },
+        {
+          "name": "Watching", "isCustomList": false,
+          "entries": [
+            { "status": "REPEATING", "score": 9, "progress": 3, "repeat": 1, "notes": null, "startedAt": {}, "completedAt": {},
+              "media": { "id": 1, "idMal": 1, "title": { "romaji": "Cowboy Bebop", "english": "Cowboy Bebop" }, "seasonYear": 1998, "startDate": { "year": 1998 } } },
+            { "status": "CURRENT", "score": 0, "progress": 0, "repeat": 0, "notes": null, "startedAt": null, "completedAt": null,
+              "media": { "id": 21, "idMal": 21, "title": { "romaji": "One Piece", "english": "ONE PIECE" }, "seasonYear": 1999, "startDate": { "year": 1999 } } }
+          ]
+        },
+        { "name": "Paused", "isCustomList": false, "entries": [
+            { "status": "PAUSED", "score": 6.5, "progress": 10, "repeat": 0, "media": { "id": 20, "idMal": 20, "title": { "romaji": "Naruto", "english": "Naruto" }, "seasonYear": 2002 } } ] },
+        { "name": "Planning", "isCustomList": false, "entries": [
+            { "status": "PLANNING", "score": 0, "progress": 0, "repeat": 0, "media": { "id": 5114, "idMal": 5114, "title": { "romaji": "Hagane no Renkinjutsushi: FULLMETAL ALCHEMIST", "english": "Fullmetal Alchemist: Brotherhood" }, "seasonYear": 2009 } },
+            { "status": "PLANNING", "score": 0, "progress": 0, "repeat": 0, "media": null } ] },
+        { "name": "Dropped", "isCustomList": false, "entries": [
+            { "status": "DROPPED", "score": 3, "progress": 2, "repeat": 0, "media": { "id": 30, "idMal": 30, "title": { "romaji": "Shinseiki Evangelion", "english": "Neon Genesis Evangelion" }, "seasonYear": 1995 } } ] },
+        { "name": "Comfy favourites", "isCustomList": true, "entries": [
+            { "status": "COMPLETED", "score": 8.5, "progress": 24, "repeat": 0, "media": { "id": 11759, "idMal": 11759, "title": { "romaji": "Accel World", "english": "Accel World" }, "seasonYear": 2012 } },
+            { "status": "CURRENT", "score": 0, "progress": 0, "repeat": 0, "media": { "id": 21, "idMal": 21, "title": { "romaji": "One Piece", "english": "ONE PIECE" }, "seasonYear": 1999 } } ] }
+      ]
+    }
+  }
+}

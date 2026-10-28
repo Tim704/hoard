@@ -64,17 +64,42 @@ export function mapBookDoc(d: OpenLibraryDoc): NormalizedResult {
   };
 }
 
+const SEARCH_FIELDS = 'key,title,author_name,first_publish_year,cover_i,number_of_pages_median,isbn,subject';
+
+async function openLibrarySearch(params: string, limit = 20): Promise<OpenLibraryDoc[]> {
+  const url = `${OPENLIBRARY_SEARCH}?limit=${limit}&fields=${SEARCH_FIELDS}&${params}`;
+  const res = await providerFetch(url);
+  if (!res.ok) throw new Error(`OpenLibrary search failed (${res.status})`);
+  const json = (await res.json()) as OpenLibraryResponse;
+  return json.docs ?? [];
+}
+
 export async function searchBooks(query: string): Promise<NormalizedResult[]> {
   const q = query.trim();
   if (!q) return [];
+  return (await openLibrarySearch(`q=${encodeURIComponent(q)}`)).map(mapBookDoc);
+}
 
-  const fields = 'key,title,author_name,first_publish_year,cover_i,number_of_pages_median,isbn,subject';
-  const url = `${OPENLIBRARY_SEARCH}?limit=20&fields=${fields}&q=${encodeURIComponent(q)}`;
-  const res = await providerFetch(url);
-  if (!res.ok) throw new Error(`OpenLibrary search failed (${res.status})`);
+/**
+ * The work an ISBN belongs to (imports, 2.3). The hit's `isbn` is set to the
+ * one asked for (a work lists every edition's ISBN).
+ */
+export async function searchBooksByIsbn(isbn: string): Promise<NormalizedResult[]> {
+  if (!/^[\dX]{10,13}$/.test(isbn)) return [];
+  const docs = await openLibrarySearch(`isbn=${encodeURIComponent(isbn)}`, 3);
+  return docs.map((d) => {
+    const r = mapBookDoc(d);
+    return { ...r, fields: { ...r.fields, isbn } };
+  });
+}
 
-  const json = (await res.json()) as OpenLibraryResponse;
-  return (json.docs ?? []).map(mapBookDoc);
+/** Books by title and (optionally) author, for imports without a usable ISBN. */
+export async function searchBooksByTitle(title: string, author?: string): Promise<NormalizedResult[]> {
+  const t = title.trim();
+  if (!t) return [];
+  const a = author?.trim();
+  const params = `title=${encodeURIComponent(t)}${a ? `&author=${encodeURIComponent(a)}` : ''}`;
+  return (await openLibrarySearch(params, 10)).map(mapBookDoc);
 }
 
 export interface OpenLibraryWorkJson {

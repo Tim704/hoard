@@ -14,5 +14,6 @@
   "/franchises",
   "/settings",
   "/add",
-  "/add?title=Dune&text=Have%20you%20read%20this%3F&url=https%3A%2F%2Fexample.com%2Fdune"
+  "/add?title=Dune&text=Have%20you%20read%20this%3F&url=https%3A%2F%2Fexample.com%2Fdune",
+  "/import"
 ]

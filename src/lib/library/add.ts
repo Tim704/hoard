@@ -5,6 +5,8 @@
 //  it must never become a client-callable action. Callers authenticate first.
 // ───────────────────────────────────────────────────────────────────────────
 
+import { randomBytes } from 'crypto';
+
 import type { Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/prisma';
@@ -12,6 +14,7 @@ import { getCategory, type CategorySlug } from '@/lib/categories';
 import { recordEvent } from '@/lib/events';
 import { autoGroupAfterAdd } from '@/lib/franchise/auto';
 import { catalogueCreatePayload, fillOnlyUpdate } from '@/lib/media-upsert';
+import { MANUAL_PREFIX } from '@/lib/manual';
 import { nextQueueOrder } from '@/lib/queue';
 import type { Status } from '@/lib/status';
 import type { NormalizedResult } from '@/lib/types';
@@ -24,7 +27,7 @@ export interface AddOptions {
   finishedAt?: Date | null;
   startedAt?: Date | null;
   progress?: number | null;
-  /** Reserved for the tags column (4.2); ignored until it exists. */
+  /** Free-form labels (4.2); imports store shelves / custom lists here. */
   tags?: string[];
   notes?: string | null;
   /** Skip franchise auto-grouping (bulk callers regroup once at the end). */
@@ -109,6 +112,7 @@ export async function addMediaForUser(
         queueOrder,
         rating: opts.rating ?? null,
         progress: opts.progress ?? null,
+        tags: opts.tags ?? [],
         notes: opts.notes ?? null,
         startedAt: opts.startedAt ?? null,
         finishedAt:
@@ -135,4 +139,12 @@ export async function addMediaForUser(
     await autoGroupAfterAdd(userId, slug, outcome.media);
   }
   return { activityId: outcome.activityId, existing: outcome.existing };
+}
+
+/**
+ * A new hand-made row's externalId: `manual:` plus a collision-resistant id
+ * (cuid-like: time + randomness), so every manual add gets its own row.
+ */
+export function newManualExternalId(): string {
+  return MANUAL_PREFIX + 'c' + Date.now().toString(36) + randomBytes(9).toString('hex');
 }

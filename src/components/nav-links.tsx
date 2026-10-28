@@ -15,6 +15,7 @@ import {
   Settings,
   Sparkles,
   Tv,
+  Upload,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -113,11 +114,22 @@ export function NavLinks({ onNavigate, collapsed = false }: NavLinksProps) {
       })}
 
       <Link
+        href="/import"
+        onClick={onNavigate}
+        title={collapsed ? 'Import' : undefined}
+        aria-label={collapsed ? 'Import' : undefined}
+        className={cn(linkClass('/import'), 'mt-2')}
+      >
+        <Upload className="h-4 w-4 shrink-0 text-muted-foreground" />
+        {!collapsed && <span>Import</span>}
+      </Link>
+
+      <Link
         href="/settings"
         onClick={onNavigate}
         title={collapsed ? 'Settings' : undefined}
         aria-label={collapsed ? 'Settings' : undefined}
-        className={cn(linkClass('/settings'), 'mt-2')}
+        className={linkClass('/settings')}
       >
         <Settings className="h-4 w-4 shrink-0 text-muted-foreground" />
         {!collapsed && <span>Settings</span>}

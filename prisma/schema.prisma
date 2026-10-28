@@ -312,6 +312,7 @@ model UserMediaActivity {
   elo        Float         @default(1200) // hidden Arena rating
   rankOrder  Float? // position in the user's manual ranking (asc); null = unranked
   progress   Int? // pages / chapters / episodes / tracks done (1.4); null = not tracked
+  tags       String[] // free-form labels (4.2); imported shelves land here (2.3)
   favorite   Boolean       @default(false)
   notes      String?
   startedAt  DateTime?

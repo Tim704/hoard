@@ -9,7 +9,6 @@
 //  serializable `ActionResult` rather than thrown (these are called from forms).
 // ───────────────────────────────────────────────────────────────────────────
 
-import { randomBytes } from 'crypto';
 import { revalidatePath } from 'next/cache';
 
 import { prisma } from '@/lib/prisma';
@@ -19,10 +18,9 @@ import {
   type CategorySlug,
   type DbCategory,
 } from '@/lib/categories';
-import { addMediaForUser } from '@/lib/library/add';
+import { addMediaForUser, newManualExternalId } from '@/lib/library/add';
 import {
   isManualId,
-  MANUAL_PREFIX,
   manualResult,
   parseManualInput,
   type ManualInput,
@@ -127,7 +125,7 @@ export async function addManualEntry(
 
   try {
     const user = await requireUser();
-    const externalId = MANUAL_PREFIX + newManualId();
+    const externalId = newManualExternalId();
     const { activityId } = await addMediaForUser(
       user.id,
       slug,
@@ -176,11 +174,6 @@ export async function updateManualEntry(
     const error = err instanceof Error ? err.message : 'Could not save those details.';
     return { ok: false, error };
   }
-}
-
-/** A collision-resistant id for a manual row (cuid-like: time + randomness). */
-function newManualId(): string {
-  return 'c' + Date.now().toString(36) + randomBytes(9).toString('hex');
 }
 
 /**
