@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { Button } from '@/components/ui/button';
 import { addToFranchise, franchiseMissing, type MissingGroup } from '@/lib/actions/franchise';
-import { commitImportRows, finishImport, groupImportedFranchises } from '@/lib/actions/import';
+import { commitImportRows, finishImport } from '@/lib/actions/import';
 import { CATEGORIES } from '@/lib/categories';
 import type { MissingTitle } from '@/lib/franchise/missing';
 import { initialTicked } from '@/lib/franchise/missing-pick';
@@ -32,6 +32,7 @@ export function FranchiseMissing({ franchiseId, onBack }: { franchiseId: string;
   const [groups, setGroups] = useState<MissingGroup[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ticked, setTicked] = useState<Set<string>>(new Set());
+  // Want (Planned) by default: these are titles the user hasn't logged yet.
   const [done, setDone] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
 
@@ -93,11 +94,12 @@ export function FranchiseMissing({ franchiseId, onBack }: { franchiseId: string;
         setProgress(`Adding ${n} of ${rows.length}…`);
       }
       setProgress('Grouping…');
-      for (const part of chunk(added, 10)) await groupImportedFranchises(part).catch(() => null);
-      await finishImport().catch(() => null);
-      // Pin them to THIS franchise (a hand-merged group has no provider key
-      // that regrouping would find).
+      // Pin them to THIS franchise first (locked), and skip the provider
+      // grouping: regrouping then keeps them here (their lock and the shared
+      // franchise link them to it), so no new, soon-empty franchise is made
+      // for them, even when this one was merged by hand.
       for (const part of chunk(added, 100)) await addToFranchise(franchiseId, part).catch(() => null);
+      await finishImport().catch(() => null);
     } finally {
       setProgress(null);
     }

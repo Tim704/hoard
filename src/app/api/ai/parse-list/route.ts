@@ -14,6 +14,7 @@ import {
   parseAiAnswer,
   sniffImage,
 } from '@/lib/import/ai';
+import { readCapped } from '@/lib/http-body';
 import { takeAiRate } from '@/lib/rate-limit';
 import { getCurrentUser } from '@/lib/session';
 
@@ -29,36 +30,6 @@ const TOO_LARGE = `That is too large. Paste up to ${AI_MAX_TEXT.toLocaleString('
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store', ...headers } });
-
-/**
- * Read at most `max` bytes of the body, counting as it streams, so a lying
- * or missing Content-Length can't make the server buffer more. Null when the
- * body is larger.
- */
-async function readCapped(req: Request, max: number): Promise<ArrayBuffer | null> {
-  if (!req.body) return new ArrayBuffer(0);
-  const reader = req.body.getReader();
-  const parts: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > max) {
-      await reader.cancel().catch(() => {});
-      return null;
-    }
-    parts.push(value);
-  }
-  const out = new ArrayBuffer(total);
-  const view = new Uint8Array(out);
-  let at = 0;
-  for (const p of parts) {
-    view.set(p, at);
-    at += p.byteLength;
-  }
-  return out;
-}
 
 /**
  * Same-origin only: a cross-site form post must not spend the owner's key.
@@ -83,13 +54,13 @@ export async function POST(req: Request): Promise<Response> {
   if (!user) return json({ ok: false, error: 'Not signed in.' }, 401);
   if (!sameOrigin(req)) return json({ ok: false, error: 'Cross-site request refused.' }, 403);
 
-  // Size first: a numeric Content-Length is required, and the read is capped
-  // anyway (the header could lie).
+  // Size first: a declared length that is too big is refused before reading.
+  // Without one (Cloudflare's tunnel may forward the body chunked) the
+  // streaming cap below still stops the read at MAX_BODY_BYTES.
   const lengthHeader = req.headers.get('content-length');
-  if (!lengthHeader || !/^\d+$/.test(lengthHeader)) {
-    return json({ ok: false, error: 'Send the list with a Content-Length.' }, 411);
+  if (lengthHeader && /^\d+$/.test(lengthHeader) && Number(lengthHeader) > MAX_BODY_BYTES) {
+    return json({ ok: false, error: TOO_LARGE }, 413);
   }
-  if (Number(lengthHeader) > MAX_BODY_BYTES) return json({ ok: false, error: TOO_LARGE }, 413);
   const body = await readCapped(req, MAX_BODY_BYTES).catch(() => null);
   if (!body) return json({ ok: false, error: TOO_LARGE }, 413);
 

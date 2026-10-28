@@ -83,7 +83,8 @@ export function statusKey(value: string): string {
 const STATUS_WORDS: Array<[RegExp, Status]> = [
   // Negations first: "not started" is not "started", "unfinished" not "finished".
   [/\b(not started|not yet( \w+)?|unstarted|never started)\b/, 'PLANNED'],
-  [/\b(not finished|unfinished|never finished|not completed|incomplete)\b/, 'DROPPED'],
+  [/\b(not (played|watched|read|listened( to)?|seen)|unread|unwatched|unplayed|unheard|unseen)\b/, 'PLANNED'],
+  [/\b(not finished|unfinished|never finished|not completed)\b/, 'DROPPED'],
   [/\b(retired|shelved)\b/, 'RETIRED'],
   [/\b(abandoned|dropped|did not finish|dnf|quit)\b/, 'DROPPED'],
   [/\b(paused|on hold|hold)\b/, 'ON_HOLD'],
@@ -96,6 +97,8 @@ const STATUS_WORDS: Array<[RegExp, Status]> = [
 export function defaultStatusFor(value: string): Status | null {
   const key = statusKey(value);
   if (!key) return null;
+  // Too vague to guess ("incomplete" could be ongoing, paused or dropped): the user picks.
+  if (/\b(incomplete|partial(ly)?|other|misc)\b/.test(key)) return null;
   const upper = key.toUpperCase().replace(/ /g, '_');
   if (isStatus(upper)) return upper;
   for (const [re, status] of STATUS_WORDS) if (re.test(key)) return status;

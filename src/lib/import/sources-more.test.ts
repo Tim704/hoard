@@ -310,6 +310,12 @@ describe('fix round 1', () => {
     expect(defaultStatusFor('Unfinished')).toBe('DROPPED');
     expect(defaultStatusFor('Started')).toBe('CONSUMING');
     expect(defaultStatusFor('Finished')).toBe('COMPLETED');
+    for (const w of ['not played', 'Not watched', 'not read', 'Unread', 'unwatched', 'Unplayed', 'not listened', 'not listened to']) {
+      expect(defaultStatusFor(w)).toBe('PLANNED');
+    }
+    // Vague: left to the user (the mapping's default status applies).
+    expect(defaultStatusFor('Incomplete')).toBeNull();
+    expect(buildStatusMap(['Incomplete'], {}, 'ON_HOLD')).toEqual({ incomplete: 'ON_HOLD' });
   });
 
   it('reads dotted dates and reports the dates it could not read', () => {
