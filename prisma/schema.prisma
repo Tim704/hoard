@@ -11,7 +11,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   // "native" covers local dev; the explicit arm64 target ensures the engine is
   // present when the image is built on (or for) a Raspberry Pi.
   binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
@@ -59,9 +59,9 @@ model User {
   // Per-user settings, typed and defaulted by src/lib/prefs.ts (unknown keys dropped).
   prefs        Json     @default("{}")
 
-  sessions   Session[]
-  activities UserMediaActivity[]
-  franchises Franchise[]
+  sessions      Session[]
+  activities    UserMediaActivity[]
+  franchises    Franchise[]
   events        ActivityEvent[]
   notifications Notification[]
 }
@@ -99,6 +99,12 @@ model Book {
   franchiseKey  String?
   franchiseName String?
 
+  // F2 details: release date (YYYY-MM-DD when the full day is known; partial
+  // provider dates keep only `year`), genres, and when they were last fetched.
+  releaseDate   String?
+  genres        String[]
+  metaFetchedAt DateTime?
+
   activities UserMediaActivity[]
 }
 
@@ -119,6 +125,15 @@ model Movie {
   franchiseKey  String?
   franchiseName String?
 
+  // F2 details: release date (YYYY-MM-DD when the full day is known; partial
+  // provider dates keep only `year`), genres, and when they were last fetched.
+  releaseDate   String?
+  genres        String[]
+  metaFetchedAt DateTime?
+  // Credits (5.10 / 6.6): directors and the top 5 billed cast.
+  directors     String[]
+  cast          String[]
+
   activities UserMediaActivity[]
 }
 
@@ -138,6 +153,17 @@ model TvShow {
   // yet). franchiseKey is a provider id like "anilist:123" / "tmdb-col:10".
   franchiseKey  String?
   franchiseName String?
+
+  // F2 details: release date (YYYY-MM-DD when the full day is known; partial
+  // provider dates keep only `year`), genres, and when they were last fetched.
+  releaseDate   String?
+  genres        String[]
+  metaFetchedAt DateTime?
+  // Credits (5.10 / 6.6): creators and the top 5 billed cast.
+  directors     String[]
+  cast          String[]
+  status        String? // TMDB: Returning Series | Ended | Canceled | …
+  nextAirDate   String? // YYYY-MM-DD of the next episode, when announced
 
   activities UserMediaActivity[]
 
@@ -161,6 +187,18 @@ model Anime {
   franchiseKey  String?
   franchiseName String?
 
+  // F2 details: release date (YYYY-MM-DD when the full day is known; partial
+  // provider dates keep only `year`), genres, and when they were last fetched.
+  releaseDate       String?
+  genres            String[]
+  metaFetchedAt     DateTime?
+  // AniList title variants (4.9), shown per prefs.titleLanguage.
+  titleEnglish      String?
+  titleRomaji       String?
+  titleNative       String?
+  nextAiringAt      DateTime?
+  nextAiringEpisode Int?
+
   activities UserMediaActivity[]
 }
 
@@ -181,6 +219,16 @@ model Manga {
   franchiseKey  String?
   franchiseName String?
 
+  // F2 details: release date (YYYY-MM-DD when the full day is known; partial
+  // provider dates keep only `year`), genres, and when they were last fetched.
+  releaseDate   String?
+  genres        String[]
+  metaFetchedAt DateTime?
+  // AniList title variants (4.9), shown per prefs.titleLanguage.
+  titleEnglish  String?
+  titleRomaji   String?
+  titleNative   String?
+
   activities UserMediaActivity[]
 }
 
@@ -200,6 +248,14 @@ model VideoGame {
   franchiseKey  String?
   franchiseName String?
 
+  // F2 details: release date (YYYY-MM-DD when the full day is known; partial
+  // provider dates keep only `year`), genres, and when they were last fetched.
+  releaseDate     String?
+  genres          String[]
+  metaFetchedAt   DateTime?
+  timeToBeatHours Float? // IGDB game_time_to_beats.normally, in hours (5.3)
+  steamAppId      Int?
+
   activities UserMediaActivity[]
 }
 
@@ -218,6 +274,12 @@ model MusicAlbum {
   // yet). franchiseKey is a provider id like "anilist:123" / "tmdb-col:10".
   franchiseKey  String?
   franchiseName String?
+
+  // F2 details: release date (YYYY-MM-DD when the full day is known; partial
+  // provider dates keep only `year`), genres, and when they were last fetched.
+  releaseDate   String?
+  genres        String[]
+  metaFetchedAt DateTime?
 
   activities UserMediaActivity[]
 }

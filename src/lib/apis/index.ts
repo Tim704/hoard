@@ -8,12 +8,8 @@
 import { getCategory, type CategorySlug } from '@/lib/categories';
 import type { NormalizedResult, SearchResponse } from '@/lib/types';
 
-import {
-  searchMovies,
-  searchTv,
-  fetchMovieDetails,
-  fetchTvDetails,
-} from './tmdb';
+import { searchMovies, searchTv } from './tmdb';
+import { detailsConfigured, fetchDetailPatch, isLookupSkipped } from './details';
 import { searchAnime, searchManga } from './anilist';
 import { searchBooks } from './books';
 import { searchGames } from './igdb';
@@ -69,32 +65,36 @@ export async function searchProvider(
 }
 
 /**
- * Enrich a normalized result with extra provider details before it is upserted.
- * Currently fills runtime (movies) and episode/season counts (tv) from TMDB so
- * the dashboard's headline metrics have real numbers to sum. Best-effort: any
- * failure returns the original result unchanged — enrichment never blocks an add.
+ * Enrich a normalized result with provider details before it is upserted:
+ * runtime and episode / season counts (so dashboard metrics have numbers to
+ * sum), and the F2 details (release date, genres, credits, TV status, IGDB
+ * time to beat and Steam app id, book genres, album tags). A successful lookup
+ * stamps `metaFetchedAt`, so the nightly metadata job leaves the row alone for
+ * 30 days. AniList search hits already carry everything, so anime and manga
+ * are only stamped. Best-effort: a missing key or any failure returns the
+ * result unchanged, so enrichment never blocks an add.
  */
 export async function enrichResult(
   slug: CategorySlug,
   result: NormalizedResult,
 ): Promise<NormalizedResult> {
+  if (isLookupSkipped(result.externalId) || !detailsConfigured(slug)) return result;
   try {
-    if (slug === 'movies') {
-      const d = await fetchMovieDetails(result.externalId);
-      return { ...result, fields: { ...result.fields, runtime: d.runtime } };
+    if (slug === 'anime' || slug === 'manga') {
+      // Older clients may send a hit without the AniList variants; let the job fill those.
+      if (!('titleRomaji' in result.fields)) return result;
+      return { ...result, fields: { ...result.fields, metaFetchedAt: new Date() } };
     }
-    if (slug === 'tv') {
-      const d = await fetchTvDetails(result.externalId);
-      return {
-        ...result,
-        fields: {
-          ...result.fields,
-          episodeCount: d.episodeCount,
-          seasonCount: d.seasonCount,
-        },
-      };
-    }
-    return result;
+    const f = result.fields;
+    const patch = await fetchDetailPatch(slug, {
+      externalId: result.externalId,
+      title: result.title,
+      artist: typeof f.artist === 'string' ? f.artist : null,
+      description: typeof f.description === 'string' ? f.description : null,
+      trackCount: typeof f.trackCount === 'number' ? f.trackCount : null,
+    });
+    if (!patch) return result;
+    return { ...result, fields: { ...f, ...patch, metaFetchedAt: new Date() } };
   } catch {
     // Enrichment is best-effort; fall back to the un-enriched result.
     return result;

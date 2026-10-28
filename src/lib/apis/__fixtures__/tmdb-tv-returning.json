@@ -1,0 +1,17 @@
+{
+  "created_by": [],
+  "first_air_date": "2022-09",
+  "genres": [{ "id": 35, "name": "Comedy" }],
+  "id": 99999,
+  "name": "Returning Example",
+  "next_episode_to_air": {
+    "id": 5551234,
+    "name": "Episode 5",
+    "air_date": "2026-11-04",
+    "episode_number": 5,
+    "season_number": 3
+  },
+  "number_of_episodes": 24,
+  "number_of_seasons": 3,
+  "status": "Returning Series"
+}

@@ -1,0 +1,40 @@
+{
+  "adult": false,
+  "backdrop_path": "/fNG7i7RqMErkcqhohV2a6cV1Ehy.jpg",
+  "belongs_to_collection": {
+    "id": 2344,
+    "name": "The Matrix Collection",
+    "poster_path": "/bV9qTVHTVf0gkW0j7p7M0ILD4pG.jpg",
+    "backdrop_path": "/bRm2DEgUiYciDw3myHuYFInD7la.jpg"
+  },
+  "budget": 63000000,
+  "genres": [
+    { "id": 28, "name": "Action" },
+    { "id": 878, "name": "Science Fiction" }
+  ],
+  "id": 603,
+  "imdb_id": "tt0133093",
+  "original_title": "The Matrix",
+  "overview": "Set in the 22nd century, The Matrix tells the story of a computer hacker…",
+  "release_date": "1999-03-30",
+  "runtime": 136,
+  "status": "Released",
+  "title": "The Matrix",
+  "vote_average": 8.2,
+  "credits": {
+    "cast": [
+      { "id": 2975, "name": "Laurence Fishburne", "character": "Morpheus", "order": 1 },
+      { "id": 6384, "name": "Keanu Reeves", "character": "Thomas A. Anderson / Neo", "order": 0 },
+      { "id": 530, "name": "Carrie-Anne Moss", "character": "Trinity", "order": 2 },
+      { "id": 1331, "name": "Hugo Weaving", "character": "Agent Smith", "order": 3 },
+      { "id": 9364, "name": "Gloria Foster", "character": "Oracle", "order": 4 },
+      { "id": 9372, "name": "Joe Pantoliano", "character": "Cypher", "order": 5 }
+    ],
+    "crew": [
+      { "id": 9339, "name": "Lilly Wachowski", "department": "Directing", "job": "Director" },
+      { "id": 9340, "name": "Lana Wachowski", "department": "Directing", "job": "Director" },
+      { "id": 9340, "name": "Lana Wachowski", "department": "Writing", "job": "Writer" },
+      { "id": 1091, "name": "Joel Silver", "department": "Production", "job": "Producer" }
+    ]
+  }
+}

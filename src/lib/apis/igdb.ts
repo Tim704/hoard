@@ -4,10 +4,14 @@
 //  reused until ~60s before expiry. Server-only. fetch { cache: 'no-store' }.
 // ───────────────────────────────────────────────────────────────────────────
 
+import { normalizeGenres } from '@/lib/genres';
 import type { NormalizedResult } from '@/lib/types';
+
+import { providerFetch } from './http';
 
 const TWITCH_TOKEN_URL = 'https://id.twitch.tv/oauth2/token';
 const IGDB_GAMES_URL = 'https://api.igdb.com/v4/games';
+const IGDB_TTB_URL = 'https://api.igdb.com/v4/game_time_to_beats';
 const IGDB_IMAGE_BASE = 'https://images.igdb.com/igdb/image/upload/t_cover_big';
 
 /** Module-scoped cache for the Twitch app-access token. */
@@ -16,6 +20,10 @@ let cachedToken: { token: string; expiresAt: number } | null = null;
 interface IgdbCredentials {
   clientId: string;
   clientSecret: string;
+}
+
+export function igdbConfigured(): boolean {
+  return Boolean(process.env.IGDB_CLIENT_ID && process.env.IGDB_CLIENT_SECRET);
 }
 
 /** Read & validate IGDB credentials, throwing a hard error when absent. */
@@ -45,7 +53,7 @@ async function getAccessToken(creds: IgdbCredentials): Promise<string> {
     `${TWITCH_TOKEN_URL}?client_id=${encodeURIComponent(creds.clientId)}` +
     `&client_secret=${encodeURIComponent(creds.clientSecret)}` +
     `&grant_type=client_credentials`;
-  const res = await fetch(url, { method: 'POST', cache: 'no-store' });
+  const res = await providerFetch(url, { method: 'POST' });
   if (!res.ok) throw new Error(`Twitch OAuth token request failed (${res.status})`);
 
   const data = (await res.json()) as TwitchTokenResponse;
@@ -64,6 +72,7 @@ interface IgdbGame {
   cover?: { image_id?: string | null } | null;
   rating?: number | null;
   platforms?: Array<{ name?: string | null }> | null;
+  genres?: Array<{ name?: string | null }> | null;
 }
 
 /**
@@ -78,7 +87,7 @@ export async function fetchGameFranchise(
   const id = Number(externalId);
   if (!Number.isFinite(id)) return null;
 
-  const res = await fetch(IGDB_GAMES_URL, {
+  const res = await providerFetch(IGDB_GAMES_URL, {
     method: 'POST',
     headers: {
       'Client-ID': creds.clientId,
@@ -86,7 +95,6 @@ export async function fetchGameFranchise(
       Accept: 'application/json',
     },
     body: `where id = ${id}; fields franchises.name,collections.name; limit 1;`,
-    cache: 'no-store',
   });
   if (!res.ok) throw new Error(`IGDB franchise lookup failed (${res.status})`);
 
@@ -110,9 +118,9 @@ export async function searchGames(query: string): Promise<NormalizedResult[]> {
 
   // Apicalypse plain-text body. Escape any embedded double-quotes in the query.
   const safeQuery = q.replace(/"/g, '\\"');
-  const body = `search "${safeQuery}"; fields name,summary,first_release_date,cover.image_id,rating,platforms.name; limit 20;`;
+  const body = `search "${safeQuery}"; fields name,summary,first_release_date,cover.image_id,rating,platforms.name,genres.name; limit 20;`;
 
-  const res = await fetch(IGDB_GAMES_URL, {
+  const res = await providerFetch(IGDB_GAMES_URL, {
     method: 'POST',
     headers: {
       'Client-ID': creds.clientId,
@@ -120,43 +128,167 @@ export async function searchGames(query: string): Promise<NormalizedResult[]> {
       Accept: 'application/json',
     },
     body,
-    cache: 'no-store',
   });
   if (!res.ok) throw new Error(`IGDB search failed (${res.status})`);
 
   const games = (await res.json()) as IgdbGame[];
 
-  return games.map((g): NormalizedResult => {
-    const image = g.cover?.image_id ? `${IGDB_IMAGE_BASE}/${g.cover.image_id}.jpg` : null;
-    const year = g.first_release_date
-      ? new Date(g.first_release_date * 1000).getUTCFullYear()
-      : null;
-    const platforms = (g.platforms ?? [])
-      .map((p) => p.name)
-      .filter((name): name is string => Boolean(name));
-    const igdbRating = g.rating != null ? Math.round(g.rating) : null;
+  return games.map(mapGameSearchHit);
+}
 
-    const subtitleParts: string[] = [];
-    if (year) subtitleParts.push(String(year));
-    if (platforms.length) subtitleParts.push(platforms.slice(0, 3).join(', '));
+/** A unix-seconds IGDB date → YYYY-MM-DD (UTC, as IGDB stores them). */
+function ymdFromUnix(seconds: number | null | undefined): string | null {
+  if (!seconds || !Number.isFinite(seconds)) return null;
+  return new Date(seconds * 1000).toISOString().slice(0, 10);
+}
 
-    return {
+/** One IGDB search hit → a NormalizedResult (fields = VideoGame columns). */
+export function mapGameSearchHit(g: IgdbGame): NormalizedResult {
+  const image = g.cover?.image_id ? `${IGDB_IMAGE_BASE}/${g.cover.image_id}.jpg` : null;
+  const year = g.first_release_date ? new Date(g.first_release_date * 1000).getUTCFullYear() : null;
+  const platforms = (g.platforms ?? [])
+    .map((p) => p.name)
+    .filter((name): name is string => Boolean(name));
+  const igdbRating = g.rating != null ? Math.round(g.rating) : null;
+  const releaseDate = ymdFromUnix(g.first_release_date);
+  const genres = normalizeGenres((g.genres ?? []).map((x) => x.name));
+
+  const subtitleParts: string[] = [];
+  if (year) subtitleParts.push(String(year));
+  if (platforms.length) subtitleParts.push(platforms.slice(0, 3).join(', '));
+
+  return {
+    externalId: String(g.id),
+    title: g.name,
+    imageUrl: image,
+    subtitle: subtitleParts.length ? subtitleParts.join(' · ') : null,
+    year,
+    description: g.summary || null,
+    // EXACTLY the VideoGame table columns (+ externalId + title). F2 columns
+    // are only sent when known, so re-adding never blanks stored details.
+    fields: {
       externalId: String(g.id),
       title: g.name,
       imageUrl: image,
-      subtitle: subtitleParts.length ? subtitleParts.join(' · ') : null,
-      year,
       description: g.summary || null,
-      // EXACTLY the VideoGame table columns (+ externalId + title).
-      fields: {
-        externalId: String(g.id),
-        title: g.name,
-        imageUrl: image,
-        description: g.summary || null,
-        year,
-        platforms,
-        igdbRating,
+      year,
+      platforms,
+      igdbRating,
+      ...(releaseDate && { releaseDate }),
+      ...(genres.length && { genres }),
+    },
+  };
+}
+
+/**
+ * An `external_games` entry, expanded with its source. IGDB deprecated the
+ * `category` enum (Steam = 1) in favour of `external_game_source`, a reference
+ * to /external_game_sources ({ id, name }); we ask for the source's name and
+ * also accept the store URL as a fallback.
+ */
+export interface IgdbExternalGame {
+  uid?: string | null;
+  url?: string | null;
+  external_game_source?: number | { id?: number; name?: string | null } | null;
+}
+
+const STEAM_URL = /store\.steampowered\.com\/app\/(\d+)/i;
+/** /external_game_sources id of Steam (same value as the old category enum). */
+const STEAM_SOURCE_ID = 1;
+
+function isSteam(e: IgdbExternalGame): boolean {
+  const src = e.external_game_source;
+  if (typeof src === 'number') return src === STEAM_SOURCE_ID;
+  if (src && typeof src === 'object') {
+    if (typeof src.name === 'string') return src.name.trim().toLowerCase() === 'steam';
+    return src.id === STEAM_SOURCE_ID;
+  }
+  return false;
+}
+
+/** The Steam app id among a game's external ids, or null. */
+export function steamAppIdFrom(external: IgdbExternalGame[] | null | undefined): number | null {
+  for (const e of external ?? []) {
+    const fromUrl = e.url ? STEAM_URL.exec(e.url)?.[1] : undefined;
+    const raw = isSteam(e) ? (e.uid ?? fromUrl) : fromUrl;
+    const id = Number(raw);
+    if (raw && Number.isInteger(id) && id > 0) return id;
+  }
+  return null;
+}
+
+/** IGDB `normally` (seconds) → hours, one decimal; null when unknown. */
+export function timeToBeatHours(ttb: { normally?: number | null } | null | undefined): number | null {
+  const s = ttb?.normally;
+  if (!s || !Number.isFinite(s) || s <= 0) return null;
+  return Math.round(s / 360) / 10;
+}
+
+export interface IgdbGameDetailsJson {
+  first_release_date?: number | null;
+  genres?: Array<{ name?: string | null }> | null;
+  external_games?: IgdbExternalGame[] | null;
+}
+
+export interface GameDetails {
+  releaseDate: string | null;
+  year: number | null;
+  genres: string[];
+  steamAppId: number | null;
+  timeToBeatHours: number | null;
+}
+
+/** POST /games + POST /game_time_to_beats → our game details. */
+export function mapGameDetails(
+  game: IgdbGameDetailsJson,
+  ttb: { normally?: number | null } | null | undefined,
+): GameDetails {
+  return {
+    releaseDate: ymdFromUnix(game.first_release_date),
+    year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null,
+    genres: normalizeGenres((game.genres ?? []).map((g) => g.name)),
+    steamAppId: steamAppIdFrom(game.external_games),
+    timeToBeatHours: timeToBeatHours(ttb),
+  };
+}
+
+/**
+ * Fetch a game's details: release date, genres, Steam app id (from its
+ * external ids) and time to beat (from /game_time_to_beats). Null when IGDB
+ * doesn't know the id. Throws on request failures.
+ */
+export async function fetchGameDetails(externalId: string): Promise<GameDetails | null> {
+  const creds = requireCredentials();
+  const token = await getAccessToken(creds);
+  const id = Number(externalId);
+  if (!Number.isInteger(id) || id <= 0) return null;
+
+  const post = (url: string, body: string) =>
+    providerFetch(url, {
+      method: 'POST',
+      headers: {
+        'Client-ID': creds.clientId,
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
       },
-    };
-  });
+      body,
+    });
+
+  const gameRes = await post(
+    IGDB_GAMES_URL,
+    `where id = ${id}; fields first_release_date,genres.name,external_games.uid,external_games.url,external_games.external_game_source.name; limit 1;`,
+  );
+  if (!gameRes.ok) throw new Error(`IGDB game details failed (${gameRes.status})`);
+  const [game] = (await gameRes.json()) as IgdbGameDetailsJson[];
+  if (!game) return null;
+
+  // Time to beat is optional: a failure here keeps the rest of the details.
+  let ttb: { normally?: number | null } | undefined;
+  try {
+    const ttbRes = await post(IGDB_TTB_URL, `where game_id = ${id}; fields normally; limit 1;`);
+    if (ttbRes.ok) [ttb] = (await ttbRes.json()) as Array<{ normally?: number | null }>;
+  } catch {
+    ttb = undefined;
+  }
+  return mapGameDetails(game, ttb);
 }

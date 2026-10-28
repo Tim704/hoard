@@ -7,6 +7,8 @@
 //  Server-only. fetch with { cache: 'no-store' }.
 // ───────────────────────────────────────────────────────────────────────────
 
+import { normalizeGenres } from '@/lib/genres';
+import { ymdFromParts } from '@/lib/release';
 import type { NormalizedResult } from '@/lib/types';
 
 const ANILIST_URL = 'https://graphql.anilist.co';
@@ -23,21 +25,24 @@ function sleep(ms: number): Promise<void> {
 interface AniListTitle {
   romaji?: string | null;
   english?: string | null;
+  native?: string | null;
 }
 
-interface AniListMedia {
+export interface AniListMedia {
   id: number;
   idMal?: number | null;
   title?: AniListTitle | null;
   coverImage?: { large?: string | null; medium?: string | null } | null;
   description?: string | null;
   seasonYear?: number | null;
-  startDate?: { year?: number | null } | null;
+  startDate?: { year?: number | null; month?: number | null; day?: number | null } | null;
   episodes?: number | null;
   chapters?: number | null;
   volumes?: number | null;
   averageScore?: number | null; // 0–100 on AniList
   studios?: { nodes?: Array<{ name?: string | null }> | null } | null;
+  genres?: string[] | null;
+  nextAiringEpisode?: { airingAt?: number | null; episode?: number | null } | null;
 }
 
 interface AniListResponse<T> {
@@ -145,20 +150,35 @@ function toMalScale(score?: number | null): number | null {
   return Math.round(score) / 10;
 }
 
+const ANIME_FIELDS = `id
+      idMal
+      title { romaji english native }
+      coverImage { large medium }
+      description
+      seasonYear
+      startDate { year month day }
+      episodes
+      averageScore
+      genres
+      nextAiringEpisode { airingAt episode }
+      studios(isMain: true) { nodes { name } }`;
+
+const MANGA_FIELDS = `id
+      idMal
+      title { romaji english native }
+      coverImage { large medium }
+      description
+      startDate { year month day }
+      chapters
+      volumes
+      averageScore
+      genres`;
+
 const ANIME_QUERY = `
 query ($q: String) {
   Page(perPage: 20) {
     media(search: $q, type: ANIME, isAdult: false, sort: SEARCH_MATCH) {
-      id
-      idMal
-      title { romaji english }
-      coverImage { large medium }
-      description
-      seasonYear
-      startDate { year }
-      episodes
-      averageScore
-      studios(isMain: true) { nodes { name } }
+      ${ANIME_FIELDS}
     }
   }
 }`;
@@ -167,103 +187,178 @@ const MANGA_QUERY = `
 query ($q: String) {
   Page(perPage: 20) {
     media(search: $q, type: MANGA, isAdult: false, sort: SEARCH_MATCH) {
-      id
-      idMal
-      title { romaji english }
-      coverImage { large medium }
-      description
-      startDate { year }
-      chapters
-      volumes
-      averageScore
+      ${MANGA_FIELDS}
     }
   }
 }`;
 
-export async function searchAnime(query: string): Promise<NormalizedResult[]> {
-  const q = query.trim();
-  if (!q) return [];
+/**
+ * The F2 / 4.9 columns AniList gives us for one entry: title variants, the
+ * start date (a full day only when AniList knows it), genres, and for anime
+ * the next airing episode. Shared by search hits and the metadata job.
+ * `nextAiringAt` is an ISO string (Prisma accepts it for a DateTime column,
+ * and it survives the trip through a server action).
+ */
+export function aniListDetails(m: AniListMedia, type: 'ANIME' | 'MANGA'): Record<string, unknown> {
+  const s = m.startDate;
+  const details: Record<string, unknown> = {
+    titleEnglish: m.title?.english?.trim() || null,
+    titleRomaji: m.title?.romaji?.trim() || null,
+    titleNative: m.title?.native?.trim() || null,
+  };
+  const releaseDate = ymdFromParts(s?.year, s?.month, s?.day);
+  if (releaseDate) details.releaseDate = releaseDate;
+  const genres = normalizeGenres(m.genres);
+  if (genres.length) details.genres = genres;
+  if (type === 'ANIME') {
+    const next = m.nextAiringEpisode;
+    // Null once nothing is scheduled, so a finished show stops showing a date.
+    details.nextAiringAt = next?.airingAt ? new Date(next.airingAt * 1000).toISOString() : null;
+    details.nextAiringEpisode = next?.airingAt && next.episode ? next.episode : null;
+  }
+  return details;
+}
 
-  const media = await anilistQuery(ANIME_QUERY, { q }, 'AniList anime search');
+/** One anime search hit → a NormalizedResult (fields = Anime columns). */
+export function mapAnime(a: AniListMedia): NormalizedResult {
+  const title = a.title?.english || a.title?.romaji || 'Untitled';
+  const image = a.coverImage?.large ?? a.coverImage?.medium ?? null;
+  const year = a.seasonYear ?? a.startDate?.year ?? null;
+  const episodes = a.episodes ?? null;
+  const malScore = toMalScale(a.averageScore);
+  const studio = a.studios?.nodes?.[0]?.name ?? null;
+  const description = cleanDescription(a.description);
 
-  return media.map((a): NormalizedResult => {
-    const title = a.title?.english || a.title?.romaji || 'Untitled';
-    const image = a.coverImage?.large ?? a.coverImage?.medium ?? null;
-    const year = a.seasonYear ?? a.startDate?.year ?? null;
-    const episodes = a.episodes ?? null;
-    const malScore = toMalScale(a.averageScore);
-    const studio = a.studios?.nodes?.[0]?.name ?? null;
-    const description = cleanDescription(a.description);
+  const subtitleParts: string[] = [];
+  if (year) subtitleParts.push(String(year));
+  if (episodes) subtitleParts.push(`${episodes} eps`);
+  if (studio) subtitleParts.push(studio);
 
-    const subtitleParts: string[] = [];
-    if (year) subtitleParts.push(String(year));
-    if (episodes) subtitleParts.push(`${episodes} eps`);
-    if (studio) subtitleParts.push(studio);
+  const id = externalId(a);
 
-    const id = externalId(a);
-
-    return {
+  return {
+    externalId: id,
+    title,
+    imageUrl: image,
+    subtitle: subtitleParts.length ? subtitleParts.join(' · ') : null,
+    year,
+    description,
+    // EXACTLY the Anime table columns (+ externalId + title).
+    fields: {
       externalId: id,
       title,
       imageUrl: image,
-      subtitle: subtitleParts.length ? subtitleParts.join(' · ') : null,
-      year,
       description,
-      // EXACTLY the Anime table columns (+ externalId + title).
-      fields: {
-        externalId: id,
-        title,
-        imageUrl: image,
-        description,
-        year,
-        episodes,
-        malScore,
-        studio,
-      },
-    };
-  });
+      year,
+      episodes,
+      malScore,
+      studio,
+      ...aniListDetails(a, 'ANIME'),
+    },
+  };
+}
+
+/** One manga search hit → a NormalizedResult (fields = Manga columns). */
+export function mapManga(m: AniListMedia): NormalizedResult {
+  const title = m.title?.english || m.title?.romaji || 'Untitled';
+  const image = m.coverImage?.large ?? m.coverImage?.medium ?? null;
+  const year = m.startDate?.year ?? null;
+  const chapters = m.chapters ?? null;
+  const volumes = m.volumes ?? null;
+  const malScore = toMalScale(m.averageScore);
+  const description = cleanDescription(m.description);
+
+  const subtitleParts: string[] = [];
+  if (year) subtitleParts.push(String(year));
+  if (volumes) subtitleParts.push(`${volumes} vol`);
+  if (chapters) subtitleParts.push(`${chapters} ch`);
+
+  const id = externalId(m);
+
+  return {
+    externalId: id,
+    title,
+    imageUrl: image,
+    subtitle: subtitleParts.length ? subtitleParts.join(' · ') : null,
+    year,
+    description,
+    // EXACTLY the Manga table columns (+ externalId + title).
+    fields: {
+      externalId: id,
+      title,
+      imageUrl: image,
+      description,
+      year,
+      chapters,
+      volumes,
+      malScore,
+      ...aniListDetails(m, 'MANGA'),
+    },
+  };
+}
+
+export async function searchAnime(query: string): Promise<NormalizedResult[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const media = await anilistQuery(ANIME_QUERY, { q }, 'AniList anime search');
+  return media.map(mapAnime);
 }
 
 export async function searchManga(query: string): Promise<NormalizedResult[]> {
   const q = query.trim();
   if (!q) return [];
-
   const media = await anilistQuery(MANGA_QUERY, { q }, 'AniList manga search');
+  return media.map(mapManga);
+}
 
-  return media.map((m): NormalizedResult => {
-    const title = m.title?.english || m.title?.romaji || 'Untitled';
-    const image = m.coverImage?.large ?? m.coverImage?.medium ?? null;
-    const year = m.startDate?.year ?? null;
-    const chapters = m.chapters ?? null;
-    const volumes = m.volumes ?? null;
-    const malScore = toMalScale(m.averageScore);
-    const description = cleanDescription(m.description);
+/** AniList's page size: one request per 50 ids. */
+const DETAILS_BATCH = 50;
 
-    const subtitleParts: string[] = [];
-    if (year) subtitleParts.push(String(year));
-    if (volumes) subtitleParts.push(`${volumes} vol`);
-    if (chapters) subtitleParts.push(`${chapters} ch`);
+/**
+ * Details for many stored anime or manga at once (the metadata job), keyed by
+ * our externalId: MAL ids are looked up with `idMal_in`, `al-123` ids with
+ * `id_in`, 50 per request through `anilistQuery` (rate-limit aware). The patch
+ * also refreshes the episode / chapter / volume counts when AniList has them.
+ * Ids AniList doesn't know are simply missing from the map. Throws when a
+ * request fails, so the caller can retry those rows another night.
+ */
+export async function fetchAniListDetails(
+  type: 'ANIME' | 'MANGA',
+  externalIds: string[],
+): Promise<Map<string, Record<string, unknown>>> {
+  const fields = type === 'ANIME' ? ANIME_FIELDS : MANGA_FIELDS;
+  const byMal = `query ($ids: [Int], $type: MediaType) {
+    Page(perPage: ${DETAILS_BATCH}) { media(idMal_in: $ids, type: $type) { ${fields} } } }`;
+  const byId = `query ($ids: [Int], $type: MediaType) {
+    Page(perPage: ${DETAILS_BATCH}) { media(id_in: $ids, type: $type) { ${fields} } } }`;
 
-    const id = externalId(m);
+  const mal: number[] = [];
+  const al: number[] = [];
+  for (const id of externalIds) {
+    const n = Number(id.startsWith('al-') ? id.slice(3) : id);
+    if (!Number.isInteger(n) || n <= 0) continue;
+    (id.startsWith('al-') ? al : mal).push(n);
+  }
 
-    return {
-      externalId: id,
-      title,
-      imageUrl: image,
-      subtitle: subtitleParts.length ? subtitleParts.join(' · ') : null,
-      year,
-      description,
-      // EXACTLY the Manga table columns (+ externalId + title).
-      fields: {
-        externalId: id,
-        title,
-        imageUrl: image,
-        description,
-        year,
-        chapters,
-        volumes,
-        malScore,
-      },
-    };
-  });
+  const out = new Map<string, Record<string, unknown>>();
+  const run = async (query: string, ids: number[]) => {
+    for (let i = 0; i < ids.length; i += DETAILS_BATCH) {
+      const media = await anilistQuery(query, { ids: ids.slice(i, i + DETAILS_BATCH), type }, 'AniList details');
+      for (const m of media) out.set(externalId(m), aniListPatch(m, type));
+    }
+  };
+  await run(byMal, mal);
+  await run(byId, al);
+  return out;
+}
+
+/** The metadata-job patch for one AniList entry (details + fresh counts). */
+export function aniListPatch(m: AniListMedia, type: 'ANIME' | 'MANGA'): Record<string, unknown> {
+  const patch = aniListDetails(m, type);
+  const year = m.seasonYear ?? m.startDate?.year ?? null;
+  if (year) patch.year = year;
+  if (type === 'ANIME' && m.episodes) patch.episodes = m.episodes;
+  if (type === 'MANGA' && m.chapters) patch.chapters = m.chapters;
+  if (type === 'MANGA' && m.volumes) patch.volumes = m.volumes;
+  return patch;
 }

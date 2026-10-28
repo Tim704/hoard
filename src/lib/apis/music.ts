@@ -1,11 +1,19 @@
 // ───────────────────────────────────────────────────────────────────────────
 //  Last.fm provider — music albums. Requires LASTFM_API_KEY.
-//  Server-only. fetch with { cache: 'no-store' }.
+//  Server-only. Every call goes through providerFetch (no-store, 8 s timeout).
+//  Genres (spec F2) are the album's top 3 usable tags from album.getInfo.
 // ───────────────────────────────────────────────────────────────────────────
 
+import { genresFromTags } from '@/lib/genres';
 import type { NormalizedResult } from '@/lib/types';
 
+import { providerFetch } from './http';
+
 const LASTFM_BASE = 'https://ws.audioscrobbler.com/2.0/';
+
+export function lastfmConfigured(): boolean {
+  return Boolean(process.env.LASTFM_API_KEY);
+}
 
 /** Read & validate the API key, throwing a hard error when absent. */
 function requireKey(): string {
@@ -51,7 +59,7 @@ export async function searchAlbums(query: string): Promise<NormalizedResult[]> {
   const url =
     `${LASTFM_BASE}?method=album.search&album=${encodeURIComponent(q)}` +
     `&api_key=${key}&format=json&limit=20`;
-  const res = await fetch(url, { cache: 'no-store' });
+  const res = await providerFetch(url);
   if (!res.ok) throw new Error(`Last.fm album search failed (${res.status})`);
 
   const json = (await res.json()) as LastfmResponse;
@@ -81,4 +89,50 @@ export async function searchAlbums(query: string): Promise<NormalizedResult[]> {
       },
     };
   });
+}
+
+/** Last.fm returns a single object instead of a one-element array, and "" for none. */
+function asArray<T>(v: T | T[] | '' | null | undefined): T[] {
+  if (!v) return [];
+  return Array.isArray(v) ? v : [v];
+}
+
+export interface LastfmAlbumInfoJson {
+  error?: number;
+  message?: string;
+  album?: {
+    tags?: { tag?: { name?: string } | Array<{ name?: string }> } | '' | null;
+    tracks?: { track?: unknown | unknown[] } | '' | null;
+  } | null;
+}
+
+export interface AlbumDetails {
+  genres: string[];
+  trackCount: number | null;
+}
+
+/** album.getInfo JSON → genres (top 3 tags) and the track count. Null on an API error. */
+export function mapAlbumInfo(json: LastfmAlbumInfoJson): AlbumDetails | null {
+  if (json.error || !json.album) return null;
+  const tags = json.album.tags ? asArray(json.album.tags.tag) : [];
+  const tracks = json.album.tracks ? asArray(json.album.tracks.track) : [];
+  return { genres: genresFromTags(tags), trackCount: tracks.length || null };
+}
+
+/**
+ * Fetch an album's tags (and track count) by artist + album name, the pair
+ * every stored album has. Null when Last.fm doesn't know it.
+ */
+export async function fetchAlbumDetails(artist: string | null, album: string): Promise<AlbumDetails | null> {
+  if (!artist || !album) return null;
+  const key = requireKey();
+  const url =
+    `${LASTFM_BASE}?method=album.getinfo&artist=${encodeURIComponent(artist)}` +
+    `&album=${encodeURIComponent(album)}&autocorrect=1&api_key=${key}&format=json`;
+  const res = await providerFetch(url);
+  // Unknown albums come back as a JSON error (code 6), sometimes with a 4xx.
+  if (!res.ok && res.status !== 400 && res.status !== 404) {
+    throw new Error(`Last.fm album info failed (${res.status})`);
+  }
+  return mapAlbumInfo((await res.json()) as LastfmAlbumInfoJson);
 }

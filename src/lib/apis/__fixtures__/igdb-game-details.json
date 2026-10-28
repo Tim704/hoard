@@ -1,0 +1,15 @@
+[
+  {
+    "id": 119133,
+    "first_release_date": 1645747200,
+    "genres": [
+      { "id": 12, "name": "Role-playing (RPG)" },
+      { "id": 31, "name": "Adventure" }
+    ],
+    "external_games": [
+      { "id": 2219711, "uid": "B09MXL6CC3", "url": null, "external_game_source": { "id": 20, "name": "Amazon ASIN" } },
+      { "id": 2052347, "uid": "1245620", "url": "https://store.steampowered.com/app/1245620", "external_game_source": { "id": 1, "name": "Steam" } },
+      { "id": 2219699, "uid": "16540", "url": null, "external_game_source": { "id": 26, "name": "Epic Games Store" } }
+    ]
+  }
+]

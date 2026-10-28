@@ -1,0 +1,36 @@
+{
+  "data": {
+    "Page": {
+      "media": [
+        {
+          "id": 154587,
+          "idMal": 52991,
+          "title": { "romaji": "Sousou no Frieren", "english": "Frieren: Beyond Journey’s End", "native": "葬送のフリーレン" },
+          "coverImage": { "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx154587-n1fmjRv4JQUd.jpg", "medium": null },
+          "description": "The adventure is over but life goes on for an elf mage just beginning to learn what living is all about.<br><br>",
+          "seasonYear": 2023,
+          "startDate": { "year": 2023, "month": 9, "day": 29 },
+          "episodes": 28,
+          "averageScore": 90,
+          "genres": ["Adventure", "Drama", "Fantasy"],
+          "nextAiringEpisode": null,
+          "studios": { "nodes": [{ "name": "MADHOUSE" }] }
+        },
+        {
+          "id": 200001,
+          "idMal": null,
+          "title": { "romaji": "Mada Mikan no Anime", "english": null, "native": "まだ未完のアニメ" },
+          "coverImage": null,
+          "description": null,
+          "seasonYear": null,
+          "startDate": { "year": 2027, "month": 1, "day": null },
+          "episodes": null,
+          "averageScore": null,
+          "genres": [],
+          "nextAiringEpisode": { "airingAt": 1798761600, "episode": 1 },
+          "studios": { "nodes": [] }
+        }
+      ]
+    }
+  }
+}

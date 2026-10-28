@@ -1,0 +1,30 @@
+{
+  "backdrop_path": "/2OMB0ynKlyIenMJWI2Dy9IWT4c.jpg",
+  "created_by": [
+    { "id": 9813, "credit_id": "5256c8c219c2956ff604858a", "name": "David Benioff", "gender": 2, "profile_path": "/xvNN5huL0X8yJ7h3IZfGG4O2zBD.jpg" },
+    { "id": 228068, "credit_id": "552e611e9251413fea000901", "name": "D.B. Weiss", "gender": 2, "profile_path": "/2RMejaT793U9KRk2IEbFfteQntE.jpg" }
+  ],
+  "episode_run_time": [60],
+  "first_air_date": "2011-04-17",
+  "genres": [
+    { "id": 10765, "name": "Sci-Fi & Fantasy" },
+    { "id": 18, "name": "Drama" },
+    { "id": 10759, "name": "Action & Adventure" }
+  ],
+  "id": 1399,
+  "in_production": false,
+  "last_air_date": "2019-05-19",
+  "name": "Game of Thrones",
+  "next_episode_to_air": null,
+  "number_of_episodes": 73,
+  "number_of_seasons": 8,
+  "status": "Ended",
+  "credits": {
+    "cast": [
+      { "name": "Emilia Clarke", "order": 1 },
+      { "name": "Kit Harington", "order": 2 },
+      { "name": "Peter Dinklage", "order": 0 }
+    ],
+    "crew": []
+  }
+}

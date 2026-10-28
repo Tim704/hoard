@@ -1,0 +1,28 @@
+{
+  "album": {
+    "artist": "Cher",
+    "mbid": "63b3a8ca-26f2-4e2b-b867-647a6ec2bebd",
+    "tags": {
+      "tag": [
+        { "url": "https://www.last.fm/tag/pop", "name": "pop" },
+        { "url": "https://www.last.fm/tag/seen+live", "name": "seen live" },
+        { "url": "https://www.last.fm/tag/dance", "name": "dance" },
+        { "url": "https://www.last.fm/tag/1998", "name": "1998" },
+        { "url": "https://www.last.fm/tag/synth-pop", "name": "synth-pop" },
+        { "url": "https://www.last.fm/tag/electronic", "name": "electronic" }
+      ]
+    },
+    "name": "Believe",
+    "image": [{ "size": "small", "#text": "https://lastfm.freetls.fastly.net/i/u/34s/3b54885952161aaea4ce2965b2db1638.png" }],
+    "tracks": {
+      "track": [
+        { "name": "Believe", "duration": 239, "@attr": { "rank": 1 } },
+        { "name": "The Power", "duration": 236, "@attr": { "rank": 2 } },
+        { "name": "Runaway", "duration": 286, "@attr": { "rank": 3 } }
+      ]
+    },
+    "listeners": "601449",
+    "playcount": "5741924",
+    "url": "https://www.last.fm/music/Cher/Believe"
+  }
+}

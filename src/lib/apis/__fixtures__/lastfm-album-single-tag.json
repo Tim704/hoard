@@ -1,0 +1,8 @@
+{
+  "album": {
+    "artist": "Some Artist",
+    "name": "Quiet Record",
+    "tags": { "tag": { "url": "https://www.last.fm/tag/ambient", "name": "ambient" } },
+    "tracks": { "track": { "name": "Only Track", "duration": 600, "@attr": { "rank": 1 } } }
+  }
+}

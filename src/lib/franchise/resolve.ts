@@ -152,7 +152,7 @@ export async function resolveFranchise(
         return { key: info.key, name: info.name || media.title };
       }
       case 'movies': {
-        const { collection } = await fetchMovieDetails(media.externalId);
+        const collection = (await fetchMovieDetails(media.externalId))?.collection;
         return collection
           ? { key: `tmdb-col:${collection.id}`, name: collection.name.replace(/\s+Collection$/i, '') }
           : { key: null, name: media.title };

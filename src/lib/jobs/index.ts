@@ -5,10 +5,18 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import { runBackupWatch } from '@/lib/jobs/backup-watch';
+import { runMetadata } from '@/lib/jobs/metadata';
 import { runMigrations } from '@/lib/jobs/migration';
 import { registerJob, startScheduler } from '@/lib/jobs/scheduler';
 
 registerJob({ name: 'migration', at: 'startup', run: () => runMigrations() });
+registerJob({
+  name: 'metadata',
+  at: '03:30',
+  run: async () => {
+    await runMetadata();
+  },
+});
 registerJob({ name: 'backup-watch', at: '09:00', run: () => runBackupWatch() });
 
 export { runJob, registeredJobs } from '@/lib/jobs/scheduler';

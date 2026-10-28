@@ -1,0 +1,18 @@
+[
+  {
+    "id": 119133,
+    "cover": { "id": 112874, "image_id": "co2d7e" },
+    "first_release_date": 1645747200,
+    "genres": [
+      { "id": 12, "name": "Role-playing (RPG)" },
+      { "id": 31, "name": "Adventure" }
+    ],
+    "name": "Elden Ring",
+    "platforms": [
+      { "id": 6, "name": "PC (Microsoft Windows)" },
+      { "id": 167, "name": "PlayStation 5" }
+    ],
+    "rating": 94.6,
+    "summary": "Elden Ring is a fantasy, action and open world game."
+  }
+]
