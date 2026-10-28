@@ -1,2 +1,4 @@
 * text=auto eol=lf
 *.sh text eol=lf
+# Import fixtures pin CRLF line ends and BOMs on purpose: keep them byte-for-byte.
+src/lib/import/__fixtures__/*.csv -text
