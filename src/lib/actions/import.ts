@@ -50,7 +50,9 @@ const Status = z.enum(STATUSES);
 const Source = z.enum(IMPORT_SOURCES);
 const Rating = z.number().min(0).max(10);
 const Tags = z.array(z.string().trim().min(1).max(100)).max(50);
-const Id = z.string().max(64);
+/** Provider ids are plain numbers; ISBNs 10 or 13 characters of digits (X last). */
+const Id = z.string().regex(/^\d{1,20}$/);
+const Isbn = z.string().regex(/^(\d{13}|\d{9}[\dX])$/);
 
 const DiaryEntry = z.object({
   date: Day,
@@ -67,11 +69,11 @@ const ImportRowSchema = z.object({
   author: z.string().max(300).optional(),
   ids: z.object({
     tmdb: Id.optional(),
-    imdb: Id.optional(),
+    imdb: z.string().regex(/^tt\d{1,12}$/).optional(),
     mal: Id.optional(),
     anilist: Id.optional(),
-    isbn: Id.optional(),
-    isbn10: Id.optional(),
+    isbn: Isbn.optional(),
+    isbn10: Isbn.optional(),
     igdb: Id.optional(),
     steam: Id.optional(),
   }),
@@ -85,6 +87,7 @@ const ImportRowSchema = z.object({
   tags: Tags.optional(),
   progress: z.number().int().min(0).max(1_000_000).optional(),
   notes: z.string().max(5000).optional(),
+  favourite: z.boolean().optional(),
   diary: z.array(DiaryEntry).max(1000).optional(),
 });
 
@@ -109,6 +112,7 @@ const CommitRowSchema = z.object({
   progress: z.number().int().min(0).max(1_000_000).nullable().optional(),
   tags: Tags.optional(),
   notes: z.string().max(5000).nullable().optional(),
+  favourite: z.boolean().optional(),
   rewatchCount: z.number().int().min(0).max(10_000).nullable().optional(),
   review: z.string().max(20_000).nullable().optional(),
   diary: z.array(DiaryEntry).max(1000).optional(),

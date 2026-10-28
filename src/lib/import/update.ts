@@ -3,13 +3,16 @@
 //  activity the user already has. Pure; src/lib/import/server.ts runs it in a
 //  transaction with the events.
 //
-//  Only what the row actually carries is applied: its status always (the
-//  review screen shows and lets you change it), a score / start / finish /
-//  progress only when the row has one, and tags are merged, never removed.
+//  Only what the row actually carries is applied, and nothing moves back:
+//  the status only when it is further along (Planned never replaces
+//  Completed), a score / start / finish / progress only when the row has one,
+//  tags merged and a favourite only ever switched on.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { eventsForUpdate, type EventInput } from '@/lib/events';
 import type { Status } from '@/lib/status';
+
+import { STATUS_RANK } from './rows';
 
 export interface ActivityNow {
   status: Status;
@@ -18,6 +21,7 @@ export interface ActivityNow {
   finishedAt: Date | null;
   progress: number | null;
   tags: string[];
+  favorite: boolean;
 }
 
 export interface ImportChange {
@@ -27,6 +31,7 @@ export interface ImportChange {
   finishedAt?: Date | null;
   progress?: number | null;
   tags?: string[];
+  favorite?: boolean;
 }
 
 export interface ImportUpdatePlan {
@@ -45,13 +50,14 @@ export function planImportUpdate(
   change: ImportChange,
 ): ImportUpdatePlan {
   const patch: Partial<ActivityNow> = {};
-  if (change.status !== now.status) patch.status = change.status;
+  if (STATUS_RANK[change.status] > STATUS_RANK[now.status]) patch.status = change.status;
   if (change.rating != null && change.rating !== now.rating) patch.rating = change.rating;
   if (change.startedAt && !sameTime(change.startedAt, now.startedAt)) patch.startedAt = change.startedAt;
   if (change.finishedAt && !sameTime(change.finishedAt, now.finishedAt)) patch.finishedAt = change.finishedAt;
   if (change.progress != null && change.progress !== now.progress) patch.progress = change.progress;
   const extra = (change.tags ?? []).filter((t) => !now.tags.includes(t));
   if (extra.length) patch.tags = [...now.tags, ...extra];
+  if (change.favorite && !now.favorite) patch.favorite = true;
 
   let queue: ImportUpdatePlan['queue'] = null;
   if (patch.status) {

@@ -3,7 +3,8 @@
 //  ratings.csv, diary.csv, reviews.csv and watchlist.csv files.
 //
 //    watchlist          → Planned
-//    watched / rated    → Completed, ratings (½–5 stars) × 2
+//    watched / rated    → Completed, ratings (½–5 stars) × 2, no finish day
+//                         (their Date is when the film was logged)
 //    diary / reviews    → Completed, one diary entry each (date, rating,
 //                         rewatch flag, review) for the diary (3.1)
 //
@@ -88,11 +89,9 @@ function rowFrom(kind: Kind, rec: Record<string, string>): ImportRow | null {
     }
     const review = text(rec.Review);
     if (review) row.review = review;
-  } else if (kind === 'watched') {
-    // The day it was marked watched — the best date when there is no diary.
-    const date = parseDay(rec.Date);
-    if (date) row.finishedOn = date;
   }
+  // watched.csv / ratings.csv / watchlist.csv "Date" is when the film was
+  // logged, not when it was watched: only a diary "Watched Date" is a finish.
   return row;
 }
 

@@ -55,6 +55,7 @@ export function parseHoardCsv(csv: string): ParseResult {
     if (startedOn) row.startedOn = startedOn;
     const finishedOn = parseDay(cell('finished'));
     if (finishedOn) row.finishedOn = finishedOn;
+    if (/^(yes|true|1)$/i.test(cell('favourite').trim())) row.favourite = true;
     const notes = text(cell('notes'));
     if (notes) row.notes = notes;
     rows.push(row);

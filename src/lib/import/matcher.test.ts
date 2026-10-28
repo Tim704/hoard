@@ -142,6 +142,16 @@ describe('matchRows', () => {
     expect(calls).toContain('anilist:ANIME:154587');
   });
 
+  it('AniList ids that are not numbers never reach the catalogue', async () => {
+    const { deps, calls } = fakeDeps({}, { catalogue: { 'manual:cx': stored('manual:cx', 'Theirs') } });
+    const [res] = await matchRows(
+      [{ ...base, source: 'anilist', category: 'anime', title: 'Theirs', ids: { anilist: '5', mal: 'manual:cx' } }],
+      deps,
+    );
+    expect(res.candidates.some((c) => c.externalId === 'manual:cx')).toBe(false);
+    expect(calls.find((c) => c.startsWith('catalogue:anime'))).toBe('catalogue:anime:al-5');
+  });
+
   it('Hoard CSV: externalId from the catalogue, else title search', async () => {
     const { deps, calls } = fakeDeps({}, { catalogue: { '603': stored('603', 'The Matrix', 1999) } });
     const [direct, gone] = await matchRows(
@@ -205,7 +215,7 @@ describe('matchRows', () => {
 
 describe('planImportUpdate', () => {
   const ids = { userId: 'u', activityId: 'a' };
-  const now = { status: 'PLANNED' as const, rating: null, startedAt: null, finishedAt: null, progress: null, tags: ['x'] };
+  const now = { status: 'PLANNED' as const, rating: null, startedAt: null, finishedAt: null, progress: null, tags: ['x'], favorite: false };
 
   it('applies what the row carries, merges tags, leaves Up next and records events', () => {
     const finished = new Date('2024-03-09T12:00:00Z');
@@ -219,11 +229,23 @@ describe('planImportUpdate', () => {
     ]);
   });
 
-  it('never clears: an unrated, undated row only changes the status', () => {
+  it('never clears or moves back: Planned over Completed keeps Completed and its score', () => {
     const current = { ...now, status: 'COMPLETED' as const, rating: 7, finishedAt: new Date('2020-01-01T00:00:00Z') };
     const plan = planImportUpdate(ids, current, { status: 'PLANNED', rating: null, finishedAt: null, tags: [] });
-    expect(plan.patch).toEqual({ status: 'PLANNED' });
-    expect(plan.queue).toBe('join');
+    expect(plan).toEqual({ patch: {}, queue: null, events: [] });
+  });
+
+  it('a backwards status still fills a missing score and turns a favourite on', () => {
+    const current = { ...now, status: 'COMPLETED' as const };
+    const plan = planImportUpdate(ids, current, { status: 'CONSUMING', rating: 6, favorite: true });
+    expect(plan.patch).toEqual({ rating: 6, favorite: true });
+    expect(plan.queue).toBeNull();
+    expect(plan.events.map((e) => e.kind)).toEqual(['score']);
+  });
+
+  it('Dropped moves on to Completed, Completed never back to Ongoing', () => {
+    expect(planImportUpdate(ids, { ...now, status: 'DROPPED' }, { status: 'COMPLETED' }).patch).toEqual({ status: 'COMPLETED' });
+    expect(planImportUpdate(ids, { ...now, status: 'COMPLETED' }, { status: 'CONSUMING' }).patch).toEqual({});
   });
 
   it('nothing to do → empty patch, no events', () => {

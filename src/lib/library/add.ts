@@ -30,6 +30,7 @@ export interface AddOptions {
   /** Free-form labels (4.2); imports store shelves / custom lists here. */
   tags?: string[];
   notes?: string | null;
+  favorite?: boolean;
   /** Skip franchise auto-grouping (bulk callers regroup once at the end). */
   skipFranchise?: boolean;
   eventKind?: 'added' | 'import';
@@ -114,6 +115,7 @@ export async function addMediaForUser(
         progress: opts.progress ?? null,
         tags: opts.tags ?? [],
         notes: opts.notes ?? null,
+        favorite: opts.favorite ?? false,
         startedAt: opts.startedAt ?? null,
         finishedAt:
           opts.finishedAt !== undefined

@@ -17,8 +17,11 @@ export interface ParseResult {
   warnings: string[];
 }
 
-/** How far along a status is; a merge keeps the furthest one. */
-const STATUS_RANK: Record<Status, number> = {
+/**
+ * How far along a status is: a merge keeps the furthest one, and "update
+ * existing" never moves a title back down (src/lib/import/update.ts).
+ */
+export const STATUS_RANK: Record<Status, number> = {
   PLANNED: 0,
   DROPPED: 1,
   ON_HOLD: 2,
@@ -65,6 +68,7 @@ export function mergeRows(a: ImportRow, b: ImportRow): ImportRow {
     progress: a.progress ?? b.progress,
     notes: a.notes ?? b.notes,
   };
+  if (a.favourite || b.favourite) merged.favourite = true;
   if (tags.length) merged.tags = tags;
   else delete merged.tags;
   if (diary.length) merged.diary = diary;

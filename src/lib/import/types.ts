@@ -67,6 +67,8 @@ export interface ImportRow {
   tags?: string[];
   progress?: number;
   notes?: string;
+  /** Hoard CSV: the favourite flag. */
+  favourite?: boolean;
   diary?: ImportDiaryEntry[];
 }
 
@@ -103,6 +105,7 @@ export interface CommitRow {
   progress?: number | null;
   tags?: string[];
   notes?: string | null;
+  favourite?: boolean;
   rewatchCount?: number | null;
   review?: string | null;
   diary?: ImportDiaryEntry[];

@@ -55,6 +55,7 @@ export function commitRowsFor(items: ReviewItem[]): CommitRow[] {
     if (r.progress != null) row.progress = r.progress;
     if (r.tags?.length) row.tags = r.tags;
     if (r.notes) row.notes = r.notes;
+    if (r.favourite) row.favourite = true;
     if (r.rewatchCount != null) row.rewatchCount = r.rewatchCount;
     if (r.review) row.review = r.review;
     if (r.diary?.length) row.diary = r.diary;
@@ -88,5 +89,56 @@ export function summarise(total: number, outcomes: CommitRowOutcome[]): ImportSu
 export function chunk<T>(list: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
+/**
+ * What matching needs from a row: everything but the long free text
+ * (review, diary, notes), so a chunk stays far below the 1 MB Server Action
+ * body limit. The full row is kept on the client for the commit.
+ */
+export function matchPayload(row: ImportRow): ImportRow {
+  const { review: _review, diary: _diary, notes: _notes, ...rest } = row;
+  return rest;
+}
+
+/** Keep each commit call's JSON body under this (Server Actions cap at 1 MB). */
+export const COMMIT_BYTES = 700_000;
+
+const bytes = (v: unknown) => new TextEncoder().encode(JSON.stringify(v)).length;
+
+/**
+ * Shrink one commit row that alone would exceed `maxBytes`: diary reviews
+ * are cut to 2,000 characters, then the oldest diary entries dropped, then
+ * the review cut. Rows that fit are returned unchanged.
+ */
+export function fitRow(row: CommitRow, maxBytes = COMMIT_BYTES): CommitRow {
+  if (bytes(row) <= maxBytes) return row;
+  let out: CommitRow = {
+    ...row,
+    diary: row.diary?.map((e) => (e.review && e.review.length > 2000 ? { ...e, review: e.review.slice(0, 2000) } : e)),
+  };
+  while (out.diary?.length && bytes(out) > maxBytes) out = { ...out, diary: out.diary.slice(Math.ceil(out.diary.length / 2)) };
+  if (bytes(out) > maxBytes && out.review) out = { ...out, review: out.review.slice(0, 2000) };
+  return out;
+}
+
+/** Commit chunks: at most `maxCount` rows and about `maxBytes` of JSON each. */
+export function chunkCommitRows(rows: CommitRow[], maxCount: number, maxBytes = COMMIT_BYTES): CommitRow[][] {
+  const out: CommitRow[][] = [];
+  let current: CommitRow[] = [];
+  let size = 2;
+  for (const raw of rows) {
+    const row = fitRow(raw, maxBytes);
+    const b = bytes(row) + 1;
+    if (current.length && (current.length >= maxCount || size + b > maxBytes)) {
+      out.push(current);
+      current = [];
+      size = 2;
+    }
+    current.push(row);
+    size += b;
+  }
+  if (current.length) out.push(current);
   return out;
 }

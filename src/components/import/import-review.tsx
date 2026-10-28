@@ -25,7 +25,9 @@ import {
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import {
   chunk,
+  chunkCommitRows,
   commitRowsFor,
+  matchPayload,
   matchedItem,
   pendingItem,
   pickedInLibrary,
@@ -34,7 +36,11 @@ import {
   type ReviewItem,
 } from '@/lib/import/review';
 import { matchKey } from '@/lib/import/match';
-import { COMMIT_CHUNK, MATCH_CHUNK, type CommitRowOutcome, type ImportRow, type MatchConfidence } from '@/lib/import/types';
+import {
+  COMMIT_CHUNK,
+  MATCH_CHUNK,
+  type CommitRow,
+  type CommitRowOutcome, type ImportRow, type MatchConfidence } from '@/lib/import/types';
 import { formatRating, parseRatingInput } from '@/lib/rating';
 import { STATUSES, statusLabel, type Status } from '@/lib/status';
 import type { NormalizedResult } from '@/lib/types';
@@ -53,7 +59,13 @@ type Phase =
   | { kind: 'review' }
   | { kind: 'importing'; done: number; total: number }
   | { kind: 'grouping'; done: number; total: number }
-  | { kind: 'finished'; summary: ImportSummary };
+  | { kind: 'finished'; summary: ImportSummary; failed: FailedRow[] };
+
+/** A committed row that failed, kept for "Retry failed". */
+interface FailedRow {
+  row: CommitRow;
+  error: string;
+}
 
 type Filter = 'all' | 'check' | 'library';
 
@@ -74,17 +86,25 @@ export function ImportReview({ rows, onDone }: ImportReviewProps) {
   const [filter, setFilter] = useState<Filter>('all');
   const [page, setPage] = useState(0);
   const stopRef = useRef(false);
+  /** True while a commit runs (a double click must not start a second one). */
+  const runningRef = useRef(false);
+  /** Every outcome so far that didn't fail, across retries. */
+  const settledRef = useRef<CommitRowOutcome[]>([]);
 
   // Match every row, MATCH_CHUNK at a time, strictly one call after another.
   useEffect(() => {
     let cancelled = false;
     stopRef.current = false;
+    // New rows (a reuser passing another list): start over.
+    setItems(rows.map(pendingItem));
+    setPhase({ kind: 'matching', done: 0 });
+    settledRef.current = [];
     (async () => {
       const parts = chunk(rows.map((_, i) => i), MATCH_CHUNK);
       let done = 0;
       for (const part of parts) {
         if (cancelled || stopRef.current) break;
-        const res = await matchImportRows(part.map((i) => rows[i])).catch(() => null);
+        const res = await matchImportRows(part.map((i) => matchPayload(rows[i]))).catch(() => null);
         if (cancelled) return;
         setItems((prev) => {
           const next = [...prev];
@@ -113,6 +133,20 @@ export function ImportReview({ rows, onDone }: ImportReviewProps) {
       cancelled = true;
     };
   }, [rows]);
+
+  const busy = phase.kind === 'importing' || phase.kind === 'grouping';
+  const matching = phase.kind === 'matching';
+
+  // Leaving mid-way would drop the unsaved rows: ask first.
+  useEffect(() => {
+    if (!busy && !matching) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [busy, matching]);
 
   const update = useCallback((index: number, patch: Partial<ReviewItem>) => {
     setItems((prev) => prev.map((it, i) => (i === index ? { ...it, ...patch } : it)));
@@ -145,40 +179,63 @@ export function ImportReview({ rows, onDone }: ImportReviewProps) {
   const setAll = (include: boolean) =>
     setItems((prev) => prev.map((it) => ({ ...it, include: include && it.chosen >= 0 })));
 
-  async function runImport() {
-    const payload = toImport;
-    if (payload.length === 0) return;
-    const outcomes: CommitRowOutcome[] = [];
-    setPhase({ kind: 'importing', done: 0, total: payload.length });
-    for (const part of chunk(payload, COMMIT_CHUNK)) {
-      const res = await commitImportRows(part, { updateExisting }).catch(() => null);
-      if (res?.ok && res.outcomes) outcomes.push(...res.outcomes);
-      else outcomes.push(...part.map(() => ({ outcome: 'failed' as const, error: res?.error ?? 'Import failed.' })));
-      setPhase({ kind: 'importing', done: outcomes.length, total: payload.length });
-    }
+  /**
+   * Commit `payload` (size- and count-limited chunks, one call after another),
+   * group the new titles' franchises, then show the tally. A retry passes only
+   * the rows that failed; earlier outcomes are kept in `settledRef`.
+   */
+  async function runImport(payload: CommitRow[]) {
+    if (runningRef.current || payload.length === 0) return;
+    runningRef.current = true;
+    try {
+      const outcomes: CommitRowOutcome[] = [];
+      setPhase({ kind: 'importing', done: 0, total: payload.length });
+      for (const part of chunkCommitRows(payload, COMMIT_CHUNK)) {
+        const res = await commitImportRows(part, { updateExisting }).catch(() => null);
+        if (res?.ok && res.outcomes?.length === part.length) outcomes.push(...res.outcomes);
+        else outcomes.push(...part.map(() => ({ outcome: 'failed' as const, error: res?.error ?? 'Import failed.' })));
+        setPhase({ kind: 'importing', done: outcomes.length, total: payload.length });
+      }
 
-    // Franchise grouping once, for the titles that are new.
-    const added = outcomes.filter((o) => o.outcome === 'added' && o.activityId).map((o) => o.activityId!);
-    let grouped = 0;
-    setPhase({ kind: 'grouping', done: 0, total: added.length });
-    for (const part of chunk(added, GROUP_CHUNK)) {
-      await groupImportedFranchises(part).catch(() => null);
-      grouped += part.length;
-      setPhase({ kind: 'grouping', done: grouped, total: added.length });
-    }
-    await finishImport().catch(() => null);
+      // Franchise grouping once, for the titles that are new.
+      const added = outcomes.filter((o) => o.outcome === 'added' && o.activityId).map((o) => o.activityId!);
+      let grouped = 0;
+      setPhase({ kind: 'grouping', done: 0, total: added.length });
+      for (const part of chunk(added, GROUP_CHUNK)) {
+        await groupImportedFranchises(part).catch(() => null);
+        grouped += part.length;
+        setPhase({ kind: 'grouping', done: grouped, total: added.length });
+      }
+      await finishImport().catch(() => null);
 
-    const summary = summarise(items.length, outcomes);
-    setPhase({ kind: 'finished', summary });
-    if (summary.failed > 0) toast.error(`${summary.failed} title${summary.failed === 1 ? '' : 's'} could not be imported.`);
-    else toast.success(`Imported ${summary.added + summary.updated} title${summary.added + summary.updated === 1 ? '' : 's'}.`);
-    onDone?.(summary);
+      const failed: FailedRow[] = [];
+      outcomes.forEach((o, i) => {
+        if (o.outcome === 'failed') failed.push({ row: payload[i], error: o.error ?? 'Import failed.' });
+        else settledRef.current.push(o);
+      });
+      const summary = summarise(items.length, [
+        ...settledRef.current,
+        ...failed.map(() => ({ outcome: 'failed' as const })),
+      ]);
+      setPhase({ kind: 'finished', summary, failed });
+      if (failed.length > 0) toast.error(`${failed.length} title${failed.length === 1 ? '' : 's'} could not be imported.`);
+      else toast.success(`Imported ${summary.added + summary.updated} title${summary.added + summary.updated === 1 ? '' : 's'}.`);
+      onDone?.(summary);
+    } finally {
+      runningRef.current = false;
+    }
   }
 
-  if (phase.kind === 'finished') return <FinishedCard summary={phase.summary} rows={items} />;
-
-  const busy = phase.kind === 'importing' || phase.kind === 'grouping';
-  const matching = phase.kind === 'matching';
+  if (phase.kind === 'finished') {
+    return (
+      <FinishedCard
+        summary={phase.summary}
+        failed={phase.failed}
+        rows={items}
+        onRetry={() => void runImport(phase.failed.map((f) => f.row))}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -241,7 +298,7 @@ export function ImportReview({ rows, onDone }: ImportReviewProps) {
         </label>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" disabled={busy || matching || toImport.length === 0} onClick={() => void runImport()}>
+          <Button type="button" disabled={busy || matching || toImport.length === 0} onClick={() => void runImport(toImport)}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
             Import {toImport.length}
           </Button>
@@ -516,7 +573,17 @@ function StatusSelect({
   );
 }
 
-function FinishedCard({ summary, rows }: { summary: ImportSummary; rows: ReviewItem[] }) {
+function FinishedCard({
+  summary,
+  failed,
+  rows,
+  onRetry,
+}: {
+  summary: ImportSummary;
+  failed: FailedRow[];
+  rows: ReviewItem[];
+  onRetry: () => void;
+}) {
   const sections = [...new Set(rows.map((r) => r.row.category))];
   return (
     <div className="space-y-3 rounded-lg border border-border bg-card p-4">
@@ -531,6 +598,22 @@ function FinishedCard({ summary, rows }: { summary: ImportSummary; rows: ReviewI
         {summary.skipped > 0 && <li>{summary.skipped} skipped</li>}
         {summary.failed > 0 && <li className="text-destructive">{summary.failed} could not be imported</li>}
       </ul>
+      {failed.length > 0 && (
+        <div className="space-y-2 rounded-md border border-destructive/40 p-3">
+          <ul className="max-h-60 space-y-1 overflow-y-auto text-sm" aria-label="Titles that could not be imported">
+            {failed.map((f, i) => (
+              <li key={i} className="break-words">
+                <span className="font-medium">{f.row.result.title}</span>
+                {f.row.result.year != null && <span className="text-muted-foreground"> ({f.row.result.year})</span>}
+                <span className="text-muted-foreground"> — {f.error}</span>
+              </li>
+            ))}
+          </ul>
+          <Button type="button" size="sm" variant="outline" onClick={onRetry}>
+            Retry failed ({failed.length})
+          </Button>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         {sections.map((s) => (
           <Button key={s} asChild size="sm" variant="outline">

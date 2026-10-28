@@ -44,10 +44,12 @@ describe('Hoard CSV', () => {
       finishedOn: '2023-01-04',
       notes: 'Loved it, twice.',
       externalId: '496243',
+      favourite: true,
     });
     const bebop = rows.find((r) => r.title === 'Cowboy Bebop')!;
     expect(bebop).toMatchObject({ rating: 0, progress: 12, startedOn: '2024-05-01', notes: 'multi\r\nline note' });
     expect(bebop.finishedOn).toBeUndefined();
+    expect(bebop.favourite).toBeUndefined();
   });
 
   it('collapses a duplicated row', () => {
@@ -162,7 +164,8 @@ describe('Letterboxd', () => {
     const heat = rows.find((r) => r.title === 'Heat')!;
     expect(heat.status).toBe('COMPLETED');
     expect(heat.rating).toBeUndefined();
-    expect(heat.finishedOn).toBe('2023-02-03');
+    expect(heat.finishedOn).toBe('2023-02-02'); // the diary's Watched Date, not watched.csv's logging Date
+    expect(rows.find((r) => r.title.startsWith('Crouching'))!.finishedOn).toBeUndefined();
     const perfect = rows.filter((r) => r.title === 'Perfect Days');
     expect(perfect).toHaveLength(1);
     expect(perfect[0]).toMatchObject({ status: 'PLANNED', year: 2023 });

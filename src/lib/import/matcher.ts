@@ -116,17 +116,24 @@ export async function matchRows(rows: ImportRow[], deps: MatchDeps): Promise<Row
 
   // 3. AniList rows: the catalogue by MAL id, then by al- id, then AniList itself.
   for (const slug of ['anime', 'manga'] as const) {
-    const idx = rows.map((r, i) => i).filter((i) => !found[i] && rows[i].category === slug && rows[i].ids.anilist);
+    // Only numeric ids: a forged "manual:…" / "demo-…" key must never reach
+    // someone's hand-made or demo row through the catalogue lookup.
+    const numeric = (v: string | undefined) => (v && /^\d+$/.test(v) ? v : undefined);
+    const idx = rows
+      .map((r, i) => i)
+      .filter((i) => !found[i] && rows[i].category === slug && numeric(rows[i].ids.anilist));
     if (idx.length === 0) continue;
     const keys = idx.flatMap((i) => {
       const r = rows[i];
-      return [...(r.ids.mal ? [r.ids.mal] : []), `al-${r.ids.anilist}`];
+      const mal = numeric(r.ids.mal);
+      return [...(mal ? [mal] : []), `al-${r.ids.anilist}`];
     });
     const cat = await deps.catalogue(slug, keys);
     const missing: number[] = [];
     for (const i of idx) {
       const r = rows[i];
-      const hit = (r.ids.mal && cat.get(r.ids.mal)) || cat.get(`al-${r.ids.anilist}`);
+      const mal = numeric(r.ids.mal);
+      const hit = (mal && cat.get(mal)) || cat.get(`al-${r.ids.anilist}`);
       if (hit) found[i] = { hits: [hit], idMatch: 0 };
       else missing.push(i);
     }

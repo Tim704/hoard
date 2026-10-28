@@ -141,6 +141,7 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
       progress: row.progress ?? null,
       tags: row.tags ?? [],
       notes: row.notes ?? null,
+      favorite: row.favourite === true,
       skipFranchise: true,
       eventKind: 'import',
       eventMeta: meta,
@@ -173,6 +174,7 @@ async function updateExisting(userId: string, activityId: string, row: CommitRow
         finishedAt: a.finishedAt,
         progress: a.progress,
         tags: a.tags ?? [],
+        favorite: a.favorite,
       },
       {
         status: row.status,
@@ -181,6 +183,7 @@ async function updateExisting(userId: string, activityId: string, row: CommitRow
         finishedAt: day(row.finishedOn),
         progress: row.progress ?? null,
         tags: row.tags ?? [],
+        favorite: row.favourite === true,
       },
     );
     if (Object.keys(plan.patch).length === 0) return false;
