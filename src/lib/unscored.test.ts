@@ -20,4 +20,14 @@ describe('unscoredFinished', () => {
   it('is empty when everything is scored', () => {
     expect(unscoredFinished([make({ id: 'a', rating: 5 })])).toEqual([]);
   });
+
+  it('includes games played 10 h or more on Steam, finished or not (8.1)', () => {
+    const list = [
+      make({ id: 'long', category: 'games', status: 'CONSUMING', playtimeMinutes: 600, updatedAt: '2026-10-05T00:00:00.000Z' }),
+      make({ id: 'short', category: 'games', status: 'CONSUMING', playtimeMinutes: 599 }),
+      make({ id: 'scored', category: 'games', status: 'CONSUMING', playtimeMinutes: 6000, rating: 8 }),
+      make({ id: 'not-a-game', category: 'anime', status: 'CONSUMING', playtimeMinutes: 6000 }),
+    ];
+    expect(unscoredFinished(list).map((a) => a.id)).toEqual(['long']);
+  });
 });

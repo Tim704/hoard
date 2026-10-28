@@ -21,6 +21,8 @@ export const IMPORT_SOURCES = [
   'generic',
   'ai',
   'franchise',
+  'steam',
+  'anilist-sync',
 ] as const;
 export type ImportSource = (typeof IMPORT_SOURCES)[number];
 
@@ -81,6 +83,8 @@ export interface ImportRow {
   /** Hoard CSV: the favourite flag. */
   favourite?: boolean;
   diary?: ImportDiaryEntry[];
+  /** Steam (8.1): minutes played, stored on the activity. */
+  playtimeMinutes?: number;
 }
 
 export type MatchConfidence = 'high' | 'medium' | 'low' | 'none';
@@ -120,6 +124,9 @@ export interface CommitRow {
   rewatchCount?: number | null;
   review?: string | null;
   diary?: ImportDiaryEntry[];
+  /** Steam (8.1): minutes played, and the app id for the game's catalogue row. */
+  playtimeMinutes?: number | null;
+  steamAppId?: number | null;
 }
 
 export interface CommitRowOutcome {

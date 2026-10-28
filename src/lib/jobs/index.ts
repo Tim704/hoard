@@ -4,11 +4,14 @@
 //  triggers jobs. Times are in the server's TZ (default Europe/Berlin).
 // ───────────────────────────────────────────────────────────────────────────
 
+import { runAniListSync } from '@/lib/anilist-sync-server';
 import { runBackupWatch } from '@/lib/jobs/backup-watch';
+import { runLastfm } from '@/lib/jobs/lastfm';
 import { runMetadata } from '@/lib/jobs/metadata';
 import { runMigrations } from '@/lib/jobs/migration';
 import { runAiring, runNewSeasons } from '@/lib/jobs/new-seasons';
 import { runReleases } from '@/lib/jobs/releases';
+import { runSteam } from '@/lib/jobs/steam';
 import { registerJob, startScheduler } from '@/lib/jobs/scheduler';
 import { runTasteProfiles } from '@/lib/jobs/taste-profile';
 import { JOB_TIMES, TASTE_PROFILE_WEEKDAY } from '@/lib/jobs/times';
@@ -33,6 +36,27 @@ registerJob({
   at: JOB_TIMES.releases,
   run: async () => {
     await runReleases();
+  },
+});
+registerJob({
+  name: 'steam',
+  at: JOB_TIMES.steam,
+  run: async () => {
+    await runSteam();
+  },
+});
+registerJob({
+  name: 'lastfm',
+  at: JOB_TIMES.lastfm,
+  run: async () => {
+    await runLastfm();
+  },
+});
+registerJob({
+  name: 'anilist-sync',
+  at: JOB_TIMES['anilist-sync'],
+  run: async () => {
+    await runAniListSync();
   },
 });
 registerJob({ name: 'airing', at: JOB_TIMES.airing, run: () => runAiring() });

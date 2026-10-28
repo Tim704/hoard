@@ -19,7 +19,6 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import { prisma } from '@/lib/prisma';
-import { anilistGraphql } from '@/lib/apis/anilist';
 import { isLookupSkipped } from '@/lib/apis/details';
 import { providerFetch } from '@/lib/apis/http';
 import { getPrefs } from '@/lib/data-prefs';
@@ -29,12 +28,8 @@ import { resolveMediaRow } from '@/lib/franchise/auto';
 import { syncUserFranchises } from '@/lib/franchise/sync';
 import { matchRows } from '@/lib/import/matcher';
 import { commitRow, serverMatchDeps } from '@/lib/import/server';
-import {
-  ANILIST_COLLECTION_QUERY,
-  mapAniListCollection,
-  validAniListUser,
-  type AniListCollection,
-} from '@/lib/import/sources/anilist';
+import { readAniListLists } from '@/lib/import/anilist-fetch';
+import { mapAniListCollection, validAniListUser } from '@/lib/import/sources/anilist';
 import {
   mapTraktData,
   TRAKT_API,
@@ -102,6 +97,7 @@ const ImportRowSchema = z.object({
   notes: z.string().max(5000).optional(),
   favourite: z.boolean().optional(),
   diary: z.array(DiaryEntry).max(1000).optional(),
+  playtimeMinutes: z.number().int().min(0).max(10_000_000).optional(),
 });
 
 const ResultSchema = z.object({
@@ -129,12 +125,11 @@ const CommitRowSchema = z.object({
   rewatchCount: z.number().int().min(0).max(10_000).nullable().optional(),
   review: z.string().max(20_000).nullable().optional(),
   diary: z.array(DiaryEntry).max(1000).optional(),
+  playtimeMinutes: z.number().int().min(0).max(10_000_000).nullable().optional(),
+  steamAppId: z.number().int().min(1).max(4_294_967_295).nullable().optional(),
 });
 
 const fail = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
-
-/** Most AniList chunks (500 entries each) read per list type. */
-const MAX_ANILIST_CHUNKS = 10;
 
 /**
  * Read a public AniList profile's anime and manga lists into import rows.
@@ -148,27 +143,12 @@ export async function fetchAniListRows(
     const user = typeof username === 'string' ? username.trim() : '';
     if (!validAniListUser(user)) return { ok: false, error: 'That is not an AniList username.' };
 
+    const read = await readAniListLists(user);
+    if (!read.ok) return { ok: false, error: read.error };
     const rows: ImportRow[] = [];
     let skipped = 0;
     for (const type of ['ANIME', 'MANGA'] as const) {
-      const chunks: AniListCollection[] = [];
-      for (let chunk = 1; chunk <= MAX_ANILIST_CHUNKS; chunk++) {
-        const answer = await anilistGraphql<{ MediaListCollection: AniListCollection | null }>(
-          ANILIST_COLLECTION_QUERY,
-          { user, type, chunk },
-          'AniList list',
-        );
-        const message = answer.errors[0]?.message ?? '';
-        if (/not found/i.test(message)) return { ok: false, error: `No AniList user called "${user}".` };
-        if (/private/i.test(message)) {
-          return { ok: false, error: `${user}'s AniList profile is private. Make it public in AniList's settings, then try again.` };
-        }
-        const collection = answer.data?.MediaListCollection;
-        if (!collection) return { ok: false, error: message ? `AniList: ${message}` : 'AniList did not answer. Try again later.' };
-        chunks.push(collection);
-        if (!collection.hasNextChunk) break;
-      }
-      const mapped = mapAniListCollection(chunks, type);
+      const mapped = mapAniListCollection(read.lists[type], type);
       rows.push(...mapped.rows);
       skipped += mapped.skipped;
     }

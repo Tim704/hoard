@@ -76,6 +76,10 @@ export interface ActivityWithMedia {
   subScores: SubScores;
   /** 4.7: position inside the franchise in manual order; null = not placed. */
   franchiseOrder: number | null;
+  /** 8.1: minutes played on Steam (games); null/absent = not from Steam. */
+  playtimeMinutes?: number | null;
+  /** 8.3: Last.fm suggests "Mark as Listened?" (music). */
+  listenSuggested?: boolean;
   /** 5.5: the newest aired season the user hasn't seen ("New season"); TV only. */
   newSeason?: number | null;
   /** The franchise / IP this title is grouped under, if any. */

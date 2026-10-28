@@ -45,7 +45,7 @@ const timeZone = z
 const optionalText = z.string().trim().max(200).nullable();
 
 /** Notification kinds (src/lib/notify.ts). `test` is the Settings "Send test". */
-export const NOTIFY_KINDS = ['releases', 'new-seasons', 'backup', 'sync', 'list-shared'] as const;
+export const NOTIFY_KINDS = ['releases', 'new-seasons', 'backup', 'sync', 'list-shared', 'lastfm'] as const;
 export type NotifyKind = (typeof NOTIFY_KINDS)[number] | 'test';
 
 /**

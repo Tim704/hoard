@@ -12,6 +12,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import { prisma } from '@/lib/prisma';
+import { suggestedIds } from '@/lib/lastfm-suggest';
 import {
   getCategory,
   CATEGORY_LIST,
@@ -77,6 +78,7 @@ export function flattenActivity(
     rewatching: row.rewatching ?? false,
     subScores: parseSubScores(cat.slug, row.subScores),
     franchiseOrder: row.franchiseOrder ?? null,
+    playtimeMinutes: row.playtimeMinutes ?? null,
     franchise: (row.franchise as FranchiseRef | undefined) ?? null,
     franchiseLocked: row.franchiseLocked ?? false,
     createdAt: row.createdAt.toISOString(),
@@ -108,7 +110,19 @@ export async function getCategoryActivities(
     .map((row) => flattenActivity(row, cat))
     .filter((a): a is ActivityWithMedia => a !== null);
   if (slug === 'tv') await markNewSeasons(user.id, rows as any[], out);
+  if (slug === 'music') await markListenSuggestions(user.id, out);
   return out;
+}
+
+/** 8.3: flag the albums Last.fm suggests marking as listened. */
+async function markListenSuggestions(userId: string, out: ActivityWithMedia[]): Promise<void> {
+  const link = await prisma.externalLink.findUnique({
+    where: { userId_provider: { userId, provider: 'lastfm' } },
+    select: { data: true },
+  });
+  const ids = new Set(suggestedIds(link?.data));
+  if (!ids.size) return;
+  for (const a of out) if (ids.has(a.id) && a.status !== 'COMPLETED') a.listenSuggested = true;
 }
 
 /**

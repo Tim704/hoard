@@ -10,6 +10,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { enrichResult, searchProvider, type EnrichedResult } from '@/lib/apis';
 import { fetchAniListByIds, fetchAniListByMalIds } from '@/lib/apis/anilist';
+import { fetchGamesBySteamAppIds } from '@/lib/apis/igdb';
 import { searchBooksByIsbn, searchBooksByTitle } from '@/lib/apis/books';
 import { detailsConfigured, isLookupSkipped } from '@/lib/apis/details';
 import { searchMovies } from '@/lib/apis/tmdb';
@@ -90,6 +91,14 @@ export function serverMatchDeps(userId: string): MatchDeps {
     booksByTitle: searchBooksByTitle,
     aniListByIds: fetchAniListByIds,
     aniListByMalIds: fetchAniListByMalIds,
+    async steamGames(appIds) {
+      const out = new Map<number, NormalizedResult>();
+      const stored = await prisma.videoGame.findMany({ where: { steamAppId: { in: appIds } } });
+      for (const g of stored) if (g.steamAppId != null && !out.has(g.steamAppId)) out.set(g.steamAppId, rowToResult(g));
+      const missing = appIds.filter((id) => !out.has(id));
+      if (missing.length) for (const [app, hit] of await fetchGamesBySteamAppIds(missing)) out.set(app, hit);
+      return out;
+    },
     pause: sleep,
   };
 }
@@ -158,13 +167,36 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
       metaFetchedAt,
       seasons,
     });
+    // Steam (8.1): playtime and the app id are facts, not choices, so they
+    // are stored whether or not the rest of an existing title is updated.
+    const steamChanged = await applySteam(userId, activityId, row);
     if (!existing) return { outcome: 'added', activityId };
-    if (!opts.updateExisting) return { outcome: 'unchanged', activityId };
+    if (!opts.updateExisting) return { outcome: steamChanged ? 'updated' : 'unchanged', activityId };
     const changed = await updateExisting(userId, activityId, row);
-    return { outcome: changed ? 'updated' : 'unchanged', activityId };
+    return { outcome: changed || steamChanged ? 'updated' : 'unchanged', activityId };
   } catch (err) {
     return { outcome: 'failed', error: err instanceof Error ? err.message : 'Import failed.' };
   }
+}
+
+/**
+ * Store a Steam row's playtime on the activity, and its app id on the game's
+ * catalogue row when that has none yet (never overwriting IGDB's own). True
+ * when the playtime changed.
+ */
+async function applySteam(userId: string, activityId: string, row: CommitRow): Promise<boolean> {
+  if (row.category !== 'games' || (row.playtimeMinutes == null && row.steamAppId == null)) return false;
+  const a = await prisma.userMediaActivity.findUnique({
+    where: { id: activityId },
+    select: { userId: true, playtimeMinutes: true, videoGameId: true },
+  });
+  if (!a || a.userId !== userId) return false;
+  if (row.steamAppId != null && a.videoGameId) {
+    await prisma.videoGame.updateMany({ where: { id: a.videoGameId, steamAppId: null }, data: { steamAppId: row.steamAppId } });
+  }
+  if (row.playtimeMinutes == null || row.playtimeMinutes === a.playtimeMinutes) return false;
+  await prisma.userMediaActivity.update({ where: { id: activityId }, data: { playtimeMinutes: row.playtimeMinutes } });
+  return true;
 }
 
 /**

@@ -31,6 +31,7 @@ import { normalizeRating } from '@/lib/rating';
 import { requireUser } from '@/lib/session';
 import { searchProvider, enrichResult } from '@/lib/apis';
 import { appendQueueOrder, revalidateCategory } from '@/lib/actions/shared';
+import { queueAniListPush } from '@/lib/anilist-sync-server';
 import { eventsForUpdate, recordEvent, recordEvents } from '@/lib/events';
 import { validProgress } from '@/lib/progress';
 import { getPrefs } from '@/lib/data-prefs';
@@ -265,6 +266,8 @@ export async function updateActivity(
       await recordEvents(tx, events);
       return diaryPrefs ? applyDiaryForUpdate(tx, activity, diaryChange, diaryPrefs) : { diaryEntryId: undefined };
     });
+    // 8.2: after the commit, mirror a status or score change to AniList.
+    if (patch.status !== undefined || patch.rating !== undefined) queueAniListPush(user.id, id, activity.category);
 
     const slug = slugForDbCategory(activity.category as DbCategory);
     if (slug) revalidateCategory(slug);
@@ -305,6 +308,7 @@ export async function setProgress(id: string, progress: number | null): Promise<
         to: progress == null ? null : String(progress),
       }),
     ]);
+    queueAniListPush(user.id, id, activity.category);
 
     const slug = slugForDbCategory(activity.category as DbCategory);
     if (slug) revalidateCategory(slug);
@@ -460,6 +464,7 @@ export async function restoreActivityState(
         );
       }
     });
+    queueAniListPush(user.id, id, activity.category);
 
     const slug = slugForDbCategory(activity.category as DbCategory);
     if (slug) revalidateCategory(slug);

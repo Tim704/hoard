@@ -12,6 +12,8 @@
 //    MyAnimeList the MAL id in the catalogue; else AniList by `idMal`
 //    Trakt etc.  a TMDB (movies, TV) or IGDB (games) id in the catalogue;
 //                else the title search, where the hit with that id wins
+//    Steam       the app id: the catalogue's steamAppId, then IGDB's
+//                external games, in one batch per chunk; else title search
 //    Books       ISBN-13, then ISBN-10, then title + author (OpenLibrary)
 //    Movies      TMDB search by title + year, then by title alone
 //    Others      the section's normal search
@@ -40,6 +42,11 @@ export interface MatchDeps {
   aniListByIds(type: 'ANIME' | 'MANGA', ids: number[]): Promise<Map<number, NormalizedResult>>;
   /** AniList entries by MyAnimeList id (keyed by the MAL id). */
   aniListByMalIds(type: 'ANIME' | 'MANGA', malIds: number[]): Promise<Map<number, NormalizedResult>>;
+  /**
+   * Games by Steam app id (8.1): the catalogue's own `steamAppId`, then IGDB's
+   * external games, keyed by app id. Optional (only Steam rows need it).
+   */
+  steamGames?(appIds: number[]): Promise<Map<number, NormalizedResult>>;
   /** Wait between provider calls (pacing). */
   pause(ms: number): Promise<void>;
 }
@@ -191,6 +198,20 @@ export async function matchRows(rows: ImportRow[], deps: MatchDeps): Promise<Row
     for (const i of idx) {
       const hit = cat.get(providerId(rows[i])!);
       if (hit) found[i] = { hits: [hit], idMatch: 0 };
+    }
+  }
+
+  // 3c. Steam rows: all of a chunk's app ids in one lookup.
+  const steamIdx = rows.map((r, i) => i).filter((i) => !found[i] && rows[i].category === 'games' && numeric(rows[i].ids.steam));
+  if (steamIdx.length && deps.steamGames && deps.configured('games')) {
+    try {
+      const byApp = await deps.steamGames(steamIdx.map((i) => Number(rows[i].ids.steam)));
+      for (const i of steamIdx) {
+        const hit = byApp.get(Number(rows[i].ids.steam));
+        if (hit) found[i] = { hits: [hit], idMatch: 0 };
+      }
+    } catch {
+      // Fall through to a title search for these rows.
     }
   }
 

@@ -158,3 +158,13 @@ describe('enrichResult (on add)', () => {
     expect(metaFetchedAt).toBeInstanceOf(Date);
   });
 });
+
+describe('steamExternalBatchQuery (8.1)', () => {
+  it('asks for every Steam app id at once', async () => {
+    const { steamExternalBatchQuery } = await import('./igdb');
+    expect(steamExternalBatchQuery([620, 400, 620])).toBe(
+      'where uid = ("620","400") & external_game_source = 1; fields game,uid; limit 500;',
+    );
+    expect(steamExternalBatchQuery([0, -1])).toBeNull();
+  });
+});

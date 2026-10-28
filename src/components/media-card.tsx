@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { ImageOff, Star } from 'lucide-react';
 
-import { CountdownBadge, NewSeasonBadge, cardTimeToBeat } from '@/components/card-badges';
+import { CountdownBadge, ListenBadge, NewSeasonBadge, cardTimeToBeat } from '@/components/card-badges';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { ProgressBar } from '@/components/progress-field';
 import { RatingControl } from '@/components/rating-control';
@@ -97,6 +97,7 @@ export function MediaCard({ activity, onClick }: MediaCardProps) {
         )}
         <CountdownBadge activity={activity} />
         <NewSeasonBadge activity={activity} />
+        <ListenBadge activity={activity} />
         <ProgressBar activity={activity} />
         <div className="mt-auto flex flex-col gap-1.5 pt-1">
           <StatusBadge status={status} slug={activity.category} />

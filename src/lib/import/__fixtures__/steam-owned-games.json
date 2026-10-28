@@ -1,0 +1,13 @@
+{
+  "response": {
+    "game_count": 5,
+    "games": [
+      { "appid": 620, "name": "Portal 2", "playtime_forever": 2412, "img_icon_url": "abc", "playtime_windows_forever": 2412 },
+      { "appid": 400, "name": "Portal", "playtime_forever": 0, "img_icon_url": "def" },
+      { "appid": 1145360, "name": "Hades", "playtime_forever": 45, "has_community_visible_stats": true },
+      { "appid": 0, "name": "Broken" },
+      { "appid": 730, "name": "  ", "playtime_forever": 10 },
+      { "appid": 620, "name": "Portal 2", "playtime_forever": 2412 }
+    ]
+  }
+}

@@ -6,6 +6,9 @@
 export const JOB_TIMES = {
   metadata: '03:30',
   'new-seasons': '04:00',
+  steam: '04:30',
+  lastfm: '05:00',
+  'anilist-sync': '05:30',
   releases: '06:00',
   airing: '06:30',
   'backup-watch': '09:00',

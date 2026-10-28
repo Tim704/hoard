@@ -129,14 +129,18 @@ export async function anilistGraphql<D>(
   query: string,
   variables: Record<string, unknown>,
   label: string,
+  /** A user's OAuth access token (8.2 push); never logged or returned. */
+  token?: string,
 ): Promise<AniListAnswer<D>> {
   let lastStatus = 0;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     let retryAfterMs = 0;
     try {
       const res = await fetch(ANILIST_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers,
         body: JSON.stringify({ query, variables }),
         cache: 'no-store',
         signal: AbortSignal.timeout(8000),

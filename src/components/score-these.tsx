@@ -19,7 +19,7 @@ import {
 import { updateActivity } from '@/lib/actions/media';
 import type { CategorySlug } from '@/lib/categories';
 import type { ActivityWithMedia } from '@/lib/types';
-import { unscoredFinished } from '@/lib/unscored';
+import { playedEnough, unscoredFinished } from '@/lib/unscored';
 
 interface ScoreTheseProps {
   slug: CategorySlug;
@@ -41,6 +41,8 @@ export function ScoreThese({ slug, activities, defaultOpen = false }: ScoreThese
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [pending, setPending] = useState<string | null>(null);
 
+  // 8.1: games played 10 h or more on Steam count too.
+  const kind = slug === 'games' ? 'finished or well-played' : 'finished';
   const hide = (id: string) => setHidden((prev) => new Set(prev).add(id));
   const shown = items.filter((a) => !hidden.has(a.id));
 
@@ -81,7 +83,7 @@ export function ScoreThese({ slug, activities, defaultOpen = false }: ScoreThese
             <span className="font-semibold">Score these · {items.length}</span>
             <span className="text-muted-foreground">
               {' '}
-              {items.length === 1 ? 'finished title has' : 'finished titles have'} no score yet.
+              {items.length === 1 ? `${kind} title has` : `${kind} titles have`} no score yet.
             </span>
           </span>
         </button>
@@ -92,7 +94,7 @@ export function ScoreThese({ slug, activities, defaultOpen = false }: ScoreThese
           <DialogHeader>
             <DialogTitle>Score these</DialogTitle>
             <DialogDescription>
-              Finished, but no score yet. Scores also suggest a tier on the tier list.
+              {slug === 'games' ? 'Finished (or played 10 h or more on Steam)' : 'Finished'}, but no score yet. Scores also suggest a tier on the tier list.
             </DialogDescription>
           </DialogHeader>
 
@@ -119,6 +121,7 @@ export function ScoreThese({ slug, activities, defaultOpen = false }: ScoreThese
                         <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                           <StatusBadge status={a.status} slug={a.category} />
                           {a.media.year != null && <span>{a.media.year}</span>}
+                          {playedEnough(a) && <span>played {Math.round((a.playtimeMinutes ?? 0) / 60)} h</span>}
                         </div>
                       </div>
                     </div>

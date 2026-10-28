@@ -386,6 +386,44 @@ export async function fetchGameBySteamAppId(appId: string): Promise<NormalizedRe
   return game?.id ? mapGameSearchHit(game) : null;
 }
 
+/** The Apicalypse body for the IGDB games behind many Steam app ids (8.1). */
+export function steamExternalBatchQuery(appIds: number[]): string | null {
+  const ids = [...new Set(appIds)].filter((id) => Number.isInteger(id) && id > 0 && id < 2 ** 32).slice(0, 500);
+  if (!ids.length) return null;
+  return `where uid = (${ids.map((id) => `"${id}"`).join(',')}) & external_game_source = ${STEAM_SOURCE_ID}; fields game,uid; limit 500;`;
+}
+
+/**
+ * The IGDB games behind Steam app ids, in two requests (external games, then
+ * the games), keyed by app id. Throws on failures and without keys.
+ */
+export async function fetchGamesBySteamAppIds(appIds: number[]): Promise<Map<number, NormalizedResult>> {
+  const out = new Map<number, NormalizedResult>();
+  const body = steamExternalBatchQuery(appIds);
+  if (!body) return out;
+  const ext = await igdbPost<{ game?: number | null; uid?: string | null }>(IGDB_EXTERNAL_GAMES_URL, body, 'Steam lookup');
+  const gameByApp = new Map<number, number>();
+  for (const e of ext) {
+    const app = Number(e.uid);
+    if (typeof e.game === 'number' && Number.isInteger(e.game) && Number.isInteger(app) && !gameByApp.has(app)) {
+      gameByApp.set(app, e.game);
+    }
+  }
+  const gameIds = [...new Set(gameByApp.values())];
+  if (!gameIds.length) return out;
+  const games = await igdbPost<IgdbGame>(
+    IGDB_GAMES_URL,
+    `where id = (${gameIds.join(',')}); fields ${GAME_HIT_FIELDS}; limit 500;`,
+    'game lookup',
+  );
+  const byId = new Map(games.filter((g) => g && typeof g.id === 'number' && g.name).map((g) => [g.id, mapGameSearchHit(g)]));
+  for (const [app, id] of gameByApp) {
+    const hit = byId.get(id);
+    if (hit) out.set(app, hit);
+  }
+  return out;
+}
+
 /** Reference lists (4.8): the 100 best-rated games with more than 500 ratings. */
 export const IGDB_TOP_GAMES_QUERY = `fields ${GAME_HIT_FIELDS}; where rating_count > 500; sort rating desc; limit 100;`;
 

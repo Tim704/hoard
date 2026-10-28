@@ -46,6 +46,13 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL}
       # Trakt import (optional; public profiles only).
       TRAKT_CLIENT_ID: ${TRAKT_CLIENT_ID:-}
+      # Steam import + nightly playtime (optional).
+      STEAM_API_KEY: ${STEAM_API_KEY:-}
+      # AniList push through OAuth (optional; needs HOARD_SECRET too).
+      ANILIST_CLIENT_ID: ${ANILIST_CLIENT_ID:-}
+      ANILIST_CLIENT_SECRET: ${ANILIST_CLIENT_SECRET:-}
+      # Encrypts saved OAuth tokens (32+ characters; optional).
+      HOARD_SECRET: ${HOARD_SECRET:-}
       HOARD_PUBLIC_URL: ${HOARD_PUBLIC_URL:-https://hoard.timhufnagel.org}
       # Scheduled jobs and day boundaries use this zone (spec G9/G10).
       TZ: ${TZ:-Europe/Berlin}

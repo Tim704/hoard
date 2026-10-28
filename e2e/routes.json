@@ -53,5 +53,7 @@
   "/stats?year=2025",
   "/stats/year/2026",
   "/stats/year/2019",
-  "/s/demo-share-year-review"
+  "/s/demo-share-year-review",
+  "/import?source=steam",
+  "/settings?anilist=expired"
 ]

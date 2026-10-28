@@ -75,6 +75,7 @@ model User {
   listMemberships  CustomListMember[]
   goals            Goal[]
   tasteProfile     TasteProfile?
+  externalLinks    ExternalLink[]
 }
 
 model Session {
@@ -360,6 +361,9 @@ model UserMediaActivity {
   // 5.5: the show's seasonCount when last finished (or started / acknowledged);
   // a later season beyond it that has aired is "New season".
   seenSeasonCount Int?
+  // 8.1: minutes played on Steam (GetOwnedGames playtime_forever), kept
+  // current by the nightly `steam` job; null = not linked to Steam.
+  playtimeMinutes Int?
 
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   franchise  Franchise?  @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
@@ -554,7 +558,7 @@ model Franchise {
 model Notification {
   id        String    @id @default(cuid())
   userId    String
-  kind      String // releases|new-seasons|backup|sync|list-shared|test
+  kind      String // releases|new-seasons|backup|sync|list-shared|lastfm|test
   title     String
   body      String
   url       String?
@@ -739,4 +743,24 @@ model TasteProfile {
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// 8.1–8.3: a user's linked outside account (one per provider). `accountId` is
+// the SteamID64 / Last.fm or AniList user name. `token` is an OAuth access
+// token, only ever stored encrypted (AES-256-GCM, src/lib/secret-box.ts).
+// `data` is provider state: Last.fm's { suggested: activityIds }, the AniList
+// push's last error, etc.
+model ExternalLink {
+  id        String   @id @default(cuid())
+  userId    String
+  provider  String // anilist|steam|lastfm|trakt
+  accountId String
+  token     String?
+  data      Json?
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([provider])
 }

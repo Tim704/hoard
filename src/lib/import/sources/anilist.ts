@@ -33,6 +33,7 @@ query ($user: String, $type: MediaType, $chunk: Int) {
         progress
         repeat
         notes
+        updatedAt
         startedAt { year month day }
         completedAt { year month day }
         media { id idMal title { romaji english } seasonYear startDate { year } }
@@ -53,6 +54,8 @@ export interface AniListEntry {
   progress?: number | null;
   repeat?: number | null;
   notes?: string | null;
+  /** Unix seconds of the entry's last change (8.2 conflict rule). */
+  updatedAt?: number | null;
   startedAt?: FuzzyDate | null;
   completedAt?: FuzzyDate | null;
   media?: {

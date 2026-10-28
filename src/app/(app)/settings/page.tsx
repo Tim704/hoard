@@ -1,3 +1,4 @@
+import { SettingsAccounts } from '@/components/settings-accounts';
 import { SettingsCalendar } from '@/components/settings-calendar';
 import { SettingsData } from '@/components/settings-data';
 import { SettingsForm } from '@/components/settings-form';
@@ -8,6 +9,11 @@ import { SettingsSystem } from '@/components/settings-system';
 import { readBackupStatus } from '@/lib/backups';
 import { calendarFeedUrl } from '@/lib/calendar-token';
 import { getMyShareLinks } from '@/lib/data-share';
+import { lastfmConfigured } from '@/lib/apis/music';
+import { steamConfigured } from '@/lib/apis/steam';
+import { aniListPushConfigured } from '@/lib/anilist-sync-server';
+import { getLink, publicLink } from '@/lib/external-links';
+import { publicBaseUrl } from '@/lib/public-url';
 import { getJobRuns } from '@/lib/data-system';
 import { getPrefs } from '@/lib/data-prefs';
 import { registeredJobs } from '@/lib/jobs';
@@ -24,10 +30,13 @@ export const dynamic = 'force-dynamic';
 // hydration use the same ICU data (no mismatched country names).
 export default async function SettingsPage() {
   const user = await requireUser();
-  const [prefs, ownerId, shareLinks] = await Promise.all([
+  const [prefs, ownerId, shareLinks, steamLink, lastfmLink, anilistLink] = await Promise.all([
     getPrefs(user.id),
     getOwnerId(),
     getMyShareLinks(user.id),
+    getLink(user.id, 'steam'),
+    getLink(user.id, 'lastfm'),
+    getLink(user.id, 'anilist'),
   ]);
   // Backups and job errors are server internals: only the owner (the first
   // registered user) sees the System card at all.
@@ -49,6 +58,16 @@ export default async function SettingsPage() {
       serverTimeZone={serverTimeZone()}
     >
       <SettingsStreaming initial={prefs.streamingServices} region={prefs.region} />
+      <SettingsAccounts
+        steam={{ configured: steamConfigured(), link: publicLink(steamLink) }}
+        lastfm={{ configured: lastfmConfigured(), link: publicLink(lastfmLink) }}
+        anilist={{
+          username: prefs.anilistUser,
+          link: publicLink(anilistLink),
+          pushConfigured: aniListPushConfigured(),
+          redirectUri: `${publicBaseUrl()}/api/oauth/anilist`,
+        }}
+      />
       <SettingsNotifications initial={prefs.notify} />
       <SettingsSharing links={shareLinks} />
       <SettingsCalendar initialUrl={prefs.calendarToken ? calendarFeedUrl(prefs.calendarToken) : null} />

@@ -5,8 +5,9 @@
 // read and parsed here in the browser; only the parsed rows go to the
 // server, 10 at a time.
 
-import { useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeft, ClipboardPaste, FileUp, Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { AlertTriangle, ArrowLeft, ClipboardPaste, Download, FileUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AiPaste } from '@/components/import/ai-paste';
@@ -15,6 +16,7 @@ import { ImportReview } from '@/components/import/import-review';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { fetchSteamRows } from '@/lib/actions/accounts';
 import { fetchAniListRows, fetchTraktRows } from '@/lib/actions/import';
 import { csvRecords } from '@/lib/import/csv';
 import { sanitizeRow, type ParseResult } from '@/lib/import/rows';
@@ -33,8 +35,8 @@ interface SourceInfo {
   what: string;
   /** How to get the export, step by step. */
   how: string[];
-  /** How the source is given: a file, a username, a CSV to map, or a pasted list. */
-  input: 'file' | 'username' | 'mapped-csv' | 'paste';
+  /** How the source is given: a file, a username, a CSV to map, a pasted list, or a linked account. */
+  input: 'file' | 'username' | 'mapped-csv' | 'paste' | 'account';
   /** File input `accept` (file sources). */
   accept?: string;
   multiple?: boolean;
@@ -61,6 +63,16 @@ const SOURCES: SourceInfo[] = [
     what: 'Your anime and manga lists, scores, progress and dates.',
     how: ['Type your AniList username. The profile must be public (AniList → Settings → Account).'],
     input: 'username',
+  },
+  {
+    id: 'steam',
+    name: 'Steam',
+    what: 'Every game you own on Steam, with its playtime.',
+    how: [
+      'Link your Steam account in Settings → Accounts, with your game details set to Public.',
+      'Played games are suggested as Playing, the rest as Unplayed. Nothing is marked Beaten.',
+    ],
+    input: 'account',
   },
   {
     id: 'letterboxd',
@@ -180,6 +192,10 @@ async function parseFiles(source: FileSource, files: File[]): Promise<ParseResul
 }
 
 interface ImportClientProps {
+  steamConfigured: boolean;
+  steamLinked: boolean;
+  /** Start this source straight away (Settings → Accounts → Steam → Import library). */
+  autoStart?: 'steam' | null;
   tmdbConfigured: boolean;
   traktConfigured: boolean;
   aiConfigured: boolean;
@@ -192,7 +208,7 @@ interface PendingCsv {
   records: Record<string, string>[];
 }
 
-export function ImportClient({ tmdbConfigured, traktConfigured, aiConfigured }: ImportClientProps) {
+export function ImportClient({ steamConfigured, steamLinked, autoStart, tmdbConfigured, traktConfigured, aiConfigured }: ImportClientProps) {
   const [rows, setRows] = useState<ImportRow[] | null>(null);
   const [runId, setRunId] = useState(0);
   const [busy, setBusy] = useState<ImportSource | null>(null);
@@ -255,6 +271,28 @@ export function ImportClient({ tmdbConfigured, traktConfigured, aiConfigured }: 
       setBusy(null);
     }
   }
+
+  async function onSteam() {
+    setBusy('steam');
+    try {
+      const res = await fetchSteamRows();
+      if (!res.ok || !res.rows) toast.error(res.error ?? 'Could not read your Steam games.');
+      else start({ rows: res.rows, skipped: res.skipped ?? 0, warnings: cutWarning(res.cut) }, 'Steam');
+    } catch {
+      toast.error('Could not reach the server. Try again.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Arriving from Settings → Accounts → Steam → Import library.
+  const [autoStarted, setAutoStarted] = useState(false);
+  useEffect(() => {
+    if (autoStart !== 'steam' || autoStarted || !steamConfigured || !steamLinked) return;
+    setAutoStarted(true);
+    void onSteam();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, autoStarted, steamConfigured, steamLinked]);
 
   async function onTrakt(input: string) {
     const user = traktUserFromInput(input);
@@ -338,6 +376,9 @@ export function ImportClient({ tmdbConfigured, traktConfigured, aiConfigured }: 
             {s.id === 'trakt' && !traktConfigured && (
               <NotConfigured>Trakt isn&apos;t configured on this server (TRAKT_CLIENT_ID).</NotConfigured>
             )}
+            {s.id === 'steam' && !steamConfigured && (
+              <NotConfigured>Steam isn&apos;t configured on this server (STEAM_API_KEY).</NotConfigured>
+            )}
             {s.id === 'ai' && !aiConfigured && (
               <NotConfigured>The AI reader isn&apos;t configured on this server (GEMINI_API_KEY).</NotConfigured>
             )}
@@ -348,6 +389,17 @@ export function ImportClient({ tmdbConfigured, traktConfigured, aiConfigured }: 
                 <ClipboardPaste className="mr-2 h-4 w-4" aria-hidden />
                 Paste a list
               </Button>
+            ) : s.input === 'account' ? (
+              steamLinked || !steamConfigured ? (
+                <Button type="button" variant="outline" size="sm" disabled={busy !== null || !steamConfigured} onClick={() => void onSteam()}>
+                  {busy === 'steam' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Download className="mr-2 h-4 w-4" aria-hidden />}
+                  Fetch my Steam games
+                </Button>
+              ) : (
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/settings#accounts">Link Steam in Settings</Link>
+                </Button>
+              )
             ) : s.id === 'trakt' ? (
               <UsernameForm
                 label="Trakt username"

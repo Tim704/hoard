@@ -33,9 +33,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { clearListenSuggestion } from '@/lib/actions/accounts';
 import { assignFranchise } from '@/lib/actions/franchise';
 import { acknowledgeNewSeason } from '@/lib/actions/new-seasons';
 import { removeActivity, updateActivity, updateManualEntry } from '@/lib/actions/media';
+import { formatPlaytime } from '@/lib/import/sources/steam';
 import { isManualId, manualInputFrom, parseManualInput, type ManualInput } from '@/lib/manual';
 import { formatTimeToBeat } from '@/lib/media-meta';
 import { formatYmd, isYmd } from '@/lib/release';
@@ -82,8 +84,12 @@ function strArr(media: MediaItem, key: string): string[] {
  * Renders whichever category-specific extras are present on the media object.
  * Reads everything defensively so it works for any of the seven domains.
  */
-function MediaExtras({ media }: { media: MediaItem }) {
+function MediaExtras({ media, playtimeMinutes }: { media: MediaItem; playtimeMinutes?: number | null }) {
   const rows: React.ReactNode[] = [];
+
+  // 8.1: minutes played on Steam, kept current nightly.
+  const playtime = formatPlaytime(playtimeMinutes);
+  if (playtime) rows.push(<ExtraRow key="steam" label="Played" value={playtime} />);
 
   // F2: the full release day when known (the year alone is shown above).
   const releaseDate = str(media, 'releaseDate');
@@ -419,12 +425,15 @@ export function ActivityDetailDialog({
               {media.year != null && (
                 <p className="text-sm text-muted-foreground">{media.year}</p>
               )}
-              <MediaExtras media={media} />
+              <MediaExtras media={media} playtimeMinutes={activity.playtimeMinutes} />
             </div>
           </div>
 
           {/* Editable controls */}
           <div className="space-y-4">
+            {activity.listenSuggested && activity.status !== 'COMPLETED' && (
+              <ListenSuggestion activityId={activity.id} onDone={() => router.refresh()} />
+            )}
             {editingDetails ? (
               <ManualEditor
                 key={activity.id}
@@ -615,5 +624,41 @@ export function ActivityDetailDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * 8.3: Last.fm says this album was played to 80 % of its tracks. One click
+ * marks it Listened; "Not now" stops suggesting it. Never automatic.
+ */
+function ListenSuggestion({ activityId, onDone }: { activityId: string; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  async function act(mark: boolean) {
+    setBusy(true);
+    try {
+      if (mark) {
+        const res = await updateActivity(activityId, { status: 'COMPLETED' });
+        if (!res.ok) {
+          toast.error(res.error ?? 'Could not save.');
+          return;
+        }
+      }
+      await clearListenSuggestion(activityId, !mark);
+      if (mark) toast.success('Marked as Listened.');
+      onDone();
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-sm">
+      <span className="min-w-0 flex-1">Last.fm says you&apos;ve played most of this album. Mark as Listened?</span>
+      <Button type="button" size="sm" disabled={busy} onClick={() => void act(true)}>
+        Mark as Listened
+      </Button>
+      <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void act(false)}>
+        Not now
+      </Button>
+    </div>
   );
 }

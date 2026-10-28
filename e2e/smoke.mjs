@@ -175,6 +175,23 @@ if (failures.length === 0) {
     await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
     await page.getByRole('button', { name: 'Recommend across media' }).waitFor({ timeout: 10_000 });
   });
+  // Settings → Accounts (8.1–8.3): each account renders either its link form
+  // or a friendly "not configured" note, with or without provider keys.
+  await step('settings accounts', async () => {
+    await page.goto(`${BASE_URL}/settings`, { waitUntil: 'networkidle' });
+    const card = page.locator('#accounts');
+    await card.waitFor({ timeout: 15_000 });
+    for (const [name, missing] of [
+      ['Steam', /Steam isn.t configured|Linked to|Steam profile/],
+      ['Last.fm', /Last\.fm isn.t configured|Linked to|Last\.fm username/],
+      ['AniList', /AniList username|Pulling from/],
+    ]) {
+      const section = card.locator('section', { has: page.getByRole('heading', { name, exact: true }) });
+      const text = await section.innerText({ timeout: 10_000 });
+      const inputs = await section.locator('input').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? ''));
+      if (!missing.test([text, ...inputs].join('\n'))) throw new Error(`${name} section shows neither a form nor a note`);
+    }
+  });
   // Signed out, a shared link survives the login (next=…).
   await step('login keeps the shared /add link', async () => {
     const fresh = await browser.newContext();

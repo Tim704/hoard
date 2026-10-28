@@ -146,6 +146,49 @@ export async function fetchAlbumDetails(artist: string | null, album: string): P
   return mapAlbumInfo((await res.json()) as LastfmAlbumInfoJson);
 }
 
+// ── Last.fm account (8.3) ──────────────────────────────────────────────────
+
+/** album.getInfo with `username`: the user's plays of the album, and its track count. */
+export interface AlbumUserPlays {
+  userPlays: number;
+  trackCount: number | null;
+}
+
+/** Null when Last.fm doesn't know the album; other API errors throw (retried next night). */
+export function mapAlbumUserPlays(json: LastfmAlbumInfoJson & { album?: { userplaycount?: number | string | null } | null }): AlbumUserPlays | null {
+  const info = mapAlbumInfo(json);
+  if (!info) return null;
+  const raw = json.album?.userplaycount;
+  const plays = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : 0;
+  return { userPlays: Number.isFinite(plays) && plays > 0 ? Math.floor(plays) : 0, trackCount: info.trackCount };
+}
+
+export async function fetchAlbumUserPlays(artist: string, album: string, username: string): Promise<AlbumUserPlays | null> {
+  const key = requireKey();
+  const url =
+    `${LASTFM_BASE}?method=album.getinfo&artist=${encodeURIComponent(artist)}` +
+    `&album=${encodeURIComponent(album)}&username=${encodeURIComponent(username)}` +
+    `&autocorrect=1&api_key=${key}&format=json`;
+  const res = await providerFetch(url);
+  if (!res.ok && res.status !== 400 && res.status !== 404) throw new Error(`Last.fm album info failed (${res.status})`);
+  return mapAlbumUserPlays(await res.json());
+}
+
+/** user.getInfo: the account's canonical name, or null when there is no such user (error 6). */
+export function lastfmUserName(json: { error?: number; message?: string; user?: { name?: string | null } | null }): string | null {
+  if (json.error === LASTFM_NOT_FOUND) return null;
+  if (json.error) throw new Error(`Last.fm user lookup failed (error ${json.error}: ${json.message ?? 'unknown'})`);
+  return json.user?.name?.trim() || null;
+}
+
+export async function fetchLastfmUser(username: string): Promise<string | null> {
+  const key = requireKey();
+  const url = `${LASTFM_BASE}?method=user.getinfo&user=${encodeURIComponent(username)}&api_key=${key}&format=json`;
+  const res = await providerFetch(url);
+  if (!res.ok && res.status !== 400 && res.status !== 404) throw new Error(`Last.fm user lookup failed (${res.status})`);
+  return lastfmUserName(await res.json());
+}
+
 // ── More by the same people (5.10) ─────────────────────────────────────────
 
 /** `artist.getTopAlbums` (format=json). */

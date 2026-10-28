@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarClock, Sparkles } from 'lucide-react';
+import { CalendarClock, Headphones, Sparkles } from 'lucide-react';
 
 import { useToday } from '@/components/prefs-provider';
 import { formatTimeToBeat } from '@/lib/media-meta';
@@ -58,6 +58,23 @@ export function NewSeasonBadge({ activity, className }: { activity: ActivityWith
     >
       <Sparkles className="h-3 w-3 shrink-0" aria-hidden />
       New season
+    </span>
+  );
+}
+
+/** "Mark as Listened?" (8.3): Last.fm counted most of the album's tracks. */
+export function ListenBadge({ activity, className }: { activity: ActivityWithMedia; className?: string }) {
+  if (!activity.listenSuggested || activity.status === 'COMPLETED') return null;
+  return (
+    <span
+      className={cn(
+        'inline-flex w-fit items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300',
+        className,
+      )}
+      title="Last.fm says you've played most of this album"
+    >
+      <Headphones className="h-3 w-3 shrink-0" aria-hidden />
+      Mark as Listened?
     </span>
   );
 }

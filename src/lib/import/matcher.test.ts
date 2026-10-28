@@ -370,3 +370,44 @@ describe('anilistGraphql', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('Steam rows (8.1)', () => {
+  const portal = stored('72', 'Portal 2', 2011);
+  const steamRow = (title: string, appid: string): ImportRow => ({
+    source: 'steam',
+    category: 'games',
+    title,
+    ids: { steam: appid },
+    status: 'CONSUMING',
+    playtimeMinutes: 100,
+  });
+
+  it('matches every app id in one batch, then title-searches the rest', async () => {
+    const { deps, calls } = fakeDeps({
+      async steamGames(ids) {
+        calls.push(`steam:${ids.join(',')}`);
+        return new Map(ids.filter((id) => id === 620).map((id) => [id, portal]));
+      },
+      async search(slug, q) {
+        calls.push(`search:${slug}:${q}`);
+        return { source: 'IGDB', results: q === 'Obscure Game' ? [stored('9', 'Obscure Game')] : [] };
+      },
+    });
+    const res = await matchRows([steamRow('Portal 2', '620'), steamRow('Obscure Game', '999')], deps);
+    expect(calls.filter((c) => c.startsWith('steam:'))).toEqual(['steam:620,999']);
+    expect(res[0].candidates[0].externalId).toBe('72');
+    expect(res[0].confidence).toBe('high');
+    expect(calls).toContain('search:games:Obscure Game');
+    expect(res[1].candidates[0].externalId).toBe('9');
+  });
+
+  it('falls back to a title search when the Steam lookup fails', async () => {
+    const { deps, calls } = fakeDeps({
+      async steamGames() {
+        throw new Error('IGDB down');
+      },
+    });
+    await matchRows([steamRow('Portal 2', '620')], deps);
+    expect(calls).toContain('search:games:Portal 2');
+  });
+});
