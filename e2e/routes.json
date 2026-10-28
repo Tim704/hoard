@@ -1,0 +1,15 @@
+[
+  "/dashboard",
+  "/books",
+  "/movies",
+  "/tv",
+  "/anime",
+  "/manga",
+  "/games",
+  "/music",
+  "/books/arena",
+  "/books/arena?tab=queue",
+  "/books/arena?tab=arena",
+  "/franchises",
+  "/settings"
+]
