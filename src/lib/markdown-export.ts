@@ -14,7 +14,8 @@
 //  File names: characters that some file system rejects (/ \ : * ? " < > |
 //  and control characters) are dropped, whitespace collapsed, leading dots
 //  and trailing dots / spaces trimmed, Windows device names (CON, NUL, …)
-//  suffixed, and the result kept to 120 characters with the year intact.
+//  suffixed, Unicode in NFC (so "é" typed two ways is one name), and the
+//  result kept to 120 characters and 240 UTF-8 bytes with the year intact.
 //  Two titles that land on the same name in a folder (compared without case,
 //  as macOS and Windows do) become "Name (2)", "Name (3)", …
 // ───────────────────────────────────────────────────────────────────────────
@@ -57,6 +58,8 @@ export interface MarkdownEntry {
 }
 
 export const MAX_FILENAME = 120;
+/** Most file systems cap a name at 255 bytes; leave room for ".md" and some slack. */
+export const MAX_FILENAME_BYTES = 240;
 
 const FORBIDDEN = /[/\\:*?"<>|\u0000-\u001f\u007f-\u009f]/g;
 const DEVICE_NAMES = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i;
@@ -67,8 +70,24 @@ function clip(text: string, max: number): string {
   return chars.length <= max ? text : chars.slice(0, max).join('');
 }
 
+const utf8Length = (text: string) => new TextEncoder().encode(text).length;
+
+/** Keep at most `max` UTF-8 bytes (whole code points). */
+function clipBytes(text: string, max: number): string {
+  let out = '';
+  let used = 0;
+  for (const ch of text) {
+    const n = utf8Length(ch);
+    if (used + n > max) break;
+    out += ch;
+    used += n;
+  }
+  return out;
+}
+
 function cleanPart(text: string): string {
   return text
+    .normalize('NFC')
     .replace(FORBIDDEN, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -87,7 +106,8 @@ function trimEnd(text: string): string {
 export function sanitizeFilename(name: string, suffix = '', max = MAX_FILENAME): string {
   const end = cleanPart(suffix) ? ` ${cleanPart(suffix)}` : '';
   const room = Math.max(1, max - Array.from(end).length);
-  let base = trimEnd(clip(cleanPart(name), room));
+  const roomBytes = Math.max(4, MAX_FILENAME_BYTES - utf8Length(end));
+  let base = trimEnd(clipBytes(clip(cleanPart(name), room), roomBytes));
   if (!base) base = 'Untitled';
   let out = trimEnd(base + end);
   if (DEVICE_NAMES.test(out)) out = `${out}_`;
@@ -228,10 +248,11 @@ export function markdownFiles(entries: MarkdownEntry[]): MarkdownFile[] {
     const folder = sanitizeFilename(CATEGORIES[e.category].label);
     const year = e.year != null ? `(${e.year})` : '';
     let name = sanitizeFilename(e.title, year);
-    for (let n = 2; used.has(`${folder}/${name}`.toLowerCase()); n++) {
+    const key = (n: string) => `${folder}/${n}`.normalize('NFC').toLowerCase();
+    for (let n = 2; used.has(key(name)); n++) {
       name = sanitizeFilename(e.title, `${year} (${n})`);
     }
-    used.add(`${folder}/${name}`.toLowerCase());
+    used.add(key(name));
     out.push({ path: `${folder}/${name}.md`, content: markdownNote(e) });
   }
   return out;

@@ -84,10 +84,34 @@ describe('sanitizeFilename', () => {
     const name = sanitizeFilename(long, '(1999)');
     expect(Array.from(name).length).toBe(120);
     expect(name.endsWith(' (1999)')).toBe(true);
-    // Never splits a surrogate pair.
+    // Never splits a surrogate pair; 4-byte emoji hit the 240-byte cap first.
     const emoji = sanitizeFilename('😀'.repeat(200));
-    expect(Array.from(emoji).length).toBe(120);
-    expect(emoji).toBe('😀'.repeat(120));
+    expect(emoji).toBe('😀'.repeat(60));
+  });
+});
+
+describe('filename bytes and Unicode forms', () => {
+  const bytes = (t: string) => new TextEncoder().encode(t).length;
+
+  it('caps names at 240 UTF-8 bytes without splitting a character', () => {
+    const cjk = sanitizeFilename('映画'.repeat(100), '(2001)');
+    expect(bytes(cjk)).toBeLessThanOrEqual(240);
+    expect(cjk.endsWith(' (2001)')).toBe(true);
+    expect(cjk.slice(0, -7)).toMatch(/^(映画|映)+$/u);
+    const emoji = sanitizeFilename('👩‍🚀'.repeat(60));
+    expect(bytes(emoji)).toBeLessThanOrEqual(240);
+    expect(emoji).not.toMatch(/\uFFFD/);
+    expect(Array.from(emoji).every((c) => c.codePointAt(0)! < 0xd800 || c.codePointAt(0)! > 0xdfff)).toBe(true);
+    // ASCII keeps the 120-character cap.
+    expect(sanitizeFilename('a'.repeat(300))).toHaveLength(120);
+  });
+
+  it('normalises to NFC, so composed and decomposed titles collide', () => {
+    const composed = 'Pok\u00e9mon';
+    const decomposed = 'Poke\u0301mon';
+    expect(sanitizeFilename(decomposed)).toBe(composed);
+    const files = markdownFiles([entry({ title: composed, year: 1998 }), entry({ title: decomposed, year: 1998 })]);
+    expect(files.map((f) => f.path)).toEqual(['Movies/Pok\u00e9mon (1998).md', 'Movies/Pok\u00e9mon (1998) (2).md']);
   });
 });
 

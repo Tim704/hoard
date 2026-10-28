@@ -8,6 +8,13 @@
 //    `WWW-Authenticate: Bearer`;
 //  - 60 requests a minute per token (the shared limiter), else 429 with
 //    `Retry-After`;
+//  - failed authentications are counted per client IP (30 a minute); past
+//    that, the IP gets 429 before any token lookup. The IP is Cloudflare's
+//    `CF-Connecting-IP`, else the first `X-Forwarded-For` hop, else
+//    "unknown". Hoard is only reachable through the Cloudflare tunnel (or on
+//    localhost), so these headers come from the tunnel, not the client;
+//    exposed directly, a client could vary them to dodge this brake (the
+//    per-token limit and 256-bit tokens still stand);
 //  - lastUsedAt is updated at most once a minute (a conditional update, so
 //    parallel requests don't all write);
 //  - the handler only ever sees the token owner's id (G2), and answers JSON
@@ -16,7 +23,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { hashToken, parseBearer, shouldTouch, TOUCH_EVERY_MS } from '@/lib/api-tokens';
-import { API_LIMITS, takeApiRate } from '@/lib/rate-limit';
+import { API_FAIL_LIMITS, API_LIMITS, peekRate, takeApiRate, takeRate, type RateDecision } from '@/lib/rate-limit';
 
 const BASE_HEADERS = { 'Cache-Control': 'no-store', 'Content-Type': 'application/json; charset=utf-8' };
 
@@ -35,12 +42,35 @@ function unauthorized(message: string, invalid: boolean): Response {
   return apiError(401, 'unauthorized', message, { 'WWW-Authenticate': challenge });
 }
 
+/** The client's IP as the tunnel reports it (see the header comment). */
+export function clientIp(headers: Headers): string {
+  const cf = headers.get('cf-connecting-ip')?.trim();
+  if (cf) return cf;
+  const first = headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  return first || 'unknown';
+}
+
+function tooManyFailures(rate: Extract<RateDecision, { ok: false }>): Response {
+  return apiError(429, 'rate_limited', `Too many failed sign-ins from your address. Try again in ${rate.retryAfterSec} s.`, {
+    'Retry-After': String(rate.retryAfterSec),
+  });
+}
+
 export type ApiHandler = (userId: string) => Promise<Response>;
 
 export async function apiRoute(req: Request, handler: ApiHandler): Promise<Response> {
+  const failKey = `api-fail:${clientIp(req.headers)}`;
+  const blocked = peekRate(failKey, API_FAIL_LIMITS);
+  if (!blocked.ok) return tooManyFailures(blocked);
+  // Every 401 counts against the IP; the one that crosses the line is a 429.
+  const fail = (message: string, invalid: boolean) => {
+    const rate = takeRate(failKey, API_FAIL_LIMITS);
+    return rate.ok ? unauthorized(message, invalid) : tooManyFailures(rate);
+  };
+
   const bearer = parseBearer(req.headers.get('authorization'));
-  if (bearer.kind === 'missing') return unauthorized('Send an API token as "Authorization: Bearer hoard_…".', false);
-  if (bearer.kind === 'malformed') return unauthorized('That is not a Hoard API token.', true);
+  if (bearer.kind === 'missing') return fail('Send an API token as "Authorization: Bearer hoard_…".', false);
+  if (bearer.kind === 'malformed') return fail('That is not a Hoard API token.', true);
 
   let token: { id: string; userId: string; lastUsedAt: Date | null } | null;
   try {
@@ -52,7 +82,7 @@ export async function apiRoute(req: Request, handler: ApiHandler): Promise<Respo
     console.error('[api] token lookup failed:', err);
     return apiError(500, 'internal', 'Something went wrong. Try again later.');
   }
-  if (!token) return unauthorized('This token is unknown or has been revoked.', true);
+  if (!token) return fail('This token is unknown or has been revoked.', true);
 
   const rate = takeApiRate(token.id);
   const limitHeaders = {

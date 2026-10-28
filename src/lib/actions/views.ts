@@ -33,13 +33,14 @@ export async function createView(name: unknown, query: unknown): Promise<ActionR
     const user = await requireUser();
     const clean = cleanViewName(name);
     if (!clean) return { ok: false, error: 'Give the view a name.' };
-    if ((await prisma.savedView.count({ where: { userId: user.id } })) >= MAX_VIEWS) {
-      return { ok: false, error: `You can keep up to ${MAX_VIEWS} views. Delete one first.` };
-    }
-    const view = await prisma.savedView.create({
-      data: { userId: user.id, name: clean, query: parseViewQuery(query) },
-      select: { id: true },
+    const data = parseViewQuery(query);
+    // Count and create under the user's row lock, so two saves can't pass the cap.
+    const view = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${user.id} FOR UPDATE`;
+      if ((await tx.savedView.count({ where: { userId: user.id } })) >= MAX_VIEWS) return null;
+      return tx.savedView.create({ data: { userId: user.id, name: clean, query: data }, select: { id: true } });
     });
+    if (!view) return { ok: false, error: `You can keep up to ${MAX_VIEWS} views. Delete one first.` };
     refresh();
     return { ok: true, id: view.id };
   } catch (err) {

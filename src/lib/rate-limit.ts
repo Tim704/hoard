@@ -84,6 +84,11 @@ export function takeRate(key: string, limits: RateLimits, now: number = Date.now
   return decision;
 }
 
+/** Whether one more call would fit, without counting it (the store is not changed). */
+export function peekRate(key: string, limits: RateLimits, now: number = Date.now()): RateDecision {
+  return checkRate(store().get(key) ?? [], limits, now);
+}
+
 /** One AI call for `userId` (roast, Paste a list, …), shared across the AI features. */
 export function takeAiRate(userId: string, now?: number): RateDecision {
   return takeRate(`ai:${userId}`, AI_LIMITS, now);
@@ -112,3 +117,6 @@ export const API_LIMITS: RateLimits = { perMinute: 60 };
 export function takeApiRate(tokenId: string, now?: number): RateDecision {
   return takeRate(`api:${tokenId}`, API_LIMITS, now);
 }
+
+/** Failed public-API authentications per client IP (8.7): a brake on token guessing. */
+export const API_FAIL_LIMITS: RateLimits = { perMinute: 30 };
