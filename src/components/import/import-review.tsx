@@ -189,9 +189,12 @@ export function ImportReview({ rows, onDone }: ImportReviewProps) {
     runningRef.current = true;
     try {
       const outcomes: CommitRowOutcome[] = [];
+      let aniListSkipped = false;
       setPhase({ kind: 'importing', done: 0, total: payload.length });
       for (const part of chunkCommitRows(payload, COMMIT_CHUNK)) {
-        const res = await commitImportRows(part, { updateExisting }).catch(() => null);
+        // importTotal: large imports are not pushed to AniList (8.2).
+        const res = await commitImportRows(part, { updateExisting, importTotal: payload.length }).catch(() => null);
+        if (res?.aniListSkipped) aniListSkipped = true;
         if (res?.ok && res.outcomes?.length === part.length) outcomes.push(...res.outcomes);
         else outcomes.push(...part.map(() => ({ outcome: 'failed' as const, error: res?.error ?? 'Import failed.' })));
         setPhase({ kind: 'importing', done: outcomes.length, total: payload.length });
@@ -220,6 +223,7 @@ export function ImportReview({ rows, onDone }: ImportReviewProps) {
       setPhase({ kind: 'finished', summary, failed });
       if (failed.length > 0) toast.error(`${failed.length} title${failed.length === 1 ? '' : 's'} could not be imported.`);
       else toast.success(`Imported ${summary.added + summary.updated} title${summary.added + summary.updated === 1 ? '' : 's'}.`);
+      if (aniListSkipped) toast.message('Not sent to AniList: large import — AniList will be updated as you edit titles.');
       onDone?.(summary);
     } finally {
       runningRef.current = false;

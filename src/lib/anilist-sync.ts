@@ -137,24 +137,36 @@ export function aniListIdFromKey(externalId: string): { al: number } | { mal: nu
   return null;
 }
 
+/** Imports bigger than this are not pushed to AniList at all (8.2). */
+export const MAX_IMPORT_PUSH_ROWS = 200;
+
+/** Sources whose rows came from AniList: pushing them back would only echo AniList's own data. */
+const FROM_ANILIST = new Set(['anilist', 'anilist-sync']);
+
 /**
  * Which committed import rows go to AniList (8.2 push): anime and manga that
- * were added or updated, from any source but the AniList pull itself (that
- * would only echo AniList's own data back).
+ * were added or updated, never rows that came from AniList itself, and
+ * nothing at all from an import of more than MAX_IMPORT_PUSH_ROWS rows (it
+ * would hold the shared push queue for hours). `importTotal` is the whole
+ * import's row count (unknown = treated as large). `skippedLarge` says the
+ * import's anime / manga were held back for that reason.
  */
 export function importPushTargets(
   rows: { category: string; source: string }[],
   outcomes: { outcome: string; activityId?: string }[],
-): { activityId: string; category: 'ANIME' | 'MANGA' }[] {
-  const out: { activityId: string; category: 'ANIME' | 'MANGA' }[] = [];
+  importTotal: number | null | undefined,
+): { targets: { activityId: string; category: 'ANIME' | 'MANGA' }[]; skippedLarge: boolean } {
+  const targets: { activityId: string; category: 'ANIME' | 'MANGA' }[] = [];
   rows.forEach((r, i) => {
     const o = outcomes[i];
     if (!o?.activityId || (o.outcome !== 'added' && o.outcome !== 'updated')) return;
-    if (r.source === 'anilist-sync') return;
-    if (r.category === 'anime') out.push({ activityId: o.activityId, category: 'ANIME' });
-    else if (r.category === 'manga') out.push({ activityId: o.activityId, category: 'MANGA' });
+    if (FROM_ANILIST.has(r.source)) return;
+    if (r.category === 'anime') targets.push({ activityId: o.activityId, category: 'ANIME' });
+    else if (r.category === 'manga') targets.push({ activityId: o.activityId, category: 'MANGA' });
   });
-  return out;
+  const large = importTotal == null || !Number.isFinite(importTotal) || importTotal > MAX_IMPORT_PUSH_ROWS;
+  if (large) return { targets: [], skippedLarge: targets.length > 0 };
+  return { targets, skippedLarge: false };
 }
 
 /** AniList user names compare case-insensitively. */

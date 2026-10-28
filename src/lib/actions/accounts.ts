@@ -251,7 +251,9 @@ export async function setAniListUser(username: string | null): Promise<LinkResul
     if (name) {
       // Pull and push must target the same account: another name than the
       // connected (OAuth) one ends the push connection.
-      const viewer = linkData(link).viewerName;
+      // Links connected before viewerName was stored carry the Viewer as `name`.
+      const data = linkData(link);
+      const viewer = typeof data.viewerName === 'string' ? data.viewerName : data.name;
       const otherAccount = Boolean(link?.token) && typeof viewer === 'string' && !sameAniListName(viewer, name);
       if (otherAccount) notice = `Pushing to ${viewer} was turned off: connect again to push to ${name}.`;
       await prisma.externalLink.upsert({

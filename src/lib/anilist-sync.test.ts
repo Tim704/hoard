@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   aniListIdFromKey,
   importPushTargets,
+  MAX_IMPORT_PUSH_ROWS,
   sameAniListName,
   authorizeUrl,
   catalogueKeys,
@@ -132,27 +133,46 @@ describe('push', () => {
 });
 
 describe('importPushTargets', () => {
-  it('pushes added and updated anime / manga, never the pull itself', () => {
-    const rows = [
-      { category: 'anime', source: 'mal' },
-      { category: 'manga', source: 'anilist' },
-      { category: 'anime', source: 'anilist-sync' },
-      { category: 'movies', source: 'letterboxd' },
-      { category: 'anime', source: 'mal' },
-      { category: 'anime', source: 'mal' },
-    ];
-    const outcomes = [
-      { outcome: 'added', activityId: 'a' },
-      { outcome: 'updated', activityId: 'b' },
-      { outcome: 'updated', activityId: 'c' },
-      { outcome: 'added', activityId: 'd' },
-      { outcome: 'unchanged', activityId: 'e' },
-      { outcome: 'failed' },
-    ];
-    expect(importPushTargets(rows, outcomes)).toEqual([
-      { activityId: 'a', category: 'ANIME' },
-      { activityId: 'b', category: 'MANGA' },
-    ]);
+  const rows = [
+    { category: 'anime', source: 'mal' },
+    { category: 'manga', source: 'hoard' },
+    { category: 'anime', source: 'anilist-sync' },
+    { category: 'anime', source: 'anilist' },
+    { category: 'movies', source: 'letterboxd' },
+    { category: 'anime', source: 'mal' },
+    { category: 'anime', source: 'mal' },
+  ];
+  const outcomes = [
+    { outcome: 'added', activityId: 'a' },
+    { outcome: 'updated', activityId: 'b' },
+    { outcome: 'updated', activityId: 'c' },
+    { outcome: 'added', activityId: 'd' },
+    { outcome: 'added', activityId: 'e' },
+    { outcome: 'unchanged', activityId: 'f' },
+    { outcome: 'failed' },
+  ];
+
+  it('pushes added and updated anime / manga, never rows that came from AniList', () => {
+    expect(importPushTargets(rows, outcomes, 7)).toEqual({
+      targets: [
+        { activityId: 'a', category: 'ANIME' },
+        { activityId: 'b', category: 'MANGA' },
+      ],
+      skippedLarge: false,
+    });
+  });
+
+  it('pushes nothing from an import of more than 200 rows (or of unknown size)', () => {
+    expect(importPushTargets(rows, outcomes, MAX_IMPORT_PUSH_ROWS)).toMatchObject({ skippedLarge: false });
+    expect(importPushTargets(rows, outcomes, MAX_IMPORT_PUSH_ROWS + 1)).toEqual({ targets: [], skippedLarge: true });
+    expect(importPushTargets(rows, outcomes, undefined)).toEqual({ targets: [], skippedLarge: true });
+  });
+
+  it('does not report a skip when nothing would have been pushed', () => {
+    expect(importPushTargets([{ category: 'anime', source: 'anilist' }], [{ outcome: 'added', activityId: 'x' }], 5000)).toEqual({
+      targets: [],
+      skippedLarge: false,
+    });
   });
 });
 

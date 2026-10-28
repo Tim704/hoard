@@ -20,7 +20,8 @@ import { z } from 'zod';
 
 import { prisma } from '@/lib/prisma';
 import { importPushTargets } from '@/lib/anilist-sync';
-import { queueAniListPush } from '@/lib/anilist-sync-server';
+import { aniListPushConfigured, queueAniListPush } from '@/lib/anilist-sync-server';
+import { getLink } from '@/lib/external-links';
 import { isLookupSkipped } from '@/lib/apis/details';
 import { providerFetch } from '@/lib/apis/http';
 import { getPrefs } from '@/lib/data-prefs';
@@ -239,8 +240,8 @@ export async function matchImportRows(
  */
 export async function commitImportRows(
   rows: unknown,
-  opts: { updateExisting: boolean },
-): Promise<{ ok: boolean; error?: string; outcomes?: CommitRowOutcome[] }> {
+  opts: { updateExisting: boolean; importTotal?: number },
+): Promise<{ ok: boolean; error?: string; outcomes?: CommitRowOutcome[]; aniListSkipped?: boolean }> {
   try {
     const user = await requireUser();
     const parsed = z.array(CommitRowSchema).max(COMMIT_CHUNK).safeParse(rows);
@@ -248,9 +249,13 @@ export async function commitImportRows(
     const updateExisting = opts?.updateExisting === true;
     const outcomes: CommitRowOutcome[] = [];
     for (const row of parsed.data) outcomes.push(await commitRow(user.id, row, { updateExisting }));
-    // 8.2: imported anime / manga go to AniList too (after their commit).
-    for (const t of importPushTargets(parsed.data, outcomes)) queueAniListPush(user.id, t.activityId, t.category);
-    return { ok: true, outcomes };
+    // 8.2: imported anime / manga go to AniList too (after their commit),
+    // unless the import is large (it would hold the shared push queue).
+    const total = typeof opts?.importTotal === 'number' ? opts.importTotal : null;
+    const push = importPushTargets(parsed.data, outcomes, total);
+    for (const t of push.targets) queueAniListPush(user.id, t.activityId, t.category);
+    const aniListSkipped = push.skippedLarge && aniListPushConfigured() && Boolean((await getLink(user.id, 'anilist'))?.token);
+    return { ok: true, outcomes, ...(aniListSkipped && { aniListSkipped }) };
   } catch (err) {
     return { ok: false, error: fail(err, 'Import failed.') };
   }
