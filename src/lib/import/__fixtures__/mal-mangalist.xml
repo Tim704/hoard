@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<myanimelist>
+	<myinfo>
+		<user_id>123</user_id>
+		<user_export_type>2</user_export_type>
+	</myinfo>
+	<manga>
+		<manga_mangadb_id>2</manga_mangadb_id>
+		<manga_title><![CDATA[Berserk]]></manga_title>
+		<manga_volumes>0</manga_volumes>
+		<manga_chapters>0</manga_chapters>
+		<my_id>0</my_id>
+		<my_read_volumes>40</my_read_volumes>
+		<my_read_chapters>370</my_read_chapters>
+		<my_start_date>2019-07-01</my_start_date>
+		<my_finish_date>0000-00-00</my_finish_date>
+		<my_score>10</my_score>
+		<my_status>Reading</my_status>
+		<my_times_read>0</my_times_read>
+	</manga>
+	<manga>
+		<manga_mangadb_id>13</manga_mangadb_id>
+		<manga_title><![CDATA[One Piece]]></manga_title>
+		<my_read_chapters>0</my_read_chapters>
+		<my_score>0</my_score>
+		<my_status>Plan to Read</my_status>
+	</manga>
+</myanimelist>

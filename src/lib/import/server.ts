@@ -9,7 +9,7 @@ import type { Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/prisma';
 import { enrichResult, searchProvider } from '@/lib/apis';
-import { fetchAniListByIds } from '@/lib/apis/anilist';
+import { fetchAniListByIds, fetchAniListByMalIds } from '@/lib/apis/anilist';
 import { searchBooksByIsbn, searchBooksByTitle } from '@/lib/apis/books';
 import { detailsConfigured, isLookupSkipped } from '@/lib/apis/details';
 import { searchMovies } from '@/lib/apis/tmdb';
@@ -85,6 +85,7 @@ export function serverMatchDeps(userId: string): MatchDeps {
     booksByIsbn: searchBooksByIsbn,
     booksByTitle: searchBooksByTitle,
     aniListByIds: fetchAniListByIds,
+    aniListByMalIds: fetchAniListByMalIds,
     pause: sleep,
   };
 }

@@ -1,24 +1,30 @@
 'use client';
 
-// /import (spec 2.1–2.3): pick a source, give it a file or a username, and
-// the rows go to the review screen. Files are read and parsed here in the
-// browser; only the parsed rows go to the server, 10 at a time.
+// /import (spec 2.1–2.3, 2.7, 2.8): pick a source, give it a file, a
+// username or a pasted list, and the rows go to the review screen. Files are
+// read and parsed here in the browser; only the parsed rows go to the
+// server, 10 at a time.
 
 import { useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeft, FileUp, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ClipboardPaste, FileUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { AiPaste } from '@/components/import/ai-paste';
+import { GenericMapper } from '@/components/import/generic-mapper';
 import { ImportReview } from '@/components/import/import-review';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { fetchAniListRows } from '@/lib/actions/import';
+import { fetchAniListRows, fetchTraktRows } from '@/lib/actions/import';
+import { csvRecords } from '@/lib/import/csv';
 import { sanitizeRow, type ParseResult } from '@/lib/import/rows';
 import { validAniListUser } from '@/lib/import/sources/anilist';
 import { parseGoodreads } from '@/lib/import/sources/goodreads';
 import { parseHoardCsv } from '@/lib/import/sources/hoard';
 import { parseLetterboxd, readLetterboxdZip, type NamedText } from '@/lib/import/sources/letterboxd';
+import { malExportText, parseMalXml } from '@/lib/import/sources/mal';
 import { parseStoryGraph } from '@/lib/import/sources/storygraph';
+import { traktUserFromInput, validTraktUser } from '@/lib/import/sources/trakt';
 import { MAX_IMPORT_FILE_BYTES, MAX_IMPORT_ROWS, type ImportRow, type ImportSource } from '@/lib/import/types';
 
 interface SourceInfo {
@@ -27,10 +33,15 @@ interface SourceInfo {
   what: string;
   /** How to get the export, step by step. */
   how: string[];
-  /** File input `accept`, or null for a username source. */
-  accept: string | null;
+  /** How the source is given: a file, a username, a CSV to map, or a pasted list. */
+  input: 'file' | 'username' | 'mapped-csv' | 'paste';
+  /** File input `accept` (file sources). */
+  accept?: string;
   multiple?: boolean;
 }
+
+/** Sources read in the browser from one or more files. */
+type FileSource = 'hoard' | 'letterboxd' | 'goodreads' | 'storygraph' | 'mal';
 
 const SOURCES: SourceInfo[] = [
   {
@@ -41,6 +52,7 @@ const SOURCES: SourceInfo[] = [
       'Settings → Data → Library (CSV).',
       'Brings back statuses, scores, favourites, progress, tags, dates and notes. Tiers, Up next order and franchises are not restored.',
     ],
+    input: 'file',
     accept: '.csv,text/csv',
   },
   {
@@ -48,7 +60,7 @@ const SOURCES: SourceInfo[] = [
     name: 'AniList',
     what: 'Your anime and manga lists, scores, progress and dates.',
     how: ['Type your AniList username. The profile must be public (AniList → Settings → Account).'],
-    accept: null,
+    input: 'username',
   },
   {
     id: 'letterboxd',
@@ -58,6 +70,7 @@ const SOURCES: SourceInfo[] = [
       'letterboxd.com → Settings → Data → Export your data.',
       'Upload the .zip as it is, or any of watched.csv, ratings.csv, diary.csv, reviews.csv and watchlist.csv.',
     ],
+    input: 'file',
     accept: '.zip,.csv,application/zip,text/csv',
     multiple: true,
   },
@@ -66,6 +79,7 @@ const SOURCES: SourceInfo[] = [
     name: 'Goodreads',
     what: 'Your shelves, ratings and read dates.',
     how: ['goodreads.com → My Books → Import and export → Export Library, then download the CSV.'],
+    input: 'file',
     accept: '.csv,text/csv',
   },
   {
@@ -73,12 +87,50 @@ const SOURCES: SourceInfo[] = [
     name: 'StoryGraph',
     what: 'Your read statuses, star ratings, dates and tags.',
     how: ['app.thestorygraph.com → Manage account → Export StoryGraph library, then download the CSV.'],
+    input: 'file',
     accept: '.csv,text/csv',
+  },
+  {
+    id: 'mal',
+    name: 'MyAnimeList',
+    what: 'Your anime and manga lists, scores, episodes, chapters and dates.',
+    how: [
+      'myanimelist.net → Profile → Export (or myanimelist.net/panel.php?go=export), once for anime and once for manga.',
+      'Upload the .xml.gz files as they are, or the unzipped .xml.',
+    ],
+    input: 'file',
+    accept: '.xml,.gz,application/xml,text/xml,application/gzip',
+    multiple: true,
+  },
+  {
+    id: 'trakt',
+    name: 'Trakt',
+    what: 'Watched movies and shows, ratings and your watchlist.',
+    how: ['Type your Trakt username or profile link. The profile must be public (Trakt → Settings → Privacy).'],
+    input: 'username',
+  },
+  {
+    id: 'generic',
+    name: 'Any other CSV',
+    what: 'Backloggd community exports, spreadsheets, other trackers.',
+    how: [
+      'Choose the CSV, then say which column holds the title, year, section, status, rating, platform and date.',
+      'The mapping is remembered on this device for files with the same columns.',
+    ],
+    input: 'mapped-csv',
+    accept: '.csv,.tsv,text/csv',
+  },
+  {
+    id: 'ai',
+    name: 'Paste a list',
+    what: 'Any list as text or a screenshot, read by AI.',
+    how: ['Paste the list or choose an image (PNG, JPEG or WebP, up to 6 MB), then check the matches.'],
+    input: 'paste',
   },
 ];
 
 /** Parse one source's files into rows. Throws a readable message on bad input. */
-async function parseFiles(source: ImportSource, files: File[]): Promise<ParseResult> {
+async function parseFiles(source: FileSource, files: File[]): Promise<ParseResult> {
   for (const f of files) {
     if (f.size > MAX_IMPORT_FILE_BYTES) throw new Error(`${f.name} is larger than 20 MB.`);
   }
@@ -98,17 +150,48 @@ async function parseFiles(source: ImportSource, files: File[]): Promise<ParseRes
     if (texts.length === 0) throw new Error('No Letterboxd CSV files were found in that zip.');
     return parseLetterboxd(texts);
   }
+  if (source === 'mal') {
+    const merged: ParseResult = { rows: [], skipped: 0, warnings: [] };
+    for (const f of files) {
+      let xml: string;
+      try {
+        xml = malExportText(new Uint8Array(await f.arrayBuffer()));
+      } catch {
+        throw new Error(`${f.name} could not be unpacked. Upload the .xml.gz as downloaded, or the .xml inside it.`);
+      }
+      const part = parseMalXml(xml);
+      merged.rows.push(...part.rows);
+      merged.skipped += part.skipped;
+      merged.warnings.push(...part.warnings.map((w) => `${f.name}: ${w}`));
+    }
+    return merged;
+  }
   const text = await files[0].text();
   if (source === 'hoard') return parseHoardCsv(text);
   if (source === 'goodreads') return parseGoodreads(text);
   return parseStoryGraph(text);
 }
 
-export function ImportClient({ tmdbConfigured }: { tmdbConfigured: boolean }) {
+interface ImportClientProps {
+  tmdbConfigured: boolean;
+  traktConfigured: boolean;
+  aiConfigured: boolean;
+}
+
+/** A CSV waiting for its column mapping. */
+interface PendingCsv {
+  fileName: string;
+  headers: string[];
+  records: Record<string, string>[];
+}
+
+export function ImportClient({ tmdbConfigured, traktConfigured, aiConfigured }: ImportClientProps) {
   const [rows, setRows] = useState<ImportRow[] | null>(null);
   const [runId, setRunId] = useState(0);
   const [busy, setBusy] = useState<ImportSource | null>(null);
   const [finished, setFinished] = useState(false);
+  const [csv, setCsv] = useState<PendingCsv | null>(null);
+  const [pasting, setPasting] = useState(false);
 
   function start(result: ParseResult, sourceName: string) {
     for (const w of result.warnings) toast.warning(w);
@@ -123,6 +206,8 @@ export function ImportClient({ tmdbConfigured }: { tmdbConfigured: boolean }) {
     }
     if (result.skipped > 0) toast.message(`${result.skipped} line${result.skipped === 1 ? '' : 's'} had no usable title and were skipped.`);
     setFinished(false);
+    setCsv(null);
+    setPasting(false);
     setRows(list);
     setRunId((n) => n + 1);
   }
@@ -131,7 +216,15 @@ export function ImportClient({ tmdbConfigured }: { tmdbConfigured: boolean }) {
     if (files.length === 0) return;
     setBusy(source.id);
     try {
-      start(await parseFiles(source.id, files), source.name);
+      if (source.input === 'mapped-csv') {
+        const f = files[0];
+        if (f.size > MAX_IMPORT_FILE_BYTES) throw new Error(`${f.name} is larger than 20 MB.`);
+        const { headers, records } = csvRecords(await f.text());
+        if (headers.filter(Boolean).length === 0 || records.length === 0) throw new Error(`${f.name} has no header row or no lines.`);
+        setCsv({ fileName: f.name, headers, records });
+        return;
+      }
+      start(await parseFiles(source.id as FileSource, files), source.name);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'That file could not be read.');
     } finally {
@@ -152,6 +245,45 @@ export function ImportClient({ tmdbConfigured }: { tmdbConfigured: boolean }) {
     } finally {
       setBusy(null);
     }
+  }
+
+  async function onTrakt(input: string) {
+    const user = traktUserFromInput(input);
+    if (!validTraktUser(user)) {
+      toast.error('That is not a Trakt username.');
+      return;
+    }
+    setBusy('trakt');
+    try {
+      const res = await fetchTraktRows(user);
+      if (!res.ok || !res.rows) toast.error(res.error ?? 'Could not read that Trakt profile.');
+      else start({ rows: res.rows, skipped: res.skipped ?? 0, warnings: [] }, 'Trakt');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (csv && !rows) {
+    return (
+      <GenericMapper
+        key={csv.fileName}
+        fileName={csv.fileName}
+        headers={csv.headers}
+        records={csv.records}
+        onRows={(result) => start(result, 'CSV')}
+        onCancel={() => setCsv(null)}
+      />
+    );
+  }
+
+  if (pasting && !rows) {
+    return (
+      <AiPaste
+        configured={aiConfigured}
+        onRows={(list) => start({ rows: list, skipped: 0, warnings: [] }, 'pasted')}
+        onCancel={() => setPasting(false)}
+      />
+    );
   }
 
   if (rows) {
@@ -192,19 +324,37 @@ export function ImportClient({ tmdbConfigured }: { tmdbConfigured: boolean }) {
                 TMDB isn&apos;t configured on this server, so films can&apos;t be matched yet.
               </p>
             )}
-            {s.accept ? (
+            {s.id === 'trakt' && !traktConfigured && (
+              <NotConfigured>Trakt isn&apos;t configured on this server (TRAKT_CLIENT_ID).</NotConfigured>
+            )}
+            {s.id === 'ai' && !aiConfigured && (
+              <NotConfigured>The AI reader isn&apos;t configured on this server (GEMINI_API_KEY).</NotConfigured>
+            )}
+            {s.input === 'file' || s.input === 'mapped-csv' ? (
               <FilePick source={s} busy={busy === s.id} disabled={busy !== null} onFiles={(f) => void onFiles(s, f)} />
+            ) : s.input === 'paste' ? (
+              <Button type="button" variant="outline" size="sm" disabled={busy !== null || !aiConfigured} onClick={() => setPasting(true)}>
+                <ClipboardPaste className="mr-2 h-4 w-4" aria-hidden />
+                Paste a list
+              </Button>
+            ) : s.id === 'trakt' ? (
+              <UsernameForm
+                label="Trakt username"
+                busy={busy === 'trakt'}
+                disabled={busy !== null || !traktConfigured}
+                onSubmit={(u) => void onTrakt(u)}
+              />
             ) : (
-              <AniListForm busy={busy === 'anilist'} disabled={busy !== null} onSubmit={(u) => void onAniList(u)} />
+              <UsernameForm
+                label="AniList username"
+                busy={busy === 'anilist'}
+                disabled={busy !== null}
+                onSubmit={(u) => void onAniList(u)}
+              />
             )}
           </CardContent>
         </Card>
       ))}
-      <Card className="border-dashed md:col-span-2">
-        <CardContent className="py-4 text-sm text-muted-foreground">
-          More sources are on the way: MyAnimeList, Trakt and any other CSV.
-        </CardContent>
-      </Card>
     </div>
   );
 }
@@ -227,7 +377,7 @@ function FilePick({
         ref={ref}
         type="file"
         className="sr-only"
-        accept={source.accept ?? undefined}
+        accept={source.accept}
         multiple={source.multiple}
         aria-label={`${source.name} export file`}
         onChange={(e) => {
@@ -243,11 +393,22 @@ function FilePick({
   );
 }
 
-function AniListForm({
+function NotConfigured({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span>{children} Ask the owner to add it.</span>
+    </p>
+  );
+}
+
+function UsernameForm({
+  label,
   busy,
   disabled,
   onSubmit,
 }: {
+  label: string;
   busy: boolean;
   disabled: boolean;
   onSubmit: (username: string) => void;
@@ -264,8 +425,8 @@ function AniListForm({
       <Input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="AniList username"
-        aria-label="AniList username"
+        placeholder={label}
+        aria-label={label}
         autoComplete="off"
         className="h-9"
         disabled={disabled}

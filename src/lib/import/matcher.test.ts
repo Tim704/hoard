@@ -65,6 +65,10 @@ function fakeDeps(over: Partial<MatchDeps> = {}, opts: { catalogue?: Record<stri
       calls.push(`anilist:${type}:${ids.join(',')}`);
       return new Map(ids.filter((id) => id === 154587).map((id) => [id, frieren]));
     },
+    async aniListByMalIds(type, ids) {
+      calls.push(`anilist-mal:${type}:${ids.join(',')}`);
+      return new Map(ids.filter((id) => String(id) === frieren.externalId).map((id) => [id, frieren]));
+    },
     pause: async () => {
       calls.push('pause');
     },
@@ -76,6 +80,46 @@ function fakeDeps(over: Partial<MatchDeps> = {}, opts: { catalogue?: Record<stri
 const base = { ids: {}, status: 'COMPLETED' as const };
 
 describe('matchRows', () => {
+  it('MAL rows: the catalogue by MAL id, else AniList by idMal, else a title search', async () => {
+    const { deps, calls } = fakeDeps({}, { catalogue: { '1': stored('1', 'Cowboy Bebop', 1998) } });
+    const [bebop, fr, unknown] = await matchRows(
+      [
+        { ...base, source: 'mal', category: 'anime', title: 'Cowboy Bebop', ids: { mal: '1' } },
+        { ...base, source: 'mal', category: 'anime', title: 'Frieren', ids: { mal: frieren.externalId } },
+        { ...base, source: 'mal', category: 'anime', title: 'Nope', ids: { mal: '999999' } },
+      ],
+      deps,
+    );
+    expect(bebop).toMatchObject({ confidence: 'high' });
+    expect(bebop.candidates[0].externalId).toBe('1');
+    expect(fr.confidence).toBe('high');
+    expect(fr.candidates[0].externalId).toBe(frieren.externalId);
+    expect(unknown.confidence).toBe('none');
+    expect(calls).toContain(`anilist-mal:ANIME:${frieren.externalId},999999`);
+    expect(calls).toContain('search:anime:Nope');
+    expect(calls.some((c) => c.startsWith('anilist:'))).toBe(false);
+  });
+
+  it('Trakt rows: a TMDB id in the catalogue, else the search hit with that id wins', async () => {
+    const { deps, calls } = fakeDeps({}, { catalogue: { '1396': stored('1396', 'Breaking Bad', 2008) } });
+    const [show, film, other] = await matchRows(
+      [
+        { ...base, source: 'trakt', category: 'tv', title: 'Breaking Bad', year: 2008, ids: { tmdb: '1396' } },
+        // A different year would be "low" by title, but the id settles it.
+        { ...base, source: 'trakt', category: 'movies', title: 'The Matrix', ids: { tmdb: '603' } },
+        { ...base, source: 'trakt', category: 'movies', title: 'The Matrix', ids: { tmdb: 'x1' } },
+      ],
+      deps,
+    );
+    expect(show.confidence).toBe('high');
+    expect(show.candidates[0].externalId).toBe('1396');
+    expect(film.confidence).toBe('high');
+    expect(film.candidates[0].externalId).toBe('603');
+    expect(other.confidence).not.toBe('none');
+    expect(calls).toContain('catalogue:tv:1396');
+    expect(calls).toContain('catalogue:movies:603');
+  });
+
   it('Letterboxd film: TMDB by title + year → high; a year with no hit retries without it', async () => {
     const { deps, calls } = fakeDeps();
     const [hit, retry] = await matchRows(

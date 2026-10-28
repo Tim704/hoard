@@ -444,3 +444,25 @@ export async function fetchAniListByIds(
   }
   return out;
 }
+
+/**
+ * Search-shaped results for MyAnimeList ids (the MAL import's id match), 50
+ * per request through `anilistQuery`, keyed by the MAL id. Ids AniList
+ * doesn't know are missing from the map.
+ */
+export async function fetchAniListByMalIds(
+  type: 'ANIME' | 'MANGA',
+  malIds: number[],
+): Promise<Map<number, NormalizedResult>> {
+  const fields = type === 'ANIME' ? ANIME_FIELDS : MANGA_FIELDS;
+  const query = `query ($ids: [Int], $type: MediaType) {
+    Page(perPage: ${DETAILS_BATCH}) { media(idMal_in: $ids, type: $type) { ${fields} } } }`;
+  const out = new Map<number, NormalizedResult>();
+  for (let i = 0; i < malIds.length; i += DETAILS_BATCH) {
+    const media = await anilistQuery(query, { ids: malIds.slice(i, i + DETAILS_BATCH), type }, 'AniList lookup');
+    for (const m of media) {
+      if (m.idMal != null) out.set(m.idMal, type === 'ANIME' ? mapAnime(m) : mapManga(m));
+    }
+  }
+  return out;
+}

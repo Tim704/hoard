@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/session';
 
 export const metadata = { title: 'Import · Hoard' };
 
-// The import page (spec 2.1–2.3). Files are parsed in the browser; matching
+// The import page (spec 2.1–2.3, 2.7, 2.8). Files are parsed in the browser; matching
 // and saving go through the import server actions, a few rows per call.
 export default async function ImportPage() {
   await requireUser();
@@ -16,7 +16,11 @@ export default async function ImportPage() {
           Bring your lists over from another site. You check every match before anything is added.
         </p>
       </header>
-      <ImportClient tmdbConfigured={tmdbConfigured()} />
+      <ImportClient
+        tmdbConfigured={tmdbConfigured()}
+        traktConfigured={Boolean(process.env.TRAKT_CLIENT_ID)}
+        aiConfigured={Boolean(process.env.GEMINI_API_KEY)}
+      />
     </div>
   );
 }

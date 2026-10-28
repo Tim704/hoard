@@ -10,7 +10,18 @@ import type { CategorySlug } from '@/lib/categories';
 import type { Status } from '@/lib/status';
 import type { NormalizedResult } from '@/lib/types';
 
-export const IMPORT_SOURCES = ['hoard', 'anilist', 'letterboxd', 'goodreads', 'storygraph'] as const;
+export const IMPORT_SOURCES = [
+  'hoard',
+  'anilist',
+  'letterboxd',
+  'goodreads',
+  'storygraph',
+  'mal',
+  'trakt',
+  'generic',
+  'ai',
+  'franchise',
+] as const;
 export type ImportSource = (typeof IMPORT_SOURCES)[number];
 
 /** Client-side caps: biggest file read, and most rows in one import. */

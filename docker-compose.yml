@@ -44,6 +44,8 @@ services:
       GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL: ${GEMINI_MODEL}
+      # Trakt import (optional; public profiles only).
+      TRAKT_CLIENT_ID: ${TRAKT_CLIENT_ID:-}
       HOARD_PUBLIC_URL: ${HOARD_PUBLIC_URL:-https://hoard.timhufnagel.org}
       # Scheduled jobs and day boundaries use this zone (spec G9/G10).
       TZ: ${TZ:-Europe/Berlin}

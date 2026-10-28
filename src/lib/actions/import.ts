@@ -5,6 +5,7 @@
 //  ImportRows and drives the pipeline one call at a time:
 //
 //    fetchAniListRows(username)        AniList lists → rows (keyless API)
+//    fetchTraktRows(username)          Trakt profile → rows (TRAKT_CLIENT_ID)
 //    matchImportRows(rows ≤ 10)        candidates + confidence per row
 //    commitImportRows(rows ≤ 20, …)    add / update the reviewed rows
 //    groupImportedFranchises(ids ≤ 10) resolve the new titles' franchises
@@ -20,6 +21,9 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { anilistGraphql } from '@/lib/apis/anilist';
 import { isLookupSkipped } from '@/lib/apis/details';
+import { providerFetch } from '@/lib/apis/http';
+import { getPrefs } from '@/lib/data-prefs';
+import { effectiveTimeZone } from '@/lib/prefs';
 import { CATEGORY_LIST, CATEGORY_SLUGS, type CategorySlug } from '@/lib/categories';
 import { resolveMediaRow } from '@/lib/franchise/auto';
 import { syncUserFranchises } from '@/lib/franchise/sync';
@@ -31,6 +35,15 @@ import {
   validAniListUser,
   type AniListCollection,
 } from '@/lib/import/sources/anilist';
+import {
+  mapTraktData,
+  TRAKT_API,
+  TRAKT_PATHS,
+  traktErrorMessage,
+  traktUserFromInput,
+  validTraktUser,
+  type TraktData,
+} from '@/lib/import/sources/trakt';
 import {
   COMMIT_CHUNK,
   IMPORT_SOURCES,
@@ -162,6 +175,54 @@ export async function fetchAniListRows(
     return { ok: true, rows: rows.slice(0, MAX_IMPORT_ROWS), skipped };
   } catch (err) {
     return { ok: false, error: fail(err, 'Could not read that AniList profile.') };
+  }
+}
+
+/**
+ * Read a public Trakt profile (watched movies and shows, ratings, watchlist)
+ * into import rows. Needs TRAKT_CLIENT_ID; without it, or for an unknown or
+ * private profile, a friendly error (spec G4).
+ */
+export async function fetchTraktRows(
+  username: string,
+): Promise<{ ok: boolean; error?: string; rows?: ImportRow[]; skipped?: number }> {
+  try {
+    const me = await requireUser();
+    const clientId = process.env.TRAKT_CLIENT_ID;
+    if (!clientId) {
+      return { ok: false, error: "Trakt isn't configured on this server. Ask the owner to add TRAKT_CLIENT_ID." };
+    }
+    const user = traktUserFromInput(typeof username === 'string' ? username : '');
+    if (!validTraktUser(user)) return { ok: false, error: 'That is not a Trakt username.' };
+
+    const data: TraktData = {
+      watchedMovies: [],
+      watchedShows: [],
+      ratingsMovies: [],
+      ratingsShows: [],
+      watchlistMovies: [],
+      watchlistShows: [],
+    };
+    for (const { key, path } of TRAKT_PATHS) {
+      const res = await providerFetch(`${TRAKT_API}/users/${encodeURIComponent(user)}/${path}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Hoard/1.0',
+          'trakt-api-version': '2',
+          'trakt-api-key': clientId,
+        },
+      }).catch(() => null);
+      if (!res) return { ok: false, error: 'Trakt did not answer in time. Try again later.' };
+      if (!res.ok) return { ok: false, error: traktErrorMessage(res.status, user) };
+      const json = await res.json().catch(() => null);
+      if (!Array.isArray(json)) return { ok: false, error: 'Trakt sent something unexpected. Try again later.' };
+      data[key] = json as never;
+    }
+    const timeZone = effectiveTimeZone(await getPrefs(me.id));
+    const mapped = mapTraktData(data, timeZone);
+    return { ok: true, rows: mapped.rows.slice(0, MAX_IMPORT_ROWS), skipped: mapped.skipped };
+  } catch (err) {
+    return { ok: false, error: fail(err, 'Could not read that Trakt profile.') };
   }
 }
 

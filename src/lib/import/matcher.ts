@@ -9,6 +9,9 @@
 //                otherwise a new hand-made entry); else title + year search
 //    AniList     MAL id, then `al-` id in the catalogue; else the AniList
 //                entry itself by id (mapped exactly like a search hit)
+//    MyAnimeList the MAL id in the catalogue; else AniList by `idMal`
+//    Trakt etc.  a TMDB (movies, TV) or IGDB (games) id in the catalogue;
+//                else the title search, where the hit with that id wins
 //    Books       ISBN-13, then ISBN-10, then title + author (OpenLibrary)
 //    Movies      TMDB search by title + year, then by title alone
 //    Others      the section's normal search
@@ -35,6 +38,8 @@ export interface MatchDeps {
   booksByTitle(title: string, author?: string): Promise<NormalizedResult[]>;
   /** AniList entries by AniList id. */
   aniListByIds(type: 'ANIME' | 'MANGA', ids: number[]): Promise<Map<number, NormalizedResult>>;
+  /** AniList entries by MyAnimeList id (keyed by the MAL id). */
+  aniListByMalIds(type: 'ANIME' | 'MANGA', malIds: number[]): Promise<Map<number, NormalizedResult>>;
   /** Wait between provider calls (pacing). */
   pause(ms: number): Promise<void>;
 }
@@ -71,6 +76,23 @@ interface Found {
 }
 
 const isManual = (id: string | undefined) => Boolean(id?.startsWith('manual:'));
+
+// Only numeric ids: a forged "manual:…" / "demo-…" key must never reach
+// someone's hand-made or demo row through the catalogue lookup.
+const numeric = (v: string | undefined) => (v && /^\d+$/.test(v) ? v : undefined);
+
+/** The provider id that is the section's externalId (TMDB for movies / TV, IGDB for games). */
+function providerId(row: ImportRow): string | undefined {
+  if (row.category === 'movies' || row.category === 'tv') return numeric(row.ids.tmdb);
+  if (row.category === 'games') return numeric(row.ids.igdb);
+  return undefined;
+}
+
+/** Index of the search hit carrying the row's own provider id (an id match), else -1. */
+function idIndex(row: ImportRow, hits: NormalizedResult[]): number {
+  const id = providerId(row);
+  return id ? hits.findIndex((h) => h.externalId === id) : -1;
+}
 
 /** Match up to a chunk of rows (the action caps it at MATCH_CHUNK). */
 export async function matchRows(rows: ImportRow[], deps: MatchDeps): Promise<RowMatch[]> {
@@ -114,39 +136,61 @@ export async function matchRows(rows: ImportRow[], deps: MatchDeps): Promise<Row
     }
   }
 
-  // 3. AniList rows: the catalogue by MAL id, then by al- id, then AniList itself.
+  // 3. AniList and MAL rows: the catalogue by MAL id, then by al- id, then
+  //    AniList itself (by AniList id, or by MAL id for MAL rows).
   for (const slug of ['anime', 'manga'] as const) {
-    // Only numeric ids: a forged "manual:…" / "demo-…" key must never reach
-    // someone's hand-made or demo row through the catalogue lookup.
-    const numeric = (v: string | undefined) => (v && /^\d+$/.test(v) ? v : undefined);
     const idx = rows
       .map((r, i) => i)
-      .filter((i) => !found[i] && rows[i].category === slug && numeric(rows[i].ids.anilist));
+      .filter((i) => !found[i] && rows[i].category === slug && (numeric(rows[i].ids.anilist) || numeric(rows[i].ids.mal)));
     if (idx.length === 0) continue;
     const keys = idx.flatMap((i) => {
       const r = rows[i];
       const mal = numeric(r.ids.mal);
-      return [...(mal ? [mal] : []), `al-${r.ids.anilist}`];
+      const al = numeric(r.ids.anilist);
+      return [...(mal ? [mal] : []), ...(al ? [`al-${al}`] : [])];
     });
     const cat = await deps.catalogue(slug, keys);
     const missing: number[] = [];
     for (const i of idx) {
       const r = rows[i];
       const mal = numeric(r.ids.mal);
-      const hit = (mal && cat.get(mal)) || cat.get(`al-${r.ids.anilist}`);
+      const al = numeric(r.ids.anilist);
+      const hit = (mal && cat.get(mal)) || (al && cat.get(`al-${al}`));
       if (hit) found[i] = { hits: [hit], idMatch: 0 };
       else missing.push(i);
     }
-    const ids = missing.map((i) => Number(rows[i].ids.anilist)).filter((n) => Number.isInteger(n) && n > 0);
-    if (ids.length === 0) continue;
+    const type = slug === 'anime' ? 'ANIME' : 'MANGA';
+    const byAl = missing.filter((i) => numeric(rows[i].ids.anilist));
+    const byMal = missing.filter((i) => !numeric(rows[i].ids.anilist));
     try {
-      const fetched = await deps.aniListByIds(slug === 'anime' ? 'ANIME' : 'MANGA', ids);
-      for (const i of missing) {
-        const hit = fetched.get(Number(rows[i].ids.anilist));
-        if (hit) found[i] = { hits: [hit], idMatch: 0 };
+      if (byAl.length) {
+        const fetched = await deps.aniListByIds(type, byAl.map((i) => Number(rows[i].ids.anilist)));
+        for (const i of byAl) {
+          const hit = fetched.get(Number(rows[i].ids.anilist));
+          if (hit) found[i] = { hits: [hit], idMatch: 0 };
+        }
+      }
+      if (byMal.length) {
+        if (byAl.length) await deps.pause(SEARCH_GAP_MS);
+        const fetched = await deps.aniListByMalIds(type, byMal.map((i) => Number(rows[i].ids.mal)));
+        for (const i of byMal) {
+          const hit = fetched.get(Number(rows[i].ids.mal));
+          if (hit) found[i] = { hits: [hit], idMatch: 0 };
+        }
       }
     } catch {
       // Fall through to a title search for these rows.
+    }
+  }
+
+  // 3b. TMDB (movies, TV) and IGDB (games) ids already in the catalogue.
+  for (const slug of ['movies', 'tv', 'games'] as const) {
+    const idx = rows.map((r, i) => i).filter((i) => !found[i] && rows[i].category === slug && providerId(rows[i]));
+    if (idx.length === 0) continue;
+    const cat = await deps.catalogue(slug, idx.map((i) => providerId(rows[i])!));
+    for (const i of idx) {
+      const hit = cat.get(providerId(rows[i])!);
+      if (hit) found[i] = { hits: [hit], idMatch: 0 };
     }
   }
 
@@ -212,11 +256,11 @@ async function searchRow(row: ImportRow, deps: MatchDeps): Promise<Found> {
         if (row.year) await deps.pause(SEARCH_GAP_MS);
         hits = await deps.searchMovies(row.title);
       }
-      return { hits, idMatch: -1 };
+      return { hits, idMatch: idIndex(row, hits) };
     }
     const res = await deps.search(slug, row.title);
     if (res.error && res.results.length === 0) return { hits: [], idMatch: -1, message: `Search failed: ${res.error}` };
-    return { hits: res.results, idMatch: -1 };
+    return { hits: res.results, idMatch: idIndex(row, res.results) };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'unknown error';
     if (/not configured/i.test(msg)) return { hits: [], idMatch: -1, message: notConfiguredMessage(slug) };
