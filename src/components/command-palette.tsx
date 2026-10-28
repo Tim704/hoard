@@ -101,6 +101,7 @@ export function CommandPalette({
     }
     if (!hidden.has('franchises')) list.push({ label: 'Franchises', href: '/franchises' });
     list.push({ label: 'Stats', href: '/stats' });
+    list.push({ label: 'Views', href: '/views' });
     list.push({ label: 'Add by link', href: '/add' });
     list.push({ label: 'Import', href: '/import' });
     list.push({ label: 'Settings', href: '/settings' });

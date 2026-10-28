@@ -1,9 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   BarChart3,
+  ChevronDown,
+  ChevronRight,
+  Filter,
   BookOpen,
   BookText,
   Boxes,
@@ -27,7 +30,9 @@ import {
 } from 'lucide-react';
 
 import { usePrefs } from '@/components/prefs-provider';
+import { usePersistentState } from '@/hooks/use-persistent-state';
 import { CATEGORIES, NAV_ORDER } from '@/lib/categories';
+import type { SavedViewSummary } from '@/lib/data-views';
 import { cn } from '@/lib/utils';
 
 // Resolve the icon-name strings stored in the category config to real lucide
@@ -50,15 +55,21 @@ interface NavLinksProps {
   onNavigate?: () => void;
   /** Icon-only rail mode (collapsed desktop sidebar). */
   collapsed?: boolean;
+  /** The user's saved views (8.6), listed under "Views". */
+  views?: SavedViewSummary[];
 }
+
+const isBool = (v: unknown): v is boolean => typeof v === 'boolean';
 
 /**
  * The Dashboard + seven-category link list shared by the desktop sidebar and
  * the mobile drawer, with active-route highlighting. Sections hidden in
  * Settings are left out (their pages still work).
  */
-export function NavLinks({ onNavigate, collapsed = false }: NavLinksProps) {
+export function NavLinks({ onNavigate, collapsed = false, views = [] }: NavLinksProps) {
   const pathname = usePathname();
+  const currentView = useSearchParams().get('view');
+  const [viewsOpen, setViewsOpen] = usePersistentState<boolean>('hoard:nav:views-open', true, isBool);
   const hidden = new Set<string>(usePrefs().hiddenSections);
 
   const isActive = (href: string) =>
@@ -196,6 +207,57 @@ export function NavLinks({ onNavigate, collapsed = false }: NavLinksProps) {
         <ListChecks className="h-4 w-4 shrink-0 text-muted-foreground" />
         {!collapsed && <span>Lists</span>}
       </Link>
+
+      {/* Saved views (8.6): a collapsible group; one icon in the rail. */}
+      {collapsed ? (
+        <Link href="/views" onClick={onNavigate} title="Views" aria-label="Views" className={linkClass('/views')}>
+          <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </Link>
+      ) : (
+        <div>
+          <div className={cn(linkClass('/views'), 'gap-0 p-0', pathname === '/views' && currentView && 'bg-transparent')}>
+            <Link href="/views" onClick={onNavigate} className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-3">
+              <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span>Views</span>
+            </Link>
+            {views.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setViewsOpen(!viewsOpen)}
+                aria-expanded={viewsOpen}
+                aria-label={viewsOpen ? 'Hide saved views' : 'Show saved views'}
+                className="rounded-md px-2 py-2 text-muted-foreground hover:text-foreground"
+              >
+                {viewsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+            )}
+          </div>
+          {viewsOpen && views.length > 0 && (
+            <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-border pl-2">
+              {views.map((v) => {
+                const active = pathname === '/views' && currentView === v.id;
+                return (
+                  <li key={v.id}>
+                    <Link
+                      href={`/views?view=${encodeURIComponent(v.id)}`}
+                      onClick={onNavigate}
+                      aria-current={active ? 'page' : undefined}
+                      className={cn(
+                        'block truncate rounded-md px-2 py-1.5 text-sm transition-colors',
+                        active
+                          ? 'bg-accent text-accent-foreground'
+                          : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                      )}
+                    >
+                      {v.name}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
 
       <Link
         href="/import"

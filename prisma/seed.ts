@@ -38,6 +38,7 @@ async function main() {
   await seedLists(user.id);
   await seedStats(user.id);
   await seedLinkedNotes(user.id);
+  await seedSavedView(user.id);
 
   console.log('[seed] Demo user ready.');
   console.log(`[seed]   username: ${DEMO_USERNAME}`);
@@ -151,6 +152,18 @@ async function seedLinkedNotes(userId: string) {
   await prisma.userMediaActivity.updateMany({
     where: { userId, movieId: movie.id, notes: null },
     data: { notes: 'Louder than [[Alien]], and the crew banter is pure [[Cowboy Bebop]]. Skip [[Alien 3]].' },
+  });
+}
+
+/** The demo saved view (8.6), opened by the smoke test at /views?view=…. */
+export const DEMO_VIEW_ID = 'demo-view-scifi';
+
+async function seedSavedView(userId: string) {
+  if (process.env.NODE_ENV === 'production') return;
+  await prisma.savedView.upsert({
+    where: { id: DEMO_VIEW_ID },
+    update: {},
+    create: { id: DEMO_VIEW_ID, userId, name: 'Sci-fi favourites', query: { tags: ['Sci-fi'], scoreMin: 8, sort: 'score' } },
   });
 }
 

@@ -9,6 +9,7 @@ import { NavLinks } from '@/components/nav-links';
 import { NotificationBell } from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
 import type { NotificationSummary } from '@/lib/data-notifications';
+import type { SavedViewSummary } from '@/lib/data-views';
 import { SIDEBAR_COOKIE } from '@/lib/ui-prefs';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +18,8 @@ interface SidebarProps {
   /** Collapsed state read from the cookie on the server (avoids a width flash). */
   initialCollapsed?: boolean;
   notifications: NotificationSummary;
+  /** Saved views for the navigation (8.6). */
+  views?: SavedViewSummary[];
 }
 
 /**
@@ -24,7 +27,7 @@ interface SidebarProps {
  * button or Ctrl/Cmd+B; the choice is stored in a cookie. Hidden below `md`,
  * where MobileNav's top bar + drawer takes over.
  */
-export function Sidebar({ username, initialCollapsed = false, notifications }: SidebarProps) {
+export function Sidebar({ username, initialCollapsed = false, notifications, views }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
 
   const toggle = useCallback(() => {
@@ -93,7 +96,7 @@ export function Sidebar({ username, initialCollapsed = false, notifications }: S
 
       {/* Navigation */}
       <nav className={cn('flex-1 space-y-1 overflow-y-auto py-2', collapsed ? 'px-2' : 'px-3')}>
-        <NavLinks collapsed={collapsed} />
+        <NavLinks collapsed={collapsed} views={views} />
       </nav>
 
       {/* Footer: signed-in user + theme toggle + logout */}

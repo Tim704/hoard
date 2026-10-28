@@ -11,6 +11,8 @@ interface ViewToggleProps {
   onChange: (v: ViewMode) => void;
   /** Extra classes for the segmented-control container (toolbar ordering). */
   className?: string;
+  /** Offer only these modes (default: all three). */
+  modes?: ViewMode[];
 }
 
 const MODES: { mode: ViewMode; label: string; Icon: typeof LayoutGrid }[] = [
@@ -20,7 +22,7 @@ const MODES: { mode: ViewMode; label: string; Icon: typeof LayoutGrid }[] = [
 ];
 
 /** Three-button segmented control: grid, list and compact views. */
-export function ViewToggle({ value, onChange, className }: ViewToggleProps) {
+export function ViewToggle({ value, onChange, className, modes }: ViewToggleProps) {
   return (
     <div
       className={cn(
@@ -28,7 +30,7 @@ export function ViewToggle({ value, onChange, className }: ViewToggleProps) {
         className,
       )}
     >
-      {MODES.map(({ mode, label, Icon }) => (
+      {MODES.filter((m) => !modes || modes.includes(m.mode)).map(({ mode, label, Icon }) => (
         <Button
           key={mode}
           type="button"

@@ -19,6 +19,7 @@ import { NavLinks } from '@/components/nav-links';
 import { NotificationBell } from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
 import type { NotificationSummary } from '@/lib/data-notifications';
+import type { SavedViewSummary } from '@/lib/data-views';
 
 /**
  * The phone-only chrome: a slim sticky top bar (hamburger + brand + theme
@@ -28,9 +29,11 @@ import type { NotificationSummary } from '@/lib/data-notifications';
 export function MobileNav({
   username,
   notifications,
+  views,
 }: {
   username: string;
   notifications: NotificationSummary;
+  views?: SavedViewSummary[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -61,7 +64,7 @@ export function MobileNav({
 
           {/* Navigation — closes the drawer on any link tap. */}
           <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
-            <NavLinks onNavigate={() => setOpen(false)} />
+            <NavLinks onNavigate={() => setOpen(false)} views={views} />
           </nav>
 
           {/* Footer: signed-in user + logout (theme toggle lives in the top bar). */}

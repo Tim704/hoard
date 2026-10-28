@@ -55,5 +55,7 @@
   "/stats/year/2019",
   "/s/demo-share-year-review",
   "/import?source=steam",
-  "/settings?anilist=expired"
+  "/settings?anilist=expired",
+  "/views",
+  "/views?view=demo-view-scifi"
 ]

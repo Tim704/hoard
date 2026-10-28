@@ -7,6 +7,7 @@ import { PrefsProvider } from '@/components/prefs-provider';
 import { Sidebar } from '@/components/sidebar';
 import { getNotificationSummary } from '@/lib/data-notifications';
 import { getPrefs } from '@/lib/data-prefs';
+import { getSavedViewNames } from '@/lib/data-views';
 import { effectiveTimeZone, needsRegionDetection, toDisplayPrefs } from '@/lib/prefs';
 import { todayYmd } from '@/lib/release';
 import { loginUrlFor } from '@/lib/safe-next';
@@ -27,9 +28,10 @@ export default async function AppLayout({
 
   // Read the sidebar state server-side so the first paint has the right width.
   const sidebarCollapsed = cookies().get(SIDEBAR_COOKIE)?.value === '1';
-  const [allPrefs, notifications] = await Promise.all([
+  const [allPrefs, notifications, views] = await Promise.all([
     getPrefs(user.id),
     getNotificationSummary(user.id),
+    getSavedViewNames(user.id),
   ]);
   const prefs = toDisplayPrefs(allPrefs);
 
@@ -45,8 +47,9 @@ export default async function AppLayout({
             username={user.username}
             initialCollapsed={sidebarCollapsed}
             notifications={notifications}
+            views={views}
           />
-          <MobileNav username={user.username} notifications={notifications} />
+          <MobileNav username={user.username} notifications={notifications} views={views} />
           <main className="flex-1 overflow-x-hidden">{children}</main>
         </div>
       </GlobalSearchProvider>
