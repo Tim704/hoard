@@ -27,8 +27,9 @@ import {
   saveLink,
   type PublicLink,
 } from '@/lib/external-links';
-import { mapSteamOwnedGames, ownedGames, parseSteamInput, STEAM_PRIVATE_MESSAGE } from '@/lib/import/sources/steam';
+import { mapSteamOwnedGames, parseSteamInput, steamGamesProblem } from '@/lib/import/sources/steam';
 import { validAniListUser } from '@/lib/import/sources/anilist';
+import { sameAniListName } from '@/lib/anilist-sync';
 import { MAX_IMPORT_ROWS, type ImportRow } from '@/lib/import/types';
 import { checkLastfmForUser } from '@/lib/jobs/lastfm';
 import { syncSteamForUser } from '@/lib/jobs/steam';
@@ -39,7 +40,7 @@ import { takeRate, type RateLimits } from '@/lib/rate-limit';
 import { SESSION_COOKIE, requireUser } from '@/lib/session';
 import type { ActionResult } from '@/lib/types';
 
-type LinkResult = ActionResult & { account?: PublicLink | null };
+type LinkResult = ActionResult & { account?: PublicLink | null; notice?: string };
 
 const fail = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 
@@ -109,7 +110,8 @@ export async function fetchSteamRows(): Promise<{
     const limited = rate(`steam-games:${user.id}`, CONNECT_LIMITS);
     if (limited) return { ok: false, error: limited };
     const json = await getOwnedGames(link.accountId);
-    if (!ownedGames(json)) return { ok: false, error: STEAM_PRIVATE_MESSAGE };
+    const problem = steamGamesProblem(json);
+    if (problem) return { ok: false, error: problem };
     const mapped = mapSteamOwnedGames(json);
     return {
       ok: true,
@@ -241,20 +243,27 @@ export async function setAniListUser(username: string | null): Promise<LinkResul
     const user = await requireUser();
     const name = typeof username === 'string' ? username.trim() : '';
     if (name && !validAniListUser(name)) return { ok: false, error: 'That is not an AniList username.' };
+    const limited = rate(`connect:anilist-user:${user.id}`, CONNECT_LIMITS);
+    if (limited) return { ok: false, error: limited };
     await changePrefs(user.id, (p) => ({ ...p, anilistUser: name || null }));
+    const link = await getLink(user.id, 'anilist');
+    let notice: string | undefined;
     if (name) {
-      // Keep any OAuth token: the push is the same person's account.
+      // Pull and push must target the same account: another name than the
+      // connected (OAuth) one ends the push connection.
+      const viewer = linkData(link).viewerName;
+      const otherAccount = Boolean(link?.token) && typeof viewer === 'string' && !sameAniListName(viewer, name);
+      if (otherAccount) notice = `Pushing to ${viewer} was turned off: connect again to push to ${name}.`;
       await prisma.externalLink.upsert({
         where: { userId_provider: { userId: user.id, provider: 'anilist' } },
         create: { userId: user.id, provider: 'anilist', accountId: name, data: {} },
-        update: { accountId: name },
+        update: { accountId: name, ...(otherAccount ? { token: null } : {}) },
       });
-    } else {
-      const link = await getLink(user.id, 'anilist');
-      if (link && !link.token) await deleteLink(user.id, 'anilist');
+    } else if (link && !link.token) {
+      await deleteLink(user.id, 'anilist');
     }
     revalidateSettings();
-    return { ok: true, account: publicLink(await getLink(user.id, 'anilist')) };
+    return { ok: true, notice, account: publicLink(await getLink(user.id, 'anilist')) };
   } catch (err) {
     return { ok: false, error: fail(err, 'Could not save the AniList username.') };
   }
@@ -262,7 +271,7 @@ export async function setAniListUser(username: string | null): Promise<LinkResul
 
 /** Pull the user's AniList lists now (update existing, never removing). */
 export async function syncAniListNow(): Promise<
-  ActionResult & { added?: number; updated?: number; failed?: number }
+  ActionResult & { added?: number; updated?: number; failed?: number; skipped?: number }
 > {
   try {
     const user = await requireUser();
@@ -274,7 +283,7 @@ export async function syncAniListNow(): Promise<
       const tally = await pullAniListForUser(user.id, name);
       await recordSync(user.id, 'anilist', null);
       revalidatePath('/', 'layout');
-      return { ok: true, added: tally.added, updated: tally.updated, failed: tally.failed };
+      return { ok: true, added: tally.added, updated: tally.updated, failed: tally.failed, skipped: tally.skipped };
     } catch (err) {
       const message = fail(err, 'AniList sync failed.');
       await recordSync(user.id, 'anilist', message);

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   aniListIdFromKey,
+  importPushTargets,
+  sameAniListName,
   authorizeUrl,
   catalogueKeys,
   pulledEntries,
@@ -35,6 +37,11 @@ describe('resolveConflict (most recent change wins)', () => {
   it('never moves the status back, even when AniList is newer', () => {
     const local = { status: 'COMPLETED' as const, rating: 9, progress: 28, updatedAt: T };
     expect(resolveConflict(local, remote({ status: 'PLANNED' }), after)).toEqual({});
+  });
+
+  it('treats statuses AniList stores alike as equal (Retired pushed as Completed)', () => {
+    const local = { status: 'RETIRED' as const, rating: 9, progress: 28, updatedAt: T };
+    expect(resolveConflict(local, remote({ status: 'COMPLETED' }), after)).toEqual({});
   });
 
   it('keeps Hoard when Hoard changed it last, filling only blanks', () => {
@@ -121,5 +128,37 @@ describe('push', () => {
       response_type: 'code',
       state: 'st',
     });
+  });
+});
+
+describe('importPushTargets', () => {
+  it('pushes added and updated anime / manga, never the pull itself', () => {
+    const rows = [
+      { category: 'anime', source: 'mal' },
+      { category: 'manga', source: 'anilist' },
+      { category: 'anime', source: 'anilist-sync' },
+      { category: 'movies', source: 'letterboxd' },
+      { category: 'anime', source: 'mal' },
+      { category: 'anime', source: 'mal' },
+    ];
+    const outcomes = [
+      { outcome: 'added', activityId: 'a' },
+      { outcome: 'updated', activityId: 'b' },
+      { outcome: 'updated', activityId: 'c' },
+      { outcome: 'added', activityId: 'd' },
+      { outcome: 'unchanged', activityId: 'e' },
+      { outcome: 'failed' },
+    ];
+    expect(importPushTargets(rows, outcomes)).toEqual([
+      { activityId: 'a', category: 'ANIME' },
+      { activityId: 'b', category: 'MANGA' },
+    ]);
+  });
+});
+
+describe('sameAniListName', () => {
+  it('ignores case and spaces around', () => {
+    expect(sameAniListName('Tim', ' tim ')).toBe(true);
+    expect(sameAniListName('Tim', 'Tom')).toBe(false);
   });
 });

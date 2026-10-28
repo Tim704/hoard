@@ -10,7 +10,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { enrichResult, searchProvider, type EnrichedResult } from '@/lib/apis';
 import { fetchAniListByIds, fetchAniListByMalIds } from '@/lib/apis/anilist';
-import { fetchGamesBySteamAppIds } from '@/lib/apis/igdb';
+import { fetchGamesBySteamAppIds, fetchIgdbIdForSteamApp } from '@/lib/apis/igdb';
 import { searchBooksByIsbn, searchBooksByTitle } from '@/lib/apis/books';
 import { detailsConfigured, isLookupSkipped } from '@/lib/apis/details';
 import { searchMovies } from '@/lib/apis/tmdb';
@@ -29,6 +29,7 @@ import type { MatchDeps } from './matcher';
 import { NEW_MANUAL_ID, type CommitRow, type CommitRowOutcome, type InLibrary } from './types';
 import { normalizeTags } from '@/lib/tags';
 import { planImportUpdate } from './update';
+import { confirmSteamApp, rememberSteamMappings } from './steam-confirm';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -97,6 +98,9 @@ export function serverMatchDeps(userId: string): MatchDeps {
       for (const g of stored) if (g.steamAppId != null && !out.has(g.steamAppId)) out.set(g.steamAppId, rowToResult(g));
       const missing = appIds.filter((id) => !out.has(id));
       if (missing.length) for (const [app, hit] of await fetchGamesBySteamAppIds(missing)) out.set(app, hit);
+      // Both sources are trusted (the catalogue only holds confirmed ids), so
+      // the commit can confirm these app ids without asking IGDB again.
+      rememberSteamMappings(out);
       return out;
     },
     pause: sleep,
@@ -185,14 +189,21 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
  * when the playtime changed.
  */
 async function applySteam(userId: string, activityId: string, row: CommitRow): Promise<boolean> {
-  if (row.category !== 'games' || (row.playtimeMinutes == null && row.steamAppId == null)) return false;
+  if (row.source !== 'steam' || row.category !== 'games') return false;
+  if (row.playtimeMinutes == null && row.steamAppId == null) return false;
   const a = await prisma.userMediaActivity.findUnique({
     where: { id: activityId },
-    select: { userId: true, playtimeMinutes: true, videoGameId: true },
+    select: { userId: true, playtimeMinutes: true, videoGame: { select: { id: true, externalId: true, steamAppId: true } } },
   });
   if (!a || a.userId !== userId) return false;
-  if (row.steamAppId != null && a.videoGameId) {
-    await prisma.videoGame.updateMany({ where: { id: a.videoGameId, steamAppId: null }, data: { steamAppId: row.steamAppId } });
+  const game = a.videoGame;
+  // The app id came from the browser: written to the shared row only when
+  // IGDB confirms it belongs to this very game (src/lib/import/steam-confirm.ts).
+  if (row.steamAppId != null && game && game.steamAppId == null) {
+    const confirmed = await confirmSteamApp(row.steamAppId, game.externalId, fetchIgdbIdForSteamApp).catch(() => false);
+    if (confirmed) {
+      await prisma.videoGame.updateMany({ where: { id: game.id, steamAppId: null }, data: { steamAppId: row.steamAppId } });
+    }
   }
   if (row.playtimeMinutes == null || row.playtimeMinutes === a.playtimeMinutes) return false;
   await prisma.userMediaActivity.update({ where: { id: activityId }, data: { playtimeMinutes: row.playtimeMinutes } });

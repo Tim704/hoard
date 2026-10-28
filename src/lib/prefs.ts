@@ -153,9 +153,8 @@ export const PrefsPatchSchema = z
     weekStart: fields.weekStart,
     hiddenSections: fields.hiddenSections,
     streamingServices: fields.streamingServices,
-    steamId: fields.steamId,
-    lastfmUser: fields.lastfmUser,
-    anilistUser: fields.anilistUser,
+    // steamId / lastfmUser / anilistUser are not here: only the Accounts
+    // actions (src/lib/actions/accounts.ts) write them, after validating.
     notify: NotifyPatchSchema,
     compareOptIn: fields.compareOptIn,
     feedOptIn: fields.feedOptIn,

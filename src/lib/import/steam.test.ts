@@ -7,6 +7,9 @@ import {
   ownedGames,
   parseSteamInput,
   playtimeByApp,
+  STEAM_NO_GAMES_MESSAGE,
+  STEAM_PRIVATE_MESSAGE,
+  steamGamesProblem,
   steamIdFromVanity,
 } from './sources/steam';
 
@@ -49,6 +52,13 @@ describe('Steam API JSON', () => {
     expect(ownedGames({ response: {} })).toBeNull();
     expect(ownedGames({ response: { game_count: 0, games: [] } })).toBeNull();
     expect(mapSteamOwnedGames({ response: {} }).rows).toEqual([]);
+  });
+
+  it('tells a private profile from one without games', () => {
+    expect(steamGamesProblem({ response: {} })).toBe(STEAM_PRIVATE_MESSAGE);
+    expect(steamGamesProblem({})).toBe(STEAM_PRIVATE_MESSAGE);
+    expect(steamGamesProblem({ response: { game_count: 0 } })).toBe(STEAM_NO_GAMES_MESSAGE);
+    expect(steamGamesProblem(owned)).toBeNull();
   });
 
   it('maps owned games: unplayed → Planned, played → Ongoing, never Completed', () => {

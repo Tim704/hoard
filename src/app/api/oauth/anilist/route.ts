@@ -7,6 +7,7 @@
 //  status in the query; nothing secret is ever put in a URL or a log.
 // ───────────────────────────────────────────────────────────────────────────
 
+import type { Prisma } from '@prisma/client';
 import { cookies } from 'next/headers';
 import { NextResponse, type NextRequest } from 'next/server';
 
@@ -16,6 +17,7 @@ import { providerFetch } from '@/lib/apis/http';
 import { ANILIST_TOKEN_URL } from '@/lib/anilist-sync';
 import { aniListPushConfigured } from '@/lib/anilist-sync-server';
 import { changePrefs } from '@/lib/data-prefs';
+import { getLink, linkData } from '@/lib/external-links';
 import { oauthStates } from '@/lib/oauth-state';
 import { publicBaseUrl } from '@/lib/public-url';
 import { sealToken } from '@/lib/secret-box';
@@ -66,13 +68,17 @@ export async function GET(req: NextRequest) {
     if (!name) return back('failed');
 
     const sealed = sealToken(token);
+    const before = await getLink(user.id, 'anilist');
+    // A reconnect keeps the link's sync state (last sync, last error).
+    const data = { ...linkData(before), name, viewerName: name } as Prisma.InputJsonValue;
     await prisma.externalLink.upsert({
       where: { userId_provider: { userId: user.id, provider: 'anilist' } },
-      create: { userId: user.id, provider: 'anilist', accountId: name, token: sealed, data: { name } },
-      update: { accountId: name, token: sealed, data: { name } },
+      create: { userId: user.id, provider: 'anilist', accountId: name, token: sealed, data },
+      update: { accountId: name, token: sealed, data },
     });
-    // The pull reads the same account unless another name was chosen.
-    await changePrefs(user.id, (p) => (p.anilistUser ? null : { ...p, anilistUser: name }));
+    // Pull and push must be the same AniList account: the pull follows the
+    // account that was just authorised.
+    await changePrefs(user.id, (p) => (p.anilistUser === name ? null : { ...p, anilistUser: name }));
     return back('connected');
   } catch {
     return back('failed');

@@ -137,3 +137,15 @@ describe('payload sizes', () => {
     expect(fitRow(commit())).toEqual(commit());
   });
 });
+
+describe('Steam data in commit rows (8.1)', () => {
+  const steam: ImportRow = { source: 'steam', category: 'games', title: 'Portal 2', ids: { steam: '620' }, status: 'CONSUMING', playtimeMinutes: 120 };
+  it('carries playtime and the app id for Steam rows only', () => {
+    const [out] = commitRowsFor([matchedItem(pendingItem(steam), match('high'))]);
+    expect(out).toMatchObject({ source: 'steam', playtimeMinutes: 120, steamAppId: 620 });
+    const forged: ImportRow = { ...steam, source: 'generic' };
+    const [other] = commitRowsFor([matchedItem(pendingItem(forged), match('high'))]);
+    expect(other.playtimeMinutes).toBeUndefined();
+    expect(other.steamAppId).toBeUndefined();
+  });
+});

@@ -38,6 +38,7 @@ import { assignFranchise } from '@/lib/actions/franchise';
 import { acknowledgeNewSeason } from '@/lib/actions/new-seasons';
 import { removeActivity, updateActivity, updateManualEntry } from '@/lib/actions/media';
 import { formatPlaytime } from '@/lib/import/sources/steam';
+import { showsListenBadge } from '@/lib/lastfm-suggest';
 import { isManualId, manualInputFrom, parseManualInput, type ManualInput } from '@/lib/manual';
 import { formatTimeToBeat } from '@/lib/media-meta';
 import { formatYmd, isYmd } from '@/lib/release';
@@ -431,7 +432,7 @@ export function ActivityDetailDialog({
 
           {/* Editable controls */}
           <div className="space-y-4">
-            {activity.listenSuggested && activity.status !== 'COMPLETED' && (
+            {showsListenBadge(activity) && (
               <ListenSuggestion activityId={activity.id} onDone={() => router.refresh()} />
             )}
             {editingDetails ? (

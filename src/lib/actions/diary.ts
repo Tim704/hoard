@@ -21,6 +21,7 @@ import { seenSeasonCountNow, userToday } from '@/lib/library/seen-seasons';
 import { recordsSeenSeasons } from '@/lib/new-seasons';
 import { cleanPlatforms, validFormat } from '@/lib/ownership';
 import { effectiveTimeZone } from '@/lib/prefs';
+import { queueAniListPush } from '@/lib/anilist-sync-server';
 import { normalizeRating } from '@/lib/rating';
 import { isYmd } from '@/lib/release';
 import { requireUser } from '@/lib/session';
@@ -132,6 +133,7 @@ export async function startRewatch(activityId: string): Promise<ActionResult & {
       }),
       recordEvents(prisma, events),
     ]);
+    queueAniListPush(user.id, a.id, a.category); // 8.2: REPEATING on AniList
     refresh(a.category);
     return { ok: true, previous: stateOf(a) };
   } catch (err) {

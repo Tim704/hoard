@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { mapAlbumUserPlays, lastfmUserName } from './apis/music';
-import { suggestedIds, suggestsListened, withSuggested } from './lastfm-suggest';
+import { showsListenBadge, suggestedIds, suggestsListened, withSuggested } from './lastfm-suggest';
 
 describe('the Last.fm 80 % rule', () => {
   it('suggests at 80 % of the tracks and above', () => {
@@ -45,5 +45,16 @@ describe('suggestions storage', () => {
     expect(withSuggested(data, [], ['a'])).toEqual({ other: 1, suggested: ['b'] });
     expect(suggestedIds(null)).toEqual([]);
     expect(suggestedIds({ suggested: ['x', 3, '', 'x'] })).toEqual(['x']);
+  });
+});
+
+describe('showsListenBadge', () => {
+  it('only for suggested Planned or Ongoing albums', () => {
+    expect(showsListenBadge({ listenSuggested: true, status: 'PLANNED' })).toBe(true);
+    expect(showsListenBadge({ listenSuggested: true, status: 'CONSUMING' })).toBe(true);
+    for (const status of ['COMPLETED', 'DROPPED', 'ON_HOLD', 'RETIRED']) {
+      expect(showsListenBadge({ listenSuggested: true, status })).toBe(false);
+    }
+    expect(showsListenBadge({ status: 'PLANNED' })).toBe(false);
   });
 });

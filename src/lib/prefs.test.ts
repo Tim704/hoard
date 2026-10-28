@@ -186,3 +186,11 @@ describe('notification URLs', () => {
     expect(p.notify.ntfyUrl).toBeNull();
   });
 });
+
+describe('account fields (8.1–8.3)', () => {
+  it('are read from storage but never patched through Settings', () => {
+    const parsed = PrefsPatchSchema.parse({ steamId: '76561197960287930', lastfmUser: 'x', anilistUser: 'y', weekStart: 1 });
+    expect(parsed).toEqual({ weekStart: 1 });
+    expect(parsePrefs({ steamId: '76561197960287930' }).steamId).toBe('76561197960287930');
+  });
+});

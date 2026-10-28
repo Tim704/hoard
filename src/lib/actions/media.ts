@@ -104,6 +104,8 @@ export async function addToList(
       seasons: enriched.seasons,
     });
 
+    // 8.2: a new anime / manga goes to AniList (an existing one didn't change).
+    if (!existing) queueAniListPush(user.id, activityId, cat.dbCategory);
     revalidateCategory(slug);
     revalidatePath('/franchises');
     return { ok: true, activityId, existing };

@@ -32,3 +32,8 @@ export function withSuggested(data: unknown, add: string[], remove: string[] = [
   const next = [...new Set([...suggestedIds(data), ...add])].filter((id) => !drop.has(id)).slice(0, 500);
   return { ...base, suggested: next };
 }
+
+/** The badge shows only while the album is still Planned or Ongoing. */
+export function showsListenBadge(a: { listenSuggested?: boolean; status: string }): boolean {
+  return Boolean(a.listenSuggested) && (a.status === 'PLANNED' || a.status === 'CONSUMING');
+}

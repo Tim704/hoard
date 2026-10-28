@@ -122,7 +122,7 @@ async function markListenSuggestions(userId: string, out: ActivityWithMedia[]): 
   });
   const ids = new Set(suggestedIds(link?.data));
   if (!ids.size) return;
-  for (const a of out) if (ids.has(a.id) && a.status !== 'COMPLETED') a.listenSuggested = true;
+  for (const a of out) if (ids.has(a.id) && (a.status === 'PLANNED' || a.status === 'CONSUMING')) a.listenSuggested = true;
 }
 
 /**

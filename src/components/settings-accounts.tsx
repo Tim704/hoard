@@ -309,12 +309,16 @@ function AniListSection({ username: initialName, link: initial, pushConfigured, 
         setName(value);
         setLink(res.account ?? null);
         toast.success('AniList username saved. Your lists are pulled every night.');
+        if (res.notice) toast.warning(res.notice);
       } else toast.error(res.error ?? 'Could not save that.');
     });
   const sync = () =>
     start(async () => {
       const res = await syncAniListNow();
-      if (res.ok) toast.success(`AniList synced: ${res.added ?? 0} added, ${res.updated ?? 0} updated.`);
+      if (res.ok) {
+        const skipped = res.skipped ? `, ${res.skipped} skipped (no sure match; use Import → AniList to review them)` : '';
+        toast.success(`AniList synced: ${res.added ?? 0} added, ${res.updated ?? 0} updated${skipped}.`);
+      }
       else toast.error(res.error ?? 'AniList sync failed.');
     });
   const connect = () =>

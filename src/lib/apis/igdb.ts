@@ -386,6 +386,18 @@ export async function fetchGameBySteamAppId(appId: string): Promise<NormalizedRe
   return game?.id ? mapGameSearchHit(game) : null;
 }
 
+/**
+ * The IGDB game id behind one Steam app id (IGDB's own external games), or
+ * null. Used to confirm a Steam mapping before it is written to the shared
+ * catalogue. Throws on failures and without keys.
+ */
+export async function fetchIgdbIdForSteamApp(appId: number): Promise<string | null> {
+  const body = steamExternalQuery(String(appId));
+  if (!body) return null;
+  const [ext] = await igdbPost<{ game?: number | null }>(IGDB_EXTERNAL_GAMES_URL, body, 'Steam lookup');
+  return typeof ext?.game === 'number' && Number.isInteger(ext.game) ? String(ext.game) : null;
+}
+
 /** The Apicalypse body for the IGDB games behind many Steam app ids (8.1). */
 export function steamExternalBatchQuery(appIds: number[]): string | null {
   const ids = [...new Set(appIds)].filter((id) => Number.isInteger(id) && id > 0 && id < 2 ** 32).slice(0, 500);

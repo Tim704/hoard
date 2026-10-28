@@ -19,6 +19,8 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import { prisma } from '@/lib/prisma';
+import { importPushTargets } from '@/lib/anilist-sync';
+import { queueAniListPush } from '@/lib/anilist-sync-server';
 import { isLookupSkipped } from '@/lib/apis/details';
 import { providerFetch } from '@/lib/apis/http';
 import { getPrefs } from '@/lib/data-prefs';
@@ -127,7 +129,11 @@ const CommitRowSchema = z.object({
   diary: z.array(DiaryEntry).max(1000).optional(),
   playtimeMinutes: z.number().int().min(0).max(10_000_000).nullable().optional(),
   steamAppId: z.number().int().min(1).max(4_294_967_295).nullable().optional(),
-});
+}).refine(
+  // Steam data only ever comes with Steam rows (8.1).
+  (r) => r.source === 'steam' || (r.playtimeMinutes == null && r.steamAppId == null),
+  'Only Steam rows carry playtime or a Steam app id.',
+);
 
 const fail = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 
@@ -242,6 +248,8 @@ export async function commitImportRows(
     const updateExisting = opts?.updateExisting === true;
     const outcomes: CommitRowOutcome[] = [];
     for (const row of parsed.data) outcomes.push(await commitRow(user.id, row, { updateExisting }));
+    // 8.2: imported anime / manga go to AniList too (after their commit).
+    for (const t of importPushTargets(parsed.data, outcomes)) queueAniListPush(user.id, t.activityId, t.category);
     return { ok: true, outcomes };
   } catch (err) {
     return { ok: false, error: fail(err, 'Import failed.') };

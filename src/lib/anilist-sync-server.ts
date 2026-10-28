@@ -31,6 +31,7 @@ import { matchRows } from '@/lib/import/matcher';
 import { commitRow, serverMatchDeps } from '@/lib/import/server';
 import { MATCH_CHUNK, type CommitRow } from '@/lib/import/types';
 import { getPrefs } from '@/lib/data-prefs';
+import { LruMap } from '@/lib/lru';
 import { notify } from '@/lib/notify';
 import { userToday } from '@/lib/library/seen-seasons';
 import { openToken, secretConfigured } from '@/lib/secret-box';
@@ -50,6 +51,8 @@ export interface PullTally {
   updated: number;
   unchanged: number;
   failed: number;
+  /** Entries without a sure (id) match: not written, since there is no review. */
+  skipped: number;
 }
 
 /** Pull one user's AniList lists into Hoard. Throws a readable error when the lists can't be read. */
@@ -60,7 +63,7 @@ export async function pullAniListForUser(userId: string, username: string): Prom
     ...pulledEntries(read.lists.ANIME, 'ANIME'),
     ...pulledEntries(read.lists.MANGA, 'MANGA'),
   ];
-  const tally: PullTally = { added: 0, updated: 0, unchanged: 0, failed: 0 };
+  const tally: PullTally = { added: 0, updated: 0, unchanged: 0, failed: 0, skipped: 0 };
   const deps = serverMatchDeps(userId);
 
   for (let i = 0; i < entries.length; i += MATCH_CHUNK) {
@@ -85,7 +88,7 @@ export async function pullAniListForUser(userId: string, username: string): Prom
       // No review: only id matches are sure enough to write.
       const result = m.chosenIndex >= 0 && m.confidence === 'high' ? m.candidates[m.chosenIndex] : null;
       if (!result) {
-        tally.unchanged++;
+        tally.skipped++;
         continue;
       }
       const local = m.inLibrary ? locals.get(m.inLibrary.activityId) : undefined;
@@ -168,7 +171,8 @@ async function syncErrorNotice(userId: string, body: string): Promise<void> {
 
 // ── Push ───────────────────────────────────────────────────────────────────
 
-const malToAniList = new Map<string, number>();
+/** MAL id → AniList id, bounded (one lookup per title, ever). */
+const malToAniList = new LruMap<string, number>(5000);
 
 async function aniListMediaId(externalId: string, type: 'ANIME' | 'MANGA'): Promise<number | null> {
   const key = aniListIdFromKey(externalId);

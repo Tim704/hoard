@@ -3,6 +3,7 @@
 import { CalendarClock, Headphones, Sparkles } from 'lucide-react';
 
 import { useToday } from '@/components/prefs-provider';
+import { showsListenBadge } from '@/lib/lastfm-suggest';
 import { formatTimeToBeat } from '@/lib/media-meta';
 import { countdownLabel } from '@/lib/release';
 import type { ActivityWithMedia } from '@/lib/types';
@@ -64,7 +65,7 @@ export function NewSeasonBadge({ activity, className }: { activity: ActivityWith
 
 /** "Mark as Listened?" (8.3): Last.fm counted most of the album's tracks. */
 export function ListenBadge({ activity, className }: { activity: ActivityWithMedia; className?: string }) {
-  if (!activity.listenSuggested || activity.status === 'COMPLETED') return null;
+  if (!showsListenBadge(activity)) return null;
   return (
     <span
       className={cn(

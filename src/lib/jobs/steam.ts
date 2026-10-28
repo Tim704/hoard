@@ -6,14 +6,16 @@
 import { prisma } from '@/lib/prisma';
 import { getOwnedGames, steamConfigured } from '@/lib/apis/steam';
 import { linksOf, recordSync } from '@/lib/external-links';
-import { ownedGames, playtimeByApp, STEAM_PRIVATE_MESSAGE } from '@/lib/import/sources/steam';
+import { playtimeByApp, STEAM_NO_GAMES_MESSAGE, steamGamesProblem } from '@/lib/import/sources/steam';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /** Refresh one user's playtimes. Resolves to how many changed; throws a readable error. */
 export async function syncSteamForUser(userId: string, steamId: string): Promise<number> {
   const json = await getOwnedGames(steamId);
-  if (!ownedGames(json)) throw new Error(STEAM_PRIVATE_MESSAGE);
+  const problem = steamGamesProblem(json);
+  if (problem === STEAM_NO_GAMES_MESSAGE) return 0; // nothing to refresh, not a failure
+  if (problem) throw new Error(problem);
   const played = playtimeByApp(json);
   const acts = await prisma.userMediaActivity.findMany({
     where: { userId, category: 'GAME', videoGame: { is: { steamAppId: { in: [...played.keys()] } } } },

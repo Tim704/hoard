@@ -85,6 +85,17 @@ export function ownedGames(json: SteamOwnedGamesJson): SteamOwnedGame[] | null {
   return games;
 }
 
+export const STEAM_NO_GAMES_MESSAGE = "This Steam account doesn't own any games yet.";
+
+/**
+ * Why Steam showed no games, or null when it showed some. A private profile
+ * answers without `game_count`; a public one that owns nothing says 0.
+ */
+export function steamGamesProblem(json: SteamOwnedGamesJson): string | null {
+  if (ownedGames(json)) return null;
+  return json.response?.game_count === 0 ? STEAM_NO_GAMES_MESSAGE : STEAM_PRIVATE_MESSAGE;
+}
+
 export const STEAM_PRIVATE_MESSAGE =
   "Steam didn't show any games for this profile. Set your profile's \"Game details\" to Public in Steam → Edit Profile → Privacy Settings, then try again.";
 

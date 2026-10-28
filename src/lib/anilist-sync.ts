@@ -69,7 +69,10 @@ export function resolveConflict(local: LocalState, remote: ImportRow, remoteAt: 
   const change: SyncChange = {};
   const remoteNewer = remoteAt != null && remoteAt > local.updatedAt.getTime();
   if (remoteNewer) {
-    if (STATUS_RANK[remote.status] > STATUS_RANK[local.status]) change.status = remote.status;
+    // Statuses AniList can't tell apart (Retired is pushed as Completed) are
+    // the same status: pulling one back must not overwrite the other.
+    const same = toAniListStatus(remote.status) === toAniListStatus(local.status);
+    if (!same && STATUS_RANK[remote.status] > STATUS_RANK[local.status]) change.status = remote.status;
     if (remote.rating != null && remote.rating !== local.rating) change.rating = remote.rating;
     if (remote.progress != null && remote.progress !== local.progress) change.progress = remote.progress;
   } else {
@@ -132,6 +135,31 @@ export function aniListIdFromKey(externalId: string): { al: number } | { mal: nu
   if (al) return { al: Number(al[1]) };
   if (/^\d{1,10}$/.test(externalId)) return { mal: Number(externalId) };
   return null;
+}
+
+/**
+ * Which committed import rows go to AniList (8.2 push): anime and manga that
+ * were added or updated, from any source but the AniList pull itself (that
+ * would only echo AniList's own data back).
+ */
+export function importPushTargets(
+  rows: { category: string; source: string }[],
+  outcomes: { outcome: string; activityId?: string }[],
+): { activityId: string; category: 'ANIME' | 'MANGA' }[] {
+  const out: { activityId: string; category: 'ANIME' | 'MANGA' }[] = [];
+  rows.forEach((r, i) => {
+    const o = outcomes[i];
+    if (!o?.activityId || (o.outcome !== 'added' && o.outcome !== 'updated')) return;
+    if (r.source === 'anilist-sync') return;
+    if (r.category === 'anime') out.push({ activityId: o.activityId, category: 'ANIME' });
+    else if (r.category === 'manga') out.push({ activityId: o.activityId, category: 'MANGA' });
+  });
+  return out;
+}
+
+/** AniList user names compare case-insensitively. */
+export function sameAniListName(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
 // ── OAuth ──────────────────────────────────────────────────────────────────

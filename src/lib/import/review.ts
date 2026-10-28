@@ -59,8 +59,10 @@ export function commitRowsFor(items: ReviewItem[]): CommitRow[] {
     if (r.rewatchCount != null) row.rewatchCount = r.rewatchCount;
     if (r.review) row.review = r.review;
     if (r.diary?.length) row.diary = r.diary;
-    if (r.playtimeMinutes != null) row.playtimeMinutes = r.playtimeMinutes;
-    if (r.source === 'steam' && r.ids.steam && /^\d{1,10}$/.test(r.ids.steam)) row.steamAppId = Number(r.ids.steam);
+    if (r.source === 'steam') {
+      if (r.playtimeMinutes != null) row.playtimeMinutes = r.playtimeMinutes;
+      if (r.ids.steam && /^\d{1,10}$/.test(r.ids.steam)) row.steamAppId = Number(r.ids.steam);
+    }
     out.push(row);
   }
   return out;
