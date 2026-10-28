@@ -67,6 +67,7 @@ model User {
   notifications Notification[]
   diaryEntries  DiaryEntry[]
   playSessions  PlaySession[]
+  seasonActivities SeasonActivity[]
 }
 
 model Session {
@@ -175,6 +176,7 @@ model TvShow {
   nextAirDate   String? // YYYY-MM-DD of the next episode, when announced
 
   activities UserMediaActivity[]
+  seasons    TvSeason[]
 
   @@map("TVShow")
 }
@@ -356,6 +358,7 @@ model UserMediaActivity {
   events       ActivityEvent[]
   diaryEntries DiaryEntry[]
   playSessions PlaySession[]
+  seasons      SeasonActivity[]
 
   // A user can only add a given media item once per category.
   @@unique([userId, bookId])
@@ -392,6 +395,49 @@ model ActivityEvent {
 
   @@index([userId, at])
   @@index([activityId, at])
+}
+
+// ── TV seasons (3.3 / 4.5) ──────────────────────────────────────────────────
+//  TvSeason is catalogue data from TMDB `/tv/{id}` (specials, season 0, are
+//  skipped). SeasonActivity is one user's tracking of one season, created
+//  lazily on first interaction and owned through its parent activity:
+//  watched episodes (a count, or episode ticks in `episodesWatched`), a score,
+//  and the season tier list / Arena fields.
+
+model TvSeason {
+  id           String  @id @default(cuid())
+  tvShowId     String
+  seasonNumber Int
+  name         String
+  episodeCount Int?
+  airDate      String? // YYYY-MM-DD
+  imageUrl     String?
+
+  tvShow     TvShow           @relation(fields: [tvShowId], references: [id], onDelete: Cascade)
+  activities SeasonActivity[]
+
+  @@unique([tvShowId, seasonNumber])
+}
+
+model SeasonActivity {
+  id              String  @id @default(cuid())
+  userId          String
+  activityId      String
+  seasonId        String
+  watchedEpisodes Int     @default(0)
+  episodesWatched Int[] // ticked episode numbers, sorted and unique
+  rating          Float?
+  tier            Tier?
+  rankOrder       Float?
+  elo             Float   @default(1200)
+  duels           Int     @default(0)
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity UserMediaActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  season   TvSeason          @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, seasonId])
+  @@index([activityId])
 }
 
 // ── Diary and play sessions ─────────────────────────────────────────────────

@@ -14,6 +14,7 @@
 
 import { backfillDiary } from '@/lib/jobs/diary-backfill';
 import { prismaMigrationStore, type MigrationStore } from '@/lib/jobs/migration-store';
+import { prisma } from '@/lib/prisma';
 
 export interface MigrationStep {
   /** Stable, unique id, e.g. "003-diary-from-finished". */
@@ -24,6 +25,21 @@ export interface MigrationStep {
 export const MIGRATION_STEPS: MigrationStep[] = [
   // Later tasks append steps here.
   { id: '003-diary-from-finished', run: async () => void (await backfillDiary()) },
+  // 3.3: shows fetched before seasons were stored get them on the next
+  // metadata run. Only rows TMDB says have seasons and that have none stored.
+  {
+    id: '010-tv-seasons-refetch',
+    run: async () =>
+      void (await prisma.tvShow.updateMany({
+        where: {
+          metaFetchedAt: { not: null },
+          seasonCount: { gt: 0 },
+          seasons: { none: {} },
+          NOT: [{ externalId: { startsWith: 'manual:' } }, { externalId: { startsWith: 'demo-' } }],
+        },
+        data: { metaFetchedAt: null },
+      })),
+  },
 ];
 
 /**

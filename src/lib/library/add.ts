@@ -15,6 +15,8 @@ import { getPrefs } from '@/lib/data-prefs';
 import { isDiaryStatus, onFinished } from '@/lib/diary';
 import { recordEvent } from '@/lib/events';
 import { autoGroupAfterAdd } from '@/lib/franchise/auto';
+import { saveTvSeasons } from '@/lib/library/tv-seasons';
+import type { TvSeasonData } from '@/lib/apis/tmdb';
 import { catalogueCreatePayload, fillOnlyUpdate } from '@/lib/media-upsert';
 import { MANUAL_PREFIX } from '@/lib/manual';
 import { nextQueueOrder } from '@/lib/queue';
@@ -53,6 +55,8 @@ export interface AddOptions {
    * can never set it.
    */
   metaFetchedAt?: Date | null;
+  /** TV: the show's seasons from the same server-side lookup (3.3). */
+  seasons?: TvSeasonData[] | null;
 }
 
 export interface AddOutcome {
@@ -102,6 +106,8 @@ export async function addMediaForUser(
         media = await db[cat.prismaModel].update({ where: { id: media.id }, data: fill });
       }
     }
+
+    if (slug === 'tv' && opts.seasons?.length) await saveTvSeasons(tx, media.id, opts.seasons);
 
     const existing = await tx.userMediaActivity.findFirst({
       where: { userId, [cat.fkField]: media.id } as any,

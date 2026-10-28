@@ -108,7 +108,83 @@ async function seedLibrary(userId: string) {
     }),
     'animeId',
   );
+  await seedTv(userId);
   console.log('[seed] Demo library ready.');
+}
+
+/** The demo show's activity id, fixed so the smoke test can visit its season tiers. */
+export const DEMO_TV_ACTIVITY_ID = 'demo-activity-tv-expanse';
+
+const DEMO_SEASONS = [
+  { seasonNumber: 1, episodeCount: 10, airDate: '2015-12-14', watched: 10, rating: 8.4, tier: 'A' as Tier },
+  { seasonNumber: 2, episodeCount: 13, airDate: '2017-02-01', watched: 13, rating: 9.1, tier: 'S' as Tier },
+  { seasonNumber: 3, episodeCount: 13, airDate: '2018-04-11', ticks: [1, 2, 3], rating: 8.7 },
+];
+
+/**
+ * A demo show with three seasons (3.3 / 4.5): two finished and tiered, one in
+ * progress with episode ticks, so the Seasons section, the season tier page
+ * and its Arena (two seasons share the whole score 8) all have data.
+ */
+async function seedTv(userId: string) {
+  const show = await prisma.tvShow.upsert({
+    where: { externalId: 'demo-tv-expanse' },
+    update: {},
+    create: {
+      externalId: 'demo-tv-expanse',
+      title: 'The Expanse',
+      year: 2015,
+      episodeCount: 36,
+      seasonCount: 3,
+      tmdbRating: 8.1,
+    },
+  });
+  const seasons = [];
+  for (const s of DEMO_SEASONS) {
+    seasons.push(
+      await prisma.tvSeason.upsert({
+        where: { tvShowId_seasonNumber: { tvShowId: show.id, seasonNumber: s.seasonNumber } },
+        update: {},
+        create: {
+          tvShowId: show.id,
+          seasonNumber: s.seasonNumber,
+          name: `Season ${s.seasonNumber}`,
+          episodeCount: s.episodeCount,
+          airDate: s.airDate,
+        },
+      }),
+    );
+  }
+
+  const existing = await prisma.userMediaActivity.findFirst({ where: { userId, tvShowId: show.id } });
+  if (existing) return; // never touch what the user changed in the app
+  const progress = DEMO_SEASONS.reduce((n, s) => n + (s.ticks?.length ?? s.watched ?? 0), 0);
+  await prisma.userMediaActivity.create({
+    data: {
+      id: DEMO_TV_ACTIVITY_ID,
+      userId,
+      category: 'TV',
+      tvShowId: show.id,
+      status: 'CONSUMING',
+      rating: 8.8,
+      progress,
+    },
+  });
+  let rank = 0;
+  for (const [i, s] of DEMO_SEASONS.entries()) {
+    await prisma.seasonActivity.create({
+      data: {
+        userId,
+        activityId: DEMO_TV_ACTIVITY_ID,
+        seasonId: seasons[i].id,
+        watchedEpisodes: s.ticks?.length ?? s.watched ?? 0,
+        episodesWatched: s.ticks ?? [],
+        rating: s.rating,
+        tier: s.tier ?? null,
+        rankOrder: s.tier ? (rank += 1000) : null,
+      },
+    });
+  }
 }
 
 async function seedCategory(

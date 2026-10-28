@@ -37,17 +37,38 @@ import {
   resolveDrop,
   suggestTier,
   TIERS,
+  type RankableItem,
   type Tier,
   type TierBoardData,
   type TierContainer,
+  type TierPlacement,
 } from '@/lib/tiers';
-import type { ActivityWithMedia } from '@/lib/types';
+import type { ActionResult, ActivityWithMedia } from '@/lib/types';
 import { unscoredFinished } from '@/lib/unscored';
 import { cn } from '@/lib/utils';
 
 interface TierBoardProps {
   slug: CategorySlug;
   initial: TierBoardData;
+}
+
+/** What a board row shows for an item. */
+export interface BoardItemView {
+  title: string;
+  subtitle: string;
+  imageUrl: string | null;
+}
+
+/** The board for any item type (activities, TV seasons, …). */
+export interface ItemTierBoardProps<T extends RankableItem> {
+  initial: TierBoardData<T>;
+  save: (placement: TierPlacement, trayIds: string[]) => Promise<ActionResult>;
+  acceptAll: () => Promise<ActionResult>;
+  view: (item: T) => BoardItemView;
+  /** Shown when nothing is on the board. */
+  emptyText: string;
+  /** "Score these · n" link next to the tray heading (activities only). */
+  scoreThese?: { href: string; count: number } | null;
 }
 
 /** Accent per tier: label cell and suggestion chip (readable in light and dark). */
@@ -60,20 +81,51 @@ const TIER_STYLE: Record<Tier, string> = {
   F: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/40',
 };
 
-const samePlacement = (a: TierBoardData, b: TierBoardData) =>
+const samePlacement = <T extends RankableItem>(a: TierBoardData<T>, b: TierBoardData<T>) =>
   JSON.stringify(boardPlacement(a)) === JSON.stringify(boardPlacement(b));
+
+/**
+ * A section's tier list: its finished titles on the generic board, saved
+ * through `saveTiers`.
+ */
+export function TierBoard({ slug, initial }: TierBoardProps) {
+  const titleOf = useDisplayTitle();
+  // Every title on the board is finished, so the unscored ones are "Score these".
+  const unscored = unscoredFinished([...TIERS.flatMap((t) => initial.tiers[t]), ...initial.tray]).length;
+  return (
+    <ItemTierBoard<ActivityWithMedia>
+      initial={initial}
+      save={(placement, trayIds) => saveTiers(slug, placement, trayIds)}
+      acceptAll={() => acceptSuggestedTiers(slug)}
+      view={(a) => ({
+        title: titleOf(a.media),
+        subtitle: [a.media.year, mediaSubtitle(a.media, a.category)].filter(Boolean).join(' · '),
+        imageUrl: a.media.imageUrl,
+      })}
+      emptyText="Nothing to tier yet — finish something first."
+      scoreThese={unscored > 0 ? { href: `/${slug}?score=1`, count: unscored } : null}
+    />
+  );
+}
 
 /**
  * The tier list editor: six hand-placed tiers (S…F) plus the Unranked tray.
  * Drag between and within tiers, or use each row's arrows and tier picker.
- * Every change saves immediately (optimistically) through `saveTiers`.
+ * Every change saves immediately (optimistically) through `save`.
  */
-export function TierBoard({ slug, initial }: TierBoardProps) {
+export function ItemTierBoard<T extends RankableItem>({
+  initial,
+  save,
+  acceptAll: accept,
+  view,
+  emptyText,
+  scoreThese,
+}: ItemTierBoardProps<T>) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [board, setBoard] = useState<TierBoardData>(initial);
+  const [board, setBoard] = useState<TierBoardData<T>>(initial);
   // The board as it was when the current drag started (for cancel / persist).
-  const dragStart = useRef<TierBoardData | null>(null);
+  const dragStart = useRef<TierBoardData<T> | null>(null);
 
   // Resync when the server sends fresh data (after accepting or a refresh).
   useEffect(() => setBoard(initial), [initial]);
@@ -85,12 +137,11 @@ export function TierBoard({ slug, initial }: TierBoardProps) {
   // A stable id: dnd-kit's own counter differs between server and client (hydration warning).
   const dndId = useId();
 
-  function persist(next: TierBoardData, prev: TierBoardData) {
+  function persist(next: TierBoardData<T>, prev: TierBoardData<T>) {
     setBoard(next);
     if (samePlacement(next, prev)) return; // tray-only shuffles are not stored
     startTransition(async () => {
-      const res = await saveTiers(
-        slug,
+      const res = await save(
         boardPlacement(next),
         next.tray.map((a) => a.id),
       );
@@ -139,7 +190,7 @@ export function TierBoard({ slug, initial }: TierBoardProps) {
 
   const acceptAll = () =>
     startTransition(async () => {
-      const res = await acceptSuggestedTiers(slug);
+      const res = await accept();
       if (res.ok) {
         toast.success('Placed everything in its suggested tier. Drag to fine-tune.');
         router.refresh();
@@ -152,15 +203,13 @@ export function TierBoard({ slug, initial }: TierBoardProps) {
   if (placedCount === 0 && board.tray.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-        Nothing to tier yet — finish something first.
+        {emptyText}
       </div>
     );
   }
 
   const hasSuggestions = board.tray.some((a) => suggestTier(a.rating) !== null);
-  // Every title on the board is finished, so the unscored ones are "Score these".
-  const unscored = unscoredFinished([...TIERS.flatMap((t) => board.tiers[t]), ...board.tray]).length;
-  const rowProps = { disabled: isPending, onMove: move };
+  const rowProps = { disabled: isPending, onMove: move, view };
 
   return (
     <DndContext
@@ -190,13 +239,13 @@ export function TierBoard({ slug, initial }: TierBoardProps) {
               Unranked · {board.tray.length}
             </h2>
             <div className="flex flex-wrap items-center gap-2">
-              {unscored > 0 && (
+              {scoreThese && (
                 <Link
-                  href={`/${slug}?score=1`}
+                  href={scoreThese.href}
                   className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 underline-offset-4 hover:underline dark:text-amber-300"
                 >
                   <Sparkles className="h-4 w-4" aria-hidden />
-                  Score these · {unscored}
+                  Score these · {scoreThese.count}
                 </Link>
               )}
               {hasSuggestions && (
@@ -210,7 +259,7 @@ export function TierBoard({ slug, initial }: TierBoardProps) {
           <Container id="tray" items={board.tray} labelledBy="tray-heading" {...rowProps}>
             {board.tray.length === 0 && (
               <li className="py-3 text-center text-sm text-muted-foreground">
-                Everything is placed. Drop a title here to unrank it.
+                Everything is placed. Drop one here to unrank it.
               </li>
             )}
           </Container>
@@ -220,12 +269,17 @@ export function TierBoard({ slug, initial }: TierBoardProps) {
   );
 }
 
-interface RowActions {
+interface RowActions<T extends RankableItem> {
   disabled: boolean;
   onMove: (id: string, to: TierContainer, index?: number) => void;
+  view: (item: T) => BoardItemView;
 }
 
-function TierRow({ tier, items, ...actions }: { tier: Tier; items: ActivityWithMedia[] } & RowActions) {
+function TierRow<T extends RankableItem>({
+  tier,
+  items,
+  ...actions
+}: { tier: Tier; items: T[] } & RowActions<T>) {
   const labelId = `tier-${tier}-label`;
   return (
     <div className="flex overflow-hidden rounded-lg border border-border bg-card">
@@ -248,16 +302,23 @@ function TierRow({ tier, items, ...actions }: { tier: Tier; items: ActivityWithM
   );
 }
 
-interface ContainerProps extends RowActions {
+interface ContainerProps<T extends RankableItem> extends RowActions<T> {
   id: TierContainer;
-  items: ActivityWithMedia[];
+  items: T[];
   labelledBy: string;
   className?: string;
   children?: React.ReactNode;
 }
 
 /** A droppable, sortable list: one tier or the tray (accepts drops when empty). */
-function Container({ id, items, labelledBy, className, children, ...actions }: ContainerProps) {
+function Container<T extends RankableItem>({
+  id,
+  items,
+  labelledBy,
+  className,
+  children,
+  ...actions
+}: ContainerProps<T>) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
     <SortableContext id={id} items={items.map((a) => a.id)} strategy={verticalListSortingStrategy}>
@@ -265,16 +326,16 @@ function Container({ id, items, labelledBy, className, children, ...actions }: C
         ref={setNodeRef}
         aria-labelledby={labelledBy}
         className={cn(
-          'flex min-h-[4.5rem] flex-1 flex-col gap-2 rounded-md transition-colors',
+          'flex min-h-[4.5rem] min-w-0 flex-1 flex-col gap-2 rounded-md transition-colors',
           id === 'tray' && 'rounded-lg border border-dashed border-border p-2',
           isOver && 'bg-muted/60',
           className,
         )}
       >
         {items.map((a, index) => (
-          <TierItem
+          <BoardItem
             key={a.id}
-            activity={a}
+            item={a}
             container={id}
             index={index}
             isLast={index === items.length - 1}
@@ -287,8 +348,8 @@ function Container({ id, items, labelledBy, className, children, ...actions }: C
   );
 }
 
-interface TierItemProps extends RowActions {
-  activity: ActivityWithMedia;
+interface BoardItemProps<T extends RankableItem> extends RowActions<T> {
+  item: T;
   container: TierContainer;
   index: number;
   isLast: boolean;
@@ -297,11 +358,18 @@ interface TierItemProps extends RowActions {
 const controlClass =
   'flex h-11 min-w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-25 sm:h-8 sm:min-w-8';
 
-function TierItem({ activity: a, container, index, isLast, disabled, onMove }: TierItemProps) {
+function BoardItem<T extends RankableItem>({
+  item: a,
+  container,
+  index,
+  isLast,
+  disabled,
+  onMove,
+  view,
+}: BoardItemProps<T>) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: a.id, disabled });
-  const title = useDisplayTitle()(a.media);
-  const subtitle = [a.media.year, mediaSubtitle(a.media, a.category)].filter(Boolean).join(' · ');
+  const { title, subtitle, imageUrl } = view(a);
   const suggestion = container === 'tray' ? suggestTier(a.rating) : null;
   const { scorePlain } = useScoreFormat();
 
@@ -327,8 +395,8 @@ function TierItem({ activity: a, container, index, isLast, disabled, onMove }: T
         </button>
 
         <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded bg-muted ring-1 ring-border">
-          {a.media.imageUrl ? (
-            <Image src={a.media.imageUrl} alt="" fill sizes="40px" className="object-cover" />
+          {imageUrl ? (
+            <Image src={imageUrl} alt="" fill sizes="40px" className="object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               <ImageOff className="h-4 w-4 text-muted-foreground" aria-hidden />

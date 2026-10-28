@@ -9,7 +9,8 @@ import { getCategory, type CategorySlug } from '@/lib/categories';
 import type { NormalizedResult, SearchResponse } from '@/lib/types';
 
 import { searchMovies, searchTv } from './tmdb';
-import { detailsConfigured, fetchDetailPatch, isLookupSkipped } from './details';
+import { detailsConfigured, fetchDetailPatch, isLookupSkipped, splitSeasons } from './details';
+import type { TvSeasonData } from './tmdb';
 import { searchAnime, searchManga } from './anilist';
 import { searchBooks } from './books';
 import { searchGames } from './igdb';
@@ -74,6 +75,8 @@ export interface EnrichedResult {
    * not trusted with job bookkeeping).
    */
   metaFetchedAt: Date | null;
+  /** TV only: the show's seasons from the same lookup (server-side, like the stamp). */
+  seasons?: TvSeasonData[] | null;
 }
 
 /**
@@ -102,7 +105,8 @@ export async function enrichResult(
       trackCount: typeof f.trackCount === 'number' ? f.trackCount : null,
     });
     if (!patch) return unchanged;
-    return { result: { ...result, fields: { ...f, ...patch } }, metaFetchedAt: new Date() };
+    const { columns, seasons } = splitSeasons(patch);
+    return { result: { ...result, fields: { ...f, ...columns } }, metaFetchedAt: new Date(), seasons };
   } catch {
     // Enrichment is best-effort; fall back to the un-enriched result.
     return unchanged;

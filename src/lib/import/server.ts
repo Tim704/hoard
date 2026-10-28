@@ -8,7 +8,7 @@
 import type { Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/prisma';
-import { enrichResult, searchProvider } from '@/lib/apis';
+import { enrichResult, searchProvider, type EnrichedResult } from '@/lib/apis';
 import { fetchAniListByIds, fetchAniListByMalIds } from '@/lib/apis/anilist';
 import { searchBooksByIsbn, searchBooksByTitle } from '@/lib/apis/books';
 import { detailsConfigured, isLookupSkipped } from '@/lib/apis/details';
@@ -109,6 +109,7 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
   try {
     let result: NormalizedResult = row.result;
     let metaFetchedAt: Date | null = null;
+    let seasons: EnrichedResult['seasons'] = null;
     const ext = result.externalId;
 
     if (ext === NEW_MANUAL_ID) {
@@ -127,6 +128,7 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
         const enriched = await enrichResult(slug, result);
         result = enriched.result;
         metaFetchedAt = enriched.metaFetchedAt;
+        seasons = enriched.seasons;
         // AniList allows ~30–90 requests a minute; leave room between lookups.
         if (slug === 'anime' || slug === 'manga') await sleep(700);
       }
@@ -151,6 +153,7 @@ export async function commitRow(userId: string, row: CommitRow, opts: CommitOpti
       eventKind: 'import',
       eventMeta: meta,
       metaFetchedAt,
+      seasons,
     });
     if (!existing) return { outcome: 'added', activityId };
     if (!opts.updateExisting) return { outcome: 'unchanged', activityId };

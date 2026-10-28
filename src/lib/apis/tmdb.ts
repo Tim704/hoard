@@ -312,6 +312,25 @@ export interface TmdbTvDetailsJson {
   created_by?: Array<{ name?: string | null }> | null;
   next_episode_to_air?: { air_date?: string | null } | null;
   credits?: TmdbCredits | null;
+  seasons?: TmdbSeasonJson[] | null;
+}
+
+/** One entry of `/tv/{id}` → `seasons[]`. */
+export interface TmdbSeasonJson {
+  season_number?: unknown;
+  name?: string | null;
+  episode_count?: number | null;
+  air_date?: string | null;
+  poster_path?: string | null;
+}
+
+/** A season as stored in `TvSeason` (3.3). */
+export interface TvSeasonData {
+  seasonNumber: number;
+  name: string;
+  episodeCount: number | null;
+  airDate: string | null;
+  imageUrl: string | null;
 }
 
 export interface TvDetails {
@@ -350,14 +369,42 @@ export function mapTvDetails(data: TmdbTvDetailsJson): TvDetails {
   };
 }
 
-/** Fetch tv details (counts, dates, genres, credits, status). Null on 404. */
-export async function fetchTvDetails(externalId: string): Promise<TvDetails | null> {
+/**
+ * The show's seasons from the same `/tv/{id}` answer, by season number.
+ * Season 0 (the specials) and malformed entries are skipped; a blank name
+ * becomes "Season N"; the poster uses the same URL format as show posters.
+ */
+export function mapTvSeasons(data: TmdbTvDetailsJson): TvSeasonData[] {
+  const out = new Map<number, TvSeasonData>();
+  for (const s of data.seasons ?? []) {
+    const n = s?.season_number;
+    if (typeof n !== 'number' || !Number.isInteger(n) || n <= 0 || out.has(n)) continue;
+    const count = s.episode_count;
+    out.set(n, {
+      seasonNumber: n,
+      name: s.name?.trim() || `Season ${n}`,
+      episodeCount: typeof count === 'number' && Number.isInteger(count) && count >= 0 ? count : null,
+      airDate: normalizeYmd(s.air_date),
+      imageUrl: imageUrl(s.poster_path, 'w500'),
+    });
+  }
+  return [...out.values()].sort((a, b) => a.seasonNumber - b.seasonNumber);
+}
+
+/**
+ * Fetch tv details (counts, dates, genres, credits, status) plus its seasons
+ * (one request). Null on 404.
+ */
+export async function fetchTvDetails(
+  externalId: string,
+): Promise<(TvDetails & { seasons: TvSeasonData[] }) | null> {
   const key = requireKey();
   const url = `${TMDB_BASE}/tv/${encodeURIComponent(externalId)}?api_key=${key}&append_to_response=credits`;
   const res = await providerFetch(url);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`TMDB tv details failed (${res.status})`);
-  return mapTvDetails((await res.json()) as TmdbTvDetailsJson);
+  const json = (await res.json()) as TmdbTvDetailsJson;
+  return { ...mapTvDetails(json), seasons: mapTvSeasons(json) };
 }
 
 /** GET /collection/{id}: the collection and its films ("parts"). */

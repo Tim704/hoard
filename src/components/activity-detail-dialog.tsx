@@ -10,6 +10,7 @@ import { ActivityExtras } from '@/components/activity-extras';
 import { ManualFields } from '@/components/manual-fields';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { ProgressField } from '@/components/progress-field';
+import { TvSeasons } from '@/components/tv-seasons';
 import { RatingInput } from '@/components/rating-input';
 import { toastRemoved, toastStatusChange } from '@/components/undo-toast';
 import { Button } from '@/components/ui/button';
@@ -418,15 +419,23 @@ export function ActivityDetailDialog({
               </Select>
             </div>
 
-            <ProgressField
-              key={activity.id}
-              activity={activity}
-              disabled={busy}
-              onMarkFinished={() => {
-                setStatus('COMPLETED');
-                void save('COMPLETED');
-              }}
-            />
+            {/* A stable wrapper, so the keyed remount below stays in place. */}
+            <div className="empty:hidden">
+              <ProgressField
+                // TV progress also changes from the Seasons section: remount on a new value.
+                key={activity.category === 'tv' ? `${activity.id}:${activity.progress}` : activity.id}
+                activity={activity}
+                disabled={busy}
+                onMarkFinished={() => {
+                  setStatus('COMPLETED');
+                  void save('COMPLETED');
+                }}
+              />
+            </div>
+
+            {activity.category === 'tv' && (
+              <TvSeasons key={activity.id} activityId={activity.id} disabled={busy} />
+            )}
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">

@@ -26,7 +26,23 @@ export function tierIndex(tier: Tier | null): number {
   return tier === null ? TIERS.length : TIERS.indexOf(tier);
 }
 
-function byRankThenRating(a: ActivityWithMedia, b: ActivityWithMedia): number {
+/**
+ * Anything that can sit on a tier board: a library activity or a TV season
+ * (4.5). Its display title is `title`, or `media.title` for activities.
+ */
+export interface TierItem {
+  id: string;
+  tier: Tier | null;
+  rankOrder: number | null;
+  rating: number | null;
+  elo: number;
+}
+type Titled = { title: string } | { media: { title: string } };
+export type RankableItem = TierItem & Titled;
+
+const titleOf = (x: Titled) => ('media' in x ? x.media.title : x.title);
+
+function byRankThenRating(a: RankableItem, b: RankableItem): number {
   if (a.rankOrder !== b.rankOrder) {
     if (a.rankOrder === null) return 1;
     if (b.rankOrder === null) return -1;
@@ -35,33 +51,40 @@ function byRankThenRating(a: ActivityWithMedia, b: ActivityWithMedia): number {
   return (
     (b.rating ?? -Infinity) - (a.rating ?? -Infinity) ||
     b.elo - a.elo ||
-    a.media.title.localeCompare(b.media.title)
+    titleOf(a).localeCompare(titleOf(b))
   );
 }
 
-export function compareTierOrder(a: ActivityWithMedia, b: ActivityWithMedia): number {
+export function compareTierOrder<T extends RankableItem>(a: T, b: T): number {
   return tierIndex(a.tier) - tierIndex(b.tier) || byRankThenRating(a, b);
 }
 
-export interface TierBoardData {
-  tiers: Record<Tier, ActivityWithMedia[]>;
-  tray: ActivityWithMedia[];
+export interface TierBoardData<T extends RankableItem = ActivityWithMedia> {
+  tiers: Record<Tier, T[]>;
+  tray: T[];
 }
 
-export function buildTierBoard(all: ActivityWithMedia[]): TierBoardData {
-  const tiers = Object.fromEntries(TIERS.map((t) => [t, [] as ActivityWithMedia[]])) as Record<
-    Tier,
-    ActivityWithMedia[]
-  >;
-  const tray: ActivityWithMedia[] = [];
-  for (const a of all) {
-    if (!isTierEligible(a.status)) continue;
+/**
+ * A board of any items: placed ones per tier, the rest in the tray. The
+ * caller decides which items belong on it.
+ */
+export function buildItemBoard<T extends RankableItem>(items: T[]): TierBoardData<T> {
+  const tiers = Object.fromEntries(TIERS.map((t) => [t, [] as T[]])) as Record<Tier, T[]>;
+  const tray: T[] = [];
+  for (const a of items) {
     if (a.tier === null) tray.push(a);
     else tiers[a.tier].push(a);
   }
   for (const t of TIERS) tiers[t].sort(byRankThenRating);
   tray.sort(byRankThenRating);
   return { tiers, tray };
+}
+
+/** A section's tier board: only finished (tier-eligible) activities. */
+export function buildTierBoard<T extends ActivityWithMedia = ActivityWithMedia>(
+  all: T[],
+): TierBoardData<T> {
+  return buildItemBoard(all.filter((a) => isTierEligible(a.status)));
 }
 
 export type TierPlacement = Record<Tier, string[]>;
@@ -133,7 +156,7 @@ export function parseTierSave(
   return { placement: out, trayIds: [...trayIds] };
 }
 
-export function acceptSuggestions(board: TierBoardData): TierPlacement {
+export function acceptSuggestions<T extends RankableItem>(board: TierBoardData<T>): TierPlacement {
   const placement = boardPlacement(board);
   for (const a of board.tray) {
     const t = suggestTier(a.rating);
@@ -143,8 +166,8 @@ export function acceptSuggestions(board: TierBoardData): TierPlacement {
 }
 
 /** Every pair of neighbours inside one tier (S first, best of each pair first). */
-export function withinTierPairs(board: TierBoardData): [ActivityWithMedia, ActivityWithMedia][] {
-  const pairs: [ActivityWithMedia, ActivityWithMedia][] = [];
+export function withinTierPairs<T extends RankableItem>(board: TierBoardData<T>): [T, T][] {
+  const pairs: [T, T][] = [];
   for (const t of TIERS) {
     const items = board.tiers[t];
     for (let i = 0; i + 1 < items.length; i++) pairs.push([items[i], items[i + 1]]);
@@ -161,12 +184,15 @@ export function isTierContainer(id: string): id is TierContainer {
   return id === 'tray' || (TIERS as readonly string[]).includes(id);
 }
 
-function itemsOf(board: TierBoardData, c: TierContainer): ActivityWithMedia[] {
+function itemsOf<T extends RankableItem>(board: TierBoardData<T>, c: TierContainer): T[] {
   return c === 'tray' ? board.tray : board.tiers[c];
 }
 
 /** Which container holds `id`, or null when it is not on the board. */
-export function findContainer(board: TierBoardData, id: string): TierContainer | null {
+export function findContainer<T extends RankableItem>(
+  board: TierBoardData<T>,
+  id: string,
+): TierContainer | null {
   for (const t of TIERS) if (board.tiers[t].some((a) => a.id === id)) return t;
   return board.tray.some((a) => a.id === id) ? 'tray' : null;
 }
@@ -176,18 +202,18 @@ export function findContainer(board: TierBoardData, id: string): TierContainer |
  * one container this behaves like `arrayMove`. Returns a new board; unknown ids
  * return the board unchanged.
  */
-export function moveItem(
-  board: TierBoardData,
+export function moveItem<T extends RankableItem>(
+  board: TierBoardData<T>,
   id: string,
   to: TierContainer,
   index?: number,
-): TierBoardData {
+): TierBoardData<T> {
   const from = findContainer(board, id);
   if (from === null) return board;
-  const item = itemsOf(board, from).find((a) => a.id === id) as ActivityWithMedia;
+  const item = itemsOf(board, from).find((a) => a.id === id) as T;
 
-  const next: TierBoardData = { tiers: { ...board.tiers }, tray: board.tray };
-  const set = (c: TierContainer, items: ActivityWithMedia[]) => {
+  const next: TierBoardData<T> = { tiers: { ...board.tiers }, tray: board.tray };
+  const set = (c: TierContainer, items: T[]) => {
     if (c === 'tray') next.tray = items;
     else next.tiers[c] = items;
   };
@@ -201,8 +227,8 @@ export function moveItem(
 }
 
 /** Where a drop over `overId` (a container or an item) lands. */
-export function resolveDrop(
-  board: TierBoardData,
+export function resolveDrop<T extends RankableItem>(
+  board: TierBoardData<T>,
   overId: string,
 ): { container: TierContainer; index: number } | null {
   if (isTierContainer(overId)) {
@@ -214,7 +240,7 @@ export function resolveDrop(
 }
 
 /** The placement `saveTiers` persists: tier ids in board order (tray excluded). */
-export function boardPlacement(board: TierBoardData): TierPlacement {
+export function boardPlacement<T extends RankableItem>(board: TierBoardData<T>): TierPlacement {
   return Object.fromEntries(
     TIERS.map((t) => [t, board.tiers[t].map((a) => a.id)]),
   ) as TierPlacement;

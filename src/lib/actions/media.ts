@@ -98,6 +98,7 @@ export async function addToList(
     const { activityId, existing } = await addMediaForUser(user.id, slug, enriched.result, {
       status,
       metaFetchedAt: enriched.metaFetchedAt,
+      seasons: enriched.seasons,
     });
 
     revalidateCategory(slug);

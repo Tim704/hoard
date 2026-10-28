@@ -15,7 +15,22 @@ import { fetchAniListDetails } from './anilist';
 import { fetchBookDetails } from './books';
 import { fetchGameDetails, igdbConfigured } from './igdb';
 import { fetchAlbumDetails, lastfmConfigured } from './music';
-import { fetchMovieDetails, fetchTvDetails, tmdbConfigured } from './tmdb';
+import { fetchMovieDetails, fetchTvDetails, tmdbConfigured, type TvSeasonData } from './tmdb';
+
+/**
+ * A TV patch also carries the show's seasons under this key (they go to the
+ * `TvSeason` table, not a column). Callers take them out with `splitSeasons`.
+ */
+export const SEASONS_KEY = 'seasons';
+
+/** Separate a detail patch's seasons (TV only) from its column values. */
+export function splitSeasons(patch: Record<string, unknown>): {
+  columns: Record<string, unknown>;
+  seasons: TvSeasonData[] | null;
+} {
+  const { [SEASONS_KEY]: raw, ...columns } = patch;
+  return { columns, seasons: Array.isArray(raw) ? (raw as TvSeasonData[]) : null };
+}
 
 /** Rows that never get provider lookups: hand-made entries and the demo library. */
 export function isLookupSkipped(externalId: string): boolean {
@@ -79,7 +94,10 @@ export async function fetchDetailPatch(
     }
     case 'tv': {
       const d = await fetchTvDetails(src.externalId);
-      return d ? compact({ ...d }, ['releaseDate', 'status', 'nextAirDate']) : null;
+      if (!d) return null;
+      const { seasons, ...rest } = d;
+      const patch = compact(rest, ['releaseDate', 'status', 'nextAirDate']);
+      return seasons.length ? { ...patch, [SEASONS_KEY]: seasons } : patch;
     }
     case 'games': {
       const d = await fetchGameDetails(src.externalId);

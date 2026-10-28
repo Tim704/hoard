@@ -20,5 +20,7 @@
   "/add?text=Frieren",
   "/books?open=does-not-exist",
   "/import",
-  "/diary"
+  "/diary",
+  "/tv?open=demo-activity-tv-expanse",
+  "/tv/seasons/demo-activity-tv-expanse"
 ]

@@ -23,8 +23,10 @@ import {
   fetchAniListDetails,
   fetchDetailPatch,
   isLookupSkipped,
+  splitSeasons,
   type DetailSource,
 } from '@/lib/apis/details';
+import { saveTvSeasons } from '@/lib/library/tv-seasons';
 
 export const METADATA_MAX_ROWS = 200;
 export const METADATA_STALE_DAYS = 30;
@@ -125,7 +127,10 @@ const prismaDeps: MetadataDeps = {
     }));
   },
   async update(slug, id, data) {
-    await (prisma as any)[MODEL[slug]].update({ where: { id }, data });
+    // A TV patch carries the show's seasons (3.3): they refresh `TvSeason`.
+    const { columns, seasons } = splitSeasons(data);
+    await (prisma as any)[MODEL[slug]].update({ where: { id }, data: columns });
+    if (slug === 'tv' && seasons?.length) await saveTvSeasons(prisma, id, seasons);
   },
   fetchPatch: fetchDetailPatch,
   fetchAniList: fetchAniListDetails,

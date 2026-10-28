@@ -148,6 +148,18 @@ if (failures.length === 0) {
     await page.keyboard.press('Enter');
     await page.waitForURL((url) => url.pathname === '/settings', { timeout: 15_000 });
   });
+  // TV seasons (3.3 / 4.5): the demo show's details list its seasons and
+  // link to the season tier page.
+  await step('tv seasons → season tiers', async () => {
+    await page.goto(`${BASE_URL}/tv?open=demo-activity-tv-expanse`, { waitUntil: 'networkidle' });
+    await page.getByRole('heading', { name: 'Seasons' }).waitFor({ timeout: 15_000 });
+    await page.getByLabel('Watched episodes of Season 3').waitFor({ timeout: 10_000 });
+    await Promise.all([
+      page.waitForURL((url) => url.pathname === '/tv/seasons/demo-activity-tv-expanse', { timeout: 20_000 }),
+      page.getByRole('link', { name: 'Season tiers' }).click(),
+    ]);
+    await page.getByRole('heading', { name: 'Which season is better?' }).waitFor({ timeout: 15_000 });
+  });
   // Signed out, a shared link survives the login (next=…).
   await step('login keeps the shared /add link', async () => {
     const fresh = await browser.newContext();
