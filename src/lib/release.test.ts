@@ -4,6 +4,7 @@ import {
   countdownLabel,
   daysUntil,
   formatYmd,
+  formatYmShort,
   isReleased,
   isYmd,
   normalizeYmd,
@@ -103,6 +104,13 @@ describe('date helpers', () => {
 
   it('formats a day without shifting it', () => {
     expect(formatYmd('2026-10-28')).toBe('28 Oct 2026');
+  });
+
+  it('formats a month and year only, without shifting it', () => {
+    expect(formatYmShort('2019-04-11')).toBe('Apr 2019');
+    expect(formatYmShort('2015-12-31')).toBe('Dec 2015');
+    expect(formatYmShort('2015-01-01')).toBe('Jan 2015');
+    expect(formatYmShort('soon')).toBe('soon');
   });
 });
 

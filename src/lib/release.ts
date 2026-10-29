@@ -106,6 +106,15 @@ export function formatYmd(ymd: string): string {
   }).format(new Date(Date.UTC(y, m - 1, d)));
 }
 
+/** "Apr 2019" for a YYYY-MM-DD day (month and year only, in UTC), for tight rows. */
+export function formatYmShort(ymd: string): string {
+  if (!isYmd(ymd)) return ymd;
+  const [y, m] = ymd.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(y, m - 1, 1)),
+  );
+}
+
 /**
  * The countdown badge (5.9) for a Planned title: "in 12 days" / "in 1 day"
  * while its full release day is still ahead; null on or after the day, or

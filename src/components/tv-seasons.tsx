@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getSeasons, setSeasonRating, updateSeasonWatch } from '@/lib/actions/seasons';
 import type { SeasonRow } from '@/lib/data-seasons';
-import { formatYmd, isYmd } from '@/lib/release';
+import { formatYmd, formatYmShort, isYmd } from '@/lib/release';
 import { applySeasonChange, watchedOf, type SeasonChange, type SeasonWatch } from '@/lib/seasons';
 import { cn } from '@/lib/utils';
 
@@ -183,7 +183,8 @@ function SeasonLine({
 
   const total = row.episodeCount;
   const inputId = `season-${row.seasonId}`;
-  const aired = row.airDate && isYmd(row.airDate) ? formatYmd(row.airDate) : null;
+  // Phones show the month and year only, so the row stays on one line.
+  const aired = row.airDate && isYmd(row.airDate) ? { full: formatYmd(row.airDate), short: formatYmShort(row.airDate) } : null;
 
   function commitDraft() {
     const n = Number(draft.trim());
@@ -210,7 +211,12 @@ function SeasonLine({
           <label htmlFor={inputId} className="block truncate text-sm font-medium">
             {row.name}
           </label>
-          {aired && <p className="truncate text-xs text-muted-foreground">{aired}</p>}
+          {aired && (
+            <p className="truncate text-xs text-muted-foreground">
+              <span className="sm:hidden">{aired.short}</span>
+              <span className="hidden sm:inline">{aired.full}</span>
+            </p>
+          )}
         </div>
         <Input
           id={inputId}
