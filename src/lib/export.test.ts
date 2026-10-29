@@ -179,9 +179,11 @@ describe('exportablePrefs', () => {
       [
         'anilistUser',
         'compareOptIn',
+        'dashboard',
         'feedOptIn',
         'hiddenSections',
         'lastfmUser',
+        'layout',
         'notify',
         'region',
         'scoreFormat',
@@ -189,11 +191,22 @@ describe('exportablePrefs', () => {
         'streamingServices',
         'timeZone',
         'titleLanguage',
+        'titleView',
         'weekStart',
       ].sort(),
     );
     expect(Object.keys(out.notify).sort()).toEqual(['discordConfigured', 'kinds', 'ntfyConfigured']);
     expect(out.notify).toEqual({ kinds: ['releases'], ntfyConfigured: true, discordConfigured: false });
+  });
+
+  it('carries the layout, the title view and the dashboard tiles', () => {
+    const out = exportablePrefs(
+      parsePrefs({ layout: 'fresh', titleView: 'page', dashboard: { order: ['goals'], hidden: ['overview'] } }),
+    );
+    expect(out.layout).toBe('fresh');
+    expect(out.titleView).toBe('page');
+    expect(out.dashboard).toEqual({ order: ['goals'], hidden: ['overview'] });
+    expect(exportablePrefs(parsePrefs({})).dashboard).toEqual({ order: [], hidden: [] });
   });
 });
 

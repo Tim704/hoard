@@ -12,13 +12,16 @@
 
 import { z } from 'zod';
 
+import { TILE_IDS } from '@/lib/dashboard-tile-ids';
+import { TITLE_VIEWS, type DisplayPrefs, type HideableSection, type TitleLanguage, type TitleView } from '@/lib/display-prefs';
+import { DEFAULT_LAYOUT, LAYOUT_IDS, type LayoutId } from '@/lib/layouts';
+import type { ScoreFormat } from '@/lib/rating';
 import { isValidTimeZone } from '@/lib/timezones';
 import { pushUrlProblem } from '@/lib/url-safety';
-import type { DisplayPrefs, HideableSection, TitleLanguage } from '@/lib/display-prefs';
-import type { ScoreFormat } from '@/lib/rating';
 
-export type { DisplayPrefs, HideableSection, ScoreFormat, TitleLanguage };
-export { DEFAULT_DISPLAY_PREFS } from '@/lib/display-prefs';
+export type { DisplayPrefs, HideableSection, LayoutId, ScoreFormat, TitleLanguage, TitleView };
+export { DEFAULT_DISPLAY_PREFS, TITLE_VIEWS } from '@/lib/display-prefs';
+export { LAYOUT_IDS } from '@/lib/layouts';
 
 export const SCORE_FORMATS = ['ten', 'five', 'hundred'] as const satisfies readonly ScoreFormat[];
 export const TITLE_LANGUAGES = ['english', 'romaji', 'native'] as const satisfies readonly TitleLanguage[];
@@ -78,6 +81,24 @@ const NotifyPatchSchema = z.object({
   kinds: z.array(z.enum(NOTIFY_KINDS)).max(NOTIFY_KINDS.length),
 });
 
+/**
+ * The dashboard's tiles: their order and the hidden ones. Read leniently: the
+ * ids stay plain strings (src/lib/dashboard-tiles.ts drops unknown ones), and
+ * a list that isn't an array of at most 50 short strings reads as empty.
+ */
+const tileIdList = z.array(z.string().max(40)).max(50);
+const DashboardSchema = z.object({
+  order: tileIdList.catch([]),
+  hidden: tileIdList.catch([]),
+});
+
+/** The strict write form: known tile ids only, each at most once. */
+const knownTileIds = z
+  .array(z.enum(TILE_IDS))
+  .max(TILE_IDS.length)
+  .refine((ids) => new Set(ids).size === ids.length, 'A dashboard tile is listed twice.');
+const DashboardPatchSchema = z.object({ order: knownTileIds, hidden: knownTileIds });
+
 const fields = {
   // Region and display
   region,
@@ -86,6 +107,10 @@ const fields = {
   titleLanguage: z.enum(TITLE_LANGUAGES),
   weekStart: z.number().int().min(0).max(6), // 0 = Sunday, 1 = Monday
   hiddenSections: z.array(z.enum(HIDEABLE_SECTIONS)).max(HIDEABLE_SECTIONS.length),
+  // Themes: the layout (src/lib/layouts.ts), how a title opens, the dashboard tiles
+  layout: z.enum(LAYOUT_IDS),
+  titleView: z.enum(TITLE_VIEWS),
+  dashboard: DashboardSchema,
   // Legacy: the removed "Where to watch" services (TMDB provider ids). Still
   // read and exported so stored data stays readable; never patched.
   streamingServices: z.array(z.number().int().positive()).max(100),
@@ -111,6 +136,9 @@ export const DEFAULT_PREFS = {
   titleLanguage: 'english',
   weekStart: 1,
   hiddenSections: [],
+  layout: DEFAULT_LAYOUT,
+  titleView: 'popup',
+  dashboard: { order: [], hidden: [] },
   streamingServices: [],
   steamId: null,
   lastfmUser: null,
@@ -132,6 +160,9 @@ export const PrefsSchema = z.object({
   hiddenSections: fields.hiddenSections
     .transform((s) => [...new Set(s)])
     .catch(DEFAULT_PREFS.hiddenSections),
+  layout: fields.layout.catch(DEFAULT_PREFS.layout),
+  titleView: fields.titleView.catch(DEFAULT_PREFS.titleView),
+  dashboard: fields.dashboard.catch(DEFAULT_PREFS.dashboard),
   streamingServices: fields.streamingServices.catch(DEFAULT_PREFS.streamingServices),
   steamId: fields.steamId.catch(DEFAULT_PREFS.steamId),
   lastfmUser: fields.lastfmUser.catch(DEFAULT_PREFS.lastfmUser),
@@ -154,6 +185,9 @@ export const PrefsPatchSchema = z
     titleLanguage: fields.titleLanguage,
     weekStart: fields.weekStart,
     hiddenSections: fields.hiddenSections,
+    layout: fields.layout,
+    titleView: fields.titleView,
+    dashboard: DashboardPatchSchema,
     // streamingServices is not here: Where to watch was removed (read-only now).
     // steamId / lastfmUser / anilistUser are not here: only the Accounts
     // actions (src/lib/actions/accounts.ts) write them, after validating.
@@ -180,6 +214,8 @@ export function toDisplayPrefs(p: Prefs): DisplayPrefs {
     titleLanguage: p.titleLanguage,
     weekStart: p.weekStart,
     hiddenSections: p.hiddenSections,
+    layout: p.layout,
+    titleView: p.titleView,
   };
 }
 
