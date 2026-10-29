@@ -210,6 +210,31 @@ if (failures.length === 0) {
         const s = await docState();
         if (s.dark !== (label === 'Fresh')) throw new Error(`${label}: ${JSON.stringify(s)}`);
       }
+      // Arrowing through the thumbnails switches at once each time but saves
+      // once, after the last (one server action, one toast).
+      const saves = [];
+      const onRequest = (req) => {
+        if (req.method() === 'POST' && req.headers()['next-action']) saves.push(req.url());
+      };
+      page.on('request', onRequest);
+      try {
+        await page.getByRole('radio', { name: 'Classic', exact: true }).focus();
+        for (const want of ['minimal', 'organised', 'fresh']) {
+          await page.keyboard.press('ArrowRight');
+          const s = await docState();
+          if (s.layout !== want) throw new Error(`arrow → ${want}: data-layout is ${s.layout}`);
+        }
+        await page.getByText('Layout: Fresh').first().waitFor({ timeout: 15_000 });
+        await page.waitForLoadState('networkidle');
+        if (saves.length !== 1) throw new Error(`an arrow burst sent ${saves.length} saves, not 1`);
+        // Undo goes back to before the burst.
+        await page.getByRole('button', { name: 'Undo' }).click();
+        await page.getByText('Undone.').first().waitFor({ timeout: 15_000 });
+        const s = await docState();
+        if (s.layout !== 'classic') throw new Error(`Undo after the burst left ${s.layout}`);
+      } finally {
+        page.off('request', onRequest);
+      }
       // The title view uses the same picker (shown in the UI from Phase 6).
       await page.locator('label', { has: page.getByRole('radio', { name: 'Full page', exact: true }) }).click();
       await page.getByText('Title view: Full page').first().waitFor({ timeout: 15_000 });

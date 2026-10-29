@@ -22,6 +22,7 @@ import { applyLayoutToDocument } from '@/lib/document-theme';
 import { LAYOUTS, resolveLayout, type LayoutConfig } from '@/lib/layouts';
 import type { PrefsPatch } from '@/lib/prefs';
 import { formatScore, formatScoreOutOf } from '@/lib/rating';
+import { createSaveBatcher, type Burst } from '@/lib/save-batch';
 import { displayTitle, type TitledMedia } from '@/lib/title';
 
 const PrefsContext = createContext<DisplayPrefs>(DEFAULT_DISPLAY_PREFS);
@@ -31,6 +32,9 @@ const TodayContext = createContext<string | null>(null);
 /** Switch a live display pref (layout, title view) at once, save it, offer Undo. */
 export type SetDisplayPref = <K extends LivePrefKey>(key: K, value: LivePrefs[K]) => void;
 const SetDisplayPrefContext = createContext<SetDisplayPref>(() => {});
+
+/** A display switch waits this long for another before saving (arrowing through thumbnails). */
+const SAVE_DELAY_MS = 400;
 
 const SWITCH_MESSAGES: { [K in LivePrefKey]: (value: LivePrefs[K]) => string } = {
   layout: (v) => `Layout: ${LAYOUTS[resolveLayout(v)].label}`,
@@ -45,6 +49,7 @@ const SWITCH_MESSAGES: { [K in LivePrefKey]: (value: LivePrefs[K]) => string } =
  * The layout and the title view switch instantly (useSetDisplayPref): the new
  * value shows as an overlay over the server's prefs while it saves, and the
  * overlay goes once the server has caught up (src/lib/display-overlay.ts).
+ * Quick successive changes save once, after the last (src/lib/save-batch.ts).
  */
 export function PrefsProvider({
   prefs,
@@ -73,7 +78,7 @@ export function PrefsProvider({
 
   /** What the user sees now (for a change's "previous"), ahead of the next render. */
   const current = useRef<LivePrefs>(liveSlice(value));
-  /** Per key, the number of the newest change: only that one may roll back. */
+  /** Per key, the number of the newest save: only that one may report or roll back. */
   const latest = useRef<InFlight>({ ...NONE_IN_FLIGHT });
   /**
    * What the server is known to hold: the server props, moved on by every
@@ -103,44 +108,91 @@ export function PrefsProvider({
     }
   });
 
-  const change = useCallback(function change<K extends LivePrefKey>(key: K, next: LivePrefs[K], undoable: boolean) {
-    const previous = current.current[key];
-    if (previous === next) return;
-    const seq = ++latest.current[key];
-    const show = (v: LivePrefs[K]) => {
+  // The switch machinery, made once (it only uses refs and state setters).
+  const [engine] = useState(() => {
+    /** Per key: the open burst came from an Undo (it reports "Undone.", without a new Undo). */
+    const undoing: Record<LivePrefKey, boolean> = { layout: false, titleView: false };
+    const bump = (key: LivePrefKey, by: 1 | -1) => setInFlight((f) => ({ ...f, [key]: f[key] + by }));
+
+    function show<K extends LivePrefKey>(key: K, v: LivePrefs[K]) {
       current.current = { ...current.current, [key]: v };
       setOverlay((o) => ({ ...o, [key]: v }));
       if (key === 'layout') applyLayoutToDocument(resolveLayout(v));
-    };
-    show(next);
-    setInFlight((f) => ({ ...f, [key]: f[key] + 1 }));
-    updatePrefs({ [key]: next } as PrefsPatch)
-      .catch(() => ({ ok: false as const, error: undefined }))
-      .then((res) => {
-        const settled = settleSave(confirmed.current, key, next, res.ok, latest.current[key] === seq);
-        confirmed.current = settled.confirmed;
-        const { outcome } = settled;
-        // A newer change for this key has taken over: it reports (and rolls
-        // back) for itself.
-        if (outcome.kind === 'superseded') return;
-        // One toast per key: a new switch replaces the last one (and its
-        // Undo). Not for an undo: sonner is already closing the toast whose
-        // Undo was clicked, and would take a replacement down with it.
-        const id = undoable ? `display-pref-${key}` : undefined;
-        if (outcome.kind === 'saved') {
-          if (undoable) toastUndoable(SWITCH_MESSAGES[key](next), () => change(key, previous, false), id);
-          else toast.success('Undone.', { id });
-          return;
-        }
-        show(outcome.rollbackTo);
-        // Replacing a success toast merges into it: drop its Undo and its
-        // long duration explicitly.
-        toast.error(res.error ?? 'Could not save that setting.', { id, action: undefined, duration: undefined });
-      })
-      .finally(() => setInFlight((f) => ({ ...f, [key]: f[key] - 1 })));
-  }, []);
+    }
 
-  const setDisplayPref = useCallback<SetDisplayPref>((key, next) => change(key, next, true), [change]);
+    // Quick changes (arrowing through the thumbnails) show at once but save
+    // once, SAVE_DELAY_MS after the last; a waiting burst counts as in flight.
+    const batcher = createSaveBatcher<LivePrefKey, LivePrefs[LivePrefKey]>({
+      delay: SAVE_DELAY_MS,
+      flush: (key, burst) => save(key, burst),
+    });
+
+    function change<K extends LivePrefKey>(key: K, next: LivePrefs[K], undo: boolean) {
+      const previous = current.current[key];
+      if (previous === next) return;
+      show(key, next);
+      if (batcher.push(key, previous, next)) bump(key, 1);
+      // The last change of a burst decides how it reports.
+      undoing[key] = undo;
+    }
+
+    function save<K extends LivePrefKey>(key: K, { value, before }: Burst<LivePrefs[K]>) {
+      const undo = undoing[key];
+      // Back where the burst began: nothing to report. Nothing to save either,
+      // unless that value is itself still unconfirmed (its save in flight).
+      const quiet = value === before;
+      if (quiet && value === confirmed.current[key]) {
+        bump(key, -1);
+        return;
+      }
+      const seq = ++latest.current[key];
+      updatePrefs({ [key]: value } as PrefsPatch)
+        .catch(() => ({ ok: false as const, error: undefined }))
+        .then((res) => {
+          // Newer: a later save for this key, or a burst still waiting to save.
+          const newest = latest.current[key] === seq && !batcher.isScheduled(key);
+          const settled = settleSave(confirmed.current, key, value, res.ok, newest);
+          confirmed.current = settled.confirmed;
+          const { outcome } = settled;
+          // A newer change for this key has taken over: it reports (and rolls
+          // back) for itself.
+          if (outcome.kind === 'superseded') return;
+          // One toast per key: a new switch replaces the last one (and its
+          // Undo). Not for an undo: sonner is already closing the toast whose
+          // Undo was clicked, and would take a replacement down with it.
+          const id = undo ? undefined : `display-pref-${key}`;
+          if (outcome.kind === 'saved') {
+            if (quiet) return;
+            // Undo puts back the value from before the whole burst.
+            if (!undo) toastUndoable(SWITCH_MESSAGES[key](value), () => change(key, before, true), id);
+            else toast.success('Undone.', { id });
+            return;
+          }
+          show(key, outcome.rollbackTo);
+          // Replacing a success toast merges into it: drop its Undo and its
+          // long duration explicitly.
+          toast.error(res.error ?? 'Could not save that setting.', { id, action: undefined, duration: undefined });
+        })
+        .finally(() => bump(key, -1));
+    }
+
+    return { change, flushAll: () => batcher.flushAll() };
+  });
+
+  // A burst still waiting is saved now when the page is hidden (closing the
+  // tab, switching apps) or the provider goes (logging out).
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') engine.flushAll();
+    };
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      engine.flushAll();
+    };
+  }, [engine]);
+
+  const setDisplayPref = useCallback<SetDisplayPref>((key, next) => engine.change(key, next, false), [engine]);
 
   return (
     <PrefsContext.Provider value={value}>
@@ -165,8 +217,10 @@ export function useLayout(): LayoutConfig {
 
 /**
  * `set('layout', 'fresh')` / `set('titleView', 'page')`: shows the change at
- * once, saves it, and toasts "Layout: Fresh · Undo"; a failed save rolls back
- * with an error toast. A no-op outside the (app) layout.
+ * once, saves it 400 ms after the last of a quick run of changes, and toasts
+ * "Layout: Fresh · Undo" (Undo goes back to before the run); a failed save
+ * rolls back to the saved value with an error toast. A no-op outside the
+ * (app) layout.
  */
 export function useSetDisplayPref(): SetDisplayPref {
   return useContext(SetDisplayPrefContext);
