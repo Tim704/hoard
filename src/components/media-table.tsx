@@ -31,6 +31,8 @@ interface MediaTableProps {
   onToggleGroup: (franchiseId: string) => void;
   /** When given, shows a leading `#` column with each item's manual rank. */
   ranks?: Map<string, number>;
+  /** Under a status heading (rows that show no status needn't name it). */
+  inStatusSection?: boolean;
 }
 
 /** Which columns the list view shows, per the layout's card detail. */
@@ -49,7 +51,7 @@ const COLUMNS: Record<CardStyle, { status: boolean; badge: boolean; rating: bool
  * List view: large covers with title, subtitle, status and rating, showing
  * as much as the layout's cards do (`useLayout().card`).
  */
-export function MediaTable({ units, onSelect, expanded, onToggleGroup, ranks }: MediaTableProps) {
+export function MediaTable({ units, onSelect, expanded, onToggleGroup, ranks, inStatusSection }: MediaTableProps) {
   const style = useLayout().card;
   const cols = COLUMNS[style];
   const dark = style === 'cinematic';
@@ -79,7 +81,14 @@ export function MediaTable({ units, onSelect, expanded, onToggleGroup, ranks }: 
           {units.map((unit) => {
             if (unit.kind === 'item') {
               return (
-                <ItemRow key={unit.activity.id} activity={unit.activity} onSelect={onSelect} ranks={ranks} style={style} />
+                <ItemRow
+                  key={unit.activity.id}
+                  activity={unit.activity}
+                  onSelect={onSelect}
+                  ranks={ranks}
+                  style={style}
+                  inStatusSection={inStatusSection}
+                />
               );
             }
             const { franchise, members } = unit;
@@ -134,7 +143,15 @@ export function MediaTable({ units, onSelect, expanded, onToggleGroup, ranks }: 
                 </TableRow>
                 {open &&
                   members.map((a) => (
-                    <ItemRow key={a.id} activity={a} onSelect={onSelect} ranks={ranks} style={style} nested />
+                    <ItemRow
+                      key={a.id}
+                      activity={a}
+                      onSelect={onSelect}
+                      ranks={ranks}
+                      style={style}
+                      inStatusSection={inStatusSection}
+                      nested
+                    />
                   ))}
               </Fragment>
             );
@@ -150,12 +167,14 @@ function ItemRow({
   onSelect,
   ranks,
   style,
+  inStatusSection,
   nested,
 }: {
   activity: ActivityWithMedia;
   onSelect: (a: ActivityWithMedia) => void;
   ranks?: Map<string, number>;
   style: CardStyle;
+  inStatusSection?: boolean;
   nested?: boolean;
 }) {
   const { media } = activity;
@@ -212,12 +231,16 @@ function ItemRow({
         <div className={cn('mt-1 text-sm text-muted-foreground', style === 'poster' && 'text-xs')}>
           {[media.year, subtitle].filter(Boolean).join(' · ')}
         </div>
+        {/* Minimal shows no status column: name it when no status heading does. */}
+        {!cols.status && !inStatusSection && (
+          <span className="sr-only">{statusLabel(activity.status, activity.category)}</span>
+        )}
       </TableCell>
       {cols.status && (
         <TableCell>
           {style === 'one-badge' ? (
             <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-              <StatusIcon status={activity.status} className="h-3.5 w-3.5" />
+              <StatusIcon status={activity.status} className="h-3.5 w-3.5" decorative />
               {statusLabel(activity.status, activity.category)}
             </span>
           ) : (

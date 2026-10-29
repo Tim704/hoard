@@ -127,7 +127,7 @@ export function CategoryClient({
 
   const renderView = (items: ActivityWithMedia[]) => {
     const units = toDisplayUnits(items, groupingOn);
-    const common = { units, onSelect: setSelected, expanded: expandedGroups, onToggleGroup: toggleGroup };
+    const common = { units, onSelect: setSelected, expanded: expandedGroups, onToggleGroup: toggleGroup, inStatusSection: grouped };
     return viewMode === 'grid' ? (
       <MediaGrid {...common} />
     ) : viewMode === 'compact' ? (

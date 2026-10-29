@@ -50,7 +50,7 @@ export function StatusSection({
             )}
             aria-hidden
           />
-          <StatusIcon status={status} />
+          <StatusIcon status={status} decorative />
           <span className="text-base font-semibold">
             {statusLabel(status, slug)}
           </span>

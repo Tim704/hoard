@@ -11,6 +11,8 @@ interface MediaGridProps {
   /** Franchise ids whose groups are expanded. */
   expanded: Set<string>;
   onToggleGroup: (franchiseId: string) => void;
+  /** Under a status heading (cards that show no status needn't name it). */
+  inStatusSection?: boolean;
 }
 
 /**
@@ -19,7 +21,7 @@ interface MediaGridProps {
  * franchises render as a stacked card; an expanded one spans the full row
  * with its titles inside.
  */
-export function MediaGrid({ units, onSelect, expanded, onToggleGroup }: MediaGridProps) {
+export function MediaGrid({ units, onSelect, expanded, onToggleGroup, inStatusSection }: MediaGridProps) {
   const COLS = useLayout().gridCols;
   return (
     <div className={COLS}>
@@ -30,6 +32,7 @@ export function MediaGrid({ units, onSelect, expanded, onToggleGroup }: MediaGri
               key={unit.activity.id}
               activity={unit.activity}
               onClick={() => onSelect(unit.activity)}
+              inStatusSection={inStatusSection}
             />
           );
         }
@@ -57,7 +60,7 @@ export function MediaGrid({ units, onSelect, expanded, onToggleGroup }: MediaGri
             />
             <div className={COLS}>
               {members.map((a) => (
-                <MediaCard key={a.id} activity={a} onClick={() => onSelect(a)} />
+                <MediaCard key={a.id} activity={a} onClick={() => onSelect(a)} inStatusSection={inStatusSection} />
               ))}
             </div>
           </div>

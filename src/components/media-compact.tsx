@@ -19,6 +19,8 @@ interface MediaCompactProps {
   onSelect: (a: ActivityWithMedia) => void;
   expanded: Set<string>;
   onToggleGroup: (franchiseId: string) => void;
+  /** Under a status heading (rows that show no status needn't name it). */
+  inStatusSection?: boolean;
 }
 
 const COLS = 'grid grid-cols-1 gap-x-10 gap-y-1 sm:grid-cols-2 xl:grid-cols-3';
@@ -30,7 +32,7 @@ const COLS = 'grid grid-cols-1 gap-x-10 gap-y-1 sm:grid-cols-2 xl:grid-cols-3';
  * Rows show as much as the layout's cards (`useLayout().card`): Minimal only
  * the title and year, Organised adds one badge, Fresh darkens the rows.
  */
-export function MediaCompact({ units, slug, onSelect, expanded, onToggleGroup }: MediaCompactProps) {
+export function MediaCompact({ units, slug, onSelect, expanded, onToggleGroup, inStatusSection }: MediaCompactProps) {
   const style = useLayout().card;
   if (units.length === 0) {
     return <p className="py-12 text-center text-sm text-muted-foreground">Nothing here yet.</p>;
@@ -42,7 +44,7 @@ export function MediaCompact({ units, slug, onSelect, expanded, onToggleGroup }:
         if (unit.kind === 'item') {
           return (
             <li key={unit.activity.id}>
-              <CompactRow activity={unit.activity} slug={slug} onSelect={onSelect} style={style} />
+              <CompactRow activity={unit.activity} slug={slug} onSelect={onSelect} style={style} inStatusSection={inStatusSection} />
             </li>
           );
         }
@@ -61,7 +63,7 @@ export function MediaCompact({ units, slug, onSelect, expanded, onToggleGroup }:
               <ul className={cn(COLS, 'pt-1')}>
                 {members.map((a) => (
                   <li key={a.id}>
-                    <CompactRow activity={a} slug={slug} onSelect={onSelect} style={style} />
+                    <CompactRow activity={a} slug={slug} onSelect={onSelect} style={style} inStatusSection={inStatusSection} />
                   </li>
                 ))}
               </ul>
@@ -99,11 +101,13 @@ function CompactRow({
   slug,
   onSelect,
   style,
+  inStatusSection,
 }: {
   activity: ActivityWithMedia;
   slug: CategorySlug;
   onSelect: (a: ActivityWithMedia) => void;
   style: CardStyle;
+  inStatusSection?: boolean;
 }) {
   const { media, status, rating } = activity;
   const title = useDisplayTitle()(media);
@@ -123,13 +127,15 @@ function CompactRow({
         style === 'cinematic' && 'rounded-lg bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.07]',
       )}
     >
-      {!minimal && <StatusIcon status={status} />}
+      {/* The meta line says the status, so the icon is decorative. */}
+      {!minimal && <StatusIcon status={status} decorative />}
       <span className="min-w-0 flex-1">
         <span className={cn('block truncate text-sm font-medium', style === 'cinematic' && 'font-semibold')} title={title}>
           {title}
         </span>
         <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
           <span className="truncate">{meta.filter(Boolean).join(' · ')}</span>
+          {minimal && !inStatusSection && <span className="sr-only">, {statusLabel(status, slug)}</span>}
           {style === 'one-badge' && badge && <CardBadgePill badge={badge} className="max-w-[60%] shrink-0 py-0" />}
         </span>
       </span>
