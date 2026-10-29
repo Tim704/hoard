@@ -68,7 +68,7 @@ export function useSectionFilters(slug: CategorySlug, initialTags: string[] = []
     setStatus(DEFAULT_FILTERS.status);
     setSort(DEFAULT_FILTERS.sort);
     setOwned(DEFAULT_FILTERS.owned);
-    setTags(DEFAULT_FILTERS.tags);
+    setTags([]);
     setGroupFranchises(DEFAULT_FILTERS.groupFranchises);
     setGrouped(DEFAULT_FILTERS.grouped);
   }, [setSort, setGrouped, setGroupFranchises]);

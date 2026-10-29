@@ -167,7 +167,7 @@ export function SectionToolbar({
 
       <MenuButton
         label="AI Critic"
-        icons={icons}
+        tooltip={icons}
         className={fold.critic.bar}
         trigger={
           <Button
@@ -195,7 +195,7 @@ export function SectionToolbar({
 
       <MenuButton
         label="More"
-        icons
+        tooltip
         className={fold.more}
         trigger={
           <Button variant="outline" size="icon" aria-label="More" className={ICON_BUTTON}>
@@ -263,13 +263,14 @@ function Tip({ label, on, children }: { label: string; on: boolean; children: Re
  */
 function MenuButton({
   label,
-  icons,
+  tooltip,
   className,
   trigger,
   children,
 }: {
   label: string;
-  icons: boolean;
+  /** Name the (icon) button in a tooltip too. */
+  tooltip: boolean;
   className?: string;
   trigger: React.ReactElement<{ className?: string }>;
   children: (later: (action: () => void) => void) => React.ReactNode;
@@ -281,7 +282,7 @@ function MenuButton({
   };
   return (
     <DropdownMenu>
-      <Tip label={label} on={icons}>
+      <Tip label={label} on={tooltip}>
         <DropdownMenuTrigger asChild ref={triggerRef} className={className}>
           {trigger}
         </DropdownMenuTrigger>
