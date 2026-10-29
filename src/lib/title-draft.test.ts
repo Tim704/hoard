@@ -4,7 +4,9 @@ import { makeActivity } from './test-fixtures';
 import {
   NEW_FRANCHISE,
   NO_FRANCHISE,
+  TITLE_DRAFT_PREFIX,
   changedFields,
+  clearDraftKeys,
   followServer,
   isDirty,
   applyDraft,
@@ -201,5 +203,40 @@ describe('mergeDraft', () => {
     expect(merged.base).toEqual(newer);
     expect(merged.local).toEqual({ ...newer, favorite: true, notes: 'from the page' });
     expect(applyDraft(newer, merged)).toEqual({ ...newer, favorite: true, notes: 'from the page' });
+  });
+});
+
+describe('clearDraftKeys', () => {
+  /** A Storage-like Map whose keys renumber on removal, as sessionStorage's do. */
+  const fakeStorage = (entries: Record<string, string>) => {
+    const map = new Map(Object.entries(entries));
+    return {
+      map,
+      get length() {
+        return map.size;
+      },
+      key: (i: number) => [...map.keys()][i] ?? null,
+      removeItem: (k: string) => void map.delete(k),
+    };
+  };
+
+  it('removes every title draft and nothing else', () => {
+    const storage = fakeStorage({
+      [`${TITLE_DRAFT_PREFIX}a`]: '{}',
+      'hoard:books:view': '"grid"',
+      [`${TITLE_DRAFT_PREFIX}b`]: '{}',
+      [`${TITLE_DRAFT_PREFIX}c`]: '{}',
+      'hoard:title-draft': 'no colon: not a draft',
+      'other:hoard:title-draft:x': 'prefix not at the start',
+    });
+    clearDraftKeys(storage);
+    expect([...storage.map.keys()]).toEqual(['hoard:books:view', 'hoard:title-draft', 'other:hoard:title-draft:x']);
+  });
+
+  it('is a no-op on storage without drafts', () => {
+    const storage = fakeStorage({ 'hoard:theme': 'dark' });
+    clearDraftKeys(storage);
+    expect([...storage.map.keys()]).toEqual(['hoard:theme']);
+    clearDraftKeys(fakeStorage({}));
   });
 });

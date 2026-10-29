@@ -4,12 +4,19 @@
 // with an in-memory copy when storage is unavailable): leaving the page with
 // edits keeps them, and the page shows them again, still unsaved. The popup
 // hands its edits over the same way ("Open full page"), merged into any kept
-// ones; a popup save drops from them only what it wrote. Rules:
-// src/lib/title-draft.ts.
+// ones; a popup save drops from them only what it wrote. Logging out
+// forgets them all. Rules: src/lib/title-draft.ts.
 
-import { mergeDraft, parseDraft, pruneDraft, type TitleDraft, type TitleValues } from '@/lib/title-draft';
+import {
+  TITLE_DRAFT_PREFIX as PREFIX,
+  clearDraftKeys,
+  mergeDraft,
+  parseDraft,
+  pruneDraft,
+  type TitleDraft,
+  type TitleValues,
+} from '@/lib/title-draft';
 
-const PREFIX = 'hoard:title-draft:';
 const memory = new Map<string, string>();
 
 export function readTitleDraft(id: string): TitleDraft | null {
@@ -41,6 +48,20 @@ export function clearTitleDraft(id: string): void {
     window.sessionStorage.removeItem(key);
   } catch {
     // Nothing stored.
+  }
+}
+
+/**
+ * Logging out: forget every kept draft in this tab, so the next person to
+ * sign in here never sees them (the in-memory copies too, as the logout
+ * redirect is a client-side navigation that keeps this module).
+ */
+export function clearAllTitleDrafts(): void {
+  memory.clear();
+  try {
+    clearDraftKeys(window.sessionStorage);
+  } catch {
+    // Storage blocked: nothing stored.
   }
 }
 

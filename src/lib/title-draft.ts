@@ -11,7 +11,8 @@
 //    that the server hasn't changed since; anything malformed is ignored;
 //  - a popup save drops from a stored draft only the fields it wrote
 //    (pruneDraft), and the popup's "Open full page" merges its edits into
-//    one field by field (mergeDraft).
+//    one field by field (mergeDraft);
+//  - logging out removes every stored draft, and only those (clearDraftKeys).
 // ───────────────────────────────────────────────────────────────────────────
 
 import { STATUSES, type Status } from '@/lib/status';
@@ -158,4 +159,24 @@ export function mergeDraft(stored: TitleDraft | null, incoming: TitleDraft): Tit
     (base as Record<string, unknown>)[k] = stored.base[k];
   }
   return { local, base };
+}
+
+/** Where a tab keeps a title's draft: sessionStorage key `hoard:title-draft:<id>`. */
+export const TITLE_DRAFT_PREFIX = 'hoard:title-draft:';
+
+/** The part of a Storage that clearing drafts needs (sessionStorage, or a fake in tests). */
+export type DraftStorage = Pick<Storage, 'length' | 'key' | 'removeItem'>;
+
+/**
+ * Removes every kept draft from `storage` (logging out): the
+ * `hoard:title-draft:*` keys and nothing else. Keys are collected first, as
+ * removing one renumbers the rest.
+ */
+export function clearDraftKeys(storage: DraftStorage): void {
+  const keys: string[] = [];
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i);
+    if (key?.startsWith(TITLE_DRAFT_PREFIX)) keys.push(key);
+  }
+  for (const key of keys) storage.removeItem(key);
 }

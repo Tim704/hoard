@@ -21,6 +21,7 @@ import { NotificationsSheet, useNotificationState } from '@/components/shell/not
 import { Sidebar } from '@/components/shell/sidebar';
 import { TopBar } from '@/components/shell/top-bar';
 import { AccountProvider, type Account } from '@/components/shell/user-menu';
+import { clearAllTitleDrafts } from '@/components/title/title-drafts';
 import { useFocusReturn } from '@/hooks/use-focus-return';
 import { logoutAction } from '@/lib/actions/auth';
 import type { NotificationSummary } from '@/lib/data-notifications';
@@ -104,6 +105,7 @@ export function AppShell({
       logout: () => {
         const form = logoutForm.current;
         if (!form) return;
+        clearAllTitleDrafts();
         if (typeof form.requestSubmit === 'function') form.requestSubmit();
         else form.submit();
       },

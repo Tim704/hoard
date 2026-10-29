@@ -383,31 +383,51 @@ if (failures.length === 0) {
     if (s.layout !== 'classic') throw new Error(`after a reload: ${JSON.stringify(s)}`);
     if (!(await page.getByRole('radio', { name: 'Classic', exact: true }).isChecked())) throw new Error('Classic not chosen after a reload');
   });
+  // Signing back in on the login page the main tab was logged out to.
+  const login = async () => {
+    await page.fill('#username', USER);
+    await page.fill('#password', PASSWORD);
+    await Promise.all([
+      page.waitForURL((url) => url.pathname === '/dashboard', { timeout: 20_000 }),
+      page.click('button[type="submit"]'),
+    ]);
+    await page.waitForLoadState('networkidle');
+  };
+  // Logging out forgets the tab's kept title drafts (hoard:title-draft:*)
+  // and nothing else in sessionStorage: one is planted before, and looked
+  // for after.
+  const plantDraft = () =>
+    page.evaluate(() => {
+      sessionStorage.setItem('hoard:title-draft:smoke', '{}');
+      sessionStorage.setItem('hoard:smoke-keep', '1');
+    });
+  const draftsForgotten = async (how) => {
+    const kept = await page.evaluate(() => {
+      const out = { draft: sessionStorage.getItem('hoard:title-draft:smoke'), other: sessionStorage.getItem('hoard:smoke-keep') };
+      sessionStorage.removeItem('hoard:smoke-keep');
+      return out;
+    });
+    if (kept.draft !== null) throw new Error(`logging out with ${how} kept a title draft`);
+    if (kept.other !== '1') throw new Error(`logging out with ${how} cleared more than the title drafts`);
+  };
   // A Fresh user's forced dark survives the client-side navigations of
   // logging out (back to Classic and light) and in (dark again, with no page
   // load to rerun the head script). The layout is set with the picker.
   await step('fresh layout across logout + login', async () => {
-    const login = async () => {
-      await page.fill('#username', USER);
-      await page.fill('#password', PASSWORD);
-      await Promise.all([
-        page.waitForURL((url) => url.pathname === '/dashboard', { timeout: 20_000 }),
-        page.click('button[type="submit"]'),
-      ]);
-      await page.waitForLoadState('networkidle');
-    };
     try {
       await pickLayout('Fresh');
       await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
       let s = await docState();
       if (s.layout !== 'fresh' || !s.dark) throw new Error(`Fresh after a reload: ${JSON.stringify(s)}`);
       // Fresh has no sidebar: the user menu logs out.
+      await plantDraft();
       const menu = await openUserMenu();
       await Promise.all([
         page.waitForURL((url) => url.pathname === '/login', { timeout: 20_000 }),
         menu.getByRole('menuitem', { name: 'Log out', exact: true }).click(),
       ]);
       await page.waitForLoadState('networkidle');
+      await draftsForgotten('the user menu');
       s = await docState();
       if (s.layout !== 'classic' || s.dark) throw new Error(`after logging out of Fresh: ${JSON.stringify(s)}`);
       await login();
@@ -419,6 +439,20 @@ if (failures.length === 0) {
       await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
       const s = await docState();
       if (s.layout !== 'classic' || s.dark) throw new Error(`Classic not restored: ${JSON.stringify(s)}`);
+    }
+  });
+  await step("Classic's footer Log out forgets title drafts", async () => {
+    try {
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+      await plantDraft();
+      await Promise.all([
+        page.waitForURL((url) => url.pathname === '/login', { timeout: 20_000 }),
+        page.locator('aside').getByRole('button', { name: 'Log out', exact: true }).click(),
+      ]);
+      await page.waitForLoadState('networkidle');
+      await draftsForgotten("Classic's footer");
+    } finally {
+      if (new URL(page.url()).pathname === '/login') await login();
     }
   });
   // Old single-page Settings links (/settings#card, stored in notifications)

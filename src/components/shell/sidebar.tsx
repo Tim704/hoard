@@ -6,6 +6,7 @@ import { useLayout } from '@/components/prefs-provider';
 import { NavList } from '@/components/shell/nav-list';
 import { UserMenu } from '@/components/shell/user-menu';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { clearAllTitleDrafts } from '@/components/title/title-drafts';
 import { logoutAction } from '@/lib/actions/auth';
 import type { NavGroup } from '@/lib/nav-model';
 import { cn } from '@/lib/utils';
@@ -103,7 +104,8 @@ function ClassicFooter({ collapsed }: { collapsed: boolean }) {
           <ThemeToggle />
         </div>
       )}
-      <form action={logoutAction}>
+      {/* Logging out forgets this tab's unsaved title edits, as the user menu's Log out does. */}
+      <form action={logoutAction} onSubmit={clearAllTitleDrafts}>
         <button
           type="submit"
           title={collapsed ? 'Log out' : undefined}
