@@ -1,10 +1,13 @@
 'use client';
 
-// The lower half of the details dialog (spec 3.1–3.6): ownership / format,
-// "Watched 3× · last …" with Watch again, the latest entry's review, a game's
-// play sessions, and the History. Loads the activity's log on open.
+// ───────────────────────────────────────────────────────────────────────────
+//  A title's log sections (spec 3.1–3.6): ownership / format, "Watched 3× ·
+//  last …" with Watch again, the latest entry's review, a game's play
+//  sessions, and the History. The log itself comes from useActivityLog
+//  (./use-activity-log.ts).
+// ───────────────────────────────────────────────────────────────────────────
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, History, Loader2, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,7 +26,6 @@ import {
 } from '@/components/ui/select';
 import {
   deletePlaySession,
-  getActivityLog,
   logPlaySession,
   setLatestReview,
   setOwnership,
@@ -38,6 +40,8 @@ import { againLabel, statusLabel } from '@/lib/status';
 import type { ActivityWithMedia } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
+import { useActivityLog } from './use-activity-log';
+
 interface ActivityExtrasProps {
   activity: ActivityWithMedia;
   disabled?: boolean;
@@ -45,38 +49,23 @@ interface ActivityExtrasProps {
   onClose: () => void;
 }
 
-/** Render with `key={activity.id}`. */
+/** The log sections in one column. Render with `key={activity.id}`. */
 export function ActivityExtras({ activity, disabled, onClose }: ActivityExtrasProps) {
   const router = useRouter();
-  const [log, setLog] = useState<ActivityLog | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  const load = useCallback(async () => {
-    const res = await getActivityLog(activity.id);
-    if (res.ok && res.log) {
-      setLog(res.log);
-      setFailed(false);
-    } else {
-      setFailed(true);
-    }
-  }, [activity.id]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { log, failed, reload } = useActivityLog(activity.id);
 
   const changed = () => {
-    void load();
+    void reload();
     router.refresh();
   };
 
   return (
     <div className="space-y-4">
       <OwnershipField activity={activity} disabled={disabled} />
-      {failed && <p className="text-xs text-muted-foreground">Could not load the history.</p>}
+      {failed && <LogFailed />}
       {log && (
         <>
-          <Runs activity={activity} log={log} disabled={disabled} onClose={onClose} />
+          <Runs activity={activity} log={log} disabled={disabled} onDone={onClose} />
           {log.diary.length > 0 && (
             <ReviewField key={log.diary[0].id} activityId={activity.id} category={activity.category} initial={log.diary[0].review ?? ''} onSaved={changed} />
           )}
@@ -88,9 +77,15 @@ export function ActivityExtras({ activity, disabled, onClose }: ActivityExtrasPr
   );
 }
 
+/** The log couldn't be loaded. */
+export function LogFailed() {
+  return <p className="text-xs text-muted-foreground">Could not load the history.</p>;
+}
+
 // ── Ownership / format (3.5) ─────────────────────────────────────────────────
 
-function OwnershipField({ activity, disabled }: { activity: ActivityWithMedia; disabled?: boolean }) {
+/** Platforms a game is owned on, or a book / manga / album's format. Saves as it changes. */
+export function OwnershipField({ activity, disabled }: { activity: ActivityWithMedia; disabled?: boolean }) {
   const router = useRouter();
   const slug = activity.category;
   const [platforms, setPlatforms] = useState<string[]>(activity.ownedPlatforms);
@@ -223,16 +218,17 @@ function OwnershipField({ activity, disabled }: { activity: ActivityWithMedia; d
 
 // ── Runs: "Watched 3× · last …" and Watch again (3.1) ───────────────────────
 
-function Runs({
+/** `onDone` runs after Watch again (which changes the status). */
+export function Runs({
   activity,
   log,
   disabled,
-  onClose,
+  onDone,
 }: {
   activity: ActivityWithMedia;
   log: ActivityLog;
   disabled?: boolean;
-  onClose: () => void;
+  onDone: () => void;
 }) {
   const router = useRouter();
   const titleOf = useDisplayTitle();
@@ -254,7 +250,7 @@ function Runs({
           refresh,
         );
         refresh();
-        onClose();
+        onDone();
       } else {
         toast.error(res.error ?? 'Could not start again.');
       }
@@ -281,7 +277,8 @@ function Runs({
 
 // ── Review (3.4) ─────────────────────────────────────────────────────────────
 
-function ReviewField({
+/** The latest diary entry's review. Render with `key={latestEntry.id}`. */
+export function ReviewField({
   activityId,
   category,
   initial,
@@ -341,7 +338,7 @@ function ReviewField({
 
 // ── Play sessions (3.6) ──────────────────────────────────────────────────────
 
-function Sessions({ activityId, log, onChanged }: { activityId: string; log: ActivityLog; onChanged: () => void }) {
+export function Sessions({ activityId, log, onChanged }: { activityId: string; log: ActivityLog; onChanged: () => void }) {
   const { weekStart } = usePrefs();
   const [date, setDate] = useState(log.today);
   const [minutes, setMinutes] = useState('');
@@ -496,7 +493,7 @@ function Sessions({ activityId, log, onChanged }: { activityId: string; log: Act
 
 const HISTORY_PREVIEW = 8;
 
-function HistoryList({ activity, log }: { activity: ActivityWithMedia; log: ActivityLog }) {
+export function HistoryList({ activity, log }: { activity: ActivityWithMedia; log: ActivityLog }) {
   const { score } = useScoreFormat();
   const [all, setAll] = useState(false);
   const items = useMemo(
