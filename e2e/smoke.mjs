@@ -549,11 +549,13 @@ if (failures.length === 0) {
                 tallest: Math.max(...items.map((el) => Math.round(el.getBoundingClientRect().height))),
                 spill: Math.max(bar.scrollWidth - bar.clientWidth, Math.round(Math.max(...items.map((el) => el.getBoundingClientRect().right)) - r.right)),
                 overflow: document.documentElement.scrollWidth - window.innerWidth,
+                filter: Math.round(bar.querySelector('input').getBoundingClientRect().width),
               };
             });
             if (m.rows !== 1 || m.height > m.tallest + 1) throw new Error(`${where}: the toolbar is ${m.rows} rows, ${m.height}px tall`);
             if (m.spill > 0) throw new Error(`${where}: the toolbar spills ${m.spill}px`);
             if (m.overflow > 0) throw new Error(`${where}: the page scrolls sideways by ${m.overflow}px`);
+            if (m.filter < 96) throw new Error(`${where}: the title filter is squeezed to ${m.filter}px`);
             if (path !== '/books') continue;
             const toolbar = page.locator('[data-section-toolbar]');
             const filters = toolbar.locator('[data-filter-count]');
@@ -563,12 +565,18 @@ if (failures.length === 0) {
             const popover = page.getByRole('dialog', { name: 'Filters' });
             await popover.getByRole('combobox', { name: 'Status' }).click();
             await page.getByRole('option', { name: 'Reading', exact: true }).click();
-            await page.waitForFunction(() => document.querySelector('[data-filter-count]')?.getAttribute('data-filter-count') === '1', null, { timeout: 10_000 });
+            const counted = (n) =>
+              page
+                .waitForFunction((want) => document.querySelector('[data-filter-count]')?.getAttribute('data-filter-count') === want, n, { timeout: 10_000 })
+                .catch(async () => {
+                  throw new Error(`${where}: Filters counts ${await count()}, not ${n}`);
+                });
+            await counted('1');
             const sections = await page.locator('main section button[aria-controls^="section-"]').evaluateAll((els) => els.map((el) => el.getAttribute('aria-controls')));
             if (sections.join() !== 'section-books-CONSUMING') throw new Error(`${where}: filtered to Reading, the page shows ${sections.join(', ')}`);
             if ((await filters.getAttribute('aria-label')) !== 'Filters (1 active)') throw new Error(`${where}: the button is named ${await filters.getAttribute('aria-label')}`);
             await popover.getByRole('button', { name: 'Reset' }).click();
-            await page.waitForFunction(() => document.querySelector('[data-filter-count]')?.getAttribute('data-filter-count') === '0', null, { timeout: 10_000 });
+            await counted('0');
             await page.keyboard.press('Escape');
             await popover.waitFor({ state: 'hidden', timeout: 10_000 });
             const more = toolbar.getByRole('button', { name: 'More', exact: true });
