@@ -1,26 +1,20 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import {
-  BookOpen,
-  BookText,
   Boxes,
   CalendarClock,
   CheckCircle2,
-  Clapperboard,
-  Disc3,
-  Gamepad2,
   Heart,
   ImageOff,
   Layers,
   Library,
   Play,
-  Sparkles,
   Star,
   Target,
-  Tv,
   type LucideIcon,
 } from 'lucide-react';
 
+import { iconFor } from '@/components/icons';
 import { Score } from '@/components/prefs-provider';
 import { RecommendAcrossButton } from '@/components/recommend-across';
 import { GoalBar } from '@/components/stats/goals-client';
@@ -39,18 +33,6 @@ import { isTierEligible } from '@/lib/tiers';
 import { displayTitle } from '@/lib/title';
 import type { ActivityWithMedia } from '@/lib/types';
 import { cn } from '@/lib/utils';
-
-// Resolve category icon-name strings to lucide components (kept in step with the
-// sidebar's mapping).
-const ICONS: Record<string, LucideIcon> = {
-  BookOpen,
-  Clapperboard,
-  Tv,
-  Sparkles,
-  BookText,
-  Gamepad2,
-  Disc3,
-};
 
 // 3×3 layout on desktop: the overview tile sits in the centre, "Now consuming"
 // fills the last cell. Category order matches the sidebar.
@@ -361,7 +343,7 @@ function FavouritesRow({
 
 function CategoryCard({ stat }: { stat: CategoryStat }) {
   const config = CATEGORIES[stat.slug];
-  const Icon = ICONS[config.icon] ?? Boxes;
+  const Icon = iconFor(config.icon);
   const empty = stat.total === 0;
 
   return (
