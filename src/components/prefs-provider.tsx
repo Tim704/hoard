@@ -10,6 +10,7 @@ import {
   NONE_IN_FLIGHT,
   liveSlice,
   reconcileOverlay,
+  settleSave,
   withOverlay,
   type InFlight,
   type LivePrefKey,
@@ -75,11 +76,21 @@ export function PrefsProvider({
   /** Per key, the number of the newest change: only that one may roll back. */
   const latest = useRef<InFlight>({ ...NONE_IN_FLIGHT });
   /**
+   * What the server is known to hold: the server props, moved on by every
+   * save that succeeded. A failed save rolls back to this (settleSave).
+   */
+  const confirmed = useRef<LivePrefs>(server);
+  /**
    * The layout <html> was last switched to here. Null at first, so mounting
    * always applies: after a client-side login the head bootstrap hasn't run
    * for this user's layout.
    */
   const applied = useRef<string | null>(null);
+
+  // New server props are the truth (another tab may have saved since).
+  useIsomorphicLayoutEffect(() => {
+    confirmed.current = { layout: server.layout, titleView: server.titleView };
+  }, [server.layout, server.titleView]);
 
   // <html data-layout> is rendered by the root layout from the server's prefs,
   // so a refresh can put it back while a newer choice is still saving. Keep
@@ -106,20 +117,25 @@ export function PrefsProvider({
     updatePrefs({ [key]: next } as PrefsPatch)
       .catch(() => ({ ok: false as const, error: undefined }))
       .then((res) => {
+        const settled = settleSave(confirmed.current, key, next, res.ok, latest.current[key] === seq);
+        confirmed.current = settled.confirmed;
+        const { outcome } = settled;
         // A newer change for this key has taken over: it reports (and rolls
         // back) for itself.
-        if (latest.current[key] !== seq) return;
+        if (outcome.kind === 'superseded') return;
         // One toast per key: a new switch replaces the last one (and its
         // Undo). Not for an undo: sonner is already closing the toast whose
         // Undo was clicked, and would take a replacement down with it.
         const id = undoable ? `display-pref-${key}` : undefined;
-        if (res.ok) {
+        if (outcome.kind === 'saved') {
           if (undoable) toastUndoable(SWITCH_MESSAGES[key](next), () => change(key, previous, false), id);
           else toast.success('Undone.', { id });
           return;
         }
-        show(previous);
-        toast.error(res.error ?? 'Could not save that setting.', { id });
+        show(outcome.rollbackTo);
+        // Replacing a success toast merges into it: drop its Undo and its
+        // long duration explicitly.
+        toast.error(res.error ?? 'Could not save that setting.', { id, action: undefined, duration: undefined });
       })
       .finally(() => setInFlight((f) => ({ ...f, [key]: f[key] - 1 })));
   }, []);
