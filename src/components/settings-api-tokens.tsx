@@ -64,7 +64,7 @@ export function SettingsApiTokens({ tokens }: { tokens: ApiTokenRow[] }) {
   }
 
   return (
-    <Card id="api-tokens">
+    <Card id="api-tokens" className="scroll-mt-20">
       <CardHeader>
         <CardTitle className="text-base">API tokens</CardTitle>
         <CardDescription>

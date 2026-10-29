@@ -30,7 +30,7 @@ const DOWNLOADS = [
 
 export function SettingsData() {
   return (
-    <Card>
+    <Card id="data" className="scroll-mt-20">
       <CardHeader>
         <CardTitle className="text-base">Data</CardTitle>
         <CardDescription>

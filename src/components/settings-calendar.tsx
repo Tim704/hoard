@@ -56,7 +56,7 @@ export function SettingsCalendar({ initialUrl }: { initialUrl: string | null }) 
   }
 
   return (
-    <Card id="calendar">
+    <Card id="calendar" className="scroll-mt-20">
       <CardHeader>
         <CardTitle className="text-base">Calendar</CardTitle>
         <CardDescription>

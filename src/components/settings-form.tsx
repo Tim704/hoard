@@ -1,10 +1,11 @@
 'use client';
 
 // ───────────────────────────────────────────────────────────────────────────
-//  The Settings page body. Every control saves on change through `updatePrefs`
-//  (optimistically; a failed save rolls the control back). The server action
-//  revalidates the layout, so score formats and hidden sections update across
-//  the app straight away.
+//  Settings → General: time zone, display formats and the sections to hide.
+//  Every control saves on change through `updatePrefs` (optimistically; a
+//  failed save rolls the control back). The server action revalidates the
+//  layout, so score formats and hidden sections update across the app
+//  straight away.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { useId, useState, useTransition } from 'react';
@@ -30,8 +31,6 @@ interface SettingsFormProps {
   initial: DisplayPrefs;
   timeZones: string[];
   serverTimeZone: string;
-  /** Extra cards rendered after the built-in ones (Notifications, System). */
-  children?: React.ReactNode;
 }
 
 const SCORE_OPTIONS: { value: ScoreFormat; label: string }[] = [
@@ -57,7 +56,7 @@ const SECTION_LABEL = (s: HideableSection) => (s === 'franchises' ? 'Franchises'
 const selectClass =
   'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50';
 
-export function SettingsForm({ initial, timeZones, serverTimeZone, children }: SettingsFormProps) {
+export function SettingsForm({ initial, timeZones, serverTimeZone }: SettingsFormProps) {
   const [prefs, setPrefs] = useState<DisplayPrefs>(initial);
   const [isPending, startTransition] = useTransition();
 
@@ -101,15 +100,8 @@ export function SettingsForm({ initial, timeZones, serverTimeZone, children }: S
     prefs.timeZone && !timeZones.includes(prefs.timeZone) ? [prefs.timeZone, ...timeZones] : timeZones;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Changes save as you make them{isPending ? '…' : '.'}
-        </p>
-      </header>
-
-      <Card>
+    <>
+      <Card id="time-zone" className="scroll-mt-20">
         <CardHeader>
           <CardTitle className="text-base">Time zone</CardTitle>
           <CardDescription>
@@ -146,7 +138,7 @@ export function SettingsForm({ initial, timeZones, serverTimeZone, children }: S
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="display" className="scroll-mt-20">
         <CardHeader>
           <CardTitle className="text-base">Display</CardTitle>
           <CardDescription>You always enter scores from 0 to 10; this only changes how they are shown.</CardDescription>
@@ -176,7 +168,7 @@ export function SettingsForm({ initial, timeZones, serverTimeZone, children }: S
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="sections" className="scroll-mt-20">
         <CardHeader>
           <CardTitle className="text-base">Sections</CardTitle>
           <CardDescription>
@@ -210,9 +202,7 @@ export function SettingsForm({ initial, timeZones, serverTimeZone, children }: S
           </div>
         </CardContent>
       </Card>
-
-      {children}
-    </div>
+    </>
   );
 }
 

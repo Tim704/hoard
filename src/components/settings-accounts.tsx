@@ -31,6 +31,7 @@ import {
   syncSteamNow,
 } from '@/lib/actions/accounts';
 import type { PublicLink } from '@/lib/external-links';
+import { settingsHref } from '@/lib/settings-nav';
 
 export interface AccountsProps {
   steam: { configured: boolean; link: PublicLink | null };
@@ -63,11 +64,11 @@ export function SettingsAccounts({ steam, lastfm, anilist }: AccountsProps) {
     if (!msg) return;
     if (msg.ok) toast.success(msg.text);
     else toast.error(msg.text);
-    router.replace('/settings#accounts', { scroll: false });
+    router.replace(settingsHref('accounts'), { scroll: false });
   }, [params, router]);
 
   return (
-    <Card id="accounts">
+    <Card id="accounts" className="scroll-mt-20">
       <CardHeader>
         <CardTitle className="text-base">Accounts</CardTitle>
         <CardDescription>Link other sites so Hoard can import from them and keep up with them.</CardDescription>

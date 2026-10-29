@@ -53,7 +53,10 @@ export default async function AppLayout({
             social={social}
           />
           <MobileNav username={user.username} notifications={notifications} views={views} social={social} />
-          <main className="flex-1 overflow-x-hidden">{children}</main>
+          {/* Clip, not hide, sideways overflow: `hidden` would make <main> a
+              scroll container and stop `sticky` inside it (Settings' side
+              menu). Browsers without `clip` keep `hidden`. */}
+          <main className="flex-1 overflow-x-hidden supports-[overflow:clip]:overflow-x-clip">{children}</main>
         </div>
       </GlobalSearchProvider>
     </PrefsProvider>

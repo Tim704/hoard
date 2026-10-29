@@ -46,7 +46,7 @@ export function SettingsSharing({ links }: { links: MyShareLink[] }) {
   }
 
   return (
-    <Card id="sharing">
+    <Card id="sharing" className="scroll-mt-20">
       <CardHeader>
         <CardTitle className="text-base">Sharing</CardTitle>
         <CardDescription>

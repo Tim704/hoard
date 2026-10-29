@@ -107,27 +107,29 @@ async function step(name, fn) {
   }
 }
 
+const docState = () =>
+  page.evaluate(() => ({
+    layout: document.documentElement.dataset.layout,
+    dark: document.documentElement.classList.contains('dark'),
+  }));
+
 /**
- * The updatePrefs server action's id, read off a real Settings save: the
- * compare opt-in is toggled and toggled back (same state afterwards).
+ * Settings → Themes: click a layout's thumbnail and wait for it to apply at
+ * once and save ("Layout: X" toast). A no-op when it is already chosen.
  */
-async function prefsActionId() {
-  await page.goto(`${BASE_URL}/settings`, { waitUntil: 'networkidle' });
-  const box = page.locator('#compare input[type="checkbox"]');
-  await box.waitFor({ timeout: 15_000 });
-  let id = null;
-  for (let i = 0; i < 2; i++) {
-    const [res] = await Promise.all([
-      page.waitForResponse((r) => r.request().method() === 'POST' && !!r.request().headers()['next-action'], {
-        timeout: 15_000,
-      }),
-      box.click(),
-    ]);
-    id ??= res.request().headers()['next-action'];
-    await page.waitForLoadState('networkidle');
+async function pickLayout(label) {
+  if (new URL(page.url()).searchParams.get('tab') !== 'themes') {
+    await page.goto(`${BASE_URL}/settings?tab=themes`, { waitUntil: 'networkidle' });
   }
-  if (!id) throw new Error('no server action id seen on a Settings save');
-  return id;
+  const radio = page.getByRole('radio', { name: label, exact: true });
+  await radio.waitFor({ state: 'attached', timeout: 15_000 });
+  if (await radio.isChecked()) return;
+  await page.locator('label', { has: radio }).click();
+  const id = label.toLowerCase();
+  const now = await docState();
+  if (now.layout !== id) throw new Error(`clicking ${label} left data-layout at ${now.layout}`);
+  await page.getByText(`Layout: ${label}`).first().waitFor({ timeout: 15_000 });
+  if (!(await radio.isChecked())) throw new Error(`${label} is not shown as chosen`);
 }
 
 console.log(`Smoke test against ${BASE_URL}`);
@@ -196,32 +198,35 @@ if (failures.length === 0) {
       await signedOut.close();
     }
   });
+  // Settings → Themes (layouts): each thumbnail switches <html data-layout>
+  // at once (Fresh forces dark) and saves; Classic is restored and survives
+  // a reload.
+  await step('layout picker', async () => {
+    await page.goto(`${BASE_URL}/settings?tab=themes`, { waitUntil: 'networkidle' });
+    try {
+      for (const label of ['Minimal', 'Organised', 'Fresh', 'Classic']) {
+        await pickLayout(label);
+        // Only Fresh forces dark (the smoke browser is light and stores no theme).
+        const s = await docState();
+        if (s.dark !== (label === 'Fresh')) throw new Error(`${label}: ${JSON.stringify(s)}`);
+      }
+      // The title view uses the same picker (shown in the UI from Phase 6).
+      await page.locator('label', { has: page.getByRole('radio', { name: 'Full page', exact: true }) }).click();
+      await page.getByText('Title view: Full page').first().waitFor({ timeout: 15_000 });
+      await page.locator('label', { has: page.getByRole('radio', { name: 'Popup', exact: true }) }).click();
+      await page.getByText('Title view: Popup').first().waitFor({ timeout: 15_000 });
+    } finally {
+      await pickLayout('Classic');
+    }
+    await page.reload({ waitUntil: 'networkidle' });
+    const s = await docState();
+    if (s.layout !== 'classic') throw new Error(`after a reload: ${JSON.stringify(s)}`);
+    if (!(await page.getByRole('radio', { name: 'Classic', exact: true }).isChecked())) throw new Error('Classic not chosen after a reload');
+  });
   // A Fresh user's forced dark survives the client-side navigations of
   // logging out (back to Classic and light) and in (dark again, with no page
-  // load to rerun the head script). No screen sets the layout yet, so the
-  // step calls the updatePrefs server action directly, with its id read off
-  // a Settings save (the compare opt-in toggled and toggled back).
+  // load to rerun the head script). The layout is set with the picker.
   await step('fresh layout across logout + login', async () => {
-    const docState = () =>
-      page.evaluate(() => ({
-        layout: document.documentElement.dataset.layout,
-        dark: document.documentElement.classList.contains('dark'),
-      }));
-    const actionId = await prefsActionId();
-    const setLayout = async (layout) => {
-      const out = await page.evaluate(
-        async ([id, value]) => {
-          const res = await fetch('/settings', {
-            method: 'POST',
-            headers: { 'Next-Action': id, 'Content-Type': 'text/plain;charset=UTF-8', Accept: 'text/x-component' },
-            body: JSON.stringify([{ layout: value }]),
-          });
-          return `${res.status} ${await res.text()}`;
-        },
-        [actionId, layout],
-      );
-      if (!/^200 [\s\S]*"ok":true/.test(out)) throw new Error(`saving layout ${layout}: ${out.slice(0, 200)}`);
-    };
     const login = async () => {
       await page.fill('#username', USER);
       await page.fill('#password', PASSWORD);
@@ -232,7 +237,7 @@ if (failures.length === 0) {
       await page.waitForLoadState('networkidle');
     };
     try {
-      await setLayout('fresh');
+      await pickLayout('Fresh');
       await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
       let s = await docState();
       if (s.layout !== 'fresh' || !s.dark) throw new Error(`Fresh after a reload: ${JSON.stringify(s)}`);
@@ -248,10 +253,61 @@ if (failures.length === 0) {
       if (s.layout !== 'fresh' || !s.dark) throw new Error(`after logging in to Fresh: ${JSON.stringify(s)}`);
     } finally {
       if (new URL(page.url()).pathname === '/login') await login().catch(() => {});
-      await setLayout('classic');
+      await pickLayout('Classic');
       await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
       const s = await docState();
       if (s.layout !== 'classic' || s.dark) throw new Error(`Classic not restored: ${JSON.stringify(s)}`);
+    }
+  });
+  // Old single-page Settings links (/settings#card, stored in notifications)
+  // land on the card's tab, scrolled to the card.
+  await step('settings #anchor links → tabs', async () => {
+    for (const [anchor, tab, title] of [
+      ['api-tokens', 'data', 'API tokens'],
+      ['compare', 'sharing', 'Compare with other users'],
+      ['system', 'system', 'System'],
+    ]) {
+      await page.goto(`${BASE_URL}/settings#${anchor}`, { waitUntil: 'networkidle' });
+      await page.waitForURL((url) => url.searchParams.get('tab') === tab && url.hash === `#${anchor}`, { timeout: 15_000 });
+      const card = page.locator(`#${anchor}`);
+      await card.getByText(title, { exact: true }).first().waitFor({ timeout: 15_000 });
+      const current = await page.locator('nav[aria-label="Settings"] [aria-current="page"]').innerText();
+      if (current.trim() !== { data: 'Data', sharing: 'Sharing & privacy', system: 'System' }[tab]) throw new Error(`#${anchor}: ${current} is open`);
+      await page.waitForFunction((id) => {
+        const r = document.getElementById(id)?.getBoundingClientRect();
+        return !!r && r.top >= 0 && r.top < window.innerHeight;
+      }, anchor, { timeout: 10_000 });
+    }
+  });
+  // Phones: the tabs are one strip that scrolls sideways (the open one in
+  // view), the layout picker is two by two, and nothing scrolls the page
+  // sideways.
+  await step('settings at 375 px', async () => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    try {
+      for (const tab of ['themes', 'general', 'accounts', 'notifications', 'sharing', 'data', 'system']) {
+        await page.goto(`${BASE_URL}/settings?tab=${tab}`, { waitUntil: 'networkidle' });
+        const m = await page.evaluate(() => {
+          const strip = document.querySelector('nav[aria-label="Settings"] ul');
+          const tops = [...strip.querySelectorAll('li')].map((li) => Math.round(li.getBoundingClientRect().top));
+          const s = strip.getBoundingClientRect();
+          const a = strip.querySelector('[aria-current="page"]').getBoundingClientRect();
+          const radios = [...document.querySelectorAll('input[name="layout"]')].map((r) => r.closest('label').getBoundingClientRect());
+          return {
+            overflow: document.documentElement.scrollWidth - window.innerWidth,
+            rows: new Set(tops).size,
+            activeInView: a.left >= s.left - 1 && a.right <= s.right + 1,
+            pickerRows: new Set(radios.map((r) => Math.round(r.top))).size,
+            pickerCols: new Set(radios.map((r) => Math.round(r.left))).size,
+          };
+        });
+        if (m.overflow > 0) throw new Error(`${tab}: the page scrolls sideways by ${m.overflow}px`);
+        if (m.rows !== 1) throw new Error(`${tab}: the tab strip wraps onto ${m.rows} rows`);
+        if (!m.activeInView) throw new Error(`${tab}: the open tab is scrolled out of the strip`);
+        if (tab === 'themes' && (m.pickerRows !== 2 || m.pickerCols !== 2)) throw new Error(`picker is ${m.pickerCols}×${m.pickerRows}`);
+      }
+    } finally {
+      await page.setViewportSize({ width: 1280, height: 900 });
     }
   });
   // TV seasons (3.3 / 4.5): the demo show's details list its seasons and
@@ -316,7 +372,7 @@ if (failures.length === 0) {
   // Settings → Accounts (8.1–8.3): each account renders either its link form
   // or a friendly "not configured" note, with or without provider keys.
   await step('settings accounts', async () => {
-    await page.goto(`${BASE_URL}/settings`, { waitUntil: 'networkidle' });
+    await page.goto(`${BASE_URL}/settings?tab=accounts`, { waitUntil: 'networkidle' });
     const card = page.locator('#accounts');
     await card.waitFor({ timeout: 15_000 });
     for (const [name, missing] of [
@@ -386,7 +442,7 @@ if (failures.length === 0) {
   // API tokens (8.7): create one, call the API with it (no cookies), revoke
   // it, and see the API refuse it.
   await step('api token create → call → revoke', async () => {
-    await page.goto(`${BASE_URL}/settings`, { waitUntil: 'networkidle' });
+    await page.goto(`${BASE_URL}/settings?tab=data`, { waitUntil: 'networkidle' });
     const card = page.locator('#api-tokens');
     await card.getByText('API tokens', { exact: true }).waitFor({ timeout: 15_000 });
     await card.getByLabel('Token name').fill('smoke test');
@@ -413,7 +469,7 @@ if (failures.length === 0) {
   // then, as demo2, see demo vanish from Compare the moment demo opts out
   // (the same answer as for an unknown user), and come back after.
   const setOptIn = async (card, on, toast) => {
-    await page.goto(`${BASE_URL}/settings`, { waitUntil: 'networkidle' });
+    await page.goto(`${BASE_URL}/settings?tab=sharing`, { waitUntil: 'networkidle' });
     const box = page.locator(`${card} input[type="checkbox"]`);
     await box.waitFor({ timeout: 15_000 });
     if ((await box.isChecked()) !== on) {
