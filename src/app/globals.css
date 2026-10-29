@@ -7,6 +7,9 @@
     /* Light theme — soft off-white canvas so white cards/popovers separate,
        near-black text for strong contrast, and a darker muted gray so secondary
        text/labels stay readable. */
+    /* Native widgets (form controls, date pickers, any unstyled scrollbar)
+       follow the theme. */
+    color-scheme: light;
     --background: 240 20% 98%;
     --foreground: 240 10% 8%;
     --card: 0 0% 100%;
@@ -27,6 +30,9 @@
     --input: 240 6% 87%;
     --ring: 262 70% 50%;
     --radius: 0.5rem;
+    /* Scrollbar thumb (zinc), and a violet-tinted hover. */
+    --scrollbar: 240 5% 80%;
+    --scrollbar-hover: 262 14% 62%;
 
     /* Stats charts (dataviz palette, validated against the white card
        surface; three slots sit below 3:1, so every chart has a table view).
@@ -43,6 +49,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
     --card: 240 10% 5.5%;
@@ -62,6 +69,8 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
+    --scrollbar: 240 5% 24%;
+    --scrollbar-hover: 240 5% 40%;
 
     /* The same hues stepped for the dark card surface (all ≥ 3:1). */
     --viz-1: #3987e5;
@@ -90,18 +99,38 @@
   }
 }
 
-/* Thin, dark-friendly scrollbars to match the moody theme. */
-@layer utilities {
-  .scrollbar-thin {
+/* Thin, themed scrollbars everywhere (page, dialogs, drawers, menus,
+   textareas, tables). Firefox and Chrome 121+ use the standard properties;
+   Safari (and older Chrome) the ::-webkit-scrollbar rules, which also get a
+   hover colour. */
+@layer base {
+  * {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--border)) transparent;
+    scrollbar-color: hsl(var(--scrollbar)) transparent;
   }
-  .scrollbar-thin::-webkit-scrollbar {
+  ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--border));
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--scrollbar));
+    border: 2px solid transparent;
     border-radius: 9999px;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--scrollbar-hover));
+  }
+}
+
+@layer utilities {
+  /* Kept as an alias: every scroller now gets the themed thin scrollbar. */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--scrollbar)) transparent;
   }
 }
