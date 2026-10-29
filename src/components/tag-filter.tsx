@@ -46,7 +46,9 @@ export function TagFilter({
           className={cn('h-10 md:h-9', selected.length > 0 && 'bg-accent text-accent-foreground', className)}
         >
           <Tag className="mr-2 h-4 w-4" aria-hidden />
-          {selected.length === 0 ? 'Tags' : selected.length === 1 ? selected[0] : `${selected.length} tags`}
+          <span className="truncate">
+            {selected.length === 0 ? 'Tags' : selected.length === 1 ? selected[0] : `${selected.length} tags`}
+          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="max-h-80 w-56 overflow-y-auto">

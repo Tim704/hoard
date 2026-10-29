@@ -34,8 +34,14 @@ interface SearchDialogProps {
   singular: string;
   /** Titles already in the user's library, keyed by provider externalId. */
   library: Record<string, { status: Status; rating: number | null }>;
-  /** Extra classes for the trigger button (lets the toolbar size/order it). */
+  /** Extra classes for the default trigger button. */
   triggerClassName?: string;
+  /**
+   * A trigger of your own instead of the default "+ Add <singular>" button
+   * (the section toolbar's, with a tooltip); it must forward its ref and
+   * props, like a Button or a TooltipTrigger with `asChild`.
+   */
+  trigger?: React.ReactElement;
 }
 
 /** Search as you type waits this long after the last keystroke. */
@@ -59,6 +65,7 @@ export function SearchDialog({
   singular,
   library,
   triggerClassName,
+  trigger,
 }: SearchDialogProps) {
   const router = useRouter();
   const labels = addChoiceLabels(slug);
@@ -313,10 +320,12 @@ export function SearchDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button className={triggerClassName}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add {singular}
-        </Button>
+        {trigger ?? (
+          <Button className={triggerClassName}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add {singular}
+          </Button>
+        )}
       </DialogTrigger>
       {/* Mobile: dock to the bottom edge as a sheet (full width, rounded top,
           safe-area padding); sm+ restores the centered dialog. */}

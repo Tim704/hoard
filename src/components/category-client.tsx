@@ -2,28 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Layers, ListTree, Rows3 } from 'lucide-react';
 
 import { ActivityDetailDialog } from '@/components/activity-detail-dialog';
 import { MediaCompact } from '@/components/media-compact';
 import { MediaGrid } from '@/components/media-grid';
 import { MediaTable } from '@/components/media-table';
 import { useDisplayTitle } from '@/components/prefs-provider';
-import { RoastButton } from '@/components/roast-button';
-import { SearchDialog } from '@/components/search-dialog';
 import { StatusSection } from '@/components/status-section';
-import { TagFilter } from '@/components/tag-filter';
-import { ViewToggle } from '@/components/view-toggle';
-import { Button, buttonVariants } from '@/components/ui/button';
 import { usePersistentState } from '@/hooks/use-persistent-state';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SectionToolbar } from '@/components/section/section-toolbar';
 import { useSectionFilters } from '@/components/section/use-section-filters';
 import type { CategoryConfig, CategorySlug } from '@/lib/categories';
 import {
@@ -33,17 +20,12 @@ import {
   isViewMode,
   SECTION_ORDER,
   sectionPrefKey,
-  SORT_LABEL,
-  SORT_MODES,
-  type SortMode,
-  type StatusFilter,
 } from '@/lib/section-filters';
-import { STATUSES, statusLabel, type Status } from '@/lib/status';
-import { hasOwnership, ownershipChoices } from '@/lib/ownership';
+import type { Status } from '@/lib/status';
+import { ownershipChoices } from '@/lib/ownership';
 import { countTags } from '@/lib/tags';
 import { compareTierOrder, isTierEligible } from '@/lib/tiers';
 import { toDisplayUnits, type ActivityWithMedia, type ViewMode } from '@/lib/types';
-import { cn } from '@/lib/utils';
 
 interface CategoryClientProps {
   slug: CategorySlug;
@@ -76,14 +58,9 @@ export function CategoryClient({
   // groupings inside useSectionFilters).
   const [viewMode, setViewMode] = usePersistentState<ViewMode>(sectionPrefKey(slug, 'view'), 'grid', isViewMode);
   const [collapsed, setCollapsed] = usePersistentState<Status[]>(sectionPrefKey(slug, 'collapsed'), [], isStatusList);
-  const { filters, set } = useSectionFilters(slug, initialTags);
-  const { sort, grouped, groupFranchises, status: statusFilter, owned: ownedFilter, tags: tagFilter } = filters;
-  const setSort = (v: SortMode) => set('sort', v);
-  const setGrouped = (v: boolean) => set('grouped', v);
-  const setGroupFranchises = (v: boolean) => set('groupFranchises', v);
-  const setStatusFilter = (v: StatusFilter) => set('status', v);
-  const setOwnedFilter = (v: string) => set('owned', v);
-  const setTagFilter = (v: string[]) => set('tags', v);
+  const sectionFilters = useSectionFilters(slug, initialTags);
+  const { filters } = sectionFilters;
+  const { sort, grouped, groupFranchises } = filters;
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const toggleGroup = (id: string) =>
     setExpandedGroups((prev) => {
@@ -178,7 +155,7 @@ export function CategoryClient({
           {config.label}
         </h1>
         <p className="text-sm text-muted-foreground">{config.blurb}</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="truncate text-xs text-muted-foreground">
           {activities.length} {activities.length === 1 ? 'item' : 'items'}
           {slug === 'anime' && (
             <>
@@ -191,136 +168,18 @@ export function CategoryClient({
         </p>
       </header>
 
-      {/* Controls — a single wrapping flex row. On mobile, `order-*` regroups
-          the items into thumb-friendly full-width rows (Add / filter + view /
-          status + sort / Arena + AI Critic); at md+ every item reverts to the
-          original single-row order, with the filter input opening the
-          right-aligned group via md:ml-auto. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <SearchDialog
-          slug={slug}
-          singular={config.singular}
-          library={library}
-          triggerClassName="order-1 w-full md:order-none md:w-auto"
-        />
-
-        <Link
-          href={`/${slug}/arena`}
-          className={cn(
-            buttonVariants({ variant: 'outline' }),
-            'order-6 flex-1 md:order-none md:flex-none',
-          )}
-        >
-          <Rows3 className="mr-2 h-4 w-4" />
-          Tiers
-        </Link>
-
-        <RoastButton
-          slug={slug}
-          triggerClassName="order-7 flex-1 md:order-none md:flex-none"
-        />
-
-        <Input
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter by title…"
-          // text-base on phones stops iOS zooming the page on focus (<16px does).
-          className="order-2 h-10 min-w-0 flex-1 text-base md:order-none md:ml-auto md:h-9 md:w-44 md:flex-none md:text-sm"
-        />
-
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as StatusFilter)}
-        >
-          <SelectTrigger className="order-4 h-10 w-[calc(50%-0.25rem)] md:order-none md:h-9 md:w-40">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All statuses</SelectItem>
-            {STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {statusLabel(s, slug)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={sort} onValueChange={(v) => setSort(v as SortMode)}>
-          <SelectTrigger className="order-5 h-10 w-[calc(50%-0.25rem)] md:order-none md:h-9 md:w-44">
-            <SelectValue placeholder="Sort" />
-          </SelectTrigger>
-          <SelectContent>
-            {SORT_MODES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {SORT_LABEL[s]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {hasOwnership(slug) && (slug !== 'games' || ownedChoices.length > 0) && (
-          <Select value={ownedFilter} onValueChange={setOwnedFilter}>
-            <SelectTrigger
-              aria-label={slug === 'games' ? 'Owned on' : 'Format'}
-              className="order-5 h-10 w-full md:order-none md:h-9 md:w-40"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">{slug === 'games' ? 'Any platform' : 'Any format'}</SelectItem>
-              {ownedChoices.map((c) => (
-                <SelectItem key={c.value} value={c.value}>
-                  {c.label}
-                </SelectItem>
-              ))}
-              <SelectItem value="NONE">{slug === 'games' ? 'No platform set' : 'No format set'}</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
-
-        {(sectionTags.length > 0 || tagFilter.length > 0) && (
-          <TagFilter
-            tags={sectionTags}
-            selected={tagFilter}
-            onChange={setTagFilter}
-            className="order-5 w-full md:order-none md:w-auto"
-          />
-        )}
-
-        <div className="order-3 flex items-center gap-2 md:order-none">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label="Group franchises"
-            title="Group franchises"
-            aria-pressed={groupFranchises}
-            onClick={() => setGroupFranchises(!groupFranchises)}
-            className={cn(
-              'h-10 w-10 md:h-9 md:w-9',
-              groupFranchises && 'bg-accent text-accent-foreground',
-            )}
-          >
-            <Layers className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label="Group by status"
-            title="Group by status"
-            aria-pressed={grouped}
-            onClick={() => setGrouped(!grouped)}
-            className={cn(
-              'h-10 w-10 md:h-9 md:w-9',
-              grouped && 'bg-accent text-accent-foreground',
-            )}
-          >
-            <ListTree className="h-4 w-4" />
-          </Button>
-          <ViewToggle value={viewMode} onChange={setViewMode} />
-        </div>
-      </div>
+      <SectionToolbar
+        slug={slug}
+        config={config}
+        library={library}
+        text={filter}
+        onText={setFilter}
+        filters={sectionFilters}
+        ownedChoices={ownedChoices}
+        sectionTags={sectionTags}
+        view={viewMode}
+        onView={setViewMode}
+      />
 
       {/* Body */}
       {activities.length === 0 ? (
