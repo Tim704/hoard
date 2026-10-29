@@ -107,6 +107,29 @@ async function step(name, fn) {
   }
 }
 
+/**
+ * The updatePrefs server action's id, read off a real Settings save: the
+ * compare opt-in is toggled and toggled back (same state afterwards).
+ */
+async function prefsActionId() {
+  await page.goto(`${BASE_URL}/settings`, { waitUntil: 'networkidle' });
+  const box = page.locator('#compare input[type="checkbox"]');
+  await box.waitFor({ timeout: 15_000 });
+  let id = null;
+  for (let i = 0; i < 2; i++) {
+    const [res] = await Promise.all([
+      page.waitForResponse((r) => r.request().method() === 'POST' && !!r.request().headers()['next-action'], {
+        timeout: 15_000,
+      }),
+      box.click(),
+    ]);
+    id ??= res.request().headers()['next-action'];
+    await page.waitForLoadState('networkidle');
+  }
+  if (!id) throw new Error('no server action id seen on a Settings save');
+  return id;
+}
+
 console.log(`Smoke test against ${BASE_URL}`);
 
 await step('login', async () => {
@@ -171,6 +194,64 @@ if (failures.length === 0) {
       if (layout !== 'classic') throw new Error(`signed out, data-layout is ${layout}`);
     } finally {
       await signedOut.close();
+    }
+  });
+  // A Fresh user's forced dark survives the client-side navigations of
+  // logging out (back to Classic and light) and in (dark again, with no page
+  // load to rerun the head script). No screen sets the layout yet, so the
+  // step calls the updatePrefs server action directly, with its id read off
+  // a Settings save (the compare opt-in toggled and toggled back).
+  await step('fresh layout across logout + login', async () => {
+    const docState = () =>
+      page.evaluate(() => ({
+        layout: document.documentElement.dataset.layout,
+        dark: document.documentElement.classList.contains('dark'),
+      }));
+    const actionId = await prefsActionId();
+    const setLayout = async (layout) => {
+      const out = await page.evaluate(
+        async ([id, value]) => {
+          const res = await fetch('/settings', {
+            method: 'POST',
+            headers: { 'Next-Action': id, 'Content-Type': 'text/plain;charset=UTF-8', Accept: 'text/x-component' },
+            body: JSON.stringify([{ layout: value }]),
+          });
+          return `${res.status} ${await res.text()}`;
+        },
+        [actionId, layout],
+      );
+      if (!/^200 [\s\S]*"ok":true/.test(out)) throw new Error(`saving layout ${layout}: ${out.slice(0, 200)}`);
+    };
+    const login = async () => {
+      await page.fill('#username', USER);
+      await page.fill('#password', PASSWORD);
+      await Promise.all([
+        page.waitForURL((url) => url.pathname === '/dashboard', { timeout: 20_000 }),
+        page.click('button[type="submit"]'),
+      ]);
+      await page.waitForLoadState('networkidle');
+    };
+    try {
+      await setLayout('fresh');
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+      let s = await docState();
+      if (s.layout !== 'fresh' || !s.dark) throw new Error(`Fresh after a reload: ${JSON.stringify(s)}`);
+      await Promise.all([
+        page.waitForURL((url) => url.pathname === '/login', { timeout: 20_000 }),
+        page.locator('aside').getByRole('button', { name: 'Log out' }).click(),
+      ]);
+      await page.waitForLoadState('networkidle');
+      s = await docState();
+      if (s.layout !== 'classic' || s.dark) throw new Error(`after logging out of Fresh: ${JSON.stringify(s)}`);
+      await login();
+      s = await docState();
+      if (s.layout !== 'fresh' || !s.dark) throw new Error(`after logging in to Fresh: ${JSON.stringify(s)}`);
+    } finally {
+      if (new URL(page.url()).pathname === '/login') await login().catch(() => {});
+      await setLayout('classic');
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+      const s = await docState();
+      if (s.layout !== 'classic' || s.dark) throw new Error(`Classic not restored: ${JSON.stringify(s)}`);
     }
   });
   // TV seasons (3.3 / 4.5): the demo show's details list its seasons and

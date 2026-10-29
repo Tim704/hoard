@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from 'next';
 import { Manrope, Outfit } from 'next/font/google';
 import { cookies } from 'next/headers';
 
+import { LayoutSync } from '@/components/layout-sync';
 import { Toaster } from '@/components/ui/sonner';
 import { getPrefs } from '@/lib/data-prefs';
 import { THEME_COLORS, themeBootstrapScript } from '@/lib/document-theme';
@@ -104,6 +105,8 @@ export default async function RootLayout({
         )}
       >
         {children}
+        {/* After the page: see LayoutSync (login / logout keep `dark` right). */}
+        <LayoutSync layout={layout} />
         <Toaster richColors closeButton />
       </body>
     </html>

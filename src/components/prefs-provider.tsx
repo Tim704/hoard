@@ -1,9 +1,10 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { toastUndoable } from '@/components/undo-toast';
+import { useIsomorphicLayoutEffect } from '@/hooks/use-isomorphic-layout-effect';
 import { detectRegion, updatePrefs } from '@/lib/actions/prefs';
 import {
   NONE_IN_FLIGHT,
@@ -29,8 +30,6 @@ const TodayContext = createContext<string | null>(null);
 /** Switch a live display pref (layout, title view) at once, save it, offer Undo. */
 export type SetDisplayPref = <K extends LivePrefKey>(key: K, value: LivePrefs[K]) => void;
 const SetDisplayPrefContext = createContext<SetDisplayPref>(() => {});
-
-const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 const SWITCH_MESSAGES: { [K in LivePrefKey]: (value: LivePrefs[K]) => string } = {
   layout: (v) => `Layout: ${LAYOUTS[resolveLayout(v)].label}`,
@@ -75,8 +74,12 @@ export function PrefsProvider({
   const current = useRef<LivePrefs>(liveSlice(value));
   /** Per key, the number of the newest change: only that one may roll back. */
   const latest = useRef<InFlight>({ ...NONE_IN_FLIGHT });
-  /** The layout <html> was last switched to (the bootstrap did the first). */
-  const applied = useRef(value.layout);
+  /**
+   * The layout <html> was last switched to here. Null at first, so mounting
+   * always applies: after a client-side login the head bootstrap hasn't run
+   * for this user's layout.
+   */
+  const applied = useRef<string | null>(null);
 
   // <html data-layout> is rendered by the root layout from the server's prefs,
   // so a refresh can put it back while a newer choice is still saving. Keep
