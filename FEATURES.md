@@ -104,8 +104,9 @@ The **Add** button on each section opens a search:
 - **Search everything** (`/`, or **Search** in the user menu): searches every visible
   section at once, grouped by section, with a 6 s limit per source.
 - **Command palette** (Cmd+K on a Mac, Ctrl+K elsewhere, or **Command palette** in the
-  user menu): jump to any title in your library or any page. On the highlighted title: Enter opens it, Cmd/Ctrl+Enter marks it
-  done, Alt+Enter moves it to the top of Up next. Enter on no match runs Search everything.
+  user menu): jump to any title in your library or any page. On the highlighted title:
+  Enter opens it, Cmd/Ctrl+Enter marks it done, Alt+Enter moves it to the top of Up next.
+  Enter on no match runs Search everything.
 - **Add by link** (`/add`): paste a link from TMDB, IMDb, AniList, MyAnimeList, IGDB,
   Steam, Goodreads, Letterboxd or OpenLibrary. Other links are searched by their page
   title. On Android, sharing a link to the installed app opens this page.

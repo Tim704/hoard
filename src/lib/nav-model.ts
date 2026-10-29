@@ -155,14 +155,16 @@ export interface NavOptions {
   savedViews?: readonly { id: string; name: string }[];
 }
 
-/** The menu section a page goes in when the layout puts it in the menu. */
-const MENU_SECTION: Record<NavGroupId, Exclude<MenuSection['id'], 'find' | 'account'>> = {
+/**
+ * The menu section a page goes in when the layout puts it in the menu
+ * (Import and Settings, the `manage` group, always go in 'account').
+ */
+const MENU_SECTION: Record<Exclude<NavGroupId, 'manage'>, Exclude<MenuSection['id'], 'find' | 'account'>> = {
   library: 'library',
   plan: 'track',
   insights: 'track',
   organise: 'organise',
   friends: 'friends',
-  manage: 'library', // never used: Import and Settings go in 'account'
 };
 
 /** The pages this viewer may open, in NAV_ITEMS order. */
@@ -216,7 +218,7 @@ export function navFor(layout: LayoutId, opts: NavOptions = {}): NavModel {
 
   // The menu: the search surfaces, the pages placed nowhere else (by
   // section), then Import, Theme, Settings and Log out.
-  const rest = items.filter((i) => !placed.has(i.id) && i.group !== 'manage');
+  const rest = items.filter((i) => !placed.has(i.id));
   const sections: MenuSection[] = [
     {
       id: 'find',
@@ -229,7 +231,7 @@ export function navFor(layout: LayoutId, opts: NavOptions = {}): NavModel {
   ];
   for (const id of ['library', 'track', 'organise', 'friends'] as const) {
     const entries = rest
-      .filter((i) => MENU_SECTION[i.group] === id)
+      .filter((i) => i.group !== 'manage' && MENU_SECTION[i.group] === id)
       .map((i): MenuEntry => ({ kind: 'link', link: toLink(i, opts) }));
     if (entries.length) sections.push({ id, entries });
   }
