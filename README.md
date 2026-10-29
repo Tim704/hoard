@@ -30,7 +30,8 @@ A short tour; [`FEATURES.md`](FEATURES.md) describes everything in detail.
   reviews, per-title history, play sessions, owned platforms and formats, tags, linked
   notes (`[[Title]]`), franchises grouped across media with watch order.
 - **Deciding what's next:** Up next queues, a "what should I start tonight?" picker,
-  a release calendar with a private iCal feed, countdowns, new-season alerts and notifications (in-app, ntfy, Discord).
+  a release calendar with a private iCal feed, countdowns, new-season alerts and
+  notifications (in-app, ntfy, Discord).
 - **Stats:** charts, streaks, a year in review (PNG and share link), goals, taste trends,
   compare periods, people stats and a taste profile.
 - **AI (Gemini, optional):** a roast of your taste, recommendations across media, list
@@ -430,7 +431,8 @@ Around it:
 - **Per user:** `User.prefs` (a JSON column validated by `src/lib/prefs.ts`),
   `TasteProfile`, `Notification`, `ShareLink`, `ApiToken` (SHA-256 hashes only) and
   `ExternalLink` (Steam, Last.fm and AniList accounts; tokens encrypted).
-- **System:** `JobRun` (scheduler state) and `WatchProviderCache`.
+- **System:** `JobRun` (scheduler state). `WatchProviderCache` is legacy and no longer
+  used (Where to watch was removed).
 
 Schema changes are additive only (new tables, nullable or defaulted columns), so
 `prisma db push` never needs `--accept-data-loss`.
