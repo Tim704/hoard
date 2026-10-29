@@ -203,14 +203,31 @@ await step('login', async () => {
   ]);
 });
 
+// While the route list loads, provider posters and covers are a 1×1 GIF: a
+// slow image host (archive.org behind Open Library's covers can hang for
+// 30 s) must not hold a page's network idle. The list doesn't read their
+// pixels, and their load failures were never app errors (see the console
+// filter). Later steps get the real images, as before.
+const PIXEL = Buffer.from('R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', 'base64');
+const crossOrigin = (url) => !sameOrigin(url.href);
+const stubImage = (route) =>
+  route.request().resourceType() === 'image'
+    ? route.fulfill({ status: 200, contentType: 'image/gif', body: PIXEL })
+    : route.continue();
+
 if (failures.length === 0) {
-  for (const route of routes) {
-    await step(route, async () => {
-      const res = await page.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle', timeout: 45_000 });
-      if (!res) throw new Error('no response');
-      if (res.status() >= 400) throw new Error(`HTTP ${res.status()}`);
-      if (new URL(page.url()).pathname === '/login') throw new Error('redirected to /login');
-    });
+  await context.route(crossOrigin, stubImage);
+  try {
+    for (const route of routes) {
+      await step(route, async () => {
+        const res = await page.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle', timeout: 45_000 });
+        if (!res) throw new Error('no response');
+        if (res.status() >= 400) throw new Error(`HTTP ${res.status()}`);
+        if (new URL(page.url()).pathname === '/login') throw new Error('redirected to /login');
+      });
+    }
+  } finally {
+    await context.unroute(crossOrigin, stubImage);
   }
 }
 
