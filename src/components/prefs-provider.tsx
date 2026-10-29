@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { toastUndoable } from '@/components/undo-toast';
 import { useIsomorphicLayoutEffect } from '@/hooks/use-isomorphic-layout-effect';
+import { settle } from '@/lib/action-result';
 import { detectRegion, updatePrefs } from '@/lib/actions/prefs';
 import {
   NONE_IN_FLIGHT,
@@ -146,8 +147,7 @@ export function PrefsProvider({
         return;
       }
       const seq = ++latest.current[key];
-      updatePrefs({ [key]: value } as PrefsPatch)
-        .catch(() => ({ ok: false as const, error: undefined }))
+      settle(updatePrefs({ [key]: value } as PrefsPatch))
         .then((res) => {
           // Newer: a later save for this key, or a burst still waiting to save.
           const newest = latest.current[key] === seq && !batcher.isScheduled(key);

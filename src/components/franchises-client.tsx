@@ -13,6 +13,7 @@ import { GroupRating, groupCover, memberAverage } from '@/components/franchise-g
 import { SortableRankList, type RankRow } from '@/components/sortable-rank-list';
 import { Button } from '@/components/ui/button';
 import { usePersistentState } from '@/hooks/use-persistent-state';
+import { settle } from '@/lib/action-result';
 import { detectFranchisesStep, saveFranchiseRanking } from '@/lib/actions/franchise';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import type { FranchiseWithMembers } from '@/lib/types';
@@ -59,7 +60,7 @@ export function FranchisesClient({ franchises }: { franchises: FranchiseWithMemb
   function persist(next: FranchiseWithMembers[]) {
     setRanked(next);
     startTransition(async () => {
-      const res = await saveFranchiseRanking(next.map((f) => f.id));
+      const res = await settle(saveFranchiseRanking(next.map((f) => f.id)));
       if (!res.ok) {
         toast.error(res.error ?? 'Could not save the ranking.');
         router.refresh();
@@ -73,8 +74,8 @@ export function FranchisesClient({ franchises }: { franchises: FranchiseWithMemb
     let total = 0;
     try {
       for (let step = 0; step < 30; step++) {
-        const res = await detectFranchisesStep();
-        total += res.resolved;
+        const res = await settle(detectFranchisesStep());
+        total += res.resolved ?? 0;
         if (!res.ok) {
           toast.error(res.error ?? 'Detection failed.');
           break;

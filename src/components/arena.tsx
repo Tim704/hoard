@@ -10,6 +10,7 @@ import type { CategorySlug } from '@/lib/categories';
 import type { ActivityWithMedia, Matchup } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { settle } from '@/lib/action-result';
 import { nextChallenge, nextMatchup, submitChallenge, submitMatchup, type ChallengeOutcome } from '@/lib/actions/arena';
 import { promoteFromChallenge } from '@/lib/actions/ranking';
 import type { ChallengeHistory } from '@/lib/arena-pick';
@@ -65,7 +66,7 @@ export function Arena({ slug, initial, mode = 'order' }: ArenaProps) {
     if (!suggestion) return;
     const s = suggestion;
     startTransition(async () => {
-      const res = await promoteFromChallenge(slug, s.activityId, s.toTier);
+      const res = await settle(promoteFromChallenge(slug, s.activityId, s.toTier));
       if (res.ok) {
         toast.success(`Moved “${s.title}” up to ${s.toTier}.`);
         setSuggestion(null);

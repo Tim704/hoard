@@ -19,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { settle } from '@/lib/action-result';
 import {
   checkLastfmNow,
   connectLastfm,
@@ -203,7 +204,7 @@ function SteamSection({ configured, link: initial }: AccountsProps['steam']) {
 
   const connect = (input: string) =>
     start(async () => {
-      const res = await connectSteam(input);
+      const res = await settle(connectSteam(input));
       if (res.ok && res.account) {
         setLink(res.account);
         toast.success(`Steam linked: ${res.account.name ?? res.account.accountId}.`);
@@ -211,7 +212,7 @@ function SteamSection({ configured, link: initial }: AccountsProps['steam']) {
     });
   const disconnect = () =>
     start(async () => {
-      const res = await disconnectSteam();
+      const res = await settle(disconnectSteam());
       if (res.ok) {
         setLink(null);
         toast.success('Steam unlinked. Playtimes already saved stay.');
@@ -219,7 +220,7 @@ function SteamSection({ configured, link: initial }: AccountsProps['steam']) {
     });
   const sync = () =>
     start(async () => {
-      const res = await syncSteamNow();
+      const res = await settle(syncSteamNow());
       if (res.ok) toast.success(res.changed ? `Updated the playtime of ${res.changed} game${res.changed === 1 ? '' : 's'}.` : 'Playtimes are up to date.');
       else toast.error(res.error ?? 'Steam sync failed.');
     });
@@ -283,7 +284,7 @@ function LastfmSection({ configured, link: initial }: AccountsProps['lastfm']) {
 
   const connect = (name: string) =>
     start(async () => {
-      const res = await connectLastfm(name);
+      const res = await settle(connectLastfm(name));
       if (res.ok && res.account) {
         setLink(res.account);
         toast.success(`Last.fm linked: ${res.account.accountId}.`);
@@ -291,7 +292,7 @@ function LastfmSection({ configured, link: initial }: AccountsProps['lastfm']) {
     });
   const disconnect = () =>
     start(async () => {
-      const res = await disconnectLastfm();
+      const res = await settle(disconnectLastfm());
       if (res.ok) {
         setLink(null);
         toast.success('Last.fm unlinked.');
@@ -299,7 +300,7 @@ function LastfmSection({ configured, link: initial }: AccountsProps['lastfm']) {
     });
   const check = () =>
     start(async () => {
-      const res = await checkLastfmNow();
+      const res = await settle(checkLastfmNow());
       if (res.ok) {
         toast.success(
           res.suggested
@@ -352,7 +353,7 @@ function AniListSection({ username: initialName, link: initial, pushConfigured, 
 
   const save = (value: string) =>
     start(async () => {
-      const res = await setAniListUser(value);
+      const res = await settle(setAniListUser(value));
       if (res.ok) {
         setName(value);
         setLink(res.account ?? null);
@@ -362,7 +363,7 @@ function AniListSection({ username: initialName, link: initial, pushConfigured, 
     });
   const sync = () =>
     start(async () => {
-      const res = await syncAniListNow();
+      const res = await settle(syncAniListNow());
       if (res.ok) {
         const skipped = res.skipped ? `, ${res.skipped} skipped (no sure match; use Import → AniList to review them)` : '';
         toast.success(`AniList synced: ${res.added ?? 0} added, ${res.updated ?? 0} updated${skipped}.`);
@@ -371,13 +372,13 @@ function AniListSection({ username: initialName, link: initial, pushConfigured, 
     });
   const connect = () =>
     start(async () => {
-      const res = await startAniListConnect();
+      const res = await settle(startAniListConnect());
       if (res.ok && res.url) window.location.assign(res.url);
       else toast.error(res.error ?? 'Could not start connecting AniList.');
     });
   const disconnect = () =>
     start(async () => {
-      const res = await disconnectAniList();
+      const res = await settle(disconnectAniList());
       if (res.ok) {
         setName(null);
         setLink(null);

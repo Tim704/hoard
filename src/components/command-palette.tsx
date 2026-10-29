@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { settle } from '@/lib/action-result';
 import { updateActivity } from '@/lib/actions/media';
 import { moveToQueueTop } from '@/lib/actions/queue';
 import { libraryIndex } from '@/lib/actions/search';
@@ -155,7 +156,7 @@ export function CommandPalette({
     if (entry.status === 'COMPLETED' || busy) return;
     setBusy(true);
     try {
-      const res = await updateActivity(entry.id, { status: 'COMPLETED' });
+      const res = await settle(updateActivity(entry.id, { status: 'COMPLETED' }));
       if (!res.ok) {
         toast.error(res.error ?? 'Could not update that title.');
         return;
@@ -182,7 +183,7 @@ export function CommandPalette({
     if (entry.status !== 'PLANNED' || busy) return;
     setBusy(true);
     try {
-      const res = await moveToQueueTop(entry.id);
+      const res = await settle(moveToQueueTop(entry.id));
       if (!res.ok) {
         toast.error(res.error ?? 'Could not move that title.');
         return;

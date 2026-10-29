@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { settle } from '@/lib/action-result';
 import {
   addResultToList,
   deleteList,
@@ -77,7 +78,7 @@ export function CustomListClient({ list }: Props) {
     const prev = items;
     setItems(next.map((r) => byId.get(r.id)!).filter(Boolean));
     setPending(true);
-    const res = await reorderListItems(list.id, next.map((r) => r.id));
+    const res = await settle(reorderListItems(list.id, next.map((r) => r.id)));
     setPending(false);
     if (!res.ok) {
       setItems(prev);
@@ -90,7 +91,7 @@ export function CustomListClient({ list }: Props) {
     const prev = items;
     setItems(items.filter((it) => it.id !== id));
     setPending(true);
-    const res = await removeListItem(list.id, id);
+    const res = await settle(removeListItem(list.id, id));
     setPending(false);
     if (!res.ok) {
       setItems(prev);
@@ -168,7 +169,7 @@ function ListHeader({ list }: { list: CustomListView }) {
   async function run(action: () => Promise<ActionResult & { url?: string }>, onOk: (res: ActionResult & { url?: string }) => void) {
     setBusy(true);
     try {
-      const res = await action();
+      const res = await settle(action());
       if (res.ok) onOk(res);
       else toast.error(res.error ?? 'Something went wrong.');
     } finally {
@@ -353,7 +354,7 @@ function ListSearch({ listId }: { listId: string }) {
   async function add(r: NormalizedResult) {
     const key = `${slug}:${r.externalId}`;
     setAdded((a) => ({ ...a, [key]: 'saving' }));
-    const res = await addResultToList(listId, slug, r);
+    const res = await settle(addResultToList(listId, slug, r));
     if (!res.ok) {
       setAdded(({ [key]: _gone, ...rest }) => rest);
       toast.error(res.error ?? 'Could not add it.');
@@ -448,7 +449,7 @@ function Members({ list, isOwner }: { list: CustomListView; isOwner: boolean }) 
   async function run(action: () => Promise<ActionResult>, success: string, after?: () => void) {
     setBusy(true);
     try {
-      const res = await action();
+      const res = await settle(action());
       if (!res.ok) {
         toast.error(res.error ?? 'Something went wrong.');
         return;

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
 import { LinkResult, PasteLinkField, SearchEverythingPanel } from '@/components/search-everything';
+import { settle } from '@/lib/action-result';
 import { resolveLink, type ResolveLinkResult } from '@/lib/actions/search';
 
 /**
@@ -17,9 +18,7 @@ export function AddByLink({ url, guess, sharedTitle }: { url: string | null; gue
   useEffect(() => {
     if (!url) return;
     let live = true;
-    resolveLink(url)
-      .then((res) => live && setResolution(res))
-      .catch(() => live && setResolution({ ok: false, error: 'Could not read that link.' }));
+    void settle(resolveLink(url)).then((res) => live && setResolution(res));
     return () => {
       live = false;
     };

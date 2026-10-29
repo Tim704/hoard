@@ -7,6 +7,7 @@ import { HeaderButton } from '@/components/dashboard/header-button';
 import { useGlobalSearch } from '@/components/global-search';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { settle } from '@/lib/action-result';
 import { recommendAcrossMedia } from '@/lib/actions/taste';
 import { CATEGORIES } from '@/lib/categories';
 import type { Recommendation } from '@/lib/recommend';
@@ -30,7 +31,7 @@ export function RecommendAcrossButton({ className, header = false }: { className
     setOpen(true);
     startTransition(async () => {
       try {
-        const res = await recommendAcrossMedia();
+        const res = await settle(recommendAcrossMedia());
         if (res.ok) setItems(res.items);
         else setError(res.error);
       } catch {

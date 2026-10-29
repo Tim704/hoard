@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { settle } from '@/lib/action-result';
 import { setProgress } from '@/lib/actions/media';
 import {
   parseProgressInput,
@@ -69,7 +70,7 @@ export function ProgressField({ activity, disabled, onMarkFinished, readOnlyHint
     if (next === saved.current) return;
     const prev = saved.current;
     saved.current = next;
-    const res = await setProgress(activity.id, next).catch(() => ({ ok: false, error: undefined }));
+    const res = await settle(setProgress(activity.id, next));
     if (!res.ok) {
       saved.current = prev;
       // Only roll the box back if nothing newer was entered meanwhile.

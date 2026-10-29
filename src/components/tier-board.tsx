@@ -26,6 +26,7 @@ import { ChevronDown, ChevronUp, GripVertical, ImageOff, Sparkles, Star, Wand2 }
 
 import { ScoreThese } from '@/components/score-these';
 import { Button } from '@/components/ui/button';
+import { settle } from '@/lib/action-result';
 import { acceptSuggestedTiers, saveTiers } from '@/lib/actions/ranking';
 import type { CategorySlug } from '@/lib/categories';
 import { mediaSubtitle } from '@/lib/media-meta';
@@ -145,10 +146,7 @@ export function ItemTierBoard<T extends RankableItem>({
     setBoard(next);
     if (samePlacement(next, prev)) return; // tray-only shuffles are not stored
     startTransition(async () => {
-      const res = await save(
-        boardPlacement(next),
-        next.tray.map((a) => a.id),
-      );
+      const res = await settle(save(boardPlacement(next), next.tray.map((a) => a.id)));
       if (!res.ok) {
         setBoard(prev);
         toast.error(res.error ?? 'Could not save the tier list.');
@@ -194,7 +192,7 @@ export function ItemTierBoard<T extends RankableItem>({
 
   const acceptAll = () =>
     startTransition(async () => {
-      const res = await accept();
+      const res = await settle(accept());
       if (res.ok) {
         toast.success('Placed everything in its suggested tier. Drag to fine-tune.');
         router.refresh();

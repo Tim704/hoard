@@ -14,6 +14,7 @@ import { Copy, ExternalLink, Link2Off } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { settle } from '@/lib/action-result';
 import { revokeShareLink } from '@/lib/actions/share';
 import type { MyShareLink } from '@/lib/data-share';
 
@@ -25,7 +26,7 @@ export function SettingsSharing({ links }: { links: MyShareLink[] }) {
 
   function revoke(link: MyShareLink) {
     startTransition(async () => {
-      const res = await revokeShareLink(link.id);
+      const res = await settle(revokeShareLink(link.id));
       if (res.ok) {
         setRevoked((prev) => new Set(prev).add(link.id));
         toast.success(`Revoked the ${link.label} link.`);

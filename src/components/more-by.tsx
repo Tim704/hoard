@@ -11,6 +11,7 @@ import { ChevronDown, Loader2, Users } from 'lucide-react';
 
 import { AddRowList } from '@/components/add-row-list';
 import { useAddRows } from '@/components/add-row';
+import { settle } from '@/lib/action-result';
 import { loadMoreBy } from '@/lib/actions/more-by';
 import type { MoreByAnswer } from '@/lib/more-by';
 import { cn } from '@/lib/utils';
@@ -27,7 +28,7 @@ export function MoreBySection({ activityId }: { activityId: string }) {
     if (!next || answer || loading) return;
     setLoading(true);
     try {
-      const res = await loadMoreBy(activityId);
+      const res = await settle(loadMoreBy(activityId));
       setAnswer(
         res.ok && res.answer ? res.answer : { status: 'message', message: res.error ?? 'Could not load this right now.' },
       );

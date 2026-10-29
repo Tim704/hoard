@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Users } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { settle } from '@/lib/action-result';
 import { updatePrefs } from '@/lib/actions/prefs';
 
 /** One "share with other users" switch (G2: off by default), saved on change. */
@@ -41,7 +42,7 @@ function OptInCard({
     const next = !on;
     setOn(next);
     startTransition(async () => {
-      const res = await updatePrefs(field === 'compareOptIn' ? { compareOptIn: next } : { feedOptIn: next });
+      const res = await settle(updatePrefs(field === 'compareOptIn' ? { compareOptIn: next } : { feedOptIn: next }));
       if (res.ok) toast.success(next ? onMessage : offMessage);
       else {
         setOn(!next);

@@ -8,6 +8,7 @@ import { Shuffle, Trophy } from 'lucide-react';
 import { DuelCard } from '@/components/arena';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { Button } from '@/components/ui/button';
+import { settle } from '@/lib/action-result';
 import { nextYearMatchup, submitYearDuel } from '@/lib/actions/year-arena';
 import type { ActivityWithMedia, Matchup } from '@/lib/types';
 
@@ -35,7 +36,7 @@ export function YearArena({ year, initial }: { year: number; initial: Matchup | 
 
   function choose(winner: ActivityWithMedia, loser: ActivityWithMedia) {
     startTransition(async () => {
-      const res = await submitYearDuel(year, winner.id, loser.id);
+      const res = await settle(submitYearDuel(year, winner.id, loser.id));
       if (!res.ok) {
         toast.error(res.error ?? 'Could not save the duel.');
         return;

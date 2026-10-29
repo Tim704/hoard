@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { settle } from '@/lib/action-result';
 import { createApiToken, revokeApiToken } from '@/lib/actions/api-tokens';
 import { MAX_TOKEN_NAME, MAX_TOKENS } from '@/lib/api-token-limits';
 import type { ApiTokenRow } from '@/lib/data-api';
@@ -30,7 +31,7 @@ export function SettingsApiTokens({ tokens }: { tokens: ApiTokenRow[] }) {
 
   function create() {
     startTransition(async () => {
-      const res = await createApiToken(name);
+      const res = await settle(createApiToken(name));
       if (res.ok && res.token) {
         setFresh({ name: name.trim(), token: res.token });
         setName('');
@@ -43,7 +44,7 @@ export function SettingsApiTokens({ tokens }: { tokens: ApiTokenRow[] }) {
 
   function revoke(t: ApiTokenRow) {
     startTransition(async () => {
-      const res = await revokeApiToken(t.id);
+      const res = await settle(revokeApiToken(t.id));
       setConfirming(null);
       if (res.ok) {
         toast.success(`Revoked “${t.name}”.`);

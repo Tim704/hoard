@@ -12,6 +12,7 @@ import { AddRowList } from '@/components/add-row-list';
 import { useAddRows } from '@/components/add-row';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { settle } from '@/lib/action-result';
 import { browseAnimeSeason } from '@/lib/actions/anime-season';
 import {
   ANIME_FORMATS,
@@ -54,13 +55,13 @@ export function AnimeSeasonClient({
     setLoading(true);
     setError(null);
     try {
-      const res = await browseAnimeSeason({
+      const res = await settle(browseAnimeSeason({
         season,
         year,
         genre: genre === ALL ? null : genre,
         format: format === ALL ? null : format,
         page: nextPage,
-      });
+      }));
       if (id !== latest.current) return;
       if (!res.ok) {
         setError(res.error ?? 'Could not load that season.');

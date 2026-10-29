@@ -32,6 +32,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePersistentState } from '@/hooks/use-persistent-state';
+import { settle } from '@/lib/action-result';
 import { createView, deleteView, renameView, updateViewQuery } from '@/lib/actions/views';
 import { CATEGORIES, NAV_ORDER, type CategorySlug } from '@/lib/categories';
 import type { SavedViewData } from '@/lib/data-views';
@@ -161,7 +162,7 @@ export function ViewsClient({
   async function run(work: () => Promise<{ ok: boolean; error?: string }>, done: string, after?: () => void) {
     setBusy(true);
     try {
-      const res = await work();
+      const res = await settle(work());
       if (!res.ok) {
         toast.error(res.error ?? 'Something went wrong.');
         return;
@@ -177,7 +178,7 @@ export function ViewsClient({
   async function saveNew() {
     setBusy(true);
     try {
-      const res = await createView(name, valid);
+      const res = await settle(createView(name, valid));
       if (!res.ok || !res.id) {
         toast.error(res.error ?? 'Could not save the view.');
         return;

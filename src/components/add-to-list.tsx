@@ -7,6 +7,7 @@ import { ListPlus, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { settle } from '@/lib/action-result';
 import { addActivityToList, listEditableLists } from '@/lib/actions/lists';
 
 /**
@@ -39,7 +40,7 @@ export function AddToList({ activityId, disabled = false }: { activityId: string
     if (!choice) return;
     setBusy(true);
     try {
-      const res = await addActivityToList(choice, activityId);
+      const res = await settle(addActivityToList(choice, activityId));
       const name = lists?.find((l) => l.id === choice)?.name ?? 'the list';
       if (!res.ok) toast.error(res.error ?? 'Could not add it.');
       else if (res.existing) toast.info(`Already on “${name}”.`);

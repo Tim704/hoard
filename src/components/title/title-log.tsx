@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { settle } from '@/lib/action-result';
 import {
   deletePlaySession,
   logPlaySession,
@@ -61,7 +62,7 @@ export function OwnershipField({ activity, disabled }: { activity: ActivityWithM
   async function save(input: { ownedPlatforms?: string[]; format?: string | null }, undo: () => void) {
     setSaving(true);
     try {
-      const res = await setOwnership(activity.id, input);
+      const res = await settle(setOwnership(activity.id, input));
       if (res.ok) router.refresh();
       else {
         undo();
@@ -204,7 +205,7 @@ export function Runs({
   async function again() {
     setBusy(true);
     try {
-      const res = await startRewatch(activity.id);
+      const res = await settle(startRewatch(activity.id));
       if (res.ok) {
         const refresh = () => router.refresh();
         toastStatusChange(
@@ -260,7 +261,7 @@ export function ReviewField({
   async function save() {
     setSaving(true);
     try {
-      const res = await setLatestReview(activityId, value);
+      const res = await settle(setLatestReview(activityId, value));
       if (res.ok) {
         toast.success('Review saved.');
         onSaved();
@@ -336,7 +337,7 @@ export function Sessions({
     }
     setSaving(true);
     try {
-      const res = await logPlaySession(activityId, { date, minutes: m, note: note.trim() || null });
+      const res = await settle(logPlaySession(activityId, { date, minutes: m, note: note.trim() || null }));
       if (res.ok) {
         toast.success('Session logged.');
         setMinutes('');
@@ -351,7 +352,7 @@ export function Sessions({
   }
 
   async function remove(id: string) {
-    const res = await deletePlaySession(id);
+    const res = await settle(deletePlaySession(id));
     if (res.ok) onChanged();
     else toast.error(res.error ?? 'Could not delete that session.');
   }

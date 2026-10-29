@@ -8,6 +8,7 @@ import { Check, Loader2, Pencil, Plus, Target, Trash2, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { settle } from '@/lib/action-result';
 import { createGoal, deleteGoal, updateGoalTarget } from '@/lib/actions/stats';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import {
@@ -92,7 +93,7 @@ export function GoalsClient({
   function add(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
-      const res = await createGoal({ year, category: cat, metric, target: target.trim() });
+      const res = await settle(createGoal({ year, category: cat, metric, target: target.trim() }));
       if (!res.ok) {
         toast.error(res.error ?? 'Could not save the goal.');
         return;
@@ -105,7 +106,7 @@ export function GoalsClient({
 
   function saveTarget(id: string) {
     startTransition(async () => {
-      const res = await updateGoalTarget(id, editValue.trim());
+      const res = await settle(updateGoalTarget(id, editValue.trim()));
       if (!res.ok) {
         toast.error(res.error ?? 'Could not save the goal.');
         return;
@@ -117,7 +118,7 @@ export function GoalsClient({
 
   function remove(id: string) {
     startTransition(async () => {
-      const res = await deleteGoal(id);
+      const res = await settle(deleteGoal(id));
       if (!res.ok) {
         toast.error(res.error ?? 'Could not delete the goal.');
         return;

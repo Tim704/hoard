@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Tag, X } from 'lucide-react';
 
+import { settle } from '@/lib/action-result';
 import { listMyTags, setActivityTags } from '@/lib/actions/tags';
 import { addTags, MAX_TAGS, removeTag, suggestTags } from '@/lib/tags';
 
@@ -47,7 +48,7 @@ export function TagInput({
     setTags(next);
     setSaving(true);
     try {
-      const res = await setActivityTags(activityId, next);
+      const res = await settle(setActivityTags(activityId, next));
       if (!res.ok) throw new Error(res.error);
       setTags(res.tags ?? next);
       setKnown((k) => addTags(k, (res.tags ?? next).join(',')));

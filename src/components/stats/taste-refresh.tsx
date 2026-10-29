@@ -6,6 +6,7 @@ import { Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { settle } from '@/lib/action-result';
 import { refreshTasteProfile } from '@/lib/actions/taste';
 
 /** "Refresh" on /stats → Taste (7.2): rebuilds your taste profile now. */
@@ -15,7 +16,7 @@ export function TasteRefreshButton() {
 
   function refresh() {
     startTransition(async () => {
-      const res = await refreshTasteProfile().catch(() => ({ ok: false, error: 'Could not build your taste profile.' }));
+      const res = await settle(refreshTasteProfile());
       if (!res.ok) {
         toast.error(res.error ?? 'Could not build your taste profile.');
         return;

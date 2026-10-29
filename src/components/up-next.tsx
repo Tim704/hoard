@@ -11,6 +11,7 @@ import { useDisplayTitle, useToday } from '@/components/prefs-provider';
 import { RatingStep } from '@/components/rating-step';
 import { SortableRankList, type RankRow } from '@/components/sortable-rank-list';
 import { toastStatusChange } from '@/components/undo-toast';
+import { settle } from '@/lib/action-result';
 import { updateActivity } from '@/lib/actions/media';
 import { saveQueue } from '@/lib/actions/queue';
 import type { CategorySlug } from '@/lib/categories';
@@ -76,7 +77,7 @@ export function UpNext({ slug, initial, hints }: UpNextProps) {
       prev.map((r) => r.id),
       next.map((r) => r.id),
     );
-    const res = await saveQueue(slug, fullOrder);
+    const res = await settle(saveQueue(slug, fullOrder));
     setPending(false);
     if (!res.ok) {
       setRows(prev);
@@ -90,10 +91,10 @@ export function UpNext({ slug, initial, hints }: UpNextProps) {
     setRatingId(null);
     setRows(prev.filter((r) => r.id !== row.id));
     setPending(true);
-    const res = await updateActivity(
+    const res = await settle(updateActivity(
       row.id,
       rating === undefined ? { status: 'COMPLETED' } : { status: 'COMPLETED', rating },
-    );
+    ));
     setPending(false);
     if (!res.ok) {
       setRows((cur) => {

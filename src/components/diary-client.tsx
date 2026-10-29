@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { settle } from '@/lib/action-result';
 import { addDiaryEntry, deleteDiaryEntry, updateDiaryEntry } from '@/lib/actions/diary';
 import { CATEGORIES, NAV_ORDER, type CategorySlug } from '@/lib/categories';
 import type { DiaryMedia, DiaryRow, LibraryPick } from '@/lib/data-diary';
@@ -195,7 +196,7 @@ export function DiaryClient({ entries, library, today }: DiaryClientProps) {
         onClose={() => setEditing(null)}
         onSave={async (values) => {
           if (!editing) return false;
-          const res = await updateDiaryEntry(editing.id, values);
+          const res = await settle(updateDiaryEntry(editing.id, values));
           if (!res.ok) toast.error(res.error ?? 'Could not save that entry.');
           else {
             toast.success('Entry saved.');
@@ -230,7 +231,7 @@ export function DiaryClient({ entries, library, today }: DiaryClientProps) {
               variant="destructive"
               onClick={async () => {
                 if (!deleting) return;
-                const res = await deleteDiaryEntry(deleting.id);
+                const res = await settle(deleteDiaryEntry(deleting.id));
                 if (res.ok) {
                   toast.success('Entry deleted.');
                   setDeleting(null);
@@ -429,7 +430,7 @@ function AddDialog({
     if (!picked) return;
     setSaving(true);
     try {
-      const res = await addDiaryEntry(picked.activityId, value);
+      const res = await settle(addDiaryEntry(picked.activityId, value));
       if (res.ok) {
         toast.success(`Logged “${titleOf(picked.media)}”.`);
         onAdded();

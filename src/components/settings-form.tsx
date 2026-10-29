@@ -14,6 +14,7 @@ import { Check, Eye, EyeOff, LocateFixed } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { settle } from '@/lib/action-result';
 import { updatePrefs } from '@/lib/actions/prefs';
 import { CATEGORIES } from '@/lib/categories';
 import {
@@ -64,7 +65,7 @@ export function SettingsForm({ initial, timeZones, serverTimeZone }: SettingsFor
     const before = prefs;
     setPrefs({ ...prefs, ...patch });
     startTransition(async () => {
-      const res = await updatePrefs(patch);
+      const res = await settle(updatePrefs(patch));
       if (res.ok) {
         toast.success(message);
       } else {

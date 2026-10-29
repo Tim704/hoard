@@ -13,6 +13,7 @@ import { Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { settle } from '@/lib/action-result';
 import { sendTestNotification } from '@/lib/actions/notifications';
 import { updatePrefs } from '@/lib/actions/prefs';
 import { NOTIFY_KINDS, type NotifyKind } from '@/lib/prefs';
@@ -57,7 +58,7 @@ export function SettingsNotifications({ initial }: { initial: NotifySettings }) 
   ) {
     const notify = { ...urls, kinds: nextKinds.length === NOTIFY_KINDS.length ? [] : nextKinds };
     startTransition(async () => {
-      const res = await updatePrefs({ notify });
+      const res = await settle(updatePrefs({ notify }));
       if (res.ok) {
         setSaved(notify);
         toast.success('Notification settings saved.');
@@ -82,7 +83,7 @@ export function SettingsNotifications({ initial }: { initial: NotifySettings }) 
 
   function sendTest() {
     startTransition(async () => {
-      const res = await sendTestNotification();
+      const res = await settle(sendTestNotification());
       const where = res.pushed?.length ? ` and sent to ${res.pushed.join(' and ')}` : '';
       if (res.ok) toast.success(`Test notification added to Notifications${where}.`);
       else toast.error(`Test failed: ${res.error ?? 'unknown error'}`);

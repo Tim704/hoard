@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { settle } from '@/lib/action-result';
 import { createList } from '@/lib/actions/lists';
 import { addPastedRefItems, createBuiltinRefList, createPastedRefList, refreshRefList } from '@/lib/actions/reflists';
 import { CATEGORIES, NAV_ORDER, type CategorySlug } from '@/lib/categories';
@@ -92,7 +93,7 @@ function NewListForm() {
     e.preventDefault();
     setBusy(true);
     try {
-      const res = await createList(name, description);
+      const res = await settle(createList(name, description));
       if (!res.ok || !res.id) {
         toast.error(res.error ?? 'Could not create the list.');
         return;
@@ -210,7 +211,7 @@ function RefTab({ lists, builtins, aiConfigured }: { lists: RefListSummary[]; bu
     }
     setWorking(b.source);
     try {
-      const res = await createBuiltinRefList(b.source);
+      const res = await settle(createBuiltinRefList(b.source));
       if (!res.ok || !res.id) {
         toast.error(res.error ?? 'Could not create the list.');
         return;
@@ -290,7 +291,7 @@ function RefTab({ lists, builtins, aiConfigured }: { lists: RefListSummary[]; bu
 /** Fetch (or refetch) a built-in list; false when it failed (the toast says why). */
 export async function fillBuiltin(listId: string, onProgress: (text: string) => void): Promise<boolean> {
   onProgress('Fetching…');
-  const res = await refreshRefList(listId);
+  const res = await settle(refreshRefList(listId));
   if (!res.ok) toast.error(res.error ?? 'Could not fetch the list.');
   return res.ok;
 }
@@ -353,7 +354,7 @@ function PasteForm({ aiConfigured }: { aiConfigured: boolean }) {
         toast.error('No titles were found in that.');
         return;
       }
-      const created = await createPastedRefList(name, section);
+      const created = await settle(createPastedRefList(name, section));
       if (!created.ok || !created.id) {
         toast.error(created.error ?? 'Could not create the list.');
         return;
@@ -362,7 +363,7 @@ function PasteForm({ aiConfigured }: { aiConfigured: boolean }) {
       const missed: string[] = [];
       for (let i = 0; i < titles.length; i += MATCH_CHUNK) {
         setProgress(`Matching ${Math.min(i + MATCH_CHUNK, titles.length)} of ${titles.length}…`);
-        const res = await addPastedRefItems(created.id, titles.slice(i, i + MATCH_CHUNK));
+        const res = await settle(addPastedRefItems(created.id, titles.slice(i, i + MATCH_CHUNK)));
         if (!res.ok) {
           toast.error(res.error ?? 'Matching failed.');
           break;

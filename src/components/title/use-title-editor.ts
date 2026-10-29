@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { toastRemoved, toastStatusChange } from '@/components/undo-toast';
+import { settle } from '@/lib/action-result';
 import { assignFranchise } from '@/lib/actions/franchise';
 import { removeActivity, updateActivity } from '@/lib/actions/media';
 import { statusLabel, type Status } from '@/lib/status';
@@ -140,12 +141,14 @@ export function useTitleEditor(activity: ActivityWithMedia | null, options: Titl
     const values: TitleValues = statusOverride ? { ...before.local, status: statusOverride } : before.local;
     setSaving(true);
     try {
-      const res = await updateActivity(activity.id, {
-        status: values.status,
-        rating: values.rating,
-        favorite: values.favorite,
-        notes: values.notes,
-      });
+      const res = await settle(
+        updateActivity(activity.id, {
+          status: values.status,
+          rating: values.rating,
+          favorite: values.favorite,
+          notes: values.notes,
+        }),
+      );
       if (!res.ok) {
         toast.error(res.error ?? 'Could not save changes.');
         return;
@@ -155,7 +158,7 @@ export function useTitleEditor(activity: ActivityWithMedia | null, options: Titl
       let franchiseFailed = false;
       if (values.franchiseId !== before.base.franchiseId) {
         const target = values.franchiseId === NO_FRANCHISE ? null : values.franchiseId === NEW_FRANCHISE ? 'new' : values.franchiseId;
-        const moved = await assignFranchise(activity.id, target).catch(() => ({ ok: false as const, error: undefined }));
+        const moved = await settle(assignFranchise(activity.id, target));
         if (!moved.ok) {
           franchiseFailed = true;
           saved = { ...values, franchiseId: before.base.franchiseId };
@@ -196,7 +199,7 @@ export function useTitleEditor(activity: ActivityWithMedia | null, options: Titl
     if (!activity) return;
     setRemoving(true);
     try {
-      const res = await removeActivity(activity.id);
+      const res = await settle(removeActivity(activity.id));
       if (res.ok) {
         clearTitleDraft(activity.id);
         toastRemoved(titleOf(activity.media), res.undoToken, () => router.refresh());

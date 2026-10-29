@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { settle } from '@/lib/action-result';
 import { createCalendarLink, revokeCalendarLink } from '@/lib/actions/calendar';
 
 export function SettingsCalendar({ initialUrl }: { initialUrl: string | null }) {
@@ -22,7 +23,7 @@ export function SettingsCalendar({ initialUrl }: { initialUrl: string | null }) 
 
   function create() {
     startTransition(async () => {
-      const res = await createCalendarLink();
+      const res = await settle(createCalendarLink());
       if (res.ok && res.url) {
         const replaced = url !== null;
         setUrl(res.url);
@@ -35,7 +36,7 @@ export function SettingsCalendar({ initialUrl }: { initialUrl: string | null }) 
 
   function revoke() {
     startTransition(async () => {
-      const res = await revokeCalendarLink();
+      const res = await settle(revokeCalendarLink());
       if (res.ok) {
         setUrl(null);
         toast.success('Calendar link turned off.');

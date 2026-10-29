@@ -9,6 +9,7 @@ import { ArrowLeft, Loader2, RefreshCw, Trash2, X } from 'lucide-react';
 import { AddResultRow, useAddRows } from '@/components/add-row';
 import { fillBuiltin, RefProgressBar } from '@/components/lists-client';
 import { Button } from '@/components/ui/button';
+import { settle } from '@/lib/action-result';
 import { deleteRefList, removeRefListItem } from '@/lib/actions/reflists';
 import { CATEGORIES } from '@/lib/categories';
 import type { RefItemView, RefListView } from '@/lib/data-reflists';
@@ -54,7 +55,7 @@ export function RefListClient({ list }: { list: RefListView }) {
   async function removeItem(it: RefItemView) {
     setBusy('Removing…');
     try {
-      const res = await removeRefListItem(list.id, it.id);
+      const res = await settle(removeRefListItem(list.id, it.id));
       if (!res.ok) toast.error(res.error ?? 'Could not remove that title.');
       else router.refresh();
     } finally {
@@ -65,7 +66,7 @@ export function RefListClient({ list }: { list: RefListView }) {
   async function remove() {
     setBusy('Deleting…');
     try {
-      const res = await deleteRefList(list.id);
+      const res = await settle(deleteRefList(list.id));
       if (!res.ok) {
         toast.error(res.error ?? 'Could not delete the list.');
         return;

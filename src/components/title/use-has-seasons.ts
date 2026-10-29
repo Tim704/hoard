@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
+import { settle } from '@/lib/action-result';
 import { getSeasons } from '@/lib/actions/seasons';
 
 /**
@@ -14,9 +15,8 @@ export function useHasSeasons(tvActivityId: string | null): boolean {
   useEffect(() => {
     if (!tvActivityId) return;
     let live = true;
-    getSeasons(tvActivityId).then(
+    void settle(getSeasons(tvActivityId)).then(
       (res) => live && setKnown({ id: tvActivityId, has: Boolean(res.ok && res.seasons?.length) }),
-      () => {},
     );
     return () => {
       live = false;

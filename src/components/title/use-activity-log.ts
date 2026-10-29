@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { settle } from '@/lib/action-result';
 import { getActivityLog, type ActivityLog } from '@/lib/actions/diary';
 
 /**
@@ -17,7 +18,7 @@ export function useActivityLog(activityId: string): {
   const [failed, setFailed] = useState(false);
 
   const reload = useCallback(async () => {
-    const res = await getActivityLog(activityId);
+    const res = await settle(getActivityLog(activityId));
     if (res.ok && res.log) {
       setLog(res.log);
       setFailed(false);

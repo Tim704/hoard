@@ -8,6 +8,7 @@ import { Check, Copy, Download, Link2, Loader2, Sparkles } from 'lucide-react';
 import { copy, settled } from '@/components/tier-share';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { settle } from '@/lib/action-result';
 import { createShareLink } from '@/lib/actions/share';
 import { yearVerdict } from '@/lib/actions/stats';
 import { proxiedImageUrl } from '@/lib/img-proxy';
@@ -70,7 +71,7 @@ export function YearShare({ card }: { card: YearCard }) {
 
   function share() {
     startTransition(async () => {
-      const res = await createShareLink('year', String(card.year));
+      const res = await settle(createShareLink('year', String(card.year)));
       if (!res.ok || !res.url) {
         toast.error(res.error ?? 'Could not create the link.');
         return;

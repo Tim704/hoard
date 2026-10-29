@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { settle } from '@/lib/action-result';
 import { updateActivity } from '@/lib/actions/media';
 import type { CategorySlug } from '@/lib/categories';
 import type { ActivityWithMedia } from '@/lib/types';
@@ -51,7 +52,7 @@ export function ScoreThese({ slug, items, open, onOpenChange }: ScoreTheseProps)
   async function score(a: ActivityWithMedia, rating: number) {
     setPending(a.id);
     try {
-      const res = await updateActivity(a.id, { rating });
+      const res = await settle(updateActivity(a.id, { rating }));
       if (res.ok) {
         hide(a.id);
         router.refresh();

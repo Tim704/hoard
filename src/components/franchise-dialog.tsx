@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { settle } from '@/lib/action-result';
 import {
   assignFranchise,
   deleteFranchise,
@@ -84,7 +85,7 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
   async function run(action: () => Promise<ActionResult>, success: string, close = false) {
     setBusy(true);
     try {
-      const res = await action();
+      const res = await settle(action());
       if (res.ok) {
         toast.success(success);
         router.refresh();
@@ -123,7 +124,7 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
     setOrder(rows.map((r) => r.id));
     setBusy(true);
     try {
-      const res = await saveFranchiseOrder(f.id, rows.map((r) => r.id));
+      const res = await settle(saveFranchiseOrder(f.id, rows.map((r) => r.id)));
       if (res.ok) router.refresh();
       else {
         setOrder(prev);

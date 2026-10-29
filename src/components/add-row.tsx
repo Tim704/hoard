@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { RatingStep } from '@/components/rating-step';
 import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
+import { settle } from '@/lib/action-result';
 import { addToList, updateActivity } from '@/lib/actions/media';
 import type { CategorySlug } from '@/lib/categories';
 import { libraryBadge } from '@/lib/search-nav';
@@ -57,7 +58,7 @@ export function useAddRows() {
     const title = titleOf({ ...result.fields, title: result.title });
     setRow(key, { phase: 'saving' });
     try {
-      const res = await addToList(slug, result, status);
+      const res = await settle(addToList(slug, result, status));
       if (!res.ok || !res.activityId) {
         clearRow(key);
         toast.error(res.error ?? 'Could not add that item.');
@@ -83,7 +84,7 @@ export function useAddRows() {
   async function saveRating(key: string, activityId: string, rating: number) {
     setRow(key, { phase: 'rating', activityId, saving: true });
     try {
-      const res = await updateActivity(activityId, { rating });
+      const res = await settle(updateActivity(activityId, { rating }));
       if (res.ok) {
         setRow(key, { phase: 'done', rating });
         router.refresh();

@@ -7,6 +7,7 @@
 
 import { toast } from 'sonner';
 
+import { settle } from '@/lib/action-result';
 import { restoreActivity, restoreActivityState } from '@/lib/actions/media';
 import type { ActivityState } from '@/lib/undo';
 
@@ -24,7 +25,7 @@ export function toastRemoved(title: string, undoToken: string | undefined, onUnd
     action: {
       label: 'Undo',
       onClick: async () => {
-        const res = await restoreActivity(undoToken);
+        const res = await settle(restoreActivity(undoToken));
         if (res.ok) {
           toast.success(`“${title}” is back.`);
           onUndone();
@@ -52,7 +53,7 @@ export function toastStatusChange(
     action: {
       label: 'Undo',
       onClick: async () => {
-        const res = await restoreActivityState(activityId, previous);
+        const res = await settle(restoreActivityState(activityId, previous));
         if (res.ok) {
           toast.success('Undone.');
           onUndone();

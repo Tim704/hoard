@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { settle } from '@/lib/action-result';
 import { markAllNotificationsRead, markNotificationRead } from '@/lib/actions/notifications';
 import type { NotificationItem, NotificationSummary } from '@/lib/data-notifications';
 import { cn } from '@/lib/utils';
@@ -65,7 +66,7 @@ export function useNotificationState(summary: NotificationSummary): Notification
     const before = state;
     setState((s) => ({ unread: 0, items: s.items.map((n) => ({ ...n, read: true })) }));
     startTransition(async () => {
-      const res = await markAllNotificationsRead();
+      const res = await settle(markAllNotificationsRead());
       if (!res.ok) {
         setState(before);
         toast.error(res.error ?? 'Could not mark notifications as read.');

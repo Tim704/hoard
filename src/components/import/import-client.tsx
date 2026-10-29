@@ -16,6 +16,7 @@ import { ImportReview } from '@/components/import/import-review';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { settle } from '@/lib/action-result';
 import { fetchSteamRows } from '@/lib/actions/accounts';
 import { fetchAniListRows, fetchTraktRows } from '@/lib/actions/import';
 import { csvRecords } from '@/lib/import/csv';
@@ -263,7 +264,7 @@ export function ImportClient({ steamConfigured, steamLinked, autoStart, tmdbConf
     }
     setBusy('anilist');
     try {
-      const res = await fetchAniListRows(username);
+      const res = await settle(fetchAniListRows(username));
       if (!res.ok || !res.rows) toast.error(res.error ?? 'Could not read that AniList profile.');
       else start({ rows: res.rows, skipped: res.skipped ?? 0, warnings: cutWarning(res.cut) }, 'AniList');
     } catch {
@@ -276,7 +277,7 @@ export function ImportClient({ steamConfigured, steamLinked, autoStart, tmdbConf
   async function onSteam() {
     setBusy('steam');
     try {
-      const res = await fetchSteamRows();
+      const res = await settle(fetchSteamRows());
       if (!res.ok || !res.rows) toast.error(res.error ?? 'Could not read your Steam games.');
       else start({ rows: res.rows, skipped: res.skipped ?? 0, warnings: cutWarning(res.cut) }, 'Steam');
     } catch {
@@ -303,7 +304,7 @@ export function ImportClient({ steamConfigured, steamLinked, autoStart, tmdbConf
     }
     setBusy('trakt');
     try {
-      const res = await fetchTraktRows(user);
+      const res = await settle(fetchTraktRows(user));
       if (!res.ok || !res.rows) toast.error(res.error ?? 'Could not read that Trakt profile.');
       else start({ rows: res.rows, skipped: res.skipped ?? 0, warnings: cutWarning(res.cut) }, 'Trakt');
     } catch {

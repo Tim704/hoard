@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ManualFields } from '@/components/manual-fields';
+import { settle } from '@/lib/action-result';
 import { addManualEntry, addToList, searchMedia } from '@/lib/actions/media';
 import { resolveLink, type ResolveLinkResult } from '@/lib/actions/search';
 import type { CategorySlug } from '@/lib/categories';
@@ -243,7 +244,7 @@ export function SearchDialog({
       const key = result.externalId;
       setRow(key, { phase: 'saving' });
       try {
-        const res = await addToList(slug, result, status);
+        const res = await settle(addToList(slug, result, status));
         if (!res.ok || !res.activityId) {
           failed[key] = result;
           clearRow(key);
@@ -295,7 +296,7 @@ export function SearchDialog({
     setManualBusy(true);
     setManualError(null);
     try {
-      const res = await addManualEntry(slug, manual, status);
+      const res = await settle(addManualEntry(slug, manual, status));
       if (!res.ok) {
         setManualError(res.error ?? 'Could not add that.');
         return;

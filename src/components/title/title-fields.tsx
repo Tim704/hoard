@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { settle } from '@/lib/action-result';
 import { clearListenSuggestion } from '@/lib/actions/accounts';
 import { acknowledgeNewSeason } from '@/lib/actions/new-seasons';
 import { updateActivity, updateManualEntry } from '@/lib/actions/media';
@@ -155,7 +156,7 @@ export function NewSeasonNotice({ activityId, season }: { activityId: string; se
   async function gotIt() {
     setBusy(true);
     try {
-      const res = await acknowledgeNewSeason(activityId);
+      const res = await settle(acknowledgeNewSeason(activityId));
       if (res.ok) {
         setDone(true);
         router.refresh();
@@ -193,7 +194,7 @@ export function ListenSuggestion({ activityId, onDone }: { activityId: string; o
     setBusy(true);
     try {
       if (mark) {
-        const res = await updateActivity(activityId, { status: 'COMPLETED' });
+        const res = await settle(updateActivity(activityId, { status: 'COMPLETED' }));
         if (!res.ok) {
           toast.error(res.error ?? 'Could not save.');
           return;
@@ -248,7 +249,7 @@ export function ManualEditor({
     setSaving(true);
     setError(null);
     try {
-      const res = await updateManualEntry(activity.id, value);
+      const res = await settle(updateManualEntry(activity.id, value));
       if (res.ok) {
         toast.success('Details saved.');
         router.refresh();

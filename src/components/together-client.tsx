@@ -7,6 +7,7 @@ import { ImageOff, Loader2 } from 'lucide-react';
 
 import { TitleLink } from '@/components/title/title-link';
 import { Button } from '@/components/ui/button';
+import { settle } from '@/lib/action-result';
 import { compareWith } from '@/lib/actions/together';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import type { TogetherItem } from '@/lib/data-together';
@@ -27,7 +28,7 @@ export function TogetherClient({ users, sections }: { users: string[]; sections:
   function compare() {
     if (!other) return;
     startTransition(async () => {
-      const res = await compareWith(other, chosen);
+      const res = await settle(compareWith(other, chosen));
       if (res.ok) setResult({ with: other, items: res.items ?? [] });
       else {
         setResult(null);

@@ -9,6 +9,7 @@ import { usePrefs, useDisplayTitle } from '@/components/prefs-provider';
 import { TIER_HEX } from '@/components/tier-colors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { settle } from '@/lib/action-result';
 import { createShareLink } from '@/lib/actions/share';
 import type { CategorySlug } from '@/lib/categories';
 import { proxiedImageUrl } from '@/lib/img-proxy';
@@ -72,7 +73,7 @@ export function TierShare({ slug, label, board }: TierShareProps) {
 
   function share() {
     startTransition(async () => {
-      const res = await createShareLink('tiers', slug);
+      const res = await settle(createShareLink('tiers', slug));
       if (!res.ok || !res.url) {
         toast.error(res.error ?? 'Could not create the link.');
         return;

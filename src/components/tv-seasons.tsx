@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { RatingInput } from '@/components/rating-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { settle } from '@/lib/action-result';
 import { getSeasons, setSeasonRating, updateSeasonWatch } from '@/lib/actions/seasons';
 import type { SeasonRow } from '@/lib/data-seasons';
 import { formatYmd, formatYmShort, isYmd } from '@/lib/release';
@@ -42,16 +43,13 @@ export function TvSeasons({
 
   useEffect(() => {
     let live = true;
-    void getSeasons(activityId).then(
-      (res) => {
-        if (!live) return;
-        if (res.ok && res.seasons) {
-          setRows(res.seasons);
-          onLoaded?.(res.seasons.length > 0);
-        } else setFailed(true);
-      },
-      () => live && setFailed(true),
-    );
+    void settle(getSeasons(activityId)).then((res) => {
+      if (!live) return;
+      if (res.ok && res.seasons) {
+        setRows(res.seasons);
+        onLoaded?.(res.seasons.length > 0);
+      } else setFailed(true);
+    });
     return () => {
       live = false;
     };
@@ -76,10 +74,7 @@ export function TvSeasons({
           ? { kind: 'ticks', episodes: watch.episodesWatched }
           : { kind: 'set', value: watch.watchedEpisodes };
       queue.current = queue.current.then(async () => {
-        const res = await updateSeasonWatch(activityId, seasonId, change).catch(() => ({
-          ok: false,
-          error: undefined,
-        }));
+        const res = await settle(updateSeasonWatch(activityId, seasonId, change));
         if (!res.ok) {
           toast.error(res.error ?? 'Could not save the season.');
           const fresh = await getSeasons(activityId).catch(() => null);
@@ -113,10 +108,7 @@ export function TvSeasons({
   async function rate(row: SeasonRow, rating: number | null) {
     const prev = row.rating;
     setRows((rs) => rs?.map((r) => (r.seasonId === row.seasonId ? { ...r, rating } : r)) ?? rs);
-    const res = await setSeasonRating(activityId, row.seasonId, rating).catch(() => ({
-      ok: false,
-      error: undefined,
-    }));
+    const res = await settle(setSeasonRating(activityId, row.seasonId, rating));
     if (!res.ok) {
       setRows((rs) => rs?.map((r) => (r.seasonId === row.seasonId ? { ...r, rating: prev } : r)) ?? rs);
       toast.error(res.error ?? 'Could not save the score.');

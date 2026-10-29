@@ -43,6 +43,7 @@ import { toastUndoable } from '@/components/undo-toast';
 import { useIsomorphicLayoutEffect } from '@/hooks/use-isomorphic-layout-effect';
 import { Button } from '@/components/ui/button';
 import { updatePrefs } from '@/lib/actions/prefs';
+import { settle } from '@/lib/action-result';
 import { TILE_IDS, type TileId } from '@/lib/dashboard-tile-ids';
 import {
   TILE_LABELS,
@@ -66,8 +67,7 @@ function editorState(saved: DashboardTilesPref): DashboardPatch {
   return { order: pinRecommend(normalizeOrder(saved.order)), hidden: knownTileIds(saved.hidden) };
 }
 
-const saveDashboard = (dashboard: DashboardPatch): Promise<ActionResult> =>
-  updatePrefs({ dashboard }).catch(() => ({ ok: false, error: undefined }));
+const saveDashboard = (dashboard: DashboardPatch): Promise<ActionResult> => settle(updatePrefs({ dashboard }));
 
 /** Undo: puts the value from before the save back. */
 async function restore(previous: DashboardPatch, router: Router) {
