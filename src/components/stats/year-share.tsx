@@ -105,7 +105,7 @@ export function YearShare({ card }: { card: YearCard }) {
             Anyone with this link sees your {card.year} summary: the numbers and the covers of your S-tier and top 3 titles
             (no scores, no notes). Revoke it any time in{' '}
             <Link href={settingsHref('sharing')} className="underline underline-offset-2">
-              Settings → Sharing
+              {'Settings → Sharing & privacy'}
             </Link>
             .
           </p>

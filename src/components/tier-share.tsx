@@ -118,7 +118,7 @@ export function TierShare({ slug, label, board }: TierShareProps) {
           <p className="text-xs text-muted-foreground">
             Anyone with this link sees this tier list (titles and covers only). Revoke it any time in{' '}
             <Link href={settingsHref('sharing')} className="underline underline-offset-2">
-              Settings → Sharing
+              {'Settings → Sharing & privacy'}
             </Link>
             .
           </p>

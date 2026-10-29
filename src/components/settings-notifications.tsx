@@ -2,8 +2,8 @@
 
 // ───────────────────────────────────────────────────────────────────────────
 //  Settings → Notifications: the user's own ntfy topic URL and Discord webhook
-//  (both optional, https only), which kinds get pushed, and "Send test". The
-//  bell in the header always shows every notification.
+//  (both optional, https only), which kinds get pushed, and "Send test".
+//  Hoard's own notification list always shows every notification.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { useState, useTransition } from 'react';
@@ -84,7 +84,7 @@ export function SettingsNotifications({ initial }: { initial: NotifySettings }) 
     startTransition(async () => {
       const res = await sendTestNotification();
       const where = res.pushed?.length ? ` and sent to ${res.pushed.join(' and ')}` : '';
-      if (res.ok) toast.success(`Test notification added to the bell${where}.`);
+      if (res.ok) toast.success(`Test notification added to Notifications${where}.`);
       else toast.error(`Test failed: ${res.error ?? 'unknown error'}`);
     });
   }
@@ -94,8 +94,8 @@ export function SettingsNotifications({ initial }: { initial: NotifySettings }) 
       <CardHeader>
         <CardTitle className="text-base">Notifications</CardTitle>
         <CardDescription>
-          Notifications always appear under the bell. You can also push them to your own ntfy topic
-          or a Discord channel webhook (public https URLs only).
+          Notifications always appear in Hoard, under Notifications. You can also push them to your own
+          ntfy topic or a Discord channel webhook (public https URLs only).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

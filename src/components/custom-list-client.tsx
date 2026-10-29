@@ -309,7 +309,7 @@ function ListHeader({ list }: { list: CustomListView }) {
           <p className="text-xs text-muted-foreground">
             Anyone with this link sees the list&apos;s titles and covers, nothing else. Revoke it any time in{' '}
             <Link href={settingsHref('sharing')} className="underline underline-offset-2">
-              Settings → Sharing
+              {'Settings → Sharing & privacy'}
             </Link>
             .
           </p>

@@ -9,7 +9,7 @@ below start with `/api/v1`.
 
 ## Authentication
 
-1. In Hoard, open **Settings → API tokens**, give the token a name (up to 40 characters)
+1. In Hoard, open **Settings → Data → API tokens**, give the token a name (up to 40 characters)
    and choose **Create token**.
 2. Copy the token straight away. It looks like `hoard_` followed by 43 letters, digits,
    `-` and `_`, and it is shown **only once**: Hoard keeps just its SHA-256 hash.

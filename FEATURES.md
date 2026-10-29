@@ -224,7 +224,7 @@ Each section has its own **S / A / B / C / D / F** tier list, under the **Tiers*
   finished again.
 - **Sharing:** **Download PNG** saves an image of the board; **Share link** makes a
   read-only public page with titles and covers only (no scores or notes). Links are
-  listed, and revoked, in Settings → Sharing.
+  listed, and revoked, in Settings → Sharing & privacy.
 - **Season tiers:** each TV show has its own tier list and Arena of its seasons
   (`/tv/seasons/…`, linked from the details).
 
@@ -402,7 +402,7 @@ https addresses only, with **Send test**) and choose which kinds are pushed:
 Everything here is off until you turn it on.
 
 - **Share links:** tier lists, custom lists and your year in review get read-only public
-  pages (no scores, notes or reviews), listed and revocable in Settings → Sharing.
+  pages (no scores, notes or reviews), listed and revocable in Settings → Sharing & privacy.
 - **Compare** (`/compare/<username>`): needs Settings → "Compare with other users" on
   both sides. Shows the titles you both have, your biggest disagreements, a compatibility
   score (needs 5 titles you have both scored) and their S-tier titles you haven't got.
@@ -425,7 +425,7 @@ Settings → Data:
   front matter (status, score, tier, dates, tags, franchise, link) and your notes and
   reviews.
 
-Settings → API tokens: a read-only JSON API over your library for scripts and dashboards.
+Settings → Data → API tokens: a read-only JSON API over your library for scripts and dashboards.
 Up to 10 tokens, each shown once, 60 requests a minute. See [`docs/API.md`](docs/API.md).
 
 ## 21. Accounts and privacy
