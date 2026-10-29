@@ -6,6 +6,7 @@ import { cookies } from 'next/headers';
 
 import { LayoutSync } from '@/components/layout-sync';
 import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { getPrefs } from '@/lib/data-prefs';
 import { THEME_COLORS, themeBootstrapScript } from '@/lib/document-theme';
 import { DEFAULT_LAYOUT, LAYOUTS, type LayoutId } from '@/lib/layouts';
@@ -108,7 +109,8 @@ export default async function RootLayout({
             effects run in tree order, so a toast fired while a page mounts
             (the AniList OAuth result on Settings) would be lost after it. */}
         <Toaster richColors closeButton />
-        {children}
+        {/* One provider for every tooltip (the section toolbar's icons). */}
+        <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
         {/* After the page: see LayoutSync (login / logout keep `dark` right). */}
         <LayoutSync layout={layout} />
       </body>
