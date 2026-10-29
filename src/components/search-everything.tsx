@@ -277,19 +277,24 @@ export function PasteLinkField({ initialUrl = '' }: { initialUrl?: string }) {
   );
 }
 
-/** The Search everything dialog (header button, `/`, or the palette's Enter). */
+/** The Search everything dialog (`/`, the user menu's Search, or the palette's Enter). */
 export function SearchEverythingDialog({
   open,
   onOpenChange,
   initialQuery,
+  onCloseAutoFocus,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialQuery: string;
+  /** Where focus goes on close (there is no trigger): see useFocusReturn. */
+  onCloseAutoFocus?: (e: Event) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bottom-0 top-auto max-h-[92dvh] max-w-full translate-y-0 gap-3 overflow-y-auto rounded-t-2xl border-b-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:bottom-auto sm:top-[50%] sm:max-h-[90vh] sm:max-w-2xl sm:translate-y-[-50%] sm:gap-4 sm:border-b sm:p-6">
+      <DialogContent
+        onCloseAutoFocus={onCloseAutoFocus}
+        className="bottom-0 top-auto max-h-[92dvh] max-w-full translate-y-0 gap-3 overflow-y-auto rounded-t-2xl border-b-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:bottom-auto sm:top-[50%] sm:max-h-[90vh] sm:max-w-2xl sm:translate-y-[-50%] sm:gap-4 sm:border-b sm:p-6">
         <DialogHeader>
           <DialogTitle>Search everything</DialogTitle>
           <DialogDescription>Every section at once, or paste a link to add it.</DialogDescription>

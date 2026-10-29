@@ -93,8 +93,10 @@ export function UserMenu({
   const pathname = usePathname();
   const view = useSearchParams().get('view');
   // Opening a dialog (Notifications, Search, the palette) waits until the
-  // menu has closed, so the menu doesn't hand focus back to its trigger.
+  // menu has closed and focus is back on the trigger: the opener remembers
+  // it, and the dialog returns focus there when it closes (useFocusReturn).
   const afterClose = useRef<(() => void) | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const ring = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
@@ -102,6 +104,7 @@ export function UserMenu({
   if (trigger === 'signed-in') {
     button = (
       <button
+        ref={triggerRef}
         type="button"
         data-user-menu=""
         title="Account menu"
@@ -121,6 +124,7 @@ export function UserMenu({
   } else if (trigger === 'row') {
     button = (
       <button
+        ref={triggerRef}
         type="button"
         data-user-menu=""
         className={cn('flex w-full min-w-0 items-center gap-2.5 rounded-md p-1.5 text-left text-sm transition-colors hover:bg-accent/60', ring, className)}
@@ -137,6 +141,7 @@ export function UserMenu({
   } else {
     button = (
       <button
+        ref={triggerRef}
         type="button"
         data-user-menu=""
         aria-label={`Account menu${unreadLabel(unread)}`}
@@ -153,7 +158,7 @@ export function UserMenu({
     afterClose.current = run;
   };
 
-  const entry = (e: MenuEntry, i: number) => {
+  const entry = (e: MenuEntry) => {
     if (e.kind === 'link') return <MenuLink key={e.link.id} link={e.link} pathname={pathname} view={view} />;
     switch (e.action) {
       case 'notifications':
@@ -205,8 +210,6 @@ export function UserMenu({
             Log out
           </DropdownMenuItem>
         );
-      default:
-        return <Fragment key={i} />;
     }
   };
 
@@ -224,6 +227,7 @@ export function UserMenu({
           if (!run) return;
           afterClose.current = null;
           ev.preventDefault();
+          triggerRef.current?.focus({ preventScroll: true });
           run();
         }}
       >

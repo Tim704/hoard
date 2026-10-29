@@ -21,6 +21,7 @@ import { NotificationsSheet, useNotificationState } from '@/components/shell/not
 import { Sidebar } from '@/components/shell/sidebar';
 import { TopBar } from '@/components/shell/top-bar';
 import { AccountProvider, type Account } from '@/components/shell/user-menu';
+import { useFocusReturn } from '@/hooks/use-focus-return';
 import { logoutAction } from '@/lib/actions/auth';
 import type { NotificationSummary } from '@/lib/data-notifications';
 import type { SavedViewSummary } from '@/lib/data-views';
@@ -87,6 +88,8 @@ export function AppShell({
 
   const notes = useNotificationState(notifications);
   const [notesOpen, setNotesOpen] = useState(false);
+  // Closing the sheet focuses what opened it (the user menu's trigger).
+  const { remember: rememberFocus, restore: restoreFocus } = useFocusReturn();
   const logoutForm = useRef<HTMLFormElement>(null);
 
   const account: Account = useMemo(
@@ -94,7 +97,10 @@ export function AppShell({
       username,
       unread: notes.unread,
       menu: nav.menu,
-      openNotifications: () => setNotesOpen(true),
+      openNotifications: () => {
+        rememberFocus();
+        setNotesOpen(true);
+      },
       logout: () => {
         const form = logoutForm.current;
         if (!form) return;
@@ -102,7 +108,7 @@ export function AppShell({
         else form.submit();
       },
     }),
-    [username, notes.unread, nav.menu],
+    [username, notes.unread, nav.menu, rememberFocus],
   );
 
   // The phone drawer also lists the top bar's links (Minimal's Dashboard).
@@ -128,7 +134,7 @@ export function AppShell({
           <main className="min-w-0 flex-1 overflow-x-hidden supports-[overflow:clip]:overflow-x-clip">{children}</main>
         </div>
       </div>
-      <NotificationsSheet open={notesOpen} onOpenChange={setNotesOpen} notes={notes} />
+      <NotificationsSheet open={notesOpen} onOpenChange={setNotesOpen} notes={notes} onCloseAutoFocus={restoreFocus} />
       <form ref={logoutForm} action={logoutAction} hidden />
     </AccountProvider>
   );

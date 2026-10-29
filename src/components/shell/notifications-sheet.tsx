@@ -6,7 +6,7 @@
 //  the server actions revalidate it, and local state keeps the UI instant.
 // ───────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CheckCheck } from 'lucide-react';
@@ -143,14 +143,28 @@ export function NotificationsSheet({
   open,
   onOpenChange,
   notes,
+  onCloseAutoFocus,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   notes: NotificationState;
+  /** Where focus goes on close (it has no trigger of its own): useFocusReturn. */
+  onCloseAutoFocus?: (e: Event) => void;
 }) {
+  const list = useRef<HTMLDivElement>(null);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-sm">
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-sm"
+        // Focus the list, not "Mark all read" (Radix's first tabbable), so
+        // opening doesn't ring a button; Tab goes on from there.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          list.current?.focus({ preventScroll: true });
+        }}
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <SheetHeader className="space-y-0 border-b border-border px-4 pb-3 pr-12 pt-[max(0.75rem,env(safe-area-inset-top))] text-left">
           <div className="flex min-w-0 items-center justify-between gap-2">
             <SheetTitle className="truncate text-base">Notifications</SheetTitle>
@@ -170,7 +184,11 @@ export function NotificationsSheet({
             {notes.unread ? `${notes.unread} unread` : 'Nothing unread'}
           </SheetDescription>
         </SheetHeader>
-        <div className="flex-1 overflow-y-auto p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <div
+          ref={list}
+          tabIndex={-1}
+          className="flex-1 overflow-y-auto p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] focus:outline-none"
+        >
           <NotificationList items={notes.items} onRead={notes.markRead} onNavigate={() => onOpenChange(false)} />
         </div>
       </SheetContent>

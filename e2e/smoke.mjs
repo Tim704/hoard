@@ -455,6 +455,9 @@ if (failures.length === 0) {
           await sheet.getByRole('button', { name: 'Mark all read' }).waitFor({ timeout: 10_000 });
           await page.keyboard.press('Escape');
           await sheet.waitFor({ state: 'hidden', timeout: 10_000 });
+          // Closing it hands focus back to the menu's trigger, not <body>.
+          const back = await page.evaluate(() => document.activeElement?.matches('[data-user-menu]') ?? false);
+          if (!back) throw new Error(`${where}: focus didn't return to the user menu after Notifications`);
           const after = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
           if (after > 0) throw new Error(`${where}: the page scrolls sideways by ${after}px after the menu`);
         }

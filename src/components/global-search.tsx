@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 import { CommandPalette } from '@/components/command-palette';
 import { SearchEverythingDialog } from '@/components/search-everything';
+import { useFocusReturn } from '@/hooks/use-focus-return';
 import { globalShortcut, isApplePlatform } from '@/lib/keys';
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -39,16 +40,23 @@ export function GlobalSearchProvider({
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // Neither dialog has a trigger: closing one focuses what opened it.
+  const { remember, restore } = useFocusReturn();
 
-  const openSearch = useCallback((query = '') => {
-    setPaletteOpen(false);
-    setSearchQuery(query);
-    setSearchOpen(true);
-  }, []);
+  const openSearch = useCallback(
+    (query = '') => {
+      remember();
+      setPaletteOpen(false);
+      setSearchQuery(query);
+      setSearchOpen(true);
+    },
+    [remember],
+  );
   const openPalette = useCallback(() => {
+    remember();
     setSearchOpen(false);
     setPaletteOpen(true);
-  }, []);
+  }, [remember]);
 
   useEffect(() => {
     const apple = isApplePlatform(navigator.platform || navigator.userAgent);
@@ -66,6 +74,7 @@ export function GlobalSearchProvider({
       );
       if (which === 'palette') {
         e.preventDefault();
+        remember();
         setSearchOpen(false);
         setPaletteOpen((o) => !o);
       } else if (which === 'search') {
@@ -77,15 +86,27 @@ export function GlobalSearchProvider({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [openSearch]);
+  }, [openSearch, remember]);
 
   const api = useMemo(() => ({ openSearch, openPalette, userId }), [openSearch, openPalette, userId]);
 
   return (
     <GlobalSearchContext.Provider value={api}>
       {children}
-      <SearchEverythingDialog open={searchOpen} onOpenChange={setSearchOpen} initialQuery={searchQuery} />
-      <CommandPalette userId={userId} social={social} open={paletteOpen} onOpenChange={setPaletteOpen} onSearchEverything={openSearch} />
+      <SearchEverythingDialog
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        initialQuery={searchQuery}
+        onCloseAutoFocus={restore}
+      />
+      <CommandPalette
+        userId={userId}
+        social={social}
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        onSearchEverything={openSearch}
+        onCloseAutoFocus={restore}
+      />
     </GlobalSearchContext.Provider>
   );
 }

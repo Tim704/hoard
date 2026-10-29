@@ -56,6 +56,7 @@ export function CommandPalette({
   open,
   onOpenChange,
   onSearchEverything,
+  onCloseAutoFocus,
 }: {
   /** The signed-in user: the index cache only serves its owner. */
   userId: string;
@@ -64,6 +65,8 @@ export function CommandPalette({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSearchEverything: (query: string) => void;
+  /** Where focus goes on close (there is no trigger): see useFocusReturn. */
+  onCloseAutoFocus?: (e: Event) => void;
 }) {
   const router = useRouter();
   const titleOf = useDisplayTitle();
@@ -221,7 +224,9 @@ export function CommandPalette({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-[10%] max-w-[calc(100%-2rem)] translate-y-0 gap-0 overflow-hidden p-0 sm:top-[15%] sm:max-w-xl">
+      <DialogContent
+        onCloseAutoFocus={onCloseAutoFocus}
+        className="top-[10%] max-w-[calc(100%-2rem)] translate-y-0 gap-0 overflow-hidden p-0 sm:top-[15%] sm:max-w-xl">
         <DialogHeader className="sr-only">
           <DialogTitle>Command palette</DialogTitle>
           <DialogDescription>Find a title or page in your library.</DialogDescription>
