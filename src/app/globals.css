@@ -102,7 +102,10 @@
 /* Thin, themed scrollbars everywhere (page, dialogs, drawers, menus,
    textareas, tables). Firefox and Chrome 121+ use the standard properties;
    Safari (and older Chrome) the ::-webkit-scrollbar rules, which also get a
-   hover colour. */
+   hover colour.
+   To HIDE a scrollbar, set `scrollbar-width: none` (or use .scrollbar-none):
+   `::-webkit-scrollbar { display: none }` alone does nothing in Chrome 121+
+   once scrollbar-width is set, as it is here for every element. */
 @layer base {
   * {
     scrollbar-width: thin;
@@ -132,5 +135,12 @@
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--scrollbar)) transparent;
+  }
+  /* A scroller without a visible scrollbar, in every engine. */
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 }
