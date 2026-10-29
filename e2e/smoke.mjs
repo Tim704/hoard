@@ -829,6 +829,25 @@ if (failures.length === 0) {
     await page.getByRole('heading', { level: 1, name: 'The Expanse' }).waitFor({ timeout: 15_000 });
     if ((await page.getByRole('dialog').count()) > 0) throw new Error('the popup stayed open over the title page');
   });
+  // The popup has no trigger of its own: closing it returns focus to the
+  // card that opened it, not <body>.
+  await step('popup returns focus to its card', async () => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`${BASE_URL}/games`, { waitUntil: 'networkidle' });
+    const card = page.locator('main [data-card]').first();
+    await card.focus();
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog');
+    await dialog.waitFor({ timeout: 15_000 });
+    await page.keyboard.press('Escape');
+    await dialog.waitFor({ state: 'detached', timeout: 10_000 });
+    const back = async () => page.evaluate(() => document.activeElement?.hasAttribute('data-card') ?? false);
+    for (let i = 0; i < 20 && !(await back()); i++) await page.waitForTimeout(100);
+    if (!(await back())) {
+      const tag = await page.evaluate(() => document.activeElement?.tagName);
+      throw new Error(`after closing the popup, focus is on ${tag}, not the card`);
+    }
+  });
   // Score these (1.3): no banner (or crowd panel) on the section page any
   // more, and ?score=1 does nothing there; the tier list's tray opens the
   // dialog in place (the demo has an unscored finished book, Snow Crash).
