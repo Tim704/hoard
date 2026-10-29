@@ -38,10 +38,9 @@ import { isManualId, manualInputFrom, parseManualInput, type ManualInput } from 
 import { formatTimeToBeat } from '@/lib/media-meta';
 import { formatYmd, isYmd } from '@/lib/release';
 import { STATUSES, statusLabel, type Status } from '@/lib/status';
+import { NEW_FRANCHISE, NO_FRANCHISE } from '@/lib/title-draft';
 import type { ActivityWithMedia, MediaItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
-
-import { NEW_FRANCHISE, NO_FRANCHISE } from './use-title-editor';
 
 // ── Metadata ────────────────────────────────────────────────────────────────
 

@@ -338,7 +338,18 @@ export function ReviewField({
 
 // ── Play sessions (3.6) ──────────────────────────────────────────────────────
 
-export function Sessions({ activityId, log, onChanged }: { activityId: string; log: ActivityLog; onChanged: () => void }) {
+export function Sessions({
+  activityId,
+  log,
+  onChanged,
+  className,
+}: {
+  activityId: string;
+  log: ActivityLog;
+  onChanged: () => void;
+  /** Extra classes for the box (the title page draws it as one of its panels). */
+  className?: string;
+}) {
   const { weekStart } = usePrefs();
   const [date, setDate] = useState(log.today);
   const [minutes, setMinutes] = useState('');
@@ -382,7 +393,7 @@ export function Sessions({ activityId, log, onChanged }: { activityId: string; l
   }
 
   return (
-    <div className="space-y-3 rounded-md border border-border p-3">
+    <section aria-label="Play sessions" className={cn('space-y-3 rounded-md border border-border p-3', className)}>
       <p className="text-sm font-medium">Play sessions</p>
       <div className="grid grid-cols-[1fr_5.5rem] gap-2">
         <Input
@@ -485,15 +496,34 @@ export function Sessions({ activityId, log, onChanged }: { activityId: string; l
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
 // ── History (3.2) ────────────────────────────────────────────────────────────
 
+/** "History" with its icon, as the details show it above the list. */
+export function HistoryHeading({ as: Tag = 'p' }: { as?: 'p' | 'h2' }) {
+  return (
+    <Tag className="flex items-center gap-1.5 text-sm font-medium">
+      <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+      History
+    </Tag>
+  );
+}
+
 const HISTORY_PREVIEW = 8;
 
-export function HistoryList({ activity, log }: { activity: ActivityWithMedia; log: ActivityLog }) {
+export function HistoryList({
+  activity,
+  log,
+  showHeading = true,
+}: {
+  activity: ActivityWithMedia;
+  log: ActivityLog;
+  /** False where the surrounding section already says "History". */
+  showHeading?: boolean;
+}) {
   const { score } = useScoreFormat();
   const [all, setAll] = useState(false);
   const items = useMemo(
@@ -504,10 +534,7 @@ export function HistoryList({ activity, log }: { activity: ActivityWithMedia; lo
   const shown = all ? items : items.slice(0, HISTORY_PREVIEW);
   return (
     <div className="space-y-1.5">
-      <p className="flex items-center gap-1.5 text-sm font-medium">
-        <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-        History
-      </p>
+      {showHeading && <HistoryHeading />}
       <ol className="space-y-1 border-l border-border pl-3">
         {shown.map((item) => (
           <li key={`${item.kind}-${item.id}`} className="text-xs">

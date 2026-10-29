@@ -1,10 +1,16 @@
 'use client';
 
-// The editable part of a title's details: status, rating, favourite and notes
-// (saved together by Save), the franchise (saved at once), and Remove. Undo
-// toasts as everywhere else (src/components/undo-toast.ts).
+// The editable part of a title's details: status, rating, favourite, notes
+// and franchise, saved together by Save; and Remove. Undo toasts as
+// everywhere else (src/components/undo-toast.ts).
+//
+// The hook keeps what the fields show (`local`) and what the server is known
+// to hold (`base`): `dirty` is their difference, and a newer server value
+// (Undo, Watch again, "Mark as Listened", another tab) flows into every field
+// that wasn't edited (src/lib/title-draft.ts). With `keepDrafts` (the title
+// page) unsaved edits outlive the page for this tab (./title-drafts.ts).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
@@ -13,122 +19,163 @@ import { toastRemoved, toastStatusChange } from '@/components/undo-toast';
 import { assignFranchise } from '@/lib/actions/franchise';
 import { removeActivity, updateActivity } from '@/lib/actions/media';
 import { statusLabel, type Status } from '@/lib/status';
+import {
+  EMPTY_VALUES,
+  NEW_FRANCHISE,
+  NO_FRANCHISE,
+  applyDraft,
+  changedFields,
+  followServer,
+  valuesKey,
+  valuesOf,
+  type TitleValues,
+} from '@/lib/title-draft';
 import type { ActivityWithMedia } from '@/lib/types';
 
-/** The franchise picker's "no franchise" and "new franchise from this title" values. */
-export const NO_FRANCHISE = '__none';
-export const NEW_FRANCHISE = '__new';
+import { clearTitleDraft, readTitleDraft, writeTitleDraft } from './title-drafts';
 
-export interface TitleEditor {
-  status: Status;
+export { NEW_FRANCHISE, NO_FRANCHISE } from '@/lib/title-draft';
+
+export interface TitleEditor extends TitleValues {
   setStatus: (s: Status) => void;
-  rating: number | null;
   setRating: (v: number | null) => void;
-  favorite: boolean;
-  setFavorite: (f: boolean | ((prev: boolean) => boolean)) => void;
-  notes: string;
+  setFavorite: (f: boolean) => void;
   setNotes: (v: string) => void;
-  franchiseId: string;
-  changeFranchise: (value: string) => Promise<void>;
+  setFranchise: (id: string) => void;
+  /** The fields edited since the last save (empty: nothing to save). */
+  changed: (keyof TitleValues)[];
+  dirty: boolean;
   saving: boolean;
   removing: boolean;
-  moving: boolean;
-  /** Saving, removing or moving: the fields are locked. */
+  /** Saving or removing: the fields are locked. */
   busy: boolean;
   /** `statusOverride`: "Mark as finished" saves with the finished status. */
   save: (statusOverride?: Status) => Promise<void>;
   remove: () => Promise<void>;
+  /** Puts every field back to the saved value. */
+  discard: () => void;
+  /** Keeps the unsaved edits for the title page (the popup's "Open full page"). */
+  handOff: () => void;
 }
 
-/**
- * State and actions for one title's details. `activity` may be null (a
- * closed dialog). `onDone` runs after a successful save or remove.
- */
-export function useTitleEditor(
-  activity: ActivityWithMedia | null,
-  { onDone }: { onDone: () => void },
-): TitleEditor {
+interface EditorState {
+  id: string | null;
+  /** valuesKey of the server values `base` last followed. */
+  key: string;
+  local: TitleValues;
+  base: TitleValues;
+}
+
+export interface TitleEditorOptions {
+  /** After a successful save (the popup closes). */
+  onSaved?: () => void;
+  /** After a successful remove; by default the page refreshes. */
+  onRemoved?: () => void;
+  /** Unsaved edits survive leaving (and are shown again) — the title page. */
+  keepDrafts?: boolean;
+}
+
+/** State and actions for one title's details. `activity` may be null (a closed popup). */
+export function useTitleEditor(activity: ActivityWithMedia | null, options: TitleEditorOptions = {}): TitleEditor {
+  const { onSaved, onRemoved, keepDrafts = false } = options;
   const router = useRouter();
   const titleOf = useDisplayTitle();
 
-  const [status, setStatus] = useState<Status>('PLANNED');
-  const [rating, setRating] = useState<number | null>(null);
-  const [favorite, setFavorite] = useState(false);
-  const [notes, setNotes] = useState('');
+  const id = activity?.id ?? null;
+  const server = activity ? valuesOf(activity) : EMPTY_VALUES;
+  const serverKey = valuesKey(server);
 
-  const [franchiseId, setFranchiseId] = useState<string>(NO_FRANCHISE);
+  const [state, setState] = useState<EditorState>(() => ({ id, key: serverKey, local: server, base: server }));
+  // Adjusted while rendering (React's "state from a prop change"): a new
+  // title starts from its saved values; new server values flow into the
+  // fields that weren't edited.
+  let current = state;
+  if (state.id !== id) current = { id, key: serverKey, local: server, base: server };
+  else if (state.key !== serverKey) current = { id, key: serverKey, ...followServer(state.local, state.base, server) };
+  if (current !== state) setState(current);
+
+  /** The newest state, for handlers that run before the next render. */
+  const latest = useRef(current);
+  latest.current = current;
+  const commit = (next: EditorState) => {
+    latest.current = next;
+    setState(next);
+  };
+  const update = (patch: Partial<TitleValues>) => {
+    const s = latest.current;
+    commit({ ...s, local: { ...s.local, ...patch } });
+  };
 
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
-  const [moving, setMoving] = useState(false);
 
-  // Re-sync local editable state whenever a different activity is selected.
-  // Keyed on the id so a background refresh doesn't wipe unsaved edits.
+  // The title page: show edits left unsaved here earlier (after the first
+  // paint, so the server render and hydration agree), then keep them in
+  // step with the fields.
+  const [draftsReady, setDraftsReady] = useState(false);
   useEffect(() => {
-    if (activity) {
-      setStatus(activity.status);
-      setRating(activity.rating);
-      setFavorite(activity.favorite);
-      setNotes(activity.notes ?? '');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activity?.id]);
+    if (!keepDrafts || !id) return;
+    const draft = readTitleDraft(id);
+    const s = latest.current;
+    if (draft && s.id === id) commit({ ...s, local: applyDraft(s.local, draft) });
+    setDraftsReady(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per title
+  }, [keepDrafts, id]);
 
-  // The franchise saves immediately, so always mirror the server's value.
+  const changed = changedFields(current.local, current.base);
+  const dirty = changed.length > 0;
+  const localKey = valuesKey(current.local);
+  const baseKey = valuesKey(current.base);
   useEffect(() => {
-    setFranchiseId(activity?.franchise?.id ?? NO_FRANCHISE);
-  }, [activity?.id, activity?.franchise?.id]);
-
-  // Franchise changes apply immediately (independent of Save) and are locked
-  // so automatic detection never undoes them.
-  async function changeFranchise(value: string) {
-    if (!activity) return;
-    const previous = franchiseId;
-    setFranchiseId(value);
-    setMoving(true);
-    try {
-      const target = value === NO_FRANCHISE ? null : value === NEW_FRANCHISE ? 'new' : value;
-      const res = await assignFranchise(activity.id, target);
-      if (res.ok) {
-        toast.success(target ? 'Franchise updated.' : 'Removed from franchise.');
-        router.refresh();
-      } else {
-        setFranchiseId(previous);
-        toast.error(res.error ?? 'Could not change the franchise.');
-      }
-    } finally {
-      setMoving(false);
-    }
-  }
+    if (!keepDrafts || !draftsReady || !id) return;
+    const s = latest.current;
+    if (dirty) writeTitleDraft(id, { local: s.local, base: s.base });
+    else clearTitleDraft(id);
+  }, [keepDrafts, draftsReady, id, dirty, localKey, baseKey]);
 
   async function save(statusOverride?: Status) {
     if (!activity) return;
-    const nextStatus = statusOverride ?? status;
+    const before = latest.current;
+    const values: TitleValues = statusOverride ? { ...before.local, status: statusOverride } : before.local;
     setSaving(true);
     try {
       const res = await updateActivity(activity.id, {
-        status: nextStatus,
-        rating,
-        favorite,
-        notes,
+        status: values.status,
+        rating: values.rating,
+        favorite: values.favorite,
+        notes: values.notes,
       });
-      if (res.ok) {
-        const refresh = () => router.refresh();
-        if (nextStatus !== activity.status) {
-          toastStatusChange(
-            `Marked “${titleOf(activity.media)}” as ${statusLabel(nextStatus, activity.category)}.`,
-            activity.id,
-            res.previous,
-            refresh,
-          );
-        } else {
-          toast.success('Saved.');
-        }
-        refresh();
-        onDone();
-      } else {
+      if (!res.ok) {
         toast.error(res.error ?? 'Could not save changes.');
+        return;
       }
+      // A franchise picked by hand is locked, so automatic detection never undoes it.
+      let saved = values;
+      if (values.franchiseId !== before.base.franchiseId) {
+        const target = values.franchiseId === NO_FRANCHISE ? null : values.franchiseId === NEW_FRANCHISE ? 'new' : values.franchiseId;
+        const moved = await assignFranchise(activity.id, target).catch(() => ({ ok: false as const, error: undefined }));
+        if (!moved.ok) {
+          saved = { ...values, franchiseId: before.base.franchiseId };
+          toast.error(moved.error ?? 'Could not change the franchise.');
+        }
+      }
+      // The fields now match what was saved; anything typed meanwhile stays an edit.
+      const now = latest.current;
+      commit({ ...now, local: statusOverride ? { ...now.local, status: statusOverride } : now.local, base: saved });
+
+      const refresh = () => router.refresh();
+      if (values.status !== activity.status) {
+        toastStatusChange(
+          `Marked “${titleOf(activity.media)}” as ${statusLabel(values.status, activity.category)}.`,
+          activity.id,
+          res.previous,
+          refresh,
+        );
+      } else {
+        toast.success('Saved.');
+      }
+      refresh();
+      onSaved?.();
     } catch {
       toast.error('Could not save changes.');
     } finally {
@@ -142,9 +189,10 @@ export function useTitleEditor(
     try {
       const res = await removeActivity(activity.id);
       if (res.ok) {
+        clearTitleDraft(activity.id);
         toastRemoved(titleOf(activity.media), res.undoToken, () => router.refresh());
-        router.refresh();
-        onDone();
+        if (onRemoved) onRemoved();
+        else router.refresh();
       } else {
         toast.error(res.error ?? 'Could not remove that item.');
       }
@@ -156,21 +204,23 @@ export function useTitleEditor(
   }
 
   return {
-    status,
-    setStatus,
-    rating,
-    setRating,
-    favorite,
-    setFavorite,
-    notes,
-    setNotes,
-    franchiseId,
-    changeFranchise,
+    ...current.local,
+    setStatus: (status) => update({ status }),
+    setRating: (rating) => update({ rating }),
+    setFavorite: (favorite) => update({ favorite }),
+    setNotes: (notes) => update({ notes }),
+    setFranchise: (franchiseId) => update({ franchiseId }),
+    changed,
+    dirty,
     saving,
     removing,
-    moving,
-    busy: saving || removing || moving,
+    busy: saving || removing,
     save,
     remove,
+    discard: () => commit({ ...latest.current, local: latest.current.base }),
+    handOff: () => {
+      const s = latest.current;
+      if (s.id && changedFields(s.local, s.base).length) writeTitleDraft(s.id, { local: s.local, base: s.base });
+    },
   };
 }

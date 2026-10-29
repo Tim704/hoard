@@ -23,6 +23,7 @@ import { getCurrentUser } from '@/lib/session';
 import { orderQueue } from '@/lib/queue';
 import { earlierUnfinished, isOrderMode, orderFranchiseMembers, type QueueHint } from '@/lib/franchise/order';
 import { getPrefs } from '@/lib/data-prefs';
+import { perRequest } from '@/lib/request-cache';
 import { displayTitle } from '@/lib/title';
 import { newSeasonBadge } from '@/lib/new-seasons';
 import { effectiveTimeZone } from '@/lib/prefs';
@@ -111,6 +112,52 @@ export async function getCategoryActivities(
   if (slug === 'tv') await markNewSeasons(user.id, rows as any[], out);
   if (slug === 'music') await markListenSuggestions(user.id, out);
   return out;
+}
+
+/** Prisma `where` for one activity of one user: an id alone never reads someone else's row. */
+export function ownedActivityWhere(id: string, userId: string): { id: string; userId: string } {
+  return { id, userId };
+}
+
+/**
+ * One of the current user's titles, flattened like a section page's (with
+ * the new-season and Last.fm flags), for the title page. Null when there is
+ * no such id, it is someone else's, or nobody is logged in. Memoised per
+ * request (the page and its metadata both read it).
+ */
+export const getActivity = perRequest(async (id: string): Promise<ActivityWithMedia | null> => {
+  if (typeof id !== 'string' || !id) return null;
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const include = { ...Object.fromEntries(CATEGORY_LIST.map((c) => [c.prismaModel, true])), franchise: FRANCHISE_REF };
+  const row = await prisma.userMediaActivity.findFirst({
+    where: ownedActivityWhere(id, user.id),
+    include: include as any,
+  });
+  if (!row || row.userId !== user.id) return null;
+  const cat = CATEGORY_LIST.find((c) => c.dbCategory === row.category);
+  const activity = cat ? flattenActivity(row, cat) : null;
+  if (!cat || !activity) return null;
+  if (cat.slug === 'tv') await markNewSeasons(user.id, [row], [activity]);
+  if (cat.slug === 'music') await markListenSuggestions(user.id, [activity]);
+  return activity;
+});
+
+/**
+ * The section of one of the current user's titles, without loading it
+ * (`?open=` redirects in page mode). Null when it isn't theirs.
+ */
+export async function getOwnedTitleRef(id: string): Promise<{ id: string; category: CategorySlug } | null> {
+  if (typeof id !== 'string' || !id) return null;
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const row = await prisma.userMediaActivity.findFirst({
+    where: ownedActivityWhere(id, user.id),
+    select: { id: true, category: true },
+  });
+  const cat = row ? CATEGORY_LIST.find((c) => c.dbCategory === row.category) : undefined;
+  return row && cat ? { id: row.id, category: cat.slug } : null;
 }
 
 /** 8.3: flag the albums Last.fm suggests marking as listened. */

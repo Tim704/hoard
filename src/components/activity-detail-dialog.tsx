@@ -53,7 +53,13 @@ export function ActivityDetailDialog({
 }: ActivityDetailDialogProps) {
   const router = useRouter();
   const titleOf = useDisplayTitle();
-  const editor = useTitleEditor(activity, { onDone: onClose });
+  const editor = useTitleEditor(activity, {
+    onSaved: onClose,
+    onRemoved: () => {
+      router.refresh();
+      onClose();
+    },
+  });
   // The TV title whose Seasons section has seasons: its progress is their sum.
   const [seasonTracked, setSeasonTracked] = useState<string | null>(null);
 
@@ -136,7 +142,7 @@ export function ActivityDetailDialog({
 
             <FranchiseField
               value={editor.franchiseId}
-              onChange={editor.changeFranchise}
+              onChange={editor.setFranchise}
               franchises={franchises}
               disabled={busy}
               locked={activity.franchiseLocked}
@@ -146,7 +152,7 @@ export function ActivityDetailDialog({
 
             <AddToListField key={`lists:${activity.id}`} activity={activity} disabled={busy} />
 
-            <FavouriteField value={editor.favorite} onToggle={() => editor.setFavorite((f) => !f)} />
+            <FavouriteField value={editor.favorite} onToggle={() => editor.setFavorite(!editor.favorite)} />
 
             <NotesField activity={activity} value={editor.notes} onChange={editor.setNotes} />
 
