@@ -64,9 +64,13 @@ export function toastStatusChange(
   });
 }
 
-/** "Layout: Fresh" · Undo — `undo` puts the previous value back (and reports itself). */
-export function toastUndoable(message: string, undo: () => void) {
+/**
+ * "Layout: Fresh" · Undo — `undo` puts the previous value back (and reports
+ * itself). A toast with the same `id` replaces this one.
+ */
+export function toastUndoable(message: string, undo: () => void, id?: string) {
   toast.success(message, {
+    id,
     duration: UNDO_MS,
     action: { label: 'Undo', onClick: undo },
   });

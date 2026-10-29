@@ -106,14 +106,20 @@ export function PrefsProvider({
     updatePrefs({ [key]: next } as PrefsPatch)
       .catch(() => ({ ok: false as const, error: undefined }))
       .then((res) => {
+        // A newer change for this key has taken over: it reports (and rolls
+        // back) for itself.
+        if (latest.current[key] !== seq) return;
+        // One toast per key: a new switch replaces the last one (and its
+        // Undo). Not for an undo: sonner is already closing the toast whose
+        // Undo was clicked, and would take a replacement down with it.
+        const id = undoable ? `display-pref-${key}` : undefined;
         if (res.ok) {
-          if (undoable) toastUndoable(SWITCH_MESSAGES[key](next), () => change(key, previous, false));
-          else toast.success('Undone.');
+          if (undoable) toastUndoable(SWITCH_MESSAGES[key](next), () => change(key, previous, false), id);
+          else toast.success('Undone.', { id });
           return;
         }
-        // Only the newest change rolls back; an older one is already overridden.
-        if (latest.current[key] === seq) show(previous);
-        toast.error(res.error ?? 'Could not save that setting.');
+        show(previous);
+        toast.error(res.error ?? 'Could not save that setting.', { id });
       })
       .finally(() => setInFlight((f) => ({ ...f, [key]: f[key] - 1 })));
   }, []);
