@@ -377,8 +377,7 @@
   }
   /* A sideways scroller that fades out at an edge with more to scroll to.
      Its script keeps data-fade ("start", "end", both or empty) up to date
-     (Fresh's tabs: src/components/shell/top-bar.tsx, whose FADE_PX is this
-     32px). */
+     (Fresh's tabs: src/lib/tab-strip.ts, whose FADE_PX is this 32px). */
   .edge-fade {
     --fade-start: 0px;
     --fade-end: 0px;

@@ -8,6 +8,7 @@ import { Boxes } from 'lucide-react';
 import { UserMenu } from '@/components/shell/user-menu';
 import { useIsomorphicLayoutEffect } from '@/hooks/use-isomorphic-layout-effect';
 import { isNavLinkActive, type NavLink } from '@/lib/nav-model';
+import { STRIP_SCRIPT, syncStrip, untouchedSinceReveal } from '@/lib/tab-strip';
 import { cn } from '@/lib/utils';
 
 /**
@@ -18,54 +19,9 @@ import { cn } from '@/lib/utils';
  *   phones get MobileBar instead.
  * - `tabs` (Fresh, every width): a translucent glass bar with the brand, the
  *   tabs (Home and the sections, scrolling sideways when they don't fit) and
- *   the avatar. On phones the tabs drop to a second line of chips.
+ *   the avatar. On phones the tabs drop to a second line of chips. Keeping
+ *   the open tab in view and the edge fades: src/lib/tab-strip.ts.
  */
-
-/** How far a clipped edge of the tab strip fades out: px, as in globals.css .edge-fade. */
-const FADE_PX = 32;
-
-/**
- * The tab strip's scroll state: with `reveal`, the open tab is scrolled to the
- * middle when it isn't clear of the faded edges, and `data-reveal` keeps the
- * scroll position that reveal left; then `data-fade` names the edges with
- * more to scroll to. STRIP_SCRIPT is the same for the first paint.
- */
-function syncStrip(ul: HTMLElement, reveal: boolean) {
-  const max = ul.scrollWidth - ul.clientWidth;
-  const on = ul.querySelector('[aria-current="page"]');
-  if (reveal && on && max > 0) {
-    const u = ul.getBoundingClientRect();
-    const r = on.getBoundingClientRect();
-    if (r.left < u.left + FADE_PX || r.right > u.right - FADE_PX) {
-      ul.scrollLeft += r.left - u.left - (u.width - r.width) / 2;
-    }
-  }
-  if (reveal) ul.dataset.reveal = String(ul.scrollLeft);
-  const fade = [];
-  if (ul.scrollLeft > 1) fade.push('start');
-  if (ul.scrollLeft < max - 1) fade.push('end');
-  ul.dataset.fade = fade.join(' ');
-}
-
-/**
- * Whether the strip still sits where the last automatic reveal left it (or
- * where the browser clamped that to, when the strip got narrower): false
- * once the user has scrolled it.
- */
-function untouchedSinceReveal(ul: HTMLElement): boolean {
-  const at = Number(ul.dataset.reveal);
-  if (!Number.isFinite(at)) return false;
-  const max = Math.max(0, ul.scrollWidth - ul.clientWidth);
-  return Math.abs(ul.scrollLeft - Math.min(at, max)) <= 1;
-}
-
-/**
- * syncStrip(previous sibling, true) as an inline script right after the
- * server-rendered strip: it runs while the page is parsed, so the open tab is
- * in view (and the fades are on) in the first paint, not after hydration.
- * Hand-written ES5, kept in step with syncStrip.
- */
-const STRIP_SCRIPT = `(function(){var s=document.currentScript,u=s&&s.previousElementSibling;if(!u)return;var m=u.scrollWidth-u.clientWidth,a=u.querySelector('[aria-current="page"]');if(a&&m>0){var b=u.getBoundingClientRect(),r=a.getBoundingClientRect();if(r.left<b.left+${FADE_PX}||r.right>b.right-${FADE_PX})u.scrollLeft+=r.left-b.left-(b.width-r.width)/2}u.setAttribute('data-reveal',String(u.scrollLeft));var f=[];if(u.scrollLeft>1)f.push('start');if(u.scrollLeft<m-1)f.push('end');u.setAttribute('data-fade',f.join(' '))})()`;
 
 export function TopBar({ variant, links }: { variant: 'links' | 'tabs'; links: NavLink[] }) {
   const pathname = usePathname();
