@@ -21,6 +21,7 @@ import {
 
 import { iconFor } from '@/components/icons';
 import { Score } from '@/components/prefs-provider';
+import { StatusIcon } from '@/components/status-icon';
 import { GoalBar } from '@/components/stats/goals-client';
 import { TitleLink } from '@/components/title/title-link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +31,7 @@ import type { TitleLanguage } from '@/lib/display-prefs';
 import type { ShowcaseSection } from '@/lib/favourites';
 import type { ComingUpItem } from '@/lib/data-tonight';
 import { formatYmd } from '@/lib/release';
+import type { Status } from '@/lib/status';
 import type { GoalProgress } from '@/lib/stats/goals';
 import { isTierEligible } from '@/lib/tiers';
 import { displayTitle } from '@/lib/title';
@@ -273,6 +275,13 @@ export function FavouritesRow({
   );
 }
 
+/** A section tile's status line: each entry's status (its icon), count and word. */
+const STATUS_LINE = [
+  { status: 'CONSUMING', count: 'ongoing', word: 'ongoing' },
+  { status: 'PLANNED', count: 'planned', word: 'planned' },
+  { status: 'COMPLETED', count: 'completed', word: 'done' },
+] as const satisfies readonly { status: Status; count: keyof CategoryStat; word: string }[];
+
 export function CategoryCard({ stat }: { stat: CategoryStat }) {
   const config = CATEGORIES[stat.slug];
   const Icon = iconFor(config.icon);
@@ -288,7 +297,7 @@ export function CategoryCard({ stat }: { stat: CategoryStat }) {
           <CardTitle className="text-base font-semibold">{stat.label}</CardTitle>
           <Icon className="h-5 w-5 text-muted-foreground" />
         </CardHeader>
-        <CardContent>
+        <CardContent className="[container-type:inline-size]">
           {/* BIG headline metric */}
           {empty ? (
             <p className="text-2xl font-bold tracking-tight text-muted-foreground">
@@ -303,20 +312,21 @@ export function CategoryCard({ stat }: { stat: CategoryStat }) {
             </p>
           )}
 
-          {/* Status breakdown */}
-          <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-muted-foreground">
-            <span>
-              <span className="font-semibold tabular-nums text-foreground">{stat.ongoing}</span>{' '}
-              ongoing
-            </span>
-            <span>
-              <span className="font-semibold tabular-nums text-foreground">{stat.planned}</span>{' '}
-              planned
-            </span>
-            <span>
-              <span className="font-semibold tabular-nums text-foreground">{stat.completed}</span>{' '}
-              done
-            </span>
+          {/* Status breakdown: one line. In a narrow card the words give way
+              to the status icons (screen readers still hear the words); a
+              count too long even for that cuts the last entry short. */}
+          <div className="mt-3 flex flex-nowrap items-center gap-x-3 text-sm text-muted-foreground">
+            {STATUS_LINE.map(({ status, count, word }, i) => (
+              <span key={status} className={i === STATUS_LINE.length - 1 ? 'min-w-0 truncate' : 'shrink-0'}>
+                <StatusIcon
+                  status={status}
+                  decorative
+                  className="mr-1 hidden h-3.5 w-3.5 align-[-2px] [@container(max-width:14rem)]:inline-block"
+                />
+                <span className="font-semibold tabular-nums text-foreground">{stat[count]}</span>
+                <span className="[@container(max-width:14rem)]:sr-only">{' '}{word}</span>
+              </span>
+            ))}
           </div>
 
           {/* Avg rating */}
