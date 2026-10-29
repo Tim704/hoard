@@ -3,9 +3,11 @@
 // Unsaved edits on a title page, kept for this browser tab (sessionStorage,
 // with an in-memory copy when storage is unavailable): leaving the page with
 // edits keeps them, and the page shows them again, still unsaved. The popup
-// hands its edits over the same way ("Open full page"). Rules: src/lib/title-draft.ts.
+// hands its edits over the same way ("Open full page"), merged into any kept
+// ones; a popup save drops from them only what it wrote. Rules:
+// src/lib/title-draft.ts.
 
-import { parseDraft, type TitleDraft } from '@/lib/title-draft';
+import { mergeDraft, parseDraft, pruneDraft, type TitleDraft, type TitleValues } from '@/lib/title-draft';
 
 const PREFIX = 'hoard:title-draft:';
 const memory = new Map<string, string>();
@@ -40,4 +42,18 @@ export function clearTitleDraft(id: string): void {
   } catch {
     // Nothing stored.
   }
+}
+
+/** Merges `draft`'s edits into the kept ones (its edits win a field both edited). */
+export function mergeTitleDraft(id: string, draft: TitleDraft): void {
+  writeTitleDraft(id, mergeDraft(readTitleDraft(id), draft));
+}
+
+/** A save wrote `fields`: they stop being kept edits; the draft goes once none are left. */
+export function pruneTitleDraft(id: string, fields: readonly (keyof TitleValues)[]): void {
+  const draft = readTitleDraft(id);
+  if (!draft) return;
+  const rest = pruneDraft(draft, fields);
+  if (rest) writeTitleDraft(id, rest);
+  else clearTitleDraft(id);
 }

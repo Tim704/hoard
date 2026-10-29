@@ -8,8 +8,10 @@ import {
   followServer,
   isDirty,
   applyDraft,
+  mergeDraft,
   parseDraft,
   parseValues,
+  pruneDraft,
   valuesKey,
   valuesOf,
   type TitleValues,
@@ -142,5 +144,62 @@ describe('applyDraft', () => {
   it('a draft without edits shows the server as it is', () => {
     const server = { ...base, favorite: true };
     expect(applyDraft(server, { local: base, base })).toEqual(server);
+  });
+});
+
+describe('pruneDraft', () => {
+  it('drops only the written fields, keeping the other edits', () => {
+    // The page left a franchise pick and a notes edit; the popup then saved Favorite.
+    const draft = { local: { ...base, notes: 'page notes', franchiseId: 'fr1' }, base };
+    expect(pruneDraft(draft, ['favorite'])).toEqual(draft);
+    // The popup saved the notes too: only the franchise pick stays.
+    expect(pruneDraft(draft, ['favorite', 'notes'])).toEqual({ local: { ...base, franchiseId: 'fr1' }, base });
+  });
+  it('is null once no edits remain', () => {
+    const draft = { local: { ...base, notes: 'page notes' }, base };
+    expect(pruneDraft(draft, ['notes', 'status'])).toBeNull();
+    expect(pruneDraft({ local: base, base }, [])).toBeNull();
+  });
+  it('a franchise move that failed was not written, so its edit stays', () => {
+    const draft = { local: { ...base, franchiseId: 'fr1', rating: 9 }, base };
+    // The save wrote the score; the franchise move failed (not in `written`).
+    expect(pruneDraft(draft, ['rating'])).toEqual({ local: { ...base, franchiseId: 'fr1' }, base });
+  });
+  it('leaves the stored draft as it was', () => {
+    const draft = { local: { ...base, notes: 'x' }, base };
+    pruneDraft(draft, ['notes']);
+    expect(draft.local.notes).toBe('x');
+  });
+});
+
+describe('mergeDraft', () => {
+  it('is the incoming draft when nothing is stored', () => {
+    const incoming = { local: { ...base, favorite: true }, base };
+    expect(mergeDraft(null, incoming)).toEqual(incoming);
+  });
+  it('keeps the stored edits the incoming draft doesn’t touch', () => {
+    // The page had a franchise pick; the popup hands over a favourite.
+    const stored = { local: { ...base, franchiseId: 'fr1' }, base };
+    const incoming = { local: { ...base, favorite: true }, base };
+    const merged = mergeDraft(stored, incoming);
+    expect(merged.local).toEqual({ ...base, franchiseId: 'fr1', favorite: true });
+    expect(changedFields(merged.local, merged.base)).toEqual(['favorite', 'franchiseId']);
+  });
+  it('the incoming edit wins a field both edited', () => {
+    const stored = { local: { ...base, notes: 'from the page', rating: 5 }, base };
+    const incoming = { local: { ...base, notes: 'from the popup' }, base };
+    expect(mergeDraft(stored, incoming).local).toEqual({ ...base, notes: 'from the popup', rating: 5 });
+  });
+  it('keeps each kept edit against the value it was made against', () => {
+    // The page's notes edit was made against 'ok'; the popup now sees the
+    // server's newer status. A later applyDraft still checks each field
+    // against its own base.
+    const stored = { local: { ...base, notes: 'from the page' }, base };
+    const newer = { ...base, status: 'COMPLETED' as const };
+    const incoming = { local: { ...newer, favorite: true }, base: newer };
+    const merged = mergeDraft(stored, incoming);
+    expect(merged.base).toEqual(newer);
+    expect(merged.local).toEqual({ ...newer, favorite: true, notes: 'from the page' });
+    expect(applyDraft(newer, merged)).toEqual({ ...newer, favorite: true, notes: 'from the page' });
   });
 });

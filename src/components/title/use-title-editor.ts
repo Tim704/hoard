@@ -8,7 +8,9 @@
 // to hold (`base`): `dirty` is their difference, and a newer server value
 // (Undo, Watch again, "Mark as Listened", another tab) flows into every field
 // that wasn't edited (src/lib/title-draft.ts). With `keepDrafts` (the title
-// page) unsaved edits outlive the page for this tab (./title-drafts.ts).
+// page) unsaved edits outlive the page for this tab (./title-drafts.ts): the
+// page's draft effect alone writes and clears them. A popup save drops from
+// them only the fields it wrote; "Open full page" merges the popup's edits in.
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -32,7 +34,7 @@ import {
 } from '@/lib/title-draft';
 import type { ActivityWithMedia } from '@/lib/types';
 
-import { clearTitleDraft, readTitleDraft, writeTitleDraft } from './title-drafts';
+import { clearTitleDraft, mergeTitleDraft, pruneTitleDraft, readTitleDraft, writeTitleDraft } from './title-drafts';
 
 
 export interface TitleEditor extends TitleValues {
@@ -157,14 +159,16 @@ export function useTitleEditor(activity: ActivityWithMedia | null, options: Titl
         if (!moved.ok) {
           franchiseFailed = true;
           saved = { ...values, franchiseId: before.base.franchiseId };
-          // The one toast for this save: it also says the rest was saved.
-          toast.error(moved.error ?? 'Could not change the franchise.', { description: 'Everything else was saved.' });
+          // The one toast for this save: it says the rest was saved, when there was any.
+          const others = changedFields(saved, before.base).length > 0;
+          toast.error(moved.error ?? 'Could not change the franchise.', others ? { description: 'Everything else was saved.' } : {});
         }
       }
-      // The fields now match what was saved; anything typed meanwhile stays an
-      // edit. Unsaved edits kept for this title (the full page's draft) are
-      // now older than the server: drop them, from the popup too.
-      clearTitleDraft(activity.id);
+      // The page's draft effect keeps its draft in step with the fields. A
+      // popup save drops from the page's kept edits what it wrote (they are
+      // older than the server now), keeping the rest — not a failed move.
+      if (!keepDrafts) pruneTitleDraft(activity.id, changedFields(saved, before.base));
+      // The fields now match what was saved; anything typed meanwhile stays an edit.
       const now = latest.current;
       commit({ ...now, local: statusOverride ? { ...now.local, status: statusOverride } : now.local, base: saved });
 
@@ -225,7 +229,7 @@ export function useTitleEditor(activity: ActivityWithMedia | null, options: Titl
     discard: () => commit({ ...latest.current, local: latest.current.base }),
     handOff: () => {
       const s = latest.current;
-      if (s.id && changedFields(s.local, s.base).length) writeTitleDraft(s.id, { local: s.local, base: s.base });
+      if (s.id && changedFields(s.local, s.base).length) mergeTitleDraft(s.id, { local: s.local, base: s.base });
     },
   };
 }
