@@ -26,7 +26,16 @@ export function useGlobalSearch(): GlobalSearchApi {
   return useContext(GlobalSearchContext);
 }
 
-export function GlobalSearchProvider({ userId, children }: { userId: string; children: React.ReactNode }) {
+export function GlobalSearchProvider({
+  userId,
+  social,
+  children,
+}: {
+  userId: string;
+  /** The viewer's sharing opt-ins: the palette lists the Friends pages only with them. */
+  social: { compare: boolean; feed: boolean };
+  children: React.ReactNode;
+}) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -76,7 +85,7 @@ export function GlobalSearchProvider({ userId, children }: { userId: string; chi
     <GlobalSearchContext.Provider value={api}>
       {children}
       <SearchEverythingDialog open={searchOpen} onOpenChange={setSearchOpen} initialQuery={searchQuery} />
-      <CommandPalette userId={userId} open={paletteOpen} onOpenChange={setPaletteOpen} onSearchEverything={openSearch} />
+      <CommandPalette userId={userId} social={social} open={paletteOpen} onOpenChange={setPaletteOpen} onSearchEverything={openSearch} />
     </GlobalSearchContext.Provider>
   );
 }

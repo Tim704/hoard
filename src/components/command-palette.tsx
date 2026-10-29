@@ -18,9 +18,10 @@ import {
 import { updateActivity } from '@/lib/actions/media';
 import { moveToQueueTop } from '@/lib/actions/queue';
 import { libraryIndex } from '@/lib/actions/search';
-import { CATEGORIES, NAV_ORDER } from '@/lib/categories';
+import { CATEGORIES, isCategorySlug } from '@/lib/categories';
 import type { LibraryIndexEntry } from '@/lib/data-search';
 import { rankFuzzy } from '@/lib/fuzzy';
+import { paletteLinks } from '@/lib/nav-model';
 import { SETTINGS_TABS, SETTINGS_TAB_LABELS, settingsHref } from '@/lib/settings-nav';
 import { nextHighlight } from '@/lib/search-nav';
 import { statusLabel, type Status } from '@/lib/status';
@@ -51,12 +52,15 @@ const MAX_TITLES = 30;
 
 export function CommandPalette({
   userId,
+  social,
   open,
   onOpenChange,
   onSearchEverything,
 }: {
   /** The signed-in user: the index cache only serves its owner. */
   userId: string;
+  /** The viewer's sharing opt-ins (the Friends pages are listed only with them). */
+  social: { compare: boolean; feed: boolean };
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSearchEverything: (query: string) => void;
@@ -92,26 +96,21 @@ export function CommandPalette({
     };
   }, [open, userId]);
 
+  // Every page the navigation has (src/lib/nav-model.ts), each section's
+  // tier list, Add by link and the Settings tabs.
   const pages = useMemo(() => {
-    const hidden = new Set<string>(hiddenSections);
-    const list: Array<{ label: string; href: string }> = [{ label: 'Dashboard', href: '/dashboard' }];
-    for (const slug of NAV_ORDER) {
-      if (hidden.has(slug)) continue;
-      list.push({ label: CATEGORIES[slug].label, href: `/${slug}` });
-      list.push({ label: `${CATEGORIES[slug].label} · Tiers`, href: `/${slug}/arena` });
+    const list: Array<{ label: string; href: string }> = [];
+    for (const link of paletteLinks({ hidden: hiddenSections, social })) {
+      if (link.id === 'settings') list.push({ label: 'Add by link', href: '/add' });
+      list.push({ label: link.label, href: link.href });
+      if (isCategorySlug(link.id)) list.push({ label: `${CATEGORIES[link.id].label} · Tiers`, href: `/${link.id}/arena` });
     }
-    if (!hidden.has('franchises')) list.push({ label: 'Franchises', href: '/franchises' });
-    list.push({ label: 'Stats', href: '/stats' });
-    list.push({ label: 'Views', href: '/views' });
-    list.push({ label: 'Add by link', href: '/add' });
-    list.push({ label: 'Import', href: '/import' });
-    list.push({ label: 'Settings', href: '/settings' });
     // Found by name only ("themes", "accounts"…). System is left out: it is the owner's alone.
     for (const tab of SETTINGS_TABS) {
       if (tab !== 'system') list.push({ label: `Settings · ${SETTINGS_TAB_LABELS[tab]}`, href: settingsHref(tab) });
     }
     return list;
-  }, [hiddenSections]);
+  }, [hiddenSections, social]);
 
   const items: Item[] = useMemo(() => {
     const q = query.trim();

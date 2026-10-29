@@ -42,7 +42,7 @@ export default async function AppLayout({
       detectRegion={needsRegionDetection(allPrefs)}
       today={todayYmd(effectiveTimeZone(allPrefs))}
     >
-      <GlobalSearchProvider userId={user.id}>
+      <GlobalSearchProvider userId={user.id} social={social}>
         <AppShell
           username={user.username}
           initialCollapsed={sidebarCollapsed}
