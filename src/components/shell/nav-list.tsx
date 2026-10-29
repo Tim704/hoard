@@ -38,11 +38,11 @@ export function NavList({
           key={group.id}
           role={group.label ? 'group' : undefined}
           aria-label={group.label ?? undefined}
+          // The gap between groups is padding: the parent's space-y-1 sets
+          // every group's top margin and would beat an mt-*.
           className={cn(
-            'space-y-1',
-            i > 0 && 'mt-2 organised:mt-4',
-            i > 0 && collapsed && 'border-t border-border pt-2 organised:mt-2',
-            'organised:space-y-0.5',
+            'space-y-1 organised:space-y-0.5',
+            i > 0 && (collapsed ? 'border-t border-border pt-2' : 'pt-3'),
           )}
         >
           {group.label && !collapsed && (
