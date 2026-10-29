@@ -151,6 +151,28 @@ if (failures.length === 0) {
     await page.keyboard.press('Enter');
     await page.waitForURL((url) => url.pathname === '/settings', { timeout: 15_000 });
   });
+  // Layouts: <html data-layout> is server-rendered (Classic by default and
+  // when signed out), React leaves <html>'s class to the theme script, and
+  // Classic keeps the light/dark toggle.
+  await step('classic layout on <html>', async () => {
+    const ssr = await (await page.request.get(`${BASE_URL}/dashboard`)).text();
+    const tag = ssr.match(/<html[^>]*>/)?.[0] ?? '';
+    if (!/data-layout="classic"/.test(tag) || /class=/.test(tag)) throw new Error(`server-rendered ${tag}`);
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+    const html = await page.evaluate(() => ({ layout: document.documentElement.dataset.layout, cls: document.documentElement.className }));
+    if (html.layout !== 'classic') throw new Error(`data-layout is ${html.layout}`);
+    if (html.cls !== '' && html.cls !== 'dark') throw new Error(`unexpected <html> class: ${html.cls}`);
+    await page.locator('aside').getByRole('button', { name: 'Toggle theme' }).waitFor({ timeout: 10_000 });
+    const signedOut = await browser.newContext();
+    try {
+      const p = await signedOut.newPage();
+      await p.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
+      const layout = await p.evaluate(() => document.documentElement.dataset.layout);
+      if (layout !== 'classic') throw new Error(`signed out, data-layout is ${layout}`);
+    } finally {
+      await signedOut.close();
+    }
+  });
   // TV seasons (3.3 / 4.5): the demo show's details list its seasons and
   // link to the season tier page.
   await step('tv seasons → season tiers', async () => {

@@ -1,4 +1,7 @@
 import type { Config } from 'tailwindcss';
+import plugin from 'tailwindcss/plugin';
+
+import { LAYOUT_IDS } from './src/lib/layouts';
 
 const config: Config = {
   darkMode: ['class'],
@@ -49,9 +52,15 @@ const config: Config = {
           foreground: 'hsl(var(--popover-foreground))',
         },
         card: {
-          DEFAULT: 'hsl(var(--card))',
+          // --card-alpha: Fresh's glass cards (globals.css), 1 elsewhere. It
+          // multiplies with an opacity modifier, so bg-card/40 still works.
+          DEFAULT: 'hsl(var(--card) / calc(var(--card-alpha, 1) * <alpha-value>))',
           foreground: 'hsl(var(--card-foreground))',
         },
+      },
+      fontFamily: {
+        // The layout's display face (globals.css): the sans stack in Classic.
+        display: 'var(--font-display)',
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -74,7 +83,14 @@ const config: Config = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [
+    require('tailwindcss-animate'),
+    // `classic:` / `minimal:` / `organised:` / `fresh:` style an element for
+    // one layout (<html data-layout>, src/lib/layouts.ts), without JS branches.
+    plugin(({ addVariant }) => {
+      for (const id of LAYOUT_IDS) addVariant(id, `:is([data-layout="${id}"] &)`);
+    }),
+  ],
 };
 
 export default config;

@@ -83,6 +83,185 @@
     --viz-grid: #27272a;
     --viz-axis: #3f3f46;
   }
+
+  /* ── Layouts (src/lib/layouts.ts) ─────────────────────────────────────────
+     <html data-layout="classic|minimal|organised|fresh">, rendered by the
+     root layout. Classic keeps the tokens above untouched; the blocks below
+     override them per layout (light and dark apart where they differ), plus
+     the layout variables:
+       --page-pad      horizontal page padding;
+       --grid-gap      gap between cards;
+       --font-display  the layout's display face (Tailwind `font-display`);
+       --card-alpha    card opacity (Fresh's glass cards), multiplied into
+                       Tailwind's `card` colour; `--card` stays a bare HSL
+                       triple, as hsl(var(--card)) is used outside Tailwind.
+     Each layout's @media block follows its base block, so it wins at sm+. */
+  :root {
+    --card-alpha: 1;
+    --page-pad: 1rem;
+    --grid-gap: 0.75rem;
+    --font-display: ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+      'Noto Color Emoji';
+  }
+  @media (min-width: 640px) {
+    :root {
+      --page-pad: 1.5rem;
+      --grid-gap: 1rem;
+    }
+  }
+
+  /* Minimal: airy and neutral. White paper, an ink-black accent, soft
+     borders, rounder corners and more room. Manrope. */
+  [data-layout='minimal'] {
+    --radius: 0.75rem;
+    --page-pad: 1.25rem;
+    --grid-gap: 1rem;
+  }
+  @media (min-width: 640px) {
+    [data-layout='minimal'] {
+      --page-pad: 2.5rem;
+      --grid-gap: 1.5rem;
+    }
+  }
+  [data-layout='minimal']:not(.dark) {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 0 0% 95%;
+    --accent-foreground: 0 0% 9%;
+    --border: 0 0% 92%;
+    --input: 0 0% 89%;
+    --ring: 0 0% 40%;
+    --scrollbar: 0 0% 84%;
+    --scrollbar-hover: 0 0% 62%;
+  }
+  [data-layout='minimal'].dark {
+    --background: 0 0% 6%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 0 0% 95%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 13%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 13%;
+    --muted-foreground: 0 0% 62%;
+    --accent: 0 0% 13%;
+    --accent-foreground: 0 0% 95%;
+    --border: 0 0% 14%;
+    --input: 0 0% 17%;
+    --ring: 0 0% 70%;
+    --scrollbar: 0 0% 24%;
+    --scrollbar-hover: 0 0% 40%;
+  }
+
+  /* Organised: tidy and a little cooler. Slate surfaces, a blue accent,
+     squarer corners and tighter spacing. */
+  [data-layout='organised'] {
+    --radius: 0.375rem;
+    --page-pad: 1rem;
+    --grid-gap: 0.75rem;
+  }
+  @media (min-width: 640px) {
+    [data-layout='organised'] {
+      --page-pad: 1.5rem;
+      --grid-gap: 0.75rem;
+    }
+  }
+  [data-layout='organised']:not(.dark) {
+    --background: 220 20% 97%;
+    --foreground: 222 28% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 28% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 28% 10%;
+    --primary: 221 72% 47%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 94%;
+    --secondary-foreground: 222 28% 14%;
+    --muted: 220 14% 94%;
+    --muted-foreground: 220 9% 38%;
+    --accent: 221 70% 95%;
+    --accent-foreground: 221 60% 28%;
+    --border: 220 13% 87%;
+    --input: 220 13% 85%;
+    --ring: 221 72% 47%;
+    --scrollbar: 220 9% 78%;
+    --scrollbar-hover: 221 30% 60%;
+  }
+  [data-layout='organised'].dark {
+    --background: 222 24% 6%;
+    --foreground: 210 20% 96%;
+    --card: 222 20% 8.5%;
+    --card-foreground: 210 20% 96%;
+    --popover: 222 20% 8.5%;
+    --popover-foreground: 210 20% 96%;
+    --primary: 213 90% 66%;
+    --primary-foreground: 222 40% 8%;
+    --secondary: 222 15% 15%;
+    --secondary-foreground: 210 20% 96%;
+    --muted: 222 15% 15%;
+    --muted-foreground: 218 11% 65%;
+    --accent: 222 15% 15%;
+    --accent-foreground: 210 20% 96%;
+    --border: 222 15% 16%;
+    --input: 222 15% 18%;
+    --ring: 213 90% 66%;
+    --scrollbar: 222 10% 26%;
+    --scrollbar-hover: 222 14% 42%;
+  }
+
+  /* Fresh: cinematic dark, always (the `dark` class is forced too, so
+     Tailwind's dark: variants apply). A near-black stage, warm white text,
+     an amber accent and translucent glass cards (backdrop blur is added
+     where a card sits over imagery). Opaque popovers for legibility. Outfit.
+     :root raises the specificity above .dark. Its background is also the
+     forced theme-color in src/app/layout.tsx. */
+  :root[data-layout='fresh'] {
+    color-scheme: dark;
+    --background: 240 14% 4%;
+    --foreground: 36 24% 95%;
+    --card: 240 10% 12%;
+    --card-alpha: 0.6;
+    --card-foreground: 36 24% 95%;
+    --popover: 240 12% 8%;
+    --popover-foreground: 36 24% 95%;
+    --primary: 33 96% 58%;
+    --primary-foreground: 24 50% 7%;
+    --secondary: 240 8% 14%;
+    --secondary-foreground: 36 24% 95%;
+    --muted: 240 8% 14%;
+    --muted-foreground: 240 6% 66%;
+    --accent: 30 35% 15%;
+    --accent-foreground: 36 90% 76%;
+    --destructive: 0 70% 46%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 8% 17%;
+    --input: 240 8% 19%;
+    --ring: 33 96% 58%;
+    --radius: 0.875rem;
+    --scrollbar: 240 6% 24%;
+    --scrollbar-hover: 33 45% 42%;
+    --page-pad: 1rem;
+    --grid-gap: 0.75rem;
+  }
+  @media (min-width: 640px) {
+    :root[data-layout='fresh'] {
+      --page-pad: 2rem;
+      --grid-gap: 1.25rem;
+    }
+  }
 }
 
 @layer base {
@@ -96,6 +275,16 @@
       'calt' 1;
     /* No gray tap flash on mobile — cards/pips provide their own pressed states. */
     -webkit-tap-highlight-color: transparent;
+  }
+  /* The layout's typeface: its next/font variable is set on <body> (root
+     layout), so --font-display is resolved here rather than on <html>. */
+  [data-layout='minimal'] body {
+    --font-display: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-display);
+  }
+  [data-layout='fresh'] body {
+    --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-display);
   }
 }
 
