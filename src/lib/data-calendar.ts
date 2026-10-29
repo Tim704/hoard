@@ -18,10 +18,12 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { CATEGORY_LIST, getCategory, type CategorySlug } from '@/lib/categories';
 import type { CalendarItem } from '@/lib/calendar';
+import type { TitleView } from '@/lib/display-prefs';
 import { parseUpcoming } from '@/lib/franchise/upcoming';
 import { effectiveTimeZone, type Prefs } from '@/lib/prefs';
 import { todayYmd } from '@/lib/release';
 import { displayTitle } from '@/lib/title';
+import { titleHref } from '@/lib/title-href';
 
 const DAY_MS = 86_400_000;
 
@@ -29,13 +31,23 @@ function dayStart(ymd: string): Date {
   return new Date(`${ymd}T00:00:00Z`);
 }
 
-/** Calendar items between `from` and `to` (inclusive YYYY-MM-DD days). */
-export async function getCalendarItems(userId: string, prefs: Prefs, from: string, to: string): Promise<CalendarItem[]> {
+/**
+ * Calendar items between `from` and `to` (inclusive YYYY-MM-DD days). Titles
+ * link the way `titleView` says; the default is the universal `?open=` link,
+ * which the iCal feed keeps (a calendar app stores it).
+ */
+export async function getCalendarItems(
+  userId: string,
+  prefs: Prefs,
+  from: string,
+  to: string,
+  titleView: TitleView = 'popup',
+): Promise<CalendarItem[]> {
   const tz = effectiveTimeZone(prefs);
   const lang = prefs.titleLanguage;
   const hidden = new Set<string>(prefs.hiddenSections);
   const items: CalendarItem[] = [];
-  const href = (slug: CategorySlug, id: string) => `/${slug}?open=${encodeURIComponent(id)}`;
+  const href = (slug: CategorySlug, id: string) => titleHref(slug, id, titleView);
 
   // Planned releases, every section.
   for (const cat of CATEGORY_LIST) {

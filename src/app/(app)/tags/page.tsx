@@ -4,6 +4,7 @@ import { ImageOff, Tag, X } from 'lucide-react';
 
 import { MediaTitle } from '@/components/prefs-provider';
 import { StatusBadge } from '@/components/status-badge';
+import { TitleLink } from '@/components/title/title-link';
 import { CATEGORIES, NAV_ORDER } from '@/lib/categories';
 import { getMyTags, getTaggedActivities } from '@/lib/data-tags';
 import { requireUser } from '@/lib/session';
@@ -95,8 +96,9 @@ export default async function TagsPage({ searchParams }: { searchParams: { tag?:
             <ul className="flex flex-col gap-2">
               {tagged.map((a) => (
                 <li key={a.id}>
-                  <Link
-                    href={`/${a.category}?open=${encodeURIComponent(a.id)}`}
+                  <TitleLink
+                    slug={a.category}
+                    id={a.id}
                     className="flex items-center gap-3 rounded-lg border border-border bg-card p-2 transition hover:border-primary/60"
                   >
                     <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded bg-muted">
@@ -118,7 +120,7 @@ export default async function TagsPage({ searchParams }: { searchParams: { tag?:
                       </p>
                     </div>
                     <StatusBadge status={a.status} slug={a.category} />
-                  </Link>
+                  </TitleLink>
                 </li>
               ))}
             </ul>

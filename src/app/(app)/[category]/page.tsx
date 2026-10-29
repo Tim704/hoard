@@ -1,9 +1,11 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import { CategoryClient } from '@/components/category-client';
 import { getCategory } from '@/lib/categories';
-import { getCategoryActivities, getFranchiseOptions } from '@/lib/data';
+import { getCategoryActivities, getFranchiseOptions, getOwnedTitleRef } from '@/lib/data';
+import { getCurrentPrefs } from '@/lib/data-prefs';
 import { normalizeTags } from '@/lib/tags';
+import { openRedirect } from '@/lib/title-href';
 
 interface CategoryPageProps {
   // Next 14: route params are a plain object (not a Promise).
@@ -14,6 +16,15 @@ interface CategoryPageProps {
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
   const config = getCategory(params.category);
   if (!config) notFound();
+
+  // `?open=<id>` is the universal link to a title (notifications, iCal, the
+  // palette): with the "Full page" title view it goes to the title's page.
+  const open = typeof searchParams.open === 'string' ? searchParams.open : undefined;
+  if (open) {
+    const { titleView } = await getCurrentPrefs();
+    const to = titleView === 'page' ? openRedirect(titleView, await getOwnedTitleRef(open)) : null;
+    if (to) redirect(to);
+  }
 
   const [activities, franchises] = await Promise.all([
     getCategoryActivities(config.slug),
@@ -26,7 +37,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       config={config}
       activities={activities}
       franchises={franchises}
-      openId={typeof searchParams.open === 'string' ? searchParams.open : undefined}
+      openId={open}
       openNonce={typeof searchParams.t === 'string' ? searchParams.t : undefined}
       initialTags={normalizeTags([searchParams.tag ?? []].flat())}
     />

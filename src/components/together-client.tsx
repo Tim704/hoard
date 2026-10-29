@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { toast } from 'sonner';
 import { ImageOff, Loader2 } from 'lucide-react';
 
+import { TitleLink } from '@/components/title/title-link';
 import { Button } from '@/components/ui/button';
 import { compareWith } from '@/lib/actions/together';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
@@ -92,8 +92,9 @@ export function TogetherClient({ users, sections }: { users: string[]; sections:
             <ol className="flex flex-col gap-2">
               {result.items.map((item, i) => (
                 <li key={`${item.slug}:${item.activityId}`}>
-                  <Link
-                    href={`/${item.slug}?open=${encodeURIComponent(item.activityId)}`}
+                  <TitleLink
+                    slug={item.slug}
+                    id={item.activityId}
                     className="flex items-center gap-3 rounded-lg border border-border bg-card p-2 pr-3 transition hover:border-primary/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <span className="w-6 shrink-0 text-center font-bold tabular-nums text-muted-foreground">{i + 1}</span>
@@ -113,7 +114,7 @@ export function TogetherClient({ users, sections }: { users: string[]; sections:
                         your queue, #{item.theirPosition} in theirs
                       </p>
                     </div>
-                  </Link>
+                  </TitleLink>
                 </li>
               ))}
             </ol>

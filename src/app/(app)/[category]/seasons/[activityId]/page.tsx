@@ -1,8 +1,8 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 
 import { RankedSeasonList, SeasonArena, SeasonTierBoard } from '@/components/season-tiers';
+import { TitleLink } from '@/components/title/title-link';
 import { getSeasonTierPage } from '@/lib/data-seasons';
 
 interface SeasonPageProps {
@@ -22,13 +22,14 @@ export default async function SeasonTiersPage({ params }: SeasonPageProps) {
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6">
       <div className="mb-6">
-        <Link
-          href={`/tv?open=${encodeURIComponent(data.activityId)}`}
+        <TitleLink
+          slug="tv"
+          id={data.activityId}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
           Back to {data.show.title}
-        </Link>
+        </TitleLink>
         <h1 className="mt-2 text-2xl font-bold tracking-tight">Tier the seasons of {data.show.title}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Every season you have watched episodes of (or scored) can go in a tier from S to F. The

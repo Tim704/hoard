@@ -5,6 +5,7 @@ import { ArrowLeft, GitCompareArrows } from 'lucide-react';
 import { CompareOffNotice, CompareUnavailable, Cover } from '@/components/compare-parts';
 import { CompareSTier } from '@/components/compare-s-tier';
 import { Score } from '@/components/prefs-provider';
+import { TitleLink } from '@/components/title/title-link';
 import { CATEGORIES } from '@/lib/categories';
 import { MIN_SHARED_SCORES } from '@/lib/compare';
 import { compareLibraries, SHARED_LIST_LIMIT, type SharedView } from '@/lib/data-compare';
@@ -138,8 +139,9 @@ function Empty({ children }: { children: React.ReactNode }) {
 function SharedRow({ item, them }: { item: SharedView; them: string }) {
   return (
     <li>
-      <Link
-        href={`/${item.slug}?open=${encodeURIComponent(item.myActivityId)}`}
+      <TitleLink
+        slug={item.slug}
+        id={item.myActivityId}
         className="flex items-center gap-3 rounded-lg border border-border bg-card p-2 pr-3 transition hover:border-primary/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Cover src={item.imageUrl} alt={item.title} />
@@ -159,7 +161,7 @@ function SharedRow({ item, them }: { item: SharedView; them: string }) {
             <Score value={item.theirRating} />
           </span>
         </div>
-      </Link>
+      </TitleLink>
     </li>
   );
 }

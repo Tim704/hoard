@@ -3,7 +3,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 //  Linked notes (spec 8.5) in the browser:
 //  - `LinkedText` shows notes or a review with each `[[Title]]` as a link to
-//    that title's details (the existing ?open= support); a target that isn't
+//    that title (its popup or its page: src/lib/title-href.ts); a target that isn't
 //    in the library stays text with a dotted underline.
 //  - `LinkTextarea` is a Textarea with autocomplete after `[[`.
 //  - `MentionedIn` lists the titles whose notes or reviews link here.
@@ -17,6 +17,7 @@ import { Link2 } from 'lucide-react';
 
 import { useGlobalSearch } from '@/components/global-search';
 import { useDisplayTitle } from '@/components/prefs-provider';
+import { useTitleHref } from '@/components/title/title-link';
 import { Textarea } from '@/components/ui/textarea';
 import { getMentionedIn } from '@/lib/actions/linked-notes';
 import { libraryIndex } from '@/lib/actions/search';
@@ -25,6 +26,7 @@ import type { LibraryIndexEntry } from '@/lib/data-search';
 import { rankFuzzy } from '@/lib/fuzzy';
 import { completeLink, linkQueryAt, parseNoteLinks, resolveNoteLink, type LinkSource } from '@/lib/linked-notes';
 import { titleVariants } from '@/lib/title';
+import { clickNonce } from '@/lib/title-href';
 import { cn } from '@/lib/utils';
 
 // ── The shared library index ────────────────────────────────────────────────
@@ -67,13 +69,13 @@ export function useLibraryIndex(enabled = true): LibraryIndexEntry[] | null {
   return enabled ? entries : null;
 }
 
-/** The details of a library title, from anywhere (the category page opens them). */
+/** Opens a library title from anywhere, the way the user chose (its popup or its page). */
 function useOpenTitle() {
   const router = useRouter();
+  const hrefOf = useTitleHref();
   return useCallback(
-    (e: { id: string; category: CategorySlug }) =>
-      router.push(`/${e.category}?open=${encodeURIComponent(e.id)}&t=${Date.now().toString(36)}`),
-    [router],
+    (e: { id: string; category: CategorySlug }) => router.push(hrefOf(e.category, e.id, { nonce: clickNonce() })),
+    [router, hrefOf],
   );
 }
 

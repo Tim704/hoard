@@ -29,7 +29,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: { m
   // The list view always shows the next 180 days (plus the past week).
   const from = [gridFirst, addDays(today, -7)].sort()[0];
   const to = [gridLast, addDays(today, 180)].sort()[1];
-  const items = await getCalendarItems(user.id, prefs, from, to);
+  const items = await getCalendarItems(user.id, prefs, from, to, prefs.titleView);
 
   const prev = shiftMonth(shown.year, shown.month, -1);
   const next = shiftMonth(shown.year, shown.month, 1);

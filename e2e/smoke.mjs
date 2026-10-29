@@ -143,6 +143,22 @@ async function openUserMenu(p = page) {
   return menu;
 }
 
+/**
+ * The demo's only game (Outer Wilds): its id, read off its popup's Notes
+ * field on the Video Games page (popup mode).
+ */
+let demoGameId = null;
+async function gameId() {
+  if (demoGameId) return demoGameId;
+  await page.goto(`${BASE_URL}/games`, { waitUntil: 'networkidle' });
+  await page.locator('main [data-card]').first().click();
+  const field = page.getByRole('dialog').locator('textarea[id^="notes-"]');
+  await field.waitFor({ timeout: 15_000 });
+  demoGameId = (await field.getAttribute('id')).slice('notes-'.length);
+  await page.keyboard.press('Escape');
+  return demoGameId;
+}
+
 console.log(`Smoke test against ${BASE_URL}`);
 
 await step('login', async () => {
@@ -252,7 +268,7 @@ if (failures.length === 0) {
       } finally {
         page.off('request', onRequest);
       }
-      // The title view uses the same picker (shown in the UI from Phase 6).
+      // The title view uses the same picker.
       await page.locator('label', { has: page.getByRole('radio', { name: 'Full page', exact: true }) }).click();
       await page.getByText('Title view: Full page').first().waitFor({ timeout: 15_000 });
       await page.locator('label', { has: page.getByRole('radio', { name: 'Popup', exact: true }) }).click();
@@ -812,6 +828,121 @@ if (failures.length === 0) {
     await bar.getByRole('button', { name: 'Discard' }).click();
     await bar.waitFor({ state: 'hidden', timeout: 10_000 });
     if ((await notes.inputValue()) !== before) throw new Error('Discard left the notes edited');
+  });
+  // The Full page title view (Settings → Themes, effective at once): a card
+  // opens the title's page, `?open=` (the universal link) redirects there,
+  // also from another section, while an unknown id stays on the section as
+  // in popup mode; the palette and [[links]] go to pages; an edit brings up
+  // the Save bar and Save persists (the notes are put back afterwards).
+  // Popup is restored afterwards.
+  const pickTitleView = async (label) => {
+    if (new URL(page.url()).searchParams.get('tab') !== 'themes') {
+      await page.goto(`${BASE_URL}/settings?tab=themes`, { waitUntil: 'networkidle' });
+    }
+    const radio = page.getByRole('radio', { name: label, exact: true });
+    await radio.waitFor({ state: 'attached', timeout: 15_000 });
+    if (await radio.isChecked()) return;
+    await page.locator('label', { has: radio }).click();
+    await page.getByText(`Title view: ${label}`).first().waitFor({ timeout: 15_000 });
+  };
+  await step('full page title view', async () => {
+    try {
+      await pickTitleView('Full page');
+      await page.evaluate(() => localStorage.setItem('hoard:books:view', '"grid"'));
+      await page.goto(`${BASE_URL}/books`, { waitUntil: 'networkidle' });
+      await Promise.all([
+        page.waitForURL((url) => /^\/books\/title\/[^/]+$/.test(url.pathname), { timeout: 20_000 }),
+        page.locator('main [data-card]').first().click(),
+      ]);
+      await page.getByRole('heading', { level: 1 }).waitFor({ timeout: 15_000 });
+      if ((await page.getByRole('dialog').count()) > 0) throw new Error('a card opened a popup in page mode');
+      const id = new URL(page.url()).pathname.split('/').pop();
+      for (const from of [`/books?open=${id}`, `/tv?open=${id}&t=x`, `/tv/title/${id}`]) {
+        await page.goto(`${BASE_URL}${from}`, { waitUntil: 'networkidle' });
+        if (new URL(page.url()).pathname !== `/books/title/${id}`) throw new Error(`${from} landed on ${page.url()}`);
+      }
+      const stay = await page.goto(`${BASE_URL}/books?open=does-not-exist`, { waitUntil: 'networkidle' });
+      if (stay?.status() !== 200 || new URL(page.url()).pathname !== '/books') throw new Error(`an unknown ?open= went to ${page.url()}`);
+      // An unknown (or someone else's) title page is a 404 (asked without a
+      // page load, so the browser logs no failed resource).
+      const missing = await page.request.get(`${BASE_URL}/books/title/does-not-exist`, { maxRedirects: 0 });
+      if (missing.status() !== 404) throw new Error(`an unknown title page answered ${missing.status()}`);
+
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+      await page.keyboard.press('ControlOrMeta+k');
+      const box = page.getByRole('combobox', { name: 'Find a title or page' });
+      await box.waitFor({ timeout: 10_000 });
+      await box.fill('Aliens');
+      await page.getByRole('option', { name: /^Aliens/ }).first().waitFor({ timeout: 10_000 });
+      await Promise.all([
+        page.waitForURL((url) => /^\/movies\/title\/[^/]+$/.test(url.pathname), { timeout: 20_000 }),
+        page.keyboard.press('Enter'),
+      ]);
+      await page.getByRole('heading', { level: 1, name: 'Aliens', exact: true }).waitFor({ timeout: 15_000 });
+      const aliensPath = new URL(page.url()).pathname;
+      await Promise.all([
+        page.waitForURL((url) => /^\/movies\/title\/[^/]+$/.test(url.pathname) && url.pathname !== aliensPath, { timeout: 20_000 }),
+        page.getByRole('button', { name: 'Alien', exact: true }).click(),
+      ]);
+      await page.getByRole('heading', { level: 1, name: 'Alien', exact: true }).waitFor({ timeout: 15_000 });
+
+      const notes = page.getByLabel('Notes');
+      const bar = page.getByRole('region', { name: 'Unsaved changes' });
+      const before = await notes.inputValue();
+      const edited = `${before}${before ? ' ' : ''}smoke note`;
+      const saveNotes = async (value) => {
+        await notes.fill(value);
+        await bar.waitFor({ timeout: 10_000 });
+        await bar.getByRole('button', { name: 'Save', exact: true }).click();
+        await bar.waitFor({ state: 'hidden', timeout: 15_000 });
+      };
+      try {
+        if ((await bar.count()) > 0) throw new Error('the Save bar shows before any edit');
+        await saveNotes(edited);
+        await page.getByText('Saved.').first().waitFor({ timeout: 15_000 });
+        await page.reload({ waitUntil: 'networkidle' });
+        if ((await notes.inputValue()) !== edited) throw new Error(`after Save and a reload the notes are: ${await notes.inputValue()}`);
+        if ((await bar.count()) > 0) throw new Error('the Save bar shows after a reload');
+      } finally {
+        if ((await notes.inputValue().catch(() => before)) !== before) await saveNotes(before);
+      }
+    } finally {
+      await pickTitleView('Popup');
+    }
+  });
+  // The title page in every layout, at desktop and phone width (with the
+  // Save bar up): nothing scrolls sideways, and at most one blur (Fresh's
+  // backdrop, when the title has a poster). Classic is restored afterwards.
+  await step('title page in every layout', async () => {
+    const game = await gameId();
+    try {
+      for (const label of ['Classic', 'Minimal', 'Organised', 'Fresh']) {
+        await pickLayout(label);
+        for (const width of [1280, 375]) {
+          const where = `${label} at ${width}`;
+          await page.setViewportSize({ width, height: width === 375 ? 812 : 900 });
+          for (const path of ['/tv/title/demo-activity-tv-expanse', `/games/title/${game}`]) {
+            await page.goto(`${BASE_URL}${path}`, { waitUntil: 'networkidle' });
+            await page.getByRole('heading', { level: 1 }).waitFor({ timeout: 15_000 });
+            await page.getByLabel('Notes').fill('layout check');
+            await page.getByRole('region', { name: 'Unsaved changes' }).waitFor({ timeout: 10_000 });
+            const m = await page.evaluate(() => ({
+              overflow: document.documentElement.scrollWidth - window.innerWidth,
+              blurs: [...document.querySelectorAll('main *')].filter((el) => {
+                const cs = getComputedStyle(el);
+                return /blur/.test(cs.filter) || /blur/.test(cs.backdropFilter);
+              }).length,
+            }));
+            if (m.overflow > 0) throw new Error(`${where} ${path}: the page scrolls sideways by ${m.overflow}px`);
+            if (m.blurs > 1) throw new Error(`${where} ${path}: ${m.blurs} blurred elements`);
+            await page.getByRole('region', { name: 'Unsaved changes' }).getByRole('button', { name: 'Discard' }).click();
+          }
+        }
+      }
+    } finally {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await pickLayout('Classic');
+    }
   });
   // Saved views (8.6): the demo view opens from the navigation (in Classic,
   // under Views in the user menu) with results.

@@ -34,6 +34,7 @@ import { airedSeasonCount, canGetSeasons, newAiredSeasons, newSeasonKey } from '
 import { notify } from '@/lib/notify';
 import { serverTimeZone } from '@/lib/prefs';
 import { todayYmd } from '@/lib/release';
+import { universalTitleHref } from '@/lib/title-href';
 
 export const NEW_SEASONS_MAX_SHOWS = 100;
 export const SHOW_REFRESH_HOURS = 20;
@@ -94,7 +95,8 @@ export function seasonNotification(n: SeasonNotice) {
     kind: 'new-seasons' as const,
     title: `New season: ${n.title}`,
     body: `Season ${n.season} of ${n.title} is out.`,
-    url: `/tv?open=${encodeURIComponent(n.activityId)}`,
+    // Stored with the notification: the universal link, whatever the title view.
+    url: universalTitleHref('tv', n.activityId),
     dedupeKey: newSeasonKey(n.activityId, n.season),
   };
 }

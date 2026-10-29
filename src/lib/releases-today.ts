@@ -13,6 +13,7 @@
 import type { CategorySlug } from '@/lib/categories';
 import { todayYmd } from '@/lib/release';
 import type { Status } from '@/lib/status';
+import { universalTitleHref } from '@/lib/title-href';
 
 export interface ReleaseRow {
   activityId: string;
@@ -51,7 +52,8 @@ export function releasesDueToday(
   const out: ReleaseNotice[] = [];
   for (const r of rows) {
     if (hidden.includes(r.slug)) continue;
-    const url = `/${r.slug}?open=${encodeURIComponent(r.activityId)}`;
+    // Stored with the notification: the universal link, whatever the title view.
+    const url = universalTitleHref(r.slug, r.activityId);
     if (r.status === 'PLANNED' && r.releaseDate === today) {
       out.push({
         activityId: r.activityId,

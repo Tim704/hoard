@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import { ActivityDetailDialog } from '@/components/activity-detail-dialog';
 import { MediaCompact } from '@/components/media-compact';
 import { MediaGrid } from '@/components/media-grid';
 import { MediaTable } from '@/components/media-table';
-import { useDisplayTitle } from '@/components/prefs-provider';
+import { useDisplayTitle, usePrefs } from '@/components/prefs-provider';
 import { StatusSection } from '@/components/status-section';
 import { usePersistentState } from '@/hooks/use-persistent-state';
 import { SectionToolbar } from '@/components/section/section-toolbar';
@@ -24,6 +25,7 @@ import {
 import type { Status } from '@/lib/status';
 import { ownershipChoices } from '@/lib/ownership';
 import { countTags } from '@/lib/tags';
+import { titleHref } from '@/lib/title-href';
 import { compareTierOrder, isTierEligible } from '@/lib/tiers';
 import { toDisplayUnits, type ActivityWithMedia, type ViewMode } from '@/lib/types';
 
@@ -33,7 +35,7 @@ interface CategoryClientProps {
   activities: ActivityWithMedia[];
   /** The user's franchises, for the detail dialog's franchise picker. */
   franchises: { id: string; name: string }[];
-  /** Open this activity's details on arrival (`?open=<id>`, from the Cmd/Ctrl+K palette). */
+  /** Open this activity's popup on arrival (`?open=<id>`: the palette, notifications, links). */
   openId?: string;
   /** Changes with every palette pick (`?t=`), so the same title reopens. */
   openNonce?: string;
@@ -89,8 +91,21 @@ export function CategoryClient({
       window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
     }
   };
+  // Full page title view: a card opens the title's page. `?open=` normally
+  // redirects on the server; it lands here only when the switch to Full
+  // page hasn't been saved yet, so it moves on from here (an id that isn't
+  // in this section stays put, as in popup mode).
+  const router = useRouter();
+  const { titleView } = usePrefs();
+  const select = (a: ActivityWithMedia) => {
+    if (titleView === 'page') router.push(titleHref(slug, a.id, 'page'));
+    else setSelected(a);
+  };
   useEffect(() => {
-    if (openId) setSelectedId(openId);
+    if (!openId) return;
+    if (titleView !== 'page') setSelectedId(openId);
+    else if (activities.some((a) => a.id === openId)) router.replace(titleHref(slug, openId, 'page'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new ?open= (or nonce) opens
   }, [openId, openNonce]);
 
   const toggleSection = (status: Status) =>
@@ -127,7 +142,7 @@ export function CategoryClient({
 
   const renderView = (items: ActivityWithMedia[]) => {
     const units = toDisplayUnits(items, groupingOn);
-    const common = { units, onSelect: setSelected, expanded: expandedGroups, onToggleGroup: toggleGroup, inStatusSection: grouped };
+    const common = { units, onSelect: select, expanded: expandedGroups, onToggleGroup: toggleGroup, inStatusSection: grouped };
     return viewMode === 'grid' ? (
       <MediaGrid {...common} />
     ) : viewMode === 'compact' ? (

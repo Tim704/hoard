@@ -7,6 +7,7 @@ import { ArrowUpToLine, Check, CornerDownLeft, FileText, ImageOff, Loader2, Sear
 import { toast } from 'sonner';
 
 import { useDisplayTitle, usePrefs } from '@/components/prefs-provider';
+import { useTitleHref } from '@/components/title/title-link';
 import { toastStatusChange } from '@/components/undo-toast';
 import {
   Dialog,
@@ -26,6 +27,7 @@ import { SETTINGS_TABS, SETTINGS_TAB_LABELS, settingsHref } from '@/lib/settings
 import { nextHighlight } from '@/lib/search-nav';
 import { statusLabel, type Status } from '@/lib/status';
 import { titleVariants } from '@/lib/title';
+import { clickNonce } from '@/lib/title-href';
 import { cn } from '@/lib/utils';
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -69,6 +71,7 @@ export function CommandPalette({
   onCloseAutoFocus?: (e: Event) => void;
 }) {
   const router = useRouter();
+  const titleHrefOf = useTitleHref();
   const titleOf = useDisplayTitle();
   const { hiddenSections } = usePrefs();
   const [index, setIndex] = useState<LibraryIndexEntry[] | null>(() => cachedFor(userId));
@@ -136,8 +139,9 @@ export function CommandPalette({
 
   function openDetails(entry: LibraryIndexEntry) {
     close();
-    // `t` makes every request new, so picking the same title again reopens it.
-    router.push(`/${entry.category}?open=${encodeURIComponent(entry.id)}&t=${Date.now().toString(36)}`);
+    // Its popup or its page; in popup mode `t` makes every request new, so
+    // picking the same title again reopens it.
+    router.push(titleHrefOf(entry.category, entry.id, { nonce: clickNonce() }));
   }
 
   /** Patch one title's status in the shown index and the session cache. */

@@ -7,9 +7,9 @@
 
 import { useId, useMemo, useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { Check, Clock, ImageOff, Shuffle } from 'lucide-react';
 
+import { TitleLink } from '@/components/title/title-link';
 import { Button } from '@/components/ui/button';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import type { TonightItem } from '@/lib/data-tonight';
@@ -160,8 +160,9 @@ function PickCard({ item }: { item: TonightItem }) {
         ? `${formatMinutes(item.estimate.minutes)} an episode`
         : formatMinutes(item.estimate.minutes) ?? (item.slug === 'manga' ? 'Several sessions' : 'Length unknown');
   return (
-    <Link
-      href={`/${item.slug}?open=${encodeURIComponent(item.id)}`}
+    <TitleLink
+      slug={item.slug}
+      id={item.id}
       className="flex h-full gap-3 rounded-lg border border-border bg-card p-2.5 transition hover:border-primary/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-col"
     >
       <div className="relative aspect-[2/3] w-20 shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border sm:w-full">
@@ -180,6 +181,6 @@ function PickCard({ item }: { item: TonightItem }) {
         </p>
         <p className="text-xs font-medium">{length}</p>
       </div>
-    </Link>
+    </TitleLink>
   );
 }

@@ -18,6 +18,7 @@ import { iconFor } from '@/components/icons';
 import { Score } from '@/components/prefs-provider';
 import { RecommendAcrossButton } from '@/components/recommend-across';
 import { GoalBar } from '@/components/stats/goals-client';
+import { TitleLink } from '@/components/title/title-link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import { getDashboardStats, getFavourites, getNowConsuming, type CategoryStat } from '@/lib/data';
@@ -149,8 +150,9 @@ function ComingUpCard({ items }: { items: ComingUpItem[] }) {
           <ol className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
             {items.map((item) => (
               <li key={item.id} className="min-w-0">
-                <Link
-                  href={`/${item.slug}?open=${encodeURIComponent(item.id)}`}
+                <TitleLink
+                  slug={item.slug}
+                  id={item.id}
                   className="flex items-center gap-2.5 rounded-md p-1.5 transition-colors hover:bg-muted/60 lg:flex-col lg:items-start"
                 >
                   <span className="relative block aspect-[2/3] w-10 shrink-0 overflow-hidden rounded bg-muted ring-1 ring-border lg:w-16">
@@ -171,7 +173,7 @@ function ComingUpCard({ items }: { items: ComingUpItem[] }) {
                       in {item.days} day{item.days === 1 ? '' : 's'}
                     </span>
                   </span>
-                </Link>
+                </TitleLink>
               </li>
             ))}
           </ol>

@@ -47,6 +47,7 @@ import {
 } from '@/lib/saved-views';
 import { STATUS_BASE_LABEL, STATUS_ORDER, STATUSES, statusLabel, type Status } from '@/lib/status';
 import { countTags, tagKey } from '@/lib/tags';
+import { titleHref } from '@/lib/title-href';
 import { genreOptions } from '@/lib/tonight';
 import { toDisplayUnits, type ActivityWithMedia, type ViewMode } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -124,10 +125,13 @@ export function ViewsClient({
 }) {
   const router = useRouter();
   const titleOf = useDisplayTitle();
-  const { hiddenSections } = usePrefs();
+  const { hiddenSections, titleView } = usePrefs();
   const [query, setQuery] = useState<ViewQuery>(selected?.query ?? EMPTY_VIEW);
   const [layout, setLayout] = usePersistentState<ViewMode>('hoard:views:layout', 'grid', isLayout);
   const [openId, setOpenId] = useState<string | null>(null);
+  // A result opens its popup, or its page in the Full page title view.
+  const openTitle = (a: ActivityWithMedia) =>
+    titleView === 'page' ? router.push(titleHref(a.category, a.id, 'page')) : setOpenId(a.id);
   const [name, setName] = useState('');
   const [renaming, setRenaming] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -418,9 +422,9 @@ export function ViewsClient({
           Nothing matches these filters.
         </div>
       ) : layout === 'list' ? (
-        <MediaTable units={toDisplayUnits(results, false)} onSelect={(a) => setOpenId(a.id)} expanded={NO_EXPANDED} onToggleGroup={() => {}} />
+        <MediaTable units={toDisplayUnits(results, false)} onSelect={openTitle} expanded={NO_EXPANDED} onToggleGroup={() => {}} />
       ) : (
-        <MediaGrid units={toDisplayUnits(results, false)} onSelect={(a) => setOpenId(a.id)} expanded={NO_EXPANDED} onToggleGroup={() => {}} />
+        <MediaGrid units={toDisplayUnits(results, false)} onSelect={openTitle} expanded={NO_EXPANDED} onToggleGroup={() => {}} />
       )}
 
       <ActivityDetailDialog activity={opened} onClose={() => setOpenId(null)} franchises={franchises} />
