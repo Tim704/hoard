@@ -30,8 +30,8 @@ import { effectiveTimeZone } from '@/lib/prefs';
 import { todayYmd } from '@/lib/release';
 import { sectionStat } from '@/lib/stats/measures';
 import { bucketPair, challengePairs, fewestDuelsPair } from '@/lib/arena-pick';
-import { buildTierBoard, TIERS, withinTierPairs, type TierBoardData } from '@/lib/tiers';
-import { unscoredFinished } from '@/lib/unscored';
+import { boardItems, buildTierBoard, TIERS, withinTierPairs, type TierBoardData } from '@/lib/tiers';
+import { packUnscored, unscoredFinished, type UnscoredEntry } from '@/lib/unscored';
 import type {
   ActivityWithMedia,
   FranchiseRef,
@@ -337,9 +337,11 @@ export async function getTierBoard(slug: CategorySlug): Promise<TierBoardData> {
  */
 export async function getTierPage(
   slug: CategorySlug,
-): Promise<{ board: TierBoardData; unscored: ActivityWithMedia[] }> {
+): Promise<{ board: TierBoardData; unscored: UnscoredEntry<ActivityWithMedia>[] }> {
   const all = await loadCategory(slug);
-  return { board: buildTierBoard(all), unscored: unscoredFinished(all) };
+  const board = buildTierBoard(all);
+  // Unscored titles on the board go as their ids: the page's payload carries each title once.
+  return { board, unscored: packUnscored(unscoredFinished(all), boardItems(board)) };
 }
 
 /**

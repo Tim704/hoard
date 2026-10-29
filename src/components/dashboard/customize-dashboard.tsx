@@ -42,7 +42,7 @@ export function CustomizeDashboard({ saved, empty = false }: { saved: DashboardT
           Customize
         </Button>
       ) : (
-        <HeaderButton icon={Settings2} label="Customize" name="Customize dashboard" labelAt="sm+xl" {...trigger} />
+        <HeaderButton icon={Settings2} label="Customize" name="Customize dashboard" {...trigger} />
       )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent

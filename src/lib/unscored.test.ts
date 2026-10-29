@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { unscoredFinished } from './unscored';
+import { packUnscored, unpackUnscored, unscoredFinished } from './unscored';
 import { makeActivity as make } from './test-fixtures';
 
 describe('unscoredFinished', () => {
@@ -29,5 +29,26 @@ describe('unscoredFinished', () => {
       make({ id: 'not-a-game', category: 'anime', status: 'CONSUMING', playtimeMinutes: 6000 }),
     ];
     expect(unscoredFinished(list).map((a) => a.id)).toEqual(['long']);
+  });
+});
+
+describe('packUnscored / unpackUnscored', () => {
+  const onBoard = [make({ id: 'a', status: 'COMPLETED' }), make({ id: 'b', status: 'DROPPED' }), make({ id: 'c', status: 'COMPLETED', rating: 8 })];
+  const game = make({ id: 'g', category: 'games', status: 'CONSUMING', playtimeMinutes: 900 });
+
+  it('sends a title on the board as its id, any other whole', () => {
+    expect(packUnscored([onBoard[1], game, onBoard[0]], onBoard)).toEqual(['b', game, 'a']);
+  });
+
+  it('round-trips in order, to the board’s own objects', () => {
+    const packed = packUnscored([onBoard[1], game, onBoard[0]], onBoard);
+    const back = unpackUnscored(packed, onBoard);
+    expect(back.map((a) => a.id)).toEqual(['b', 'g', 'a']);
+    expect(back[0]).toBe(onBoard[1]);
+  });
+
+  it('skips an id the board no longer has', () => {
+    expect(unpackUnscored(['x', 'a'], onBoard).map((a) => a.id)).toEqual(['a']);
+    expect(unpackUnscored([], onBoard)).toEqual([]);
   });
 });

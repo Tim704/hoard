@@ -80,6 +80,11 @@ export function buildItemBoard<T extends RankableItem>(items: T[]): TierBoardDat
   return { tiers, tray };
 }
 
+/** Every item on a board: the tiers' (S to F), then the tray's. */
+export function boardItems<T extends RankableItem>(board: TierBoardData<T>): T[] {
+  return [...TIERS.flatMap((t) => board.tiers[t]), ...board.tray];
+}
+
 /** A section's tier board: only finished (tier-eligible) activities. */
 export function buildTierBoard<T extends ActivityWithMedia = ActivityWithMedia>(
   all: T[],

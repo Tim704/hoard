@@ -48,7 +48,7 @@ export function RecommendAcrossButton({ className, header = false }: { className
   return (
     <>
       {header ? (
-        <HeaderButton icon={Wand2} label="Recommend across media" labelAt="lg" onClick={run} disabled={pending} className={className} />
+        <HeaderButton icon={Wand2} label="Recommend across media" onClick={run} disabled={pending} className={className} />
       ) : (
         <Button type="button" variant="outline" onClick={run} disabled={pending} className={className}>
           <Wand2 className="mr-2 h-4 w-4" aria-hidden />

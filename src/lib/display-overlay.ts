@@ -48,28 +48,56 @@ export function withOverlay<P extends LivePrefs>(prefs: P, overlay: Overlay): P 
   return Object.keys(overlay).length ? { ...prefs, ...overlay } : prefs;
 }
 
+/**
+ * Per key, what the server is known to hold (`confirmed`: the server props,
+ * moved on by every save that succeeded) and what the user was last told it
+ * holds (`reported`: the server's value, a save's toast, or a rollback).
+ * Undo goes back to `reported`, which is always a value the server held.
+ */
+export interface SaveState {
+  confirmed: LivePrefs;
+  reported: LivePrefs;
+}
+
+export function initialSaveState(server: LivePrefs): SaveState {
+  return { confirmed: liveSlice(server), reported: liveSlice(server) };
+}
+
 /** What a finished save means for the screen (see settleSave). */
 export type SaveOutcome<V> =
   | { kind: 'superseded' }
-  | { kind: 'saved' }
+  | { kind: 'unchanged' }
+  | { kind: 'saved'; undoTo: V }
   | { kind: 'failed'; rollbackTo: V };
 
 /**
- * A save of `key = value` finished. `confirmed` holds the values the server
- * is known to have; a successful save moves it, even one a newer change has
- * superseded (the server still stored it). Only the newest change for a key
- * reports: on success it toasts; on failure the screen goes back to the
- * last confirmed value, never to an earlier choice that was never saved.
+ * A save of `key = value` finished (`ok`). A successful save moves
+ * `confirmed`, even one a newer change has superseded (the server still
+ * stored it). Only the newest change for a key reports:
+ * - saved: a toast, unless the user was already told the server holds this
+ *   value (`unchanged`: a quick switch away and back); its Undo goes to the
+ *   value reported before, so every committed change gets its toast and
+ *   Undo never lands on a value that was never saved;
+ * - failed: the screen goes back to the last confirmed value, never to an
+ *   earlier choice that was never saved.
  */
 export function settleSave<K extends LivePrefKey>(
-  confirmed: LivePrefs,
+  state: SaveState,
   key: K,
   value: LivePrefs[K],
   ok: boolean,
   newest: boolean,
-): { confirmed: LivePrefs; outcome: SaveOutcome<LivePrefs[K]> } {
-  const next = ok && confirmed[key] !== value ? { ...confirmed, [key]: value } : confirmed;
-  if (!newest) return { confirmed: next, outcome: { kind: 'superseded' } };
-  if (ok) return { confirmed: next, outcome: { kind: 'saved' } };
-  return { confirmed, outcome: { kind: 'failed', rollbackTo: confirmed[key] } };
+): { state: SaveState; outcome: SaveOutcome<LivePrefs[K]> } {
+  const confirmed = ok && state.confirmed[key] !== value ? { ...state.confirmed, [key]: value } : state.confirmed;
+  if (!newest) return { state: { ...state, confirmed }, outcome: { kind: 'superseded' } };
+  if (ok) {
+    const before = state.reported[key] as LivePrefs[K];
+    if (before === value) return { state: { ...state, confirmed }, outcome: { kind: 'unchanged' } };
+    return { state: { confirmed, reported: { ...state.reported, [key]: value } }, outcome: { kind: 'saved', undoTo: before } };
+  }
+  const rollbackTo = state.confirmed[key] as LivePrefs[K];
+  return {
+    state: { confirmed: state.confirmed, reported: { ...state.reported, [key]: rollbackTo } },
+    outcome: { kind: 'failed', rollbackTo },
+  };
 }

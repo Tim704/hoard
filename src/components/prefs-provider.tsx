@@ -8,7 +8,9 @@ import { useIsomorphicLayoutEffect } from '@/hooks/use-isomorphic-layout-effect'
 import { settle } from '@/lib/action-result';
 import { detectRegion, updatePrefs } from '@/lib/actions/prefs';
 import {
+  LIVE_PREF_KEYS,
   NONE_IN_FLIGHT,
+  initialSaveState,
   liveSlice,
   reconcileOverlay,
   settleSave,
@@ -17,6 +19,7 @@ import {
   type LivePrefKey,
   type LivePrefs,
   type Overlay,
+  type SaveState,
 } from '@/lib/display-overlay';
 import { DEFAULT_DISPLAY_PREFS, TITLE_VIEW_LABELS, type DisplayPrefs } from '@/lib/display-prefs';
 import { applyLayoutToDocument } from '@/lib/document-theme';
@@ -81,11 +84,14 @@ export function PrefsProvider({
   const current = useRef<LivePrefs>(liveSlice(value));
   /** Per key, the number of the newest save: only that one may report or roll back. */
   const latest = useRef<InFlight>({ ...NONE_IN_FLIGHT });
+  /** Per key, bursts waiting or saving (as `inFlight`, readable at once). */
+  const pending = useRef<InFlight>({ ...NONE_IN_FLIGHT });
   /**
-   * What the server is known to hold: the server props, moved on by every
-   * save that succeeded. A failed save rolls back to this (settleSave).
+   * What the server is known to hold, and what the user was last told it
+   * holds: a failed save rolls back to the first, Undo goes to the second
+   * (settleSave).
    */
-  const confirmed = useRef<LivePrefs>(server);
+  const saves = useRef<SaveState>(initialSaveState(server));
   /**
    * The layout <html> was last switched to here. Null at first, so mounting
    * always applies: after a client-side login the head bootstrap hasn't run
@@ -93,9 +99,15 @@ export function PrefsProvider({
    */
   const applied = useRef<string | null>(null);
 
-  // New server props are the truth (another tab may have saved since).
+  // New server props are the truth (another tab may have saved since); for a
+  // key with nothing saving here they are also what the user now sees.
   useIsomorphicLayoutEffect(() => {
-    confirmed.current = { layout: server.layout, titleView: server.titleView };
+    const now: LivePrefs = { layout: server.layout, titleView: server.titleView };
+    const reported = { ...saves.current.reported };
+    for (const key of LIVE_PREF_KEYS) {
+      if (pending.current[key] === 0) (reported as Record<LivePrefKey, string>)[key] = now[key];
+    }
+    saves.current = { confirmed: now, reported };
   }, [server.layout, server.titleView]);
 
   // <html data-layout> is rendered by the root layout from the server's prefs,
@@ -113,7 +125,10 @@ export function PrefsProvider({
   const [engine] = useState(() => {
     /** Per key: the open burst came from an Undo (it reports "Undone.", without a new Undo). */
     const undoing: Record<LivePrefKey, boolean> = { layout: false, titleView: false };
-    const bump = (key: LivePrefKey, by: 1 | -1) => setInFlight((f) => ({ ...f, [key]: f[key] + by }));
+    const bump = (key: LivePrefKey, by: 1 | -1) => {
+      pending.current[key] += by;
+      setInFlight((f) => ({ ...f, [key]: f[key] + by }));
+    };
 
     function show<K extends LivePrefKey>(key: K, v: LivePrefs[K]) {
       current.current = { ...current.current, [key]: v };
@@ -139,10 +154,11 @@ export function PrefsProvider({
 
     function save<K extends LivePrefKey>(key: K, { value, before }: Burst<LivePrefs[K]>) {
       const undo = undoing[key];
-      // Back where the burst began: nothing to report. Nothing to save either,
-      // unless that value is itself still unconfirmed (its save in flight).
-      const quiet = value === before;
-      if (quiet && value === confirmed.current[key]) {
+      // Back where the burst began, and the server holds it: nothing to
+      // send. It may still be a change to report (an earlier save of this
+      // value landed superseded, untold).
+      if (value === before && value === saves.current.confirmed[key]) {
+        report(key, value, true, true, undo);
         bump(key, -1);
         return;
       }
@@ -151,29 +167,32 @@ export function PrefsProvider({
         .then((res) => {
           // Newer: a later save for this key, or a burst still waiting to save.
           const newest = latest.current[key] === seq && !batcher.isScheduled(key);
-          const settled = settleSave(confirmed.current, key, value, res.ok, newest);
-          confirmed.current = settled.confirmed;
-          const { outcome } = settled;
-          // A newer change for this key has taken over: it reports (and rolls
-          // back) for itself.
-          if (outcome.kind === 'superseded') return;
-          // One toast per key: a new switch replaces the last one (and its
-          // Undo). Not for an undo: sonner is already closing the toast whose
-          // Undo was clicked, and would take a replacement down with it.
-          const id = undo ? undefined : `display-pref-${key}`;
-          if (outcome.kind === 'saved') {
-            if (quiet) return;
-            // Undo puts back the value from before the whole burst.
-            if (!undo) toastUndoable(SWITCH_MESSAGES[key](value), () => change(key, before, true), id);
-            else toast.success('Undone.', { id });
-            return;
-          }
-          show(key, outcome.rollbackTo);
-          // Replacing a success toast merges into it: drop its Undo and its
-          // long duration explicitly.
-          toast.error(res.error ?? 'Could not save that setting.', { id, action: undefined, duration: undefined });
+          report(key, value, res.ok, newest, undo, res.error);
         })
         .finally(() => bump(key, -1));
+    }
+
+    function report<K extends LivePrefKey>(key: K, value: LivePrefs[K], ok: boolean, newest: boolean, undo: boolean, error?: string) {
+      const settled = settleSave(saves.current, key, value, ok, newest);
+      saves.current = settled.state;
+      const { outcome } = settled;
+      // Superseded: a newer change for this key reports (and rolls back) for
+      // itself. Unchanged: the user already knows (switched away and back).
+      if (outcome.kind === 'superseded' || outcome.kind === 'unchanged') return;
+      // One toast per key: a new switch replaces the last one (and its
+      // Undo). Not for an undo: sonner is already closing the toast whose
+      // Undo was clicked, and would take a replacement down with it.
+      const id = undo ? undefined : `display-pref-${key}`;
+      if (outcome.kind === 'saved') {
+        // Undo puts back the value the user had before (a saved one).
+        if (!undo) toastUndoable(SWITCH_MESSAGES[key](value), () => change(key, outcome.undoTo, true), id);
+        else toast.success('Undone.', { id });
+        return;
+      }
+      show(key, outcome.rollbackTo);
+      // Replacing a success toast merges into it: drop its Undo and its
+      // long duration explicitly.
+      toast.error(error ?? 'Could not save that setting.', { id, action: undefined, duration: undefined });
     }
 
     return { change, flushAll: () => batcher.flushAll() };
@@ -218,9 +237,9 @@ export function useLayout(): LayoutConfig {
 /**
  * `set('layout', 'fresh')` / `set('titleView', 'page')`: shows the change at
  * once, saves it 400 ms after the last of a quick run of changes, and toasts
- * "Layout: Fresh · Undo" (Undo goes back to before the run); a failed save
- * rolls back to the saved value with an error toast. A no-op outside the
- * (app) layout.
+ * "Layout: Fresh · Undo" for every change that commits (Undo goes back to the
+ * saved value from before); a failed save rolls back to the saved value with
+ * an error toast. A no-op outside the (app) layout.
  */
 export function useSetDisplayPref(): SetDisplayPref {
   return useContext(SetDisplayPrefContext);

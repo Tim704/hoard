@@ -47,9 +47,12 @@ export function normalizeOrder(saved: readonly unknown[]): TileId[] {
   return order;
 }
 
-/** True when the saved order comes out as the default one. */
+/**
+ * True when the saved order comes out as the default one. Where Recommend is
+ * stored doesn't count: it always shows first (pinRecommend).
+ */
 export function isDefaultOrder(order: readonly unknown[]): boolean {
-  const normal = normalizeOrder(order);
+  const normal = pinRecommend(normalizeOrder(order));
   return normal.every((id, i) => id === TILE_IDS[i]);
 }
 

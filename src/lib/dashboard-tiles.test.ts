@@ -109,9 +109,18 @@ describe('isDefaultOrder', () => {
     expect(isDefaultOrder(['recommend', 'cat:books', 'nope', 'cat:books'])).toBe(true);
   });
 
-  it('is false for any other order', () => {
-    // A lone tile takes the rest around it in default order: still the default.
+  it('is true for a lone tile, which takes the rest around it in default order', () => {
     expect(isDefaultOrder(['coming-up'])).toBe(true);
+  });
+
+  it('ignores where Recommend is stored (it always shows first)', () => {
+    const rest = TILE_IDS.filter((id) => id !== 'recommend');
+    expect(isDefaultOrder([...rest, 'recommend'])).toBe(true);
+    expect(isDefaultOrder(['cat:books', 'recommend', 'cat:movies'])).toBe(true);
+    expect(isDefaultOrder(['cat:movies', 'recommend', 'cat:books'])).toBe(false);
+  });
+
+  it('is false for any other order', () => {
     expect(isDefaultOrder(['coming-up', 'cat:books'])).toBe(false);
     expect(isDefaultOrder([...TILE_IDS].reverse())).toBe(false);
   });

@@ -9,47 +9,33 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 
 /**
- * Where Classic shows a header button's label; below that it is an icon with
- * a tooltip, like the other layouts everywhere. The dashboard header is one
- * line that never wraps, and the greeting beside the buttons truncates, so
+ * Where Classic shows the header buttons' labels: from lg, both together
+ * (Recommend across media and Customize); below that they are icons with a
+ * tooltip, like the other layouts everywhere. The dashboard header is one
+ * line that never wraps and the greeting beside the buttons truncates, so
  * the labels come in where the greeting keeps its room. CSS breakpoints only
- * (no measuring, so the server's HTML is final); like the section toolbar,
- * they allow for the expanded sidebar from md:
- * - Recommend across media: from lg;
- * - Customize: at sm (no sidebar yet), which md's sidebar folds again, and from xl.
+ * (no measuring, so the server's HTML is final).
  */
-const LABEL_AT = {
-  lg: { text: 'hidden lg:inline', icon: 'lg:mr-2', button: 'lg:w-auto lg:px-4', tip: 'lg:hidden' },
-  'sm+xl': {
-    text: 'hidden sm:inline md:hidden xl:inline',
-    icon: 'sm:mr-2 md:mr-0 xl:mr-2',
-    button: 'sm:w-auto sm:px-4 md:w-10 md:px-0 xl:w-auto xl:px-4',
-    tip: 'sm:hidden md:block xl:hidden',
-  },
-} as const;
-
-export type LabelAt = keyof typeof LABEL_AT;
+const LABEL_AT_LG = { text: 'hidden lg:inline', icon: 'lg:mr-2', button: 'lg:w-auto lg:px-4', tip: 'lg:hidden' } as const;
 
 interface HeaderButtonProps extends Omit<ButtonProps, 'children'> {
   icon: LucideIcon;
-  /** The visible label (Classic). */
+  /** The visible label (Classic, from lg). */
   label: string;
   /** The button's name and tooltip, when longer than the label (which it must contain). */
   name?: string;
-  /** Classic: where the label shows (see LABEL_AT). */
-  labelAt: LabelAt;
 }
 
 /**
- * An outlined button in the dashboard header: labelled in Classic (from
- * `labelAt`), an icon with a tooltip and an aria-label otherwise.
+ * An outlined button in the dashboard header: labelled in Classic from lg,
+ * an icon with a tooltip and an aria-label otherwise.
  */
 export const HeaderButton = forwardRef<HTMLButtonElement, HeaderButtonProps>(function HeaderButton(
-  { icon: Icon, label, name = label, labelAt, className, ...props },
+  { icon: Icon, label, name = label, className, ...props },
   ref,
 ) {
   const labelled = useLayout().toolbar === 'labelled';
-  const at = LABEL_AT[labelAt];
+  const at = LABEL_AT_LG;
   return (
     <Tooltip>
       <TooltipTrigger asChild>

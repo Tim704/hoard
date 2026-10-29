@@ -22,3 +22,28 @@ export function unscoredFinished<T extends Scorable>(list: T[]): T[] {
     .filter((a) => a.rating == null && (FINISHED_STATUSES.includes(a.status) || playedEnough(a)))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
+
+/**
+ * An unscored title as the tier page sends it: its id when the board already
+ * carries the title, else the title itself (a well-played game that isn't
+ * finished, so not on the board).
+ */
+export type UnscoredEntry<T> = string | T;
+
+/** `unscored` without repeating the titles in `onBoard`: each title crosses to the client once. */
+export function packUnscored<T extends { id: string }>(unscored: readonly T[], onBoard: Iterable<T>): UnscoredEntry<T>[] {
+  const ids = new Set<string>();
+  for (const a of onBoard) ids.add(a.id);
+  return unscored.map((a) => (ids.has(a.id) ? a.id : a));
+}
+
+/** packUnscored undone, in order: an id the board no longer has is skipped. */
+export function unpackUnscored<T extends { id: string }>(entries: readonly UnscoredEntry<T>[], onBoard: Iterable<T>): T[] {
+  const byId = new Map<string, T>();
+  for (const a of onBoard) byId.set(a.id, a);
+  return entries.flatMap((e) => {
+    if (typeof e !== 'string') return [e];
+    const a = byId.get(e);
+    return a ? [a] : [];
+  });
+}

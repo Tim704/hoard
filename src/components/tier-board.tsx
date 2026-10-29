@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, useTransition } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -32,6 +32,7 @@ import type { CategorySlug } from '@/lib/categories';
 import { mediaSubtitle } from '@/lib/media-meta';
 import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
 import {
+  boardItems,
   boardPlacement,
   findContainer,
   moveItem,
@@ -44,14 +45,18 @@ import {
   type TierContainer,
   type TierPlacement,
 } from '@/lib/tiers';
+import { unpackUnscored, type UnscoredEntry } from '@/lib/unscored';
 import type { ActionResult, ActivityWithMedia } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface TierBoardProps {
   slug: CategorySlug;
   initial: TierBoardData;
-  /** Finished (or well-played) titles with no score yet (`unscoredFinished`), for "Score these". */
-  unscored: ActivityWithMedia[];
+  /**
+   * Finished (or well-played) titles with no score yet (`unscoredFinished`),
+   * for "Score these": those on the board by id (packUnscored).
+   */
+  unscored: UnscoredEntry<ActivityWithMedia>[];
 }
 
 /** What a board row shows for an item. */
@@ -91,9 +96,10 @@ const samePlacement = <T extends RankableItem>(a: TierBoardData<T>, b: TierBoard
  * through `saveTiers`. The tray's "Score these" button opens the scoring
  * dialog in place (its only entry point).
  */
-export function TierBoard({ slug, initial, unscored }: TierBoardProps) {
+export function TierBoard({ slug, initial, unscored: packed }: TierBoardProps) {
   const titleOf = useDisplayTitle();
   const [scoring, setScoring] = useState(false);
+  const unscored = useMemo(() => unpackUnscored(packed, boardItems(initial)), [packed, initial]);
   return (
     <>
       <ItemTierBoard<ActivityWithMedia>
