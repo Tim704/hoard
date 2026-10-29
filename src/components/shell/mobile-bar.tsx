@@ -61,7 +61,7 @@ export function MobileBar({ groups }: { groups: NavGroup[] }) {
 
       <Link
         href="/dashboard"
-        className="flex items-center gap-2 rounded-md px-1.5 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="tap-area relative flex items-center gap-2 rounded-md px-1.5 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Boxes className="h-5 w-5 text-primary" />
         <span className="text-base font-bold tracking-widest">HOARD</span>

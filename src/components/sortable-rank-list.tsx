@@ -138,7 +138,7 @@ function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRe
       <span
         className={cn(
           'w-7 shrink-0 text-center text-base font-bold tabular-nums',
-          rank <= 3 ? 'text-amber-500 dark:text-amber-300' : 'text-muted-foreground',
+          rank <= 3 ? 'text-amber-500 dark:text-amber-300 minimal:text-rating organised:text-rating' : 'text-muted-foreground',
         )}
       >
         {rank}
@@ -166,7 +166,7 @@ function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRe
       </div>
 
       {item.rating != null && (
-        <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-amber-600 dark:text-amber-300">
+        <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-rating">
           <Star className="h-3.5 w-3.5 fill-current" aria-hidden />
           {scorePlain(item.rating)}
         </span>

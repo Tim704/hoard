@@ -151,7 +151,7 @@ function CompactRow({
         <span
           className={cn(
             'w-12 shrink-0 text-right text-sm tabular-nums',
-            rating != null ? 'font-medium text-amber-600 dark:text-amber-300' : 'text-muted-foreground',
+            rating != null ? 'font-medium text-rating' : 'text-muted-foreground',
           )}
         >
           {scoreOutOf(rating)}

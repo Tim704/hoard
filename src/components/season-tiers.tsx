@@ -166,7 +166,7 @@ export function RankedSeasonList({ items }: { items: SeasonItem[] }) {
             <span className="w-6 shrink-0 text-right tabular-nums text-muted-foreground">{i + 1}</span>
             <span className="min-w-0 flex-1 truncate font-medium">{s.title}</span>
             {s.rating != null && (
-              <span className="inline-flex shrink-0 items-center gap-0.5 text-amber-600 dark:text-amber-300">
+              <span className="inline-flex shrink-0 items-center gap-0.5 text-rating">
                 <Star className="h-3 w-3 fill-current" aria-hidden />
                 {scorePlain(s.rating)}
               </span>

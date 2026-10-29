@@ -196,7 +196,7 @@ function OneBadgeCard({ activity, onClick, href }: MediaCardProps) {
           <StatusIcon status={status} className="h-3 w-3" decorative />
           <span className="truncate">{[statusLabel(status, activity.category), media.year].filter(Boolean).join(' · ')}</span>
           {activity.rating != null && (
-            <span className="ml-auto inline-flex shrink-0 items-center gap-0.5 pl-1 font-medium tabular-nums text-amber-600 dark:text-amber-300">
+            <span className="ml-auto inline-flex shrink-0 items-center gap-0.5 pl-1 font-medium tabular-nums text-rating">
               <Star className="h-2.5 w-2.5 fill-current" aria-hidden />
               {scorePlain(activity.rating)}
             </span>

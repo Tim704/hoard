@@ -435,7 +435,7 @@ function BoardItem<T extends RankableItem>({
           <p className="truncate font-medium leading-snug">{title}</p>
           <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
             {a.rating != null && (
-              <span className="inline-flex shrink-0 items-center gap-0.5 font-medium text-amber-600 dark:text-amber-300">
+              <span className="inline-flex shrink-0 items-center gap-0.5 font-medium text-rating">
                 <Star className="h-3 w-3 fill-current" aria-hidden />
                 {scorePlain(a.rating)}
               </span>

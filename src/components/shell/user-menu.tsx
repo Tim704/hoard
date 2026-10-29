@@ -146,7 +146,7 @@ export function UserMenu({
         data-user-menu=""
         aria-label={`Account menu${unreadLabel(unread)}`}
         title={`Signed in as ${username}`}
-        className={cn('relative shrink-0 rounded-full transition-opacity hover:opacity-85', ring, className)}
+        className={cn('tap-area relative shrink-0 rounded-full transition-opacity hover:opacity-85', ring, className)}
       >
         <Initial name={username} />
         {unread > 0 && <UnreadDot className="absolute right-0 top-0 h-2.5 w-2.5 ring-2 ring-background" />}

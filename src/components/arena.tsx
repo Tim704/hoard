@@ -45,7 +45,7 @@ export function Arena({ slug, initial, mode = 'order' }: ArenaProps) {
       role="status"
       className="flex w-full flex-col gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 sm:flex-row sm:items-center"
     >
-      <ArrowUp className="hidden h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300 sm:block" aria-hidden />
+      <ArrowUp className="hidden h-5 w-5 shrink-0 text-rating sm:block" aria-hidden />
       <p className="flex-1 text-sm">
         <span className="font-medium">Move “{suggestion.title}” up to {suggestion.toTier}?</span>{' '}
         <span className="text-muted-foreground">It beat the bottom of {suggestion.toTier} twice.</span>

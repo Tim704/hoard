@@ -159,8 +159,8 @@ export function TopBar({ variant, links }: { variant: 'links' | 'tabs'; links: N
                   aria-current={active ? 'page' : undefined}
                   className={cn(
                     'relative flex items-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
-                    // Phones: chips.
-                    'rounded-full border px-3 py-1',
+                    // Phones: chips, 36px tall for a fingertip.
+                    'h-9 rounded-full border px-3.5',
                     // md+: tabs with an underline for the current one.
                     'md:h-full md:rounded-md md:border-0 md:px-3 md:py-0',
                     "md:after:absolute md:after:inset-x-3 md:after:bottom-0 md:after:h-0.5 md:after:rounded-full md:after:content-['']",

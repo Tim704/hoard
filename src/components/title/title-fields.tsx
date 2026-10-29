@@ -363,7 +363,7 @@ export function ScoreField({ value, onChange }: { value: number | null; onChange
           <button
             type="button"
             onClick={() => onChange(null)}
-            className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+            className="tap-area relative text-xs text-muted-foreground underline-offset-2 hover:underline"
           >
             Clear
           </button>

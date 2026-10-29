@@ -182,7 +182,7 @@ export function FiltersPopover({ slug, state, ownedChoices, sectionTags, style }
               size="sm"
               disabled={hasDefaultView(filters)}
               onClick={resetView}
-              className="-mr-1 h-auto p-0 px-1 text-xs"
+              className="tap-area relative -mr-1 h-auto p-0 px-1 text-xs"
             >
               <RotateCcw className="h-3 w-3" aria-hidden />
               Default sort &amp; grouping

@@ -41,7 +41,7 @@ export function StatusSection({
           onClick={onToggle}
           aria-expanded={!collapsed}
           aria-controls={bodyId}
-          className="group flex min-w-0 flex-1 items-center gap-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="tap-area group relative flex min-w-0 flex-1 items-center gap-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <ChevronDown
             className={cn(
@@ -61,7 +61,7 @@ export function StatusSection({
         {action && (
           <Link
             href={action.href}
-            className="shrink-0 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            className="tap-area relative shrink-0 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
             {action.label}
           </Link>

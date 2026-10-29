@@ -46,6 +46,11 @@
     --viz-7: #6250d6;
     --viz-grid: #e4e4e7;
     --viz-axis: #c3c2b7;
+
+    /* A score's number and star (Tailwind `text-rating`): amber-600 here,
+       amber-300 in dark; Minimal and Organised darken it to amber-700 so it
+       reads at 4.5:1 on their light surfaces. */
+    --rating: #d97706;
   }
 
   .dark {
@@ -82,6 +87,8 @@
     --viz-7: #9085e9;
     --viz-grid: #27272a;
     --viz-axis: #3f3f46;
+
+    --rating: #fcd34d;
   }
 
   /* ── Layouts (src/lib/layouts.ts) ─────────────────────────────────────────
@@ -144,6 +151,7 @@
     --ring: 0 0% 40%;
     --scrollbar: 0 0% 84%;
     --scrollbar-hover: 0 0% 62%;
+    --rating: #b45309;
   }
   [data-layout='minimal'].dark {
     --background: 0 0% 6%;
@@ -200,6 +208,7 @@
     --ring: 221 72% 47%;
     --scrollbar: 220 9% 78%;
     --scrollbar-hover: 221 30% 60%;
+    --rating: #b45309;
   }
   [data-layout='organised'].dark {
     --background: 222 24% 6%;
@@ -314,6 +323,12 @@
     --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
     font-family: var(--font-display);
   }
+  /* sonner gives its toaster a system stack of its own: toasts take the
+     layout's face too. */
+  [data-layout='minimal'] [data-sonner-toaster],
+  [data-layout='fresh'] [data-sonner-toaster] {
+    font-family: var(--font-display);
+  }
 }
 
 /* Thin, themed scrollbars everywhere (page, dialogs, drawers, menus,
@@ -387,6 +402,21 @@
   }
   .edge-fade[data-fade~='end'] {
     --fade-end: 32px;
+  }
+  /* A control drawn smaller than a fingertip (a close ×, a 24px row, a 32px
+     avatar): on touch screens an invisible ::after grows its hit area to at
+     least 36px each way, centred on it, without changing how it looks. The
+     control must be positioned (relative or absolute). */
+  @media (pointer: coarse) {
+    .tap-area::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, 2.25rem);
+      height: max(100%, 2.25rem);
+      transform: translate(-50%, -50%);
+    }
   }
   /* An anchor target (a Settings card) clears the sticky top bar when scrolled to. */
   .scroll-mt-bar {

@@ -57,12 +57,18 @@ const config: Config = {
           DEFAULT: 'hsl(var(--card) / calc(var(--card-alpha, 1) * <alpha-value>))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        // A score's number and star (globals.css --rating).
+        rating: 'var(--rating)',
       },
       fontFamily: {
         // The layout's display face (globals.css): the sans stack in Classic.
         display: 'var(--font-display)',
       },
       borderRadius: {
+        // From the layout's --radius (globals.css), so every corner follows
+        // the layout: xl is Tailwind's 0.75rem in Classic (--radius 0.5rem),
+        // squarer in Organised, rounder in Minimal and Fresh.
+        xl: 'calc(var(--radius) + 0.25rem)',
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
