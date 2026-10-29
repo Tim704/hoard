@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Boxes } from 'lucide-react';
@@ -20,20 +20,63 @@ import { cn } from '@/lib/utils';
  *   tabs (Home and the sections, scrolling sideways when they don't fit) and
  *   the avatar. On phones the tabs drop to a second line of chips.
  */
+
+/** How far a clipped edge of the tab strip fades out (globals.css .edge-fade). */
+const FADE_PX = 32;
+
+/**
+ * The tab strip's scroll state: with `reveal`, the open tab is scrolled to the
+ * middle when it isn't clear of the faded edges; then `data-fade` names the
+ * edges with more to scroll to. STRIP_SCRIPT is the same for the first paint.
+ */
+function syncStrip(ul: HTMLElement, reveal: boolean) {
+  const max = ul.scrollWidth - ul.clientWidth;
+  const on = ul.querySelector('[aria-current="page"]');
+  if (reveal && on && max > 0) {
+    const u = ul.getBoundingClientRect();
+    const r = on.getBoundingClientRect();
+    if (r.left < u.left + FADE_PX || r.right > u.right - FADE_PX) {
+      ul.scrollLeft += r.left - u.left - (u.width - r.width) / 2;
+    }
+  }
+  const fade = [];
+  if (ul.scrollLeft > 1) fade.push('start');
+  if (ul.scrollLeft < max - 1) fade.push('end');
+  ul.dataset.fade = fade.join(' ');
+}
+
+/**
+ * syncStrip(previous sibling, true) as an inline script right after the
+ * server-rendered strip: it runs while the page is parsed, so the open tab is
+ * in view (and the fades are on) in the first paint, not after hydration.
+ * Hand-written ES5, kept in step with syncStrip.
+ */
+const STRIP_SCRIPT = `(function(){var s=document.currentScript,u=s&&s.previousElementSibling;if(!u)return;var m=u.scrollWidth-u.clientWidth,a=u.querySelector('[aria-current="page"]');if(a&&m>0){var b=u.getBoundingClientRect(),r=a.getBoundingClientRect();if(r.left<b.left+${FADE_PX}||r.right>b.right-${FADE_PX})u.scrollLeft+=r.left-b.left-(b.width-r.width)/2}var f=[];if(u.scrollLeft>1)f.push('start');if(u.scrollLeft<m-1)f.push('end');u.setAttribute('data-fade',f.join(' '))})()`;
+
 export function TopBar({ variant, links }: { variant: 'links' | 'tabs'; links: NavLink[] }) {
   const pathname = usePathname();
   const view = useSearchParams().get('view');
   const strip = useRef<HTMLUListElement>(null);
 
-  // When the tabs scroll, keep the open one in view (before paint).
+  // Keep the open tab in view after a navigation or a switch to Fresh (before paint).
   useIsomorphicLayoutEffect(() => {
-    const ul = strip.current;
-    const on = ul?.querySelector('[aria-current="page"]');
-    if (!ul || !on || ul.scrollWidth <= ul.clientWidth) return;
-    const u = ul.getBoundingClientRect();
-    const r = on.getBoundingClientRect();
-    ul.scrollLeft += r.left - u.left - (u.width - r.width) / 2;
+    if (strip.current) syncStrip(strip.current, true);
   }, [pathname, variant]);
+
+  // The fades follow scrolling, resizing and the display font arriving.
+  useEffect(() => {
+    const ul = strip.current;
+    if (!ul) return;
+    const update = () => syncStrip(ul, false);
+    ul.addEventListener('scroll', update, { passive: true });
+    const resize = new ResizeObserver(update);
+    resize.observe(ul);
+    document.fonts?.ready.then(update, () => {});
+    return () => {
+      ul.removeEventListener('scroll', update);
+      resize.disconnect();
+    };
+  }, [variant]);
 
   if (variant === 'links') {
     return (
@@ -65,18 +108,23 @@ export function TopBar({ variant, links }: { variant: 'links' | 'tabs'; links: N
 
   return (
     <header data-shell="" className="sticky top-0 z-40 flex h-[var(--topbar-h)] flex-wrap content-start items-center border-b border-white/10 bg-background/60 pt-[env(safe-area-inset-top)] shadow-[0_1px_0_0_rgb(255_255_255/0.03),0_8px_30px_-12px_rgb(0_0_0/0.6)] backdrop-blur-xl backdrop-saturate-150 md:flex-nowrap md:gap-6 md:px-[var(--page-pad)]">
+      {/* In the DOM (and the tab order): brand, tabs, avatar. Phones move the
+          avatar up beside the brand with `order`, and the tabs to a line of
+          their own. */}
       <Link
         href="/dashboard"
-        className="order-1 flex h-14 shrink-0 items-center gap-2 rounded-md px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:h-auto md:px-0"
+        className="order-1 flex h-14 shrink-0 items-center gap-2 rounded-md px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:order-none md:h-auto md:px-0"
       >
         <Boxes className="h-5 w-5 text-primary" />
         <span className="font-display text-base font-semibold tracking-[0.2em]">HOARD</span>
       </Link>
-      <div className="order-2 ml-auto flex h-14 items-center pr-4 md:order-3 md:h-auto md:pr-0">
-        <UserMenu trigger="avatar" side="bottom" align="end" />
-      </div>
-      <nav aria-label="Main" className="order-3 w-full min-w-0 md:order-2 md:w-auto md:flex-1 md:self-stretch">
-        <ul ref={strip} className="scrollbar-none flex h-11 items-center gap-2 overflow-x-auto px-4 md:h-full md:gap-1 md:px-0">
+      <nav aria-label="Main" className="order-3 w-full min-w-0 md:order-none md:w-auto md:flex-1 md:self-stretch">
+        <ul
+          ref={strip}
+          // data-fade is set by STRIP_SCRIPT before hydration.
+          suppressHydrationWarning
+          className="edge-fade scrollbar-none flex h-11 items-center gap-2 overflow-x-auto px-4 md:h-full md:gap-1 md:px-0"
+        >
           {links.map((link) => {
             const active = isNavLinkActive(link, pathname, view);
             return (
@@ -102,7 +150,11 @@ export function TopBar({ variant, links }: { variant: 'links' | 'tabs'; links: N
             );
           })}
         </ul>
+        <script dangerouslySetInnerHTML={{ __html: STRIP_SCRIPT }} />
       </nav>
+      <div className="order-2 ml-auto flex h-14 items-center pr-4 md:order-none md:h-auto md:pr-0">
+        <UserMenu trigger="avatar" side="bottom" align="end" />
+      </div>
     </header>
   );
 }

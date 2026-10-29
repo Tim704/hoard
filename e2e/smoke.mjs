@@ -402,6 +402,47 @@ if (failures.length === 0) {
       await page.setViewportSize({ width: 1280, height: 900 });
     }
   });
+  // Fresh's tab strip on a full page load (a fresh tab): the open tab is in
+  // view from the first painted frame on (no jump at hydration), and the
+  // strip fades out where it is clipped (the end at 768 px).
+  const checkFreshStrip = async () => {
+    const p = await context.newPage();
+    p.on('pageerror', (err) => problems.push(`page error: ${err.message}`));
+    try {
+      await p.addInitScript(() => {
+        const frames = [];
+        let n = 0;
+        window.__stripFrames = frames;
+        const tick = () => {
+          const ul = document.querySelector('[data-shell] nav[aria-label="Main"] ul');
+          if (ul) frames.push(ul.scrollLeft);
+          if (++n < 60) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+      const strip = () =>
+        p.evaluate(() => {
+          const ul = document.querySelector('[data-shell] nav[aria-label="Main"] ul');
+          const u = ul.getBoundingClientRect();
+          const a = ul.querySelector('[aria-current="page"]').getBoundingClientRect();
+          return { frames: window.__stripFrames, fade: ul.dataset.fade ?? '', inView: a.left >= u.left - 1 && a.right <= u.right + 1 };
+        });
+      await p.setViewportSize({ width: 375, height: 812 });
+      await p.goto(`${BASE_URL}/music`, { waitUntil: 'networkidle' });
+      const phone = await strip();
+      if (!phone.inView) throw new Error('Fresh at 375: Albums is scrolled out of the strip');
+      if (!phone.frames.length || phone.frames[0] <= 0 || new Set(phone.frames).size !== 1) {
+        throw new Error(`Fresh at 375: the strip moved after the first paint (${phone.frames.join(',')})`);
+      }
+      if (phone.fade !== 'start') throw new Error(`Fresh at 375 on Albums: data-fade is "${phone.fade}"`);
+      await p.setViewportSize({ width: 768, height: 900 });
+      await p.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+      const tablet = await strip();
+      if (tablet.fade !== 'end') throw new Error(`Fresh at 768 on Home: data-fade is "${tablet.fade}"`);
+    } finally {
+      await p.close();
+    }
+  };
   // The shell in every layout, at desktop and phone width: no search button
   // and no bell in the chrome, the layout's navigation marks the open
   // section, the user menu has Settings and Log out and opens
@@ -461,6 +502,7 @@ if (failures.length === 0) {
           const after = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
           if (after > 0) throw new Error(`${where}: the page scrolls sideways by ${after}px after the menu`);
         }
+        if (label === 'Fresh') await checkFreshStrip();
         if (label === 'Minimal' || label === 'Fresh') {
           await page.setViewportSize({ width: 1280, height: 600 });
           await page.goto(`${BASE_URL}/settings?tab=general`, { waitUntil: 'networkidle' });

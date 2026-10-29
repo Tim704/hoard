@@ -359,6 +359,33 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+  /* A sideways scroller that fades out at an edge with more to scroll to.
+     Its script keeps data-fade ("start", "end", both or empty) up to date
+     (Fresh's tabs: src/components/shell/top-bar.tsx). */
+  .edge-fade {
+    --fade-start: 0px;
+    --fade-end: 0px;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 var(--fade-start),
+      #000 calc(100% - var(--fade-end)),
+      transparent
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 var(--fade-start),
+      #000 calc(100% - var(--fade-end)),
+      transparent
+    );
+  }
+  .edge-fade[data-fade~='start'] {
+    --fade-start: 2rem;
+  }
+  .edge-fade[data-fade~='end'] {
+    --fade-end: 2rem;
+  }
   /* An anchor target (a Settings card) clears the sticky top bar when scrolled to. */
   .scroll-mt-bar {
     scroll-margin-top: calc(var(--topbar-h) + 1.5rem);
