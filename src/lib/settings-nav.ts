@@ -113,3 +113,24 @@ export function upgradeSettingsLink(href: string): string {
   const rest = params.toString();
   return `/settings?tab=${tab}${rest ? `&${rest}` : ''}${hash}`;
 }
+
+/**
+ * Where a /settings page should send the browser, or null to stay: old
+ * links are upgraded (upgradeSettingsLink), and a ?tab= that can't be shown
+ * here (System for a non-owner, an unknown tab) becomes the tab the server
+ * shows instead (resolveSettingsTab), dropping a #card that isn't on it. So
+ * a non-owner's /settings#system ends on a clean /settings?tab=general.
+ */
+export function settingsRedirect(href: string, visible: readonly SettingsTab[]): string | null {
+  const upgraded = upgradeSettingsLink(href);
+  const m = /^\/settings(\?[^#]*)?(#.*)?$/.exec(upgraded);
+  if (!m) return null;
+  const params = new URLSearchParams(m[1] ?? '');
+  const tab = params.get('tab');
+  if (tab === null || (isSettingsTab(tab) && visible.includes(tab))) return upgraded === href ? null : upgraded;
+  const shown = resolveSettingsTab({ anilist: params.get('anilist') ?? undefined }, visible.includes('system'));
+  params.delete('tab');
+  const rest = params.toString();
+  const hash = m[2] ?? '';
+  return `/settings?tab=${shown}${rest ? `&${rest}` : ''}${hash && tabForAnchor(hash) === shown ? hash : ''}`;
+}

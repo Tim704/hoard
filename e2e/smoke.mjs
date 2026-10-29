@@ -308,6 +308,49 @@ if (failures.length === 0) {
     await page.goto(`${BASE_URL}/settings?tab=accounts&anilist=expired`, { waitUntil: 'networkidle' });
     await page.getByText('That AniList connection link expired or belongs to another session. Try again.').waitFor({ timeout: 10_000 });
     await page.waitForURL((url) => url.search === '?tab=accounts', { timeout: 10_000 });
+    // System is the owner's: anyone else's old #system link ends on a clean General.
+    const member = await browser.newContext();
+    try {
+      const p = await member.newPage();
+      await p.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
+      await p.fill('#username', 'demo2');
+      await p.fill('#password', PASSWORD);
+      await Promise.all([p.waitForURL((url) => url.pathname === '/dashboard', { timeout: 20_000 }), p.click('button[type="submit"]')]);
+      await p.goto(`${BASE_URL}/settings#system`, { waitUntil: 'networkidle' });
+      await p.waitForURL((url) => url.search === '?tab=general' && url.hash === '', { timeout: 15_000 });
+      const nav = await p.locator('nav[aria-label="Settings"]').innerText();
+      if (/System/.test(nav)) throw new Error('a non-owner sees the System tab');
+      if ((await p.locator('#system').count()) > 0) throw new Error('a non-owner sees the System card');
+    } finally {
+      await member.close();
+    }
+  });
+  // A clicked tab shows as open at once, while its cards load (the request
+  // is held here), and the old cards are marked busy.
+  await step('settings tab switch shows at once', async () => {
+    await page.goto(`${BASE_URL}/settings?tab=themes`, { waitUntil: 'networkidle' });
+    const held = [];
+    const dataTab = (url) => url.pathname === '/settings' && url.searchParams.get('tab') === 'data';
+    await page.route(dataTab, (route) => {
+      const h = route.request().headers();
+      if (h.rsc && !h['next-router-prefetch']) held.push(route);
+      else route.continue();
+    });
+    try {
+      await page.locator('nav[aria-label="Settings"]').getByRole('link', { name: 'Data' }).click();
+      await page.waitForFunction(() => {
+        const current = document.querySelector('nav[aria-label="Settings"] [aria-current="page"]');
+        return current?.textContent?.trim() === 'Data' && !!document.querySelector('[aria-busy="true"]');
+      }, null, { timeout: 10_000 });
+      if (new URL(page.url()).searchParams.get('tab') !== 'themes') throw new Error('navigated before the cards loaded');
+      if (held.length === 0) throw new Error('the Data tab request was not seen');
+    } finally {
+      await page.unroute(dataTab);
+      for (const r of held) await r.continue().catch(() => {});
+    }
+    await page.waitForURL((url) => url.searchParams.get('tab') === 'data', { timeout: 15_000 });
+    await page.locator('#api-tokens').waitFor({ timeout: 15_000 });
+    if ((await page.locator('[aria-busy="true"]').count()) > 0) throw new Error('still busy after loading');
   });
   // Phones: the tabs are one strip that scrolls sideways (the open one in
   // view), the layout picker is two by two, and nothing scrolls the page

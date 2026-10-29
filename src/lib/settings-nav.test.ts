@@ -8,6 +8,7 @@ import {
   isSettingsTab,
   resolveSettingsTab,
   settingsHref,
+  settingsRedirect,
   settingsTabsFor,
   tabForAnchor,
   upgradeSettingsLink,
@@ -146,5 +147,41 @@ describe('upgradeSettingsLink', () => {
 
   it('replaces an unknown ?tab= instead of keeping it', () => {
     expect(upgradeSettingsLink('/settings?tab=nope#compare')).toBe('/settings?tab=sharing#compare');
+  });
+});
+
+describe('settingsRedirect', () => {
+  const owner = settingsTabsFor(true);
+  const member = settingsTabsFor(false);
+
+  it('stays put on links that are already right', () => {
+    for (const href of ['/settings', '/settings?tab=data#api-tokens', '/settings?tab=themes', '/settings#nope']) {
+      expect(settingsRedirect(href, owner), href).toBeNull();
+    }
+    expect(settingsRedirect('/settings?tab=system#system', owner)).toBeNull();
+  });
+
+  it('upgrades old-style links', () => {
+    expect(settingsRedirect('/settings#api-tokens', member)).toBe('/settings?tab=data#api-tokens');
+    expect(settingsRedirect('/settings#system', owner)).toBe('/settings?tab=system#system');
+    expect(settingsRedirect('/settings?anilist=expired#accounts', member)).toBe(
+      '/settings?tab=accounts&anilist=expired#accounts',
+    );
+  });
+
+  it("sends a non-owner's System link to a clean General", () => {
+    expect(settingsRedirect('/settings#system', member)).toBe('/settings?tab=general');
+    expect(settingsRedirect('/settings?tab=system', member)).toBe('/settings?tab=general');
+    expect(settingsRedirect('/settings?tab=system#system', member)).toBe('/settings?tab=general');
+  });
+
+  it('replaces an unknown tab with the one shown, keeping a card that is on it', () => {
+    expect(settingsRedirect('/settings?tab=nope', owner)).toBe('/settings?tab=general');
+    expect(settingsRedirect('/settings?tab=nope&x=1#display', owner)).toBe('/settings?tab=general&x=1#display');
+    expect(settingsRedirect('/settings?tab=nope&anilist=denied', member)).toBe('/settings?tab=accounts&anilist=denied');
+  });
+
+  it('ignores other pages', () => {
+    expect(settingsRedirect('/books?tab=system', member)).toBeNull();
   });
 });
