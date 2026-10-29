@@ -194,6 +194,17 @@ if (failures.length === 0) {
     await page.getByRole('region', { name: 'Anime' }).waitFor({ timeout: 20_000 });
     await page.keyboard.press('Escape');
   });
+  // A shared link that isn't a known site falls back to searching the shared
+  // title. The link is a .localhost one, which the page fetcher refuses
+  // before any DNS lookup (safe-fetch.ts), so this never waits on the
+  // internet; so is the matching entry in routes.json.
+  await step('shared unknown link → search for its title', async () => {
+    await page.goto(`${BASE_URL}/add?title=Dune&url=${encodeURIComponent('https://dune.localhost/book')}`, { waitUntil: 'domcontentloaded' });
+    await page.getByText(/Couldn.t recognise that link/).waitFor({ timeout: 10_000 });
+    const box = page.getByPlaceholder('Search every section…');
+    await box.waitFor({ timeout: 10_000 });
+    if ((await box.inputValue()) !== 'Dune') throw new Error(`the fallback searches for "${await box.inputValue()}", not the shared title`);
+  });
   await step('command palette (Cmd/Ctrl+K)', async () => {
     await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
     await page.keyboard.press('ControlOrMeta+k');

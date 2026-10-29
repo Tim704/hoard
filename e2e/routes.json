@@ -21,7 +21,7 @@
   "/settings?tab=system",
   "/settings?tab=no-such-tab",
   "/add",
-  "/add?title=Dune&text=Have%20you%20read%20this%3F&url=https%3A%2F%2Fexample.com%2Fdune",
+  "/add?title=Dune&text=Have%20you%20read%20this%3F&url=https%3A%2F%2Fdune.localhost%2Fbook",
   "/add?url=https%3A%2F%2Fanilist.co%2Fanime%2F1",
   "/add?text=Watch%20this%20https%3A%2F%2Fanilist.co%2Fmanga%2F30013",
   "/add?text=Frieren",
