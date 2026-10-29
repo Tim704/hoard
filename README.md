@@ -436,6 +436,8 @@ Around it:
 - **Per user:** `User.prefs` (a JSON column validated by `src/lib/prefs.ts`),
   `TasteProfile`, `Notification`, `ShareLink`, `ApiToken` (SHA-256 hashes only) and
   `ExternalLink` (Steam, Last.fm and AniList accounts; tokens encrypted).
+  `User.prefs` display fields: `layout` (classic | minimal | organised | fresh),
+  `titleView` (popup | page), `dashboard` ({order, hidden}).
 - **System:** `JobRun` (scheduler state).
 
 Schema changes are additive only (new tables, nullable or defaulted columns), so
