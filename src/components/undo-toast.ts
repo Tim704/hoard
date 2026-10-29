@@ -1,8 +1,9 @@
 'use client';
 
-// Toasts with an Undo button (spec 1.6): shown for 8 s after a remove or a
-// status change. The remove carries only a server-side token; a status change
-// carries the previous state the server reported.
+// Toasts with an Undo button (spec 1.6): shown for 8 s after a remove, a
+// status change or a display switch (layout, title view). The remove carries
+// only a server-side token; a status change carries the previous state the
+// server reported; a display switch undoes itself on the client.
 
 import { toast } from 'sonner';
 
@@ -60,5 +61,13 @@ export function toastStatusChange(
         }
       },
     },
+  });
+}
+
+/** "Layout: Fresh" · Undo — `undo` puts the previous value back (and reports itself). */
+export function toastUndoable(message: string, undo: () => void) {
+  toast.success(message, {
+    duration: UNDO_MS,
+    action: { label: 'Undo', onClick: undo },
   });
 }
