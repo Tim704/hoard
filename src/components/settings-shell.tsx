@@ -82,9 +82,10 @@ export function SettingsShell({
         <p className="text-sm text-muted-foreground">Changes save as you make them.</p>
       </header>
       <div className="lg:flex lg:items-start lg:gap-8">
+        {/* Sticks below the layout's sticky top bar, if any (--topbar-h). */}
         <nav
           aria-label="Settings"
-          className="-mx-4 mb-5 border-b border-border sm:-mx-6 lg:sticky lg:top-6 lg:mx-0 lg:mb-0 lg:w-48 lg:shrink-0 lg:border-0"
+          className="-mx-4 mb-5 border-b border-border sm:-mx-6 lg:sticky lg:top-[calc(var(--topbar-h)+1.5rem)] lg:mx-0 lg:mb-0 lg:w-48 lg:shrink-0 lg:border-0"
         >
           <ul className="scrollbar-none relative flex gap-1 overflow-x-auto px-4 pb-2 sm:px-6 lg:flex-col lg:overflow-visible lg:p-0">
             {tabs.map((tab) => {

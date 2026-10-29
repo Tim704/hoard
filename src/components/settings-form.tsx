@@ -101,7 +101,7 @@ export function SettingsForm({ initial, timeZones, serverTimeZone }: SettingsFor
 
   return (
     <>
-      <Card id="time-zone" className="scroll-mt-20">
+      <Card id="time-zone" className="scroll-mt-bar">
         <CardHeader>
           <CardTitle className="text-base">Time zone</CardTitle>
           <CardDescription>
@@ -138,7 +138,7 @@ export function SettingsForm({ initial, timeZones, serverTimeZone }: SettingsFor
         </CardContent>
       </Card>
 
-      <Card id="display" className="scroll-mt-20">
+      <Card id="display" className="scroll-mt-bar">
         <CardHeader>
           <CardTitle className="text-base">Display</CardTitle>
           <CardDescription>You always enter scores from 0 to 10; this only changes how they are shown.</CardDescription>
@@ -168,7 +168,7 @@ export function SettingsForm({ initial, timeZones, serverTimeZone }: SettingsFor
         </CardContent>
       </Card>
 
-      <Card id="sections" className="scroll-mt-20">
+      <Card id="sections" className="scroll-mt-bar">
         <CardHeader>
           <CardTitle className="text-base">Sections</CardTitle>
           <CardDescription>

@@ -262,6 +262,33 @@
       --grid-gap: 1.25rem;
     }
   }
+
+  /* ── The sticky top bar's height (src/components/shell/) ─────────────────
+     The bars take their height from --topbar-h (border and the notch's
+     safe area included), so sticky things below them can offset by it
+     (Settings' side list, .scroll-mt-bar). 0 where nothing sticks to the
+     top: Classic and Organised from md, where the sidebar takes over.
+       phones (sidebar layouts): MobileBar, one 57px line;
+       Minimal from md:          the top bar with Dashboard, 56px;
+       Fresh:                    two lines on phones (brand + avatar, then
+                                 the tab chips), one 64px line from md. */
+  :root {
+    --topbar-h: calc(3.5625rem + env(safe-area-inset-top, 0px));
+  }
+  :root[data-layout='fresh'] {
+    --topbar-h: calc(6.3125rem + env(safe-area-inset-top, 0px));
+  }
+  @media (min-width: 768px) {
+    :root {
+      --topbar-h: 0px;
+    }
+    :root[data-layout='minimal'] {
+      --topbar-h: 3.5rem;
+    }
+    :root[data-layout='fresh'] {
+      --topbar-h: 4rem;
+    }
+  }
 }
 
 @layer base {
@@ -331,5 +358,9 @@
   }
   .scrollbar-none::-webkit-scrollbar {
     display: none;
+  }
+  /* An anchor target (a Settings card) clears the sticky top bar when scrolled to. */
+  .scroll-mt-bar {
+    scroll-margin-top: calc(var(--topbar-h) + 1.5rem);
   }
 }

@@ -28,7 +28,7 @@ export function SettingsThemes() {
 
   return (
     <>
-      <Card id="layout" className="scroll-mt-20">
+      <Card id="layout" className="scroll-mt-bar">
         <CardHeader>
           <CardTitle className="text-base">Layout</CardTitle>
           <CardDescription>
@@ -55,7 +55,7 @@ export function SettingsThemes() {
         </CardContent>
       </Card>
 
-      <Card id="title-view" className="scroll-mt-20">
+      <Card id="title-view" className="scroll-mt-bar">
         <CardHeader>
           <CardTitle className="text-base">Title view</CardTitle>
           <CardDescription>What opens when you click a title, whichever layout you use.</CardDescription>

@@ -51,7 +51,7 @@ function OptInCard({
   }
 
   return (
-    <Card id={id} className="scroll-mt-20">
+    <Card id={id} className="scroll-mt-bar">
       <CardHeader>
         <CardTitle className="text-base">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>

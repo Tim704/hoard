@@ -44,7 +44,7 @@ export function SettingsSystem({
   const problem = backup.mounted ? backupProblem(backup, now) : null;
 
   return (
-    <Card id="system" className="scroll-mt-20">
+    <Card id="system" className="scroll-mt-bar">
       <CardHeader>
         <CardTitle className="text-base">System</CardTitle>
         <CardDescription>Backups and scheduled jobs for this Hoard server.</CardDescription>

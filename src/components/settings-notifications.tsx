@@ -90,7 +90,7 @@ export function SettingsNotifications({ initial }: { initial: NotifySettings }) 
   }
 
   return (
-    <Card id="notifications" className="scroll-mt-20">
+    <Card id="notifications" className="scroll-mt-bar">
       <CardHeader>
         <CardTitle className="text-base">Notifications</CardTitle>
         <CardDescription>

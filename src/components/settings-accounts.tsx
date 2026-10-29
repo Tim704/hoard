@@ -68,7 +68,7 @@ export function SettingsAccounts({ steam, lastfm, anilist }: AccountsProps) {
   }, [params, router]);
 
   return (
-    <Card id="accounts" className="scroll-mt-20">
+    <Card id="accounts" className="scroll-mt-bar">
       <CardHeader>
         <CardTitle className="text-base">Accounts</CardTitle>
         <CardDescription>Link other sites so Hoard can import from them and keep up with them.</CardDescription>
