@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { toastRemoved, toastStatusChange } from '@/components/undo-toast';
-import { UNREACHABLE, settle } from '@/lib/action-result';
+import { UNREACHABLE, WENT_WRONG, settle } from '@/lib/action-result';
 import { assignFranchise } from '@/lib/actions/franchise';
 import { removeActivity, updateActivity } from '@/lib/actions/media';
 import { statusLabel, type Status } from '@/lib/status';
@@ -162,12 +162,14 @@ export function useTitleEditor(activity: ActivityWithMedia | null, options: Titl
         if (!moved.ok) {
           franchiseFailed = true;
           saved = { ...values, franchiseId: before.base.franchiseId };
-          // The one toast for this save: it names what failed (Hoard not
-          // answering says nothing of the franchise), then that the rest was
-          // saved, when there was any.
+          // The one toast for this save: it names what failed (settle()'s
+          // own messages say nothing of the franchise), then that the rest
+          // was saved, when there was any.
           const others = changedFields(saved, before.base).length > 0;
           const message =
-            !moved.error || moved.error === UNREACHABLE ? 'Couldn’t change the franchise. Try again.' : moved.error;
+            !moved.error || moved.error === UNREACHABLE || moved.error === WENT_WRONG
+              ? 'Couldn’t change the franchise. Try again.'
+              : moved.error;
           toast.error(message, others ? { description: 'Everything else was saved.' } : {});
         }
       }
