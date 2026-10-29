@@ -62,10 +62,13 @@ const FIELD_NAMES: Record<keyof TitleValues, string> = {
 /** Full-bleed bands on phones (the content as wide as the popup's), cards from sm. */
 const PANEL = '-mx-4 min-w-0 space-y-4 border-x-0 border-y border-border bg-card p-4 sm:mx-0 sm:rounded-lg sm:border-x sm:p-5';
 
-/** One block of the page; hidden when what it holds renders nothing. */
-function Panel({ className, children, label }: { className?: string; children: React.ReactNode; label?: string }) {
+/**
+ * One block of the page; hidden when what it holds renders nothing. Not a
+ * named region: the fields inside carry their own labels and headings.
+ */
+function Panel({ className, children, label }: { className?: string; children: React.ReactNode; label: string }) {
   return (
-    <section aria-label={label} className={cn(PANEL, 'empty:hidden', className)}>
+    <section data-panel={label} className={cn(PANEL, 'empty:hidden', className)}>
       {children}
     </section>
   );

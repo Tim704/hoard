@@ -3,8 +3,8 @@
 // ───────────────────────────────────────────────────────────────────────────
 //  A title's log sections (spec 3.1–3.6): ownership / format, "Watched 3× ·
 //  last …" with Watch again, the latest entry's review, a game's play
-//  sessions, and the History. The log itself comes from useActivityLog
-//  (./use-activity-log.ts).
+//  sessions, and the History, as the full title page shows them. The log
+//  itself comes from useActivityLog (./use-activity-log.ts).
 // ───────────────────────────────────────────────────────────────────────────
 
 import { useMemo, useState } from 'react';
@@ -40,42 +40,6 @@ import { againLabel, statusLabel } from '@/lib/status';
 import type { ActivityWithMedia } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-import { useActivityLog } from './use-activity-log';
-
-interface ActivityExtrasProps {
-  activity: ActivityWithMedia;
-  disabled?: boolean;
-  /** Close the details (after Watch again, which changes the status). */
-  onClose: () => void;
-}
-
-/** The log sections in one column. Render with `key={activity.id}`. */
-export function ActivityExtras({ activity, disabled, onClose }: ActivityExtrasProps) {
-  const router = useRouter();
-  const { log, failed, reload } = useActivityLog(activity.id);
-
-  const changed = () => {
-    void reload();
-    router.refresh();
-  };
-
-  return (
-    <div className="space-y-4">
-      <OwnershipField activity={activity} disabled={disabled} />
-      {failed && <LogFailed />}
-      {log && (
-        <>
-          <Runs activity={activity} log={log} disabled={disabled} onDone={onClose} />
-          {log.diary.length > 0 && (
-            <ReviewField key={log.diary[0].id} activityId={activity.id} category={activity.category} initial={log.diary[0].review ?? ''} onSaved={changed} />
-          )}
-          {activity.category === 'games' && <Sessions activityId={activity.id} log={log} onChanged={changed} />}
-          <HistoryList activity={activity} log={log} />
-        </>
-      )}
-    </div>
-  );
-}
 
 /** The log couldn't be loaded. */
 export function LogFailed() {

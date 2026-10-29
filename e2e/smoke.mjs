@@ -650,20 +650,51 @@ if (failures.length === 0) {
       await pickLayout('Classic');
     }
   });
-  // TV seasons (3.3 / 4.5): the demo show's details list its seasons and
-  // link to the season tier page.
-  await step('tv seasons → season tiers', async () => {
-    await page.goto(`${BASE_URL}/tv?open=demo-activity-tv-expanse`, { waitUntil: 'networkidle' });
+  // TV seasons (3.3 / 4.5): the demo show's title page lists its seasons and
+  // links to the season tier page.
+  await step('tv seasons on the title page → season tiers', async () => {
+    await page.goto(`${BASE_URL}/tv/title/demo-activity-tv-expanse`, { waitUntil: 'networkidle' });
+    await page.getByRole('heading', { level: 1, name: 'The Expanse' }).waitFor({ timeout: 15_000 });
     await page.getByRole('heading', { name: 'Seasons' }).waitFor({ timeout: 15_000 });
     await page.getByLabel('Watched episodes of Season 3').waitFor({ timeout: 10_000 });
     // Where to watch and sub-scores are gone from the details.
-    const details = await page.getByRole('dialog').innerText();
-    if (/Where to watch|Sub-scores/i.test(details)) throw new Error('the details still show Where to watch or sub-scores');
+    const main = await page.locator('main').innerText();
+    if (/Where to watch|Sub-scores/i.test(main)) throw new Error('the title page still shows Where to watch or sub-scores');
     await Promise.all([
       page.waitForURL((url) => url.pathname === '/tv/seasons/demo-activity-tv-expanse', { timeout: 20_000 }),
       page.getByRole('link', { name: 'Season tiers' }).click(),
     ]);
     await page.getByRole('heading', { name: 'Which season is better?' }).waitFor({ timeout: 15_000 });
+  });
+  // The popup title view (the default): only the short fields, the season-
+  // tracked progress read-only, a footer that fits a phone, and "Open full
+  // page" for everything else.
+  await step('popup: short fields, Open full page', async () => {
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: width === 375 ? 812 : 900 });
+      await page.goto(`${BASE_URL}/tv?open=demo-activity-tv-expanse`, { waitUntil: 'networkidle' });
+      const dialog = page.getByRole('dialog', { name: 'The Expanse', exact: true });
+      await dialog.waitFor({ timeout: 15_000 });
+      await dialog.getByText('Tracked by seasons').waitFor({ timeout: 10_000 });
+      for (const label of ['Status', 'Rating', 'Favorite', 'Progress', 'Notes']) {
+        await dialog.getByText(label, { exact: true }).first().waitFor({ timeout: 10_000 });
+      }
+      const text = await dialog.innerText();
+      const extra = ['Franchise', 'Tags', 'History', 'Season tiers', 'Add to list', 'More by the same people'].filter((t) => text.includes(t));
+      if (extra.length) throw new Error(`at ${width} the popup still shows ${extra.join(', ')}`);
+      const fit = await page.evaluate(() => {
+        const d = document.querySelector('[role="dialog"]').getBoundingClientRect();
+        const buttons = [...document.querySelectorAll('[role="dialog"] button')].map((b) => b.getBoundingClientRect());
+        return { spill: Math.max(...buttons.map((b) => b.right)) - d.right, overflow: document.documentElement.scrollWidth - window.innerWidth };
+      });
+      if (fit.spill > 0 || fit.overflow > 0) throw new Error(`at ${width} the popup spills ${fit.spill}px (page ${fit.overflow}px)`);
+    }
+    await Promise.all([
+      page.waitForURL((url) => url.pathname === '/tv/title/demo-activity-tv-expanse', { timeout: 20_000 }),
+      page.getByRole('dialog').getByRole('button', { name: 'Open full page' }).click(),
+    ]);
+    await page.getByRole('heading', { level: 1, name: 'The Expanse' }).waitFor({ timeout: 15_000 });
+    if ((await page.getByRole('dialog').count()) > 0) throw new Error('the popup stayed open over the title page');
   });
   // Score these (1.3): no banner (or crowd panel) on the section page any
   // more, and ?score=1 does nothing there; the tier list's tray opens the
@@ -740,8 +771,10 @@ if (failures.length === 0) {
       if (!Array.isArray(data[key])) throw new Error(`all.json lacks ${key}`);
     }
   });
-  // Linked notes (8.5): the demo Aliens notes link to Alien (opens it, which
-  // lists Aliens under "Mentioned in"); "Alien 3" isn't in the library.
+  // Linked notes (8.5): the demo Aliens notes link to Alien (opens it); "Alien
+  // 3" isn't in the library. Alien's full page lists Aliens under
+  // "Mentioned in", and its notes complete [[links]]; an edit there brings
+  // up the Save bar, and Discard puts the notes back.
   await step('linked notes + mentioned in', async () => {
     await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
     await page.keyboard.press('ControlOrMeta+k');
@@ -750,16 +783,23 @@ if (failures.length === 0) {
     await box.fill('Aliens');
     await page.getByRole('option', { name: /^Aliens/ }).first().waitFor({ timeout: 10_000 });
     await page.keyboard.press('Enter');
-    const dialog = page.getByRole('dialog');
-    await dialog.getByRole('heading', { name: 'Aliens', exact: true }).waitFor({ timeout: 15_000 });
-    const unresolved = dialog.locator('span[title="Not in your library"]', { hasText: 'Alien 3' });
+    const aliens = page.getByRole('dialog', { name: 'Aliens', exact: true });
+    await aliens.waitFor({ timeout: 15_000 });
+    const unresolved = aliens.locator('span[title="Not in your library"]', { hasText: 'Alien 3' });
     await unresolved.waitFor({ timeout: 10_000 });
-    await dialog.getByRole('button', { name: 'Alien', exact: true }).click();
-    await dialog.getByRole('heading', { name: 'Alien', exact: true }).waitFor({ timeout: 15_000 });
-    await dialog.getByRole('heading', { name: 'Mentioned in' }).waitFor({ timeout: 10_000 });
-    await dialog.getByRole('button', { name: /^Aliens/ }).waitFor({ timeout: 10_000 });
+    await aliens.getByRole('button', { name: 'Alien', exact: true }).click();
+    const alien = page.getByRole('dialog', { name: 'Alien', exact: true });
+    await alien.waitFor({ timeout: 15_000 });
+    await Promise.all([
+      page.waitForURL((url) => /^\/movies\/title\/[^/]+$/.test(url.pathname), { timeout: 20_000 }),
+      alien.getByRole('button', { name: 'Open full page' }).click(),
+    ]);
+    await page.getByRole('heading', { level: 1, name: 'Alien', exact: true }).waitFor({ timeout: 15_000 });
+    await page.getByRole('heading', { name: 'Mentioned in' }).waitFor({ timeout: 10_000 });
+    await page.getByRole('button', { name: /^Aliens/ }).waitFor({ timeout: 10_000 });
     // Autocomplete after [[ in the notes.
-    const notes = dialog.getByLabel('Notes');
+    const notes = page.getByLabel('Notes');
+    const before = await notes.inputValue();
     await notes.click();
     await notes.press('End');
     await notes.pressSequentially(' [[Cowb');
@@ -767,7 +807,11 @@ if (failures.length === 0) {
     await page.keyboard.press('Enter');
     const value = await notes.inputValue();
     if (!value.endsWith('[[Cowboy Bebop]]')) throw new Error(`autocomplete gave: ${value}`);
-    await page.keyboard.press('Escape');
+    const bar = page.getByRole('region', { name: 'Unsaved changes' });
+    await bar.waitFor({ timeout: 10_000 });
+    await bar.getByRole('button', { name: 'Discard' }).click();
+    await bar.waitFor({ state: 'hidden', timeout: 10_000 });
+    if ((await notes.inputValue()) !== before) throw new Error('Discard left the notes edited');
   });
   // Saved views (8.6): the demo view opens from the navigation (in Classic,
   // under Views in the user menu) with results.
