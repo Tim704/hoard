@@ -2,6 +2,7 @@
 
 import { ChevronRight, Layers } from 'lucide-react';
 
+import { CardAction } from '@/components/card-action';
 import { FranchiseGroupHeader, GroupRating } from '@/components/franchise-group';
 import { CardBadgePill, useCardBadge } from '@/components/card-badges';
 import { StatusIcon } from '@/components/status-icon';
@@ -17,6 +18,8 @@ interface MediaCompactProps {
   units: DisplayUnit[];
   slug: CategorySlug;
   onSelect: (a: ActivityWithMedia) => void;
+  /** A title's page (Full page title view): its row links there instead of calling onSelect. */
+  hrefFor?: (a: ActivityWithMedia) => string | undefined;
   expanded: Set<string>;
   onToggleGroup: (franchiseId: string) => void;
   /** Under a status heading (rows that show no status needn't name it). */
@@ -32,7 +35,7 @@ const COLS = 'grid grid-cols-1 gap-x-10 gap-y-1 sm:grid-cols-2 xl:grid-cols-3';
  * Rows show as much as the layout's cards (`useLayout().card`): Minimal only
  * the title and year, Organised adds one badge, Fresh darkens the rows.
  */
-export function MediaCompact({ units, slug, onSelect, expanded, onToggleGroup, inStatusSection }: MediaCompactProps) {
+export function MediaCompact({ units, slug, onSelect, hrefFor, expanded, onToggleGroup, inStatusSection }: MediaCompactProps) {
   const style = useLayout().card;
   if (units.length === 0) {
     return <p className="py-12 text-center text-sm text-muted-foreground">Nothing here yet.</p>;
@@ -44,7 +47,7 @@ export function MediaCompact({ units, slug, onSelect, expanded, onToggleGroup, i
         if (unit.kind === 'item') {
           return (
             <li key={unit.activity.id}>
-              <CompactRow activity={unit.activity} slug={slug} onSelect={onSelect} style={style} inStatusSection={inStatusSection} />
+              <CompactRow activity={unit.activity} slug={slug} onSelect={onSelect} href={hrefFor?.(unit.activity)} style={style} inStatusSection={inStatusSection} />
             </li>
           );
         }
@@ -63,7 +66,7 @@ export function MediaCompact({ units, slug, onSelect, expanded, onToggleGroup, i
               <ul className={cn(COLS, 'pt-1')}>
                 {members.map((a) => (
                   <li key={a.id}>
-                    <CompactRow activity={a} slug={slug} onSelect={onSelect} style={style} inStatusSection={inStatusSection} />
+                    <CompactRow activity={a} slug={slug} onSelect={onSelect} href={hrefFor?.(a)} style={style} inStatusSection={inStatusSection} />
                   </li>
                 ))}
               </ul>
@@ -100,12 +103,14 @@ function CompactRow({
   activity,
   slug,
   onSelect,
+  href,
   style,
   inStatusSection,
 }: {
   activity: ActivityWithMedia;
   slug: CategorySlug;
   onSelect: (a: ActivityWithMedia) => void;
+  href?: string;
   style: CardStyle;
   inStatusSection?: boolean;
 }) {
@@ -118,8 +123,8 @@ function CompactRow({
     ? [media.year, mediaSubtitle(media, activity.category)]
     : [media.year, statusLabel(status, slug)];
   return (
-    <button
-      type="button"
+    <CardAction
+      href={href}
       onClick={() => onSelect(activity)}
       className={cn(
         'flex w-full items-center gap-3 rounded-md border border-transparent px-2.5 py-3 text-left transition-colors hover:border-border hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:py-2.5',
@@ -149,6 +154,6 @@ function CompactRow({
           {scoreOutOf(rating)}
         </span>
       )}
-    </button>
+    </CardAction>
   );
 }

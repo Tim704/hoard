@@ -2,6 +2,7 @@
 
 import { Fragment } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { ChevronDown, ChevronRight, ImageOff, Layers, Star } from 'lucide-react';
 
 import { CardBadgePill, useCardBadge } from '@/components/card-badges';
@@ -27,6 +28,8 @@ import { cn } from '@/lib/utils';
 interface MediaTableProps {
   units: DisplayUnit[];
   onSelect: (a: ActivityWithMedia) => void;
+  /** A title's page (Full page title view): the title cell links there. */
+  hrefFor?: (a: ActivityWithMedia) => string | undefined;
   expanded: Set<string>;
   onToggleGroup: (franchiseId: string) => void;
   /** When given, shows a leading `#` column with each item's manual rank. */
@@ -51,7 +54,7 @@ const COLUMNS: Record<CardStyle, { status: boolean; badge: boolean; rating: bool
  * List view: large covers with title, subtitle, status and rating, showing
  * as much as the layout's cards do (`useLayout().card`).
  */
-export function MediaTable({ units, onSelect, expanded, onToggleGroup, ranks, inStatusSection }: MediaTableProps) {
+export function MediaTable({ units, onSelect, hrefFor, expanded, onToggleGroup, ranks, inStatusSection }: MediaTableProps) {
   const style = useLayout().card;
   const cols = COLUMNS[style];
   const dark = style === 'cinematic';
@@ -85,6 +88,7 @@ export function MediaTable({ units, onSelect, expanded, onToggleGroup, ranks, in
                   key={unit.activity.id}
                   activity={unit.activity}
                   onSelect={onSelect}
+                  href={hrefFor?.(unit.activity)}
                   ranks={ranks}
                   style={style}
                   inStatusSection={inStatusSection}
@@ -147,6 +151,7 @@ export function MediaTable({ units, onSelect, expanded, onToggleGroup, ranks, in
                       key={a.id}
                       activity={a}
                       onSelect={onSelect}
+                      href={hrefFor?.(a)}
                       ranks={ranks}
                       style={style}
                       inStatusSection={inStatusSection}
@@ -165,6 +170,7 @@ export function MediaTable({ units, onSelect, expanded, onToggleGroup, ranks, in
 function ItemRow({
   activity,
   onSelect,
+  href,
   ranks,
   style,
   inStatusSection,
@@ -172,6 +178,8 @@ function ItemRow({
 }: {
   activity: ActivityWithMedia;
   onSelect: (a: ActivityWithMedia) => void;
+  /** The title's page: the title is a link to it (the rest of the row still opens it on a click). */
+  href?: string;
   ranks?: Map<string, number>;
   style: CardStyle;
   inStatusSection?: boolean;
@@ -223,7 +231,22 @@ function ItemRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1.5">
-          <span className={cn('text-base font-medium leading-tight', dark && 'font-display font-semibold')}>{title}</span>
+          {href ? (
+            <Link
+              href={href}
+              // The row's own click would navigate a second time (or, with a
+              // modifier key, in this tab as well as the new one).
+              onClick={(e) => e.stopPropagation()}
+              className={cn(
+                'rounded-sm text-base font-medium leading-tight hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                dark && 'font-display font-semibold',
+              )}
+            >
+              {title}
+            </Link>
+          ) : (
+            <span className={cn('text-base font-medium leading-tight', dark && 'font-display font-semibold')}>{title}</span>
+          )}
           {activity.favorite && style !== 'poster' && (
             <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" aria-label="Favorite" />
           )}

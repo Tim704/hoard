@@ -101,6 +101,9 @@ export function CategoryClient({
     if (titleView === 'page') router.push(titleHref(slug, a.id, 'page'));
     else setSelected(a);
   };
+  // …as real links (new tab, prefetch, read as links); a click elsewhere on
+  // a list row still goes through `select`.
+  const hrefFor = titleView === 'page' ? (a: ActivityWithMedia) => titleHref(slug, a.id, 'page') : undefined;
   useEffect(() => {
     if (!openId) return;
     if (titleView !== 'page') setSelectedId(openId);
@@ -142,7 +145,7 @@ export function CategoryClient({
 
   const renderView = (items: ActivityWithMedia[]) => {
     const units = toDisplayUnits(items, groupingOn);
-    const common = { units, onSelect: select, expanded: expandedGroups, onToggleGroup: toggleGroup, inStatusSection: grouped };
+    const common = { units, onSelect: select, hrefFor, expanded: expandedGroups, onToggleGroup: toggleGroup, inStatusSection: grouped };
     return viewMode === 'grid' ? (
       <MediaGrid {...common} />
     ) : viewMode === 'compact' ? (

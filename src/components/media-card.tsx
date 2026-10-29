@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { ImageOff, Star } from 'lucide-react';
 
+import { CardAction } from '@/components/card-action';
 import { CardBadgePill, useCardBadge } from '@/components/card-badges';
 import { useDisplayTitle, useLayout, useScoreFormat } from '@/components/prefs-provider';
 import { RatingControl } from '@/components/rating-control';
@@ -17,6 +18,8 @@ import { cn } from '@/lib/utils';
 interface MediaCardProps {
   activity: ActivityWithMedia;
   onClick: () => void;
+  /** The title's page (Full page title view): the card is then a link to it. */
+  href?: string;
   /**
    * The card sits under a status heading (the section page grouped by
    * status), so a card that shows no status needn't name it either.
@@ -37,7 +40,8 @@ const CHIP_TEXT: Record<Status, string> = {
 const SIZES = '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw';
 
 /**
- * A clickable poster card. How much it shows depends on the layout
+ * A clickable poster card (a link to the title's page when `href` is given,
+ * else a button). How much it shows depends on the layout
  * (`useLayout().card`, src/lib/layouts.ts):
  * - plain (Classic): the original card: status chip, favourite star, title,
  *   year, status badge and rating;
@@ -95,14 +99,14 @@ function Poster({
 }
 
 /** Classic: the card as it was before layouts (no activity badges). */
-function PlainCard({ activity, onClick }: MediaCardProps) {
+function PlainCard({ activity, onClick, href }: MediaCardProps) {
   const { media, status } = activity;
   const title = useDisplayTitle()(media);
   const Icon = STATUS_ICON[status];
 
   return (
-    <button
-      type="button"
+    <CardAction
+      href={href}
       onClick={onClick}
       data-card="plain"
       className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-black/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -132,19 +136,19 @@ function PlainCard({ activity, onClick }: MediaCardProps) {
           {activity.rating != null && <RatingControl value={activity.rating} />}
         </div>
       </div>
-    </button>
+    </CardAction>
   );
 }
 
 /** Minimal: the poster and the title; nothing else competes. */
-function PosterCard({ activity, onClick, inStatusSection }: MediaCardProps) {
+function PosterCard({ activity, onClick, href, inStatusSection }: MediaCardProps) {
   const { media, status } = activity;
   const title = useDisplayTitle()(media);
   const meta = [media.year, mediaSubtitle(media, activity.category)].filter(Boolean).join(' · ');
 
   return (
-    <button
-      type="button"
+    <CardAction
+      href={href}
       onClick={onClick}
       data-card="poster"
       className="group flex flex-col rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
@@ -160,20 +164,20 @@ function PosterCard({ activity, onClick, inStatusSection }: MediaCardProps) {
         {/* Shown nowhere, but named when no status heading says it. */}
         {!inStatusSection && <span className="sr-only">{statusLabel(status, activity.category)}</span>}
       </div>
-    </button>
+    </CardAction>
   );
 }
 
 /** Organised: compact and tidy, with at most one badge that matters now. */
-function OneBadgeCard({ activity, onClick }: MediaCardProps) {
+function OneBadgeCard({ activity, onClick, href }: MediaCardProps) {
   const { media, status } = activity;
   const title = useDisplayTitle()(media);
   const { scorePlain } = useScoreFormat();
   const badge = useCardBadge(activity);
 
   return (
-    <button
-      type="button"
+    <CardAction
+      href={href}
       onClick={onClick}
       data-card="one-badge"
       className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left transition-colors hover:border-primary/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -200,12 +204,12 @@ function OneBadgeCard({ activity, onClick }: MediaCardProps) {
         </p>
         {badge && <CardBadgePill badge={badge} className="mt-auto" />}
       </div>
-    </button>
+    </CardAction>
   );
 }
 
 /** Fresh: poster-forward, the title on a gradient, a dark rating chip. */
-function CinematicCard({ activity, onClick }: MediaCardProps) {
+function CinematicCard({ activity, onClick, href }: MediaCardProps) {
   const { media, status } = activity;
   const title = useDisplayTitle()(media);
   const { scorePlain } = useScoreFormat();
@@ -217,8 +221,8 @@ function CinematicCard({ activity, onClick }: MediaCardProps) {
       : null;
 
   return (
-    <button
-      type="button"
+    <CardAction
+      href={href}
       onClick={onClick}
       data-card="cinematic"
       className="group relative isolate block aspect-[2/3] w-full overflow-hidden rounded-xl bg-muted text-left shadow-lg shadow-black/40 ring-1 ring-white/10 transition duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/60 hover:ring-primary/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none motion-reduce:hover:translate-y-0"
@@ -263,6 +267,6 @@ function CinematicCard({ activity, onClick }: MediaCardProps) {
           <span className="block h-full bg-primary" style={{ width: `${progress * 100}%` }} />
         </span>
       )}
-    </button>
+    </CardAction>
   );
 }

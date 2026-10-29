@@ -857,12 +857,29 @@ if (failures.length === 0) {
     await page.getByText(`Title view: ${label}`).first().waitFor({ timeout: 15_000 });
   };
   await step('full page title view', async () => {
+    // What a card's root is: a button (popup) or a link to the title page.
+    const cardRoot = async () =>
+      page.locator('main [data-card]').first().evaluate((el) => ({ tag: el.tagName.toLowerCase(), href: el.getAttribute('href') }));
     try {
-      await pickTitleView('Full page');
       await page.evaluate(() => localStorage.setItem('hoard:books:view', '"grid"'));
       await page.goto(`${BASE_URL}/books`, { waitUntil: 'networkidle' });
+      const popupCard = await cardRoot();
+      if (popupCard.tag !== 'button') throw new Error(`in popup mode a card is a <${popupCard.tag}>`);
+      await pickTitleView('Full page');
+      // Real links: new tab, prefetch, read as links. In the list view the
+      // title cell is the link.
+      await page.evaluate(() => localStorage.setItem('hoard:books:view', '"list"'));
+      await page.goto(`${BASE_URL}/books`, { waitUntil: 'networkidle' });
+      const rowLinks = await page.locator('main table a[href^="/books/title/"]').count();
+      if (rowLinks === 0) throw new Error('in page mode the list view has no title links');
+      await page.evaluate(() => localStorage.setItem('hoard:books:view', '"grid"'));
+      await page.goto(`${BASE_URL}/books`, { waitUntil: 'networkidle' });
+      const pageCard = await cardRoot();
+      if (pageCard.tag !== 'a' || !/^\/books\/title\/[^/]+$/.test(pageCard.href ?? '')) {
+        throw new Error(`in page mode a card is a <${pageCard.tag}> to ${pageCard.href}`);
+      }
       await Promise.all([
-        page.waitForURL((url) => /^\/books\/title\/[^/]+$/.test(url.pathname), { timeout: 20_000 }),
+        page.waitForURL((url) => url.pathname === pageCard.href, { timeout: 20_000 }),
         page.locator('main [data-card]').first().click(),
       ]);
       await page.getByRole('heading', { level: 1 }).waitFor({ timeout: 15_000 });

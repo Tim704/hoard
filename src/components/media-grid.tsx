@@ -8,6 +8,8 @@ import type { ActivityWithMedia, DisplayUnit } from '@/lib/types';
 interface MediaGridProps {
   units: DisplayUnit[];
   onSelect: (a: ActivityWithMedia) => void;
+  /** A title's page (Full page title view): its card links there instead of calling onSelect. */
+  hrefFor?: (a: ActivityWithMedia) => string | undefined;
   /** Franchise ids whose groups are expanded. */
   expanded: Set<string>;
   onToggleGroup: (franchiseId: string) => void;
@@ -21,7 +23,7 @@ interface MediaGridProps {
  * franchises render as a stacked card; an expanded one spans the full row
  * with its titles inside.
  */
-export function MediaGrid({ units, onSelect, expanded, onToggleGroup, inStatusSection }: MediaGridProps) {
+export function MediaGrid({ units, onSelect, hrefFor, expanded, onToggleGroup, inStatusSection }: MediaGridProps) {
   const COLS = useLayout().gridCols;
   return (
     <div className={COLS}>
@@ -32,6 +34,7 @@ export function MediaGrid({ units, onSelect, expanded, onToggleGroup, inStatusSe
               key={unit.activity.id}
               activity={unit.activity}
               onClick={() => onSelect(unit.activity)}
+              href={hrefFor?.(unit.activity)}
               inStatusSection={inStatusSection}
             />
           );
@@ -60,7 +63,7 @@ export function MediaGrid({ units, onSelect, expanded, onToggleGroup, inStatusSe
             />
             <div className={COLS}>
               {members.map((a) => (
-                <MediaCard key={a.id} activity={a} onClick={() => onSelect(a)} inStatusSection={inStatusSection} />
+                <MediaCard key={a.id} activity={a} onClick={() => onSelect(a)} href={hrefFor?.(a)} inStatusSection={inStatusSection} />
               ))}
             </div>
           </div>

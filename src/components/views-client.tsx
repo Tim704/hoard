@@ -132,6 +132,7 @@ export function ViewsClient({
   // A result opens its popup, or its page in the Full page title view.
   const openTitle = (a: ActivityWithMedia) =>
     titleView === 'page' ? router.push(titleHref(a.category, a.id, 'page')) : setOpenId(a.id);
+  const hrefFor = titleView === 'page' ? (a: ActivityWithMedia) => titleHref(a.category, a.id, 'page') : undefined;
   const [name, setName] = useState('');
   const [renaming, setRenaming] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -422,9 +423,9 @@ export function ViewsClient({
           Nothing matches these filters.
         </div>
       ) : layout === 'list' ? (
-        <MediaTable units={toDisplayUnits(results, false)} onSelect={openTitle} expanded={NO_EXPANDED} onToggleGroup={() => {}} />
+        <MediaTable units={toDisplayUnits(results, false)} onSelect={openTitle} hrefFor={hrefFor} expanded={NO_EXPANDED} onToggleGroup={() => {}} />
       ) : (
-        <MediaGrid units={toDisplayUnits(results, false)} onSelect={openTitle} expanded={NO_EXPANDED} onToggleGroup={() => {}} />
+        <MediaGrid units={toDisplayUnits(results, false)} onSelect={openTitle} hrefFor={hrefFor} expanded={NO_EXPANDED} onToggleGroup={() => {}} />
       )}
 
       <ActivityDetailDialog activity={opened} onClose={() => setOpenId(null)} franchises={franchises} />
