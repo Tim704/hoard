@@ -26,6 +26,28 @@ const routes = JSON.parse(readFileSync(new URL('./routes.json', import.meta.url)
 );
 const origin = new URL(BASE_URL).origin;
 
+/**
+ * The page a route shows: its route pattern, with a title, list, year,
+ * user or share link as a parameter (each section is its own page), plus
+ * its ?tab=. Other query strings (filters, presets, error states) show the
+ * same page.
+ */
+const pagePattern = (route) => {
+  const url = new URL(route, BASE_URL);
+  const path = url.pathname
+    .replace(/^\/s\/[^/]+$/, '/s/:token')
+    .replace(/^\/compare\/[^/]+$/, '/compare/:username')
+    .replace(/^\/(arena|stats)\/year\/[^/]+$/, '/$1/year/:year')
+    .replace(/^\/lists\/(ref\/)?[^/]+$/, '/lists/$1:id')
+    .replace(/^\/([^/]+)\/(title|seasons)\/[^/]+$/, '/$1/$2/:id');
+  const tab = url.searchParams.get('tab');
+  return tab ? `${path}?tab=${tab}` : path;
+};
+/** One route per distinct page (the first listed), for the phone sweep. */
+const phoneRoutes = routes.filter((r, i) => routes.findIndex((o) => pagePattern(o) === pagePattern(r)) === i);
+/** Stats → Taste with custom periods: their date fields once spilled at 375. */
+const CUSTOM_PERIODS = routes.find((r) => r.startsWith('/stats?') && r.includes('preset=custom'));
+
 const sameOrigin = (url) => {
   try {
     return new URL(url).origin === origin;
@@ -129,6 +151,28 @@ const docState = () =>
   }));
 
 /**
+ * How far the page scrolls sideways, in px, measured with <main> unclipped.
+ * The shell's <main> clips its sideways overflow (app-shell.tsx), so a page
+ * too wide inside it never widens the document: the document alone sees
+ * only the chrome and portals. An element that scrolls sideways on purpose
+ * (a tab strip, a table in an overflow-x-auto wrapper) holds its own
+ * overflow and doesn't count.
+ */
+const sideways = (p = page) =>
+  p.evaluate(() => {
+    const mains = [...document.querySelectorAll('main')];
+    const old = mains.map((m) => m.style.overflowX);
+    try {
+      for (const m of mains) m.style.overflowX = 'visible';
+      return document.documentElement.scrollWidth - window.innerWidth;
+    } finally {
+      mains.forEach((m, i) => {
+        m.style.overflowX = old[i];
+      });
+    }
+  });
+
+/**
  * Settings → Themes: click a layout's thumbnail and wait for it to apply at
  * once and save ("Layout: X" toast). A no-op when it is already chosen.
  */
@@ -193,14 +237,14 @@ async function checkDashboard(where) {
     const tops = (el) => new Set([...el.children].map((c) => Math.round(c.getBoundingClientRect().top))).size;
     const right = (el) => Math.max(...[...el.children].map((c) => c.getBoundingClientRect().right));
     return {
-      overflow: document.documentElement.scrollWidth - window.innerWidth,
       oneRow: buttons.top < greeting.bottom && buttons.left >= greeting.right - 1,
       lines: lines.length,
       wrapped: lines.filter((el) => tops(el) > 1).length,
       spilled: lines.filter((el) => right(el) > el.getBoundingClientRect().right + 1).length,
     };
   });
-  if (m.overflow > 0) throw new Error(`${where}: the dashboard scrolls sideways by ${m.overflow}px`);
+  const overflow = await sideways();
+  if (overflow > 0) throw new Error(`${where}: the dashboard scrolls sideways by ${overflow}px`);
   if (!m.oneRow) throw new Error(`${where}: the dashboard header wraps`);
   if (m.lines === 0) throw new Error(`${where}: no section tile status lines found`);
   if (m.wrapped || m.spilled) throw new Error(`${where}: ${m.wrapped} status lines wrap, ${m.spilled} spill`);
@@ -467,14 +511,14 @@ if (failures.length === 0) {
           }).length;
           return {
             wrapped,
-            overflow: document.documentElement.scrollWidth - window.innerWidth,
             rows: new Set(tops).size,
             activeInView: a.left >= s.left - 1 && a.right <= s.right + 1,
             pickerRows: new Set(radios.map((r) => Math.round(r.top))).size,
             pickerCols: new Set(radios.map((r) => Math.round(r.left))).size,
           };
         });
-        if (m.overflow > 0) throw new Error(`${tab}: the page scrolls sideways by ${m.overflow}px`);
+        const overflow = await sideways();
+        if (overflow > 0) throw new Error(`${tab}: the page scrolls sideways by ${overflow}px`);
         if (m.wrapped > 0) throw new Error(`${tab}: ${m.wrapped} action rows wrap`);
         if (m.rows !== 1) throw new Error(`${tab}: the tab strip wraps onto ${m.rows} rows`);
         if (!m.activeInView) throw new Error(`${tab}: the open tab is scrolled out of the strip`);
@@ -544,7 +588,6 @@ if (failures.length === 0) {
             const current = controls.filter((el) => el.getAttribute('aria-current') === 'page').map((el) => el.textContent.trim());
             const tabs = [...document.querySelectorAll('[data-shell] nav[aria-label="Main"] li')].filter(shown);
             return {
-              overflow: document.documentElement.scrollWidth - window.innerWidth,
               stray: controls
                 .map((el) => `${el.getAttribute('aria-label') ?? ''} ${el.getAttribute('title') ?? ''} ${el.textContent ?? ''}`)
                 .filter((t) => /search|notification|bell/i.test(t) && !/account menu/i.test(t)),
@@ -552,7 +595,8 @@ if (failures.length === 0) {
               tabRows: new Set(tabs.map((li) => Math.round(li.getBoundingClientRect().top))).size,
             };
           });
-          if (chrome.overflow > 0) throw new Error(`${where}: the page scrolls sideways by ${chrome.overflow}px`);
+          const overflow = await sideways();
+          if (overflow > 0) throw new Error(`${where}: the page scrolls sideways by ${overflow}px`);
           if (chrome.stray.length) throw new Error(`${where}: search or bell in the chrome: ${chrome.stray.join(' | ')}`);
           if (label === 'Fresh' && chrome.tabRows !== 1) throw new Error(`${where}: the tabs wrap onto ${chrome.tabRows} rows`);
           if (width === 375 && label !== 'Fresh') {
@@ -587,7 +631,7 @@ if (failures.length === 0) {
               () => false,
             );
           if (!back) throw new Error(`${where}: focus didn't return to the user menu after Notifications`);
-          const after = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          const after = await sideways();
           if (after > 0) throw new Error(`${where}: the page scrolls sideways by ${after}px after the menu`);
         }
         if (label === 'Fresh') await checkFreshStrip();
@@ -637,14 +681,14 @@ if (failures.length === 0) {
                 height: Math.round(r.height),
                 tallest: Math.max(...items.map((el) => Math.round(el.getBoundingClientRect().height))),
                 spill: Math.max(bar.scrollWidth - bar.clientWidth, Math.round(Math.max(...items.map((el) => el.getBoundingClientRect().right)) - r.right)),
-                overflow: document.documentElement.scrollWidth - window.innerWidth,
                 filter: Math.round(bar.querySelector('input').getBoundingClientRect().width),
                 heights: [...new Set(items.map((el) => Math.round(el.getBoundingClientRect().height)))],
               };
             });
             if (m.rows !== 1 || m.height > m.tallest + 1) throw new Error(`${where}: the toolbar is ${m.rows} rows, ${m.height}px tall`);
             if (m.spill > 0) throw new Error(`${where}: the toolbar spills ${m.spill}px`);
-            if (m.overflow > 0) throw new Error(`${where}: the page scrolls sideways by ${m.overflow}px`);
+            const overflow = await sideways();
+            if (overflow > 0) throw new Error(`${where}: the page scrolls sideways by ${overflow}px`);
             if (m.filter < 96) throw new Error(`${where}: the title filter is squeezed to ${m.filter}px`);
             if (m.heights.length !== 1) throw new Error(`${where}: the controls are ${m.heights.join(' / ')}px tall`);
             if (path !== '/books') continue;
@@ -701,19 +745,20 @@ if (failures.length === 0) {
           }
           await checkDashboard(`${label} at ${width}`);
           if (width !== 375) continue;
-          // Rows that used to wrap: nothing scrolls sideways on a phone, and
-          // the tier list tray's header stays on one line.
-          for (const path of ['/dashboard', '/books/arena', '/diary', '/settings?tab=system']) {
+          // Rows that used to wrap or spill (the custom periods' date
+          // fields): nothing scrolls sideways on a phone, and the tier list
+          // tray's header stays on one line.
+          for (const path of ['/dashboard', '/books/arena', '/diary', '/settings?tab=system', CUSTOM_PERIODS]) {
             await page.goto(`${BASE_URL}${path}`, { waitUntil: 'networkidle' });
             const r = await page.evaluate(() => {
               const tray = document.getElementById('tray-heading')?.parentElement;
               const items = tray ? [...tray.children].map((el) => el.getBoundingClientRect()) : [];
               return {
-                overflow: document.documentElement.scrollWidth - window.innerWidth,
                 trayRows: items.length ? (Math.max(...items.map((b) => b.top)) < Math.min(...items.map((b) => b.bottom)) ? 1 : 2) : 0,
               };
             });
-            if (r.overflow > 0) throw new Error(`${label} ${path} at 375: the page scrolls sideways by ${r.overflow}px`);
+            const overflow = await sideways();
+            if (overflow > 0) throw new Error(`${label} ${path} at 375: the page scrolls sideways by ${overflow}px`);
             if (path === '/books/arena' && r.trayRows !== 1) throw new Error(`${label} at 375: the tier tray header wraps`);
           }
         }
@@ -738,6 +783,28 @@ if (failures.length === 0) {
       await page.setViewportSize({ width: 1280, height: 900 });
       await pickLayout('Classic');
     }
+  });
+  // Every distinct page in routes.json, at 375 px in every layout: nothing
+  // scrolls sideways (1 px of rounding aside), measured with <main>
+  // unclipped. Classic is restored afterwards.
+  await step('every page at 375 px in every layout', async () => {
+    const spilled = [];
+    try {
+      for (const label of ['Classic', 'Minimal', 'Organised', 'Fresh']) {
+        await pickLayout(label);
+        await page.setViewportSize({ width: 375, height: 812 });
+        for (const route of phoneRoutes) {
+          await page.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle', timeout: 45_000 });
+          const overflow = await sideways();
+          if (overflow > 1) spilled.push(`${label} ${route} by ${overflow}px`);
+        }
+        await page.setViewportSize({ width: 1280, height: 900 });
+      }
+    } finally {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await pickLayout('Classic');
+    }
+    if (spilled.length) throw new Error(`at 375 these scroll sideways: ${spilled.join('; ')}`);
   });
   // A title page's outline: one h1, then an h2 for every panel (Notes,
   // History, Tags, Lists, Progress, Seasons, Format, Play sessions, Review,
@@ -818,9 +885,10 @@ if (failures.length === 0) {
       const fit = await page.evaluate(() => {
         const d = document.querySelector('[role="dialog"]').getBoundingClientRect();
         const buttons = [...document.querySelectorAll('[role="dialog"] button')].map((b) => b.getBoundingClientRect());
-        return { spill: Math.max(...buttons.map((b) => b.right)) - d.right, overflow: document.documentElement.scrollWidth - window.innerWidth };
+        return { spill: Math.max(...buttons.map((b) => b.right)) - d.right };
       });
-      if (fit.spill > 0 || fit.overflow > 0) throw new Error(`at ${width} the popup spills ${fit.spill}px (page ${fit.overflow}px)`);
+      const overflow = await sideways();
+      if (fit.spill > 0 || overflow > 0) throw new Error(`at ${width} the popup spills ${fit.spill}px (page ${overflow}px)`);
     }
     await Promise.all([
       page.waitForURL((url) => url.pathname === '/tv/title/demo-activity-tv-expanse', { timeout: 20_000 }),
@@ -984,13 +1052,13 @@ if (failures.length === 0) {
             .filter((c) => c.getBoundingClientRect().height < 36)
             .map((c) => c.getAttribute('aria-label') ?? c.textContent.trim()),
           footerRows: new Set(footer.map((b) => Math.round(b.getBoundingClientRect().top))).size,
-          overflow: document.documentElement.scrollWidth - window.innerWidth,
         };
       });
+      const overflow = await sideways();
       if (fit.bottom !== 0) throw new Error(`at 375 the editor is not a bottom sheet (${fit.bottom}px above the bottom)`);
       if (fit.rows < 10 || fit.tall || fit.spill) throw new Error(`at 375 the editor's ${fit.rows} rows: ${fit.tall} wrap, ${fit.spill} spill`);
       if (fit.small.length) throw new Error(`at 375 these controls are under 36px: ${fit.small.join(', ')}`);
-      if (fit.footerRows !== 1 || fit.overflow > 0) throw new Error(`at 375 the footer is ${fit.footerRows} rows (page ${fit.overflow}px)`);
+      if (fit.footerRows !== 1 || overflow > 0) throw new Error(`at 375 the footer is ${fit.footerRows} rows (page ${overflow}px)`);
       await page.keyboard.press('Escape');
       await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
 
@@ -1215,13 +1283,13 @@ if (failures.length === 0) {
             await page.getByLabel('Notes').fill('layout check');
             await page.getByRole('region', { name: 'Unsaved changes' }).waitFor({ timeout: 10_000 });
             const m = await page.evaluate(() => ({
-              overflow: document.documentElement.scrollWidth - window.innerWidth,
               blurs: [...document.querySelectorAll('main *')].filter((el) => {
                 const cs = getComputedStyle(el);
                 return /blur/.test(cs.filter) || /blur/.test(cs.backdropFilter);
               }).length,
             }));
-            if (m.overflow > 0) throw new Error(`${where} ${path}: the page scrolls sideways by ${m.overflow}px`);
+            const overflow = await sideways();
+            if (overflow > 0) throw new Error(`${where} ${path}: the page scrolls sideways by ${overflow}px`);
             if (m.blurs > 1) throw new Error(`${where} ${path}: ${m.blurs} blurred elements`);
             await page.getByRole('region', { name: 'Unsaved changes' }).getByRole('button', { name: 'Discard' }).click();
           }
