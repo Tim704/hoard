@@ -21,6 +21,7 @@ import { libraryIndex } from '@/lib/actions/search';
 import { CATEGORIES, NAV_ORDER } from '@/lib/categories';
 import type { LibraryIndexEntry } from '@/lib/data-search';
 import { rankFuzzy } from '@/lib/fuzzy';
+import { SETTINGS_TABS, SETTINGS_TAB_LABELS, settingsHref } from '@/lib/settings-nav';
 import { nextHighlight } from '@/lib/search-nav';
 import { statusLabel, type Status } from '@/lib/status';
 import { titleVariants } from '@/lib/title';
@@ -105,6 +106,10 @@ export function CommandPalette({
     list.push({ label: 'Add by link', href: '/add' });
     list.push({ label: 'Import', href: '/import' });
     list.push({ label: 'Settings', href: '/settings' });
+    // Found by name only ("themes", "accounts"…). System is left out: it is the owner's alone.
+    for (const tab of SETTINGS_TABS) {
+      if (tab !== 'system') list.push({ label: `Settings · ${SETTINGS_TAB_LABELS[tab]}`, href: settingsHref(tab) });
+    }
     return list;
   }, [hiddenSections]);
 

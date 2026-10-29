@@ -12,6 +12,7 @@ import { createShareLink } from '@/lib/actions/share';
 import { yearVerdict } from '@/lib/actions/stats';
 import { proxiedImageUrl } from '@/lib/img-proxy';
 import { yearPngFileName } from '@/lib/share';
+import { settingsHref } from '@/lib/settings-nav';
 
 /** What the year PNG shows: the summary numbers and covers; no scores or notes. */
 export interface YearCard {
@@ -103,7 +104,7 @@ export function YearShare({ card }: { card: YearCard }) {
           <p className="text-xs text-muted-foreground">
             Anyone with this link sees your {card.year} summary: the numbers and the covers of your S-tier and top 3 titles
             (no scores, no notes). Revoke it any time in{' '}
-            <Link href="/settings#sharing" className="underline underline-offset-2">
+            <Link href={settingsHref('sharing')} className="underline underline-offset-2">
               Settings → Sharing
             </Link>
             .

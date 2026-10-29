@@ -15,6 +15,7 @@ import { usePersistentState } from '@/hooks/use-persistent-state';
 import { itemsByDay, KIND_LABEL, type CalendarItem, type CalendarKind } from '@/lib/calendar';
 import { formatYmd } from '@/lib/release';
 import { cn } from '@/lib/utils';
+import { settingsHref } from '@/lib/settings-nav';
 
 type View = 'grid' | 'list';
 const isView = (v: unknown): v is View => v === 'grid' || v === 'list';
@@ -98,7 +99,7 @@ export function CalendarClient(props: Props) {
           </Button>
         </div>
         <Link
-          href="/settings#calendar"
+          href={settingsHref('sharing', 'calendar')}
           className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground underline-offset-2 hover:underline"
         >
           <Rss className="h-3.5 w-3.5" aria-hidden />

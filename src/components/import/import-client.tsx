@@ -28,6 +28,7 @@ import { malExportText, parseMalXml } from '@/lib/import/sources/mal';
 import { parseStoryGraph } from '@/lib/import/sources/storygraph';
 import { traktUserFromInput, validTraktUser } from '@/lib/import/sources/trakt';
 import { MAX_IMPORT_FILE_BYTES, MAX_IMPORT_ROWS, type ImportRow, type ImportSource } from '@/lib/import/types';
+import { settingsHref } from '@/lib/settings-nav';
 
 interface SourceInfo {
   id: ImportSource;
@@ -397,7 +398,7 @@ export function ImportClient({ steamConfigured, steamLinked, autoStart, tmdbConf
                 </Button>
               ) : (
                 <Button asChild variant="outline" size="sm">
-                  <Link href="/settings#accounts">Link Steam in Settings</Link>
+                  <Link href={settingsHref('accounts')}>Link Steam in Settings</Link>
                 </Button>
               )
             ) : s.id === 'trakt' ? (

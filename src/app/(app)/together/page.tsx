@@ -7,6 +7,7 @@ import { CATEGORY_LIST } from '@/lib/categories';
 import { getPrefs } from '@/lib/data-prefs';
 import { comparableUsernames } from '@/lib/data-together';
 import { requireUser } from '@/lib/session';
+import { settingsHref } from '@/lib/settings-nav';
 
 export const metadata = { title: 'Watch together · Hoard' };
 export const dynamic = 'force-dynamic';
@@ -42,7 +43,7 @@ export default async function TogetherPage() {
             planned titles you share with them, nothing else.
           </p>
           <Button asChild variant="outline" size="sm">
-            <Link href="/settings#compare">Open Settings</Link>
+            <Link href={settingsHref('sharing', 'compare')}>Open Settings</Link>
           </Button>
         </div>
       ) : users.length === 0 ? (

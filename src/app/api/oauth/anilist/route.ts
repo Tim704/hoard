@@ -22,11 +22,16 @@ import { oauthStates } from '@/lib/oauth-state';
 import { publicBaseUrl } from '@/lib/public-url';
 import { sealToken } from '@/lib/secret-box';
 import { getCurrentUser, SESSION_COOKIE } from '@/lib/session';
+import { settingsHref } from '@/lib/settings-nav';
 
 export const dynamic = 'force-dynamic';
 
-const back = (status: string) =>
-  NextResponse.redirect(new URL(`/settings?anilist=${encodeURIComponent(status)}#accounts`, publicBaseUrl()), 303);
+/** Back to Settings → Accounts, which says what happened (?anilist=<status>). */
+function back(status: string) {
+  const url = new URL(settingsHref('accounts'), publicBaseUrl());
+  url.searchParams.set('anilist', status);
+  return NextResponse.redirect(url, 303);
+}
 
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;

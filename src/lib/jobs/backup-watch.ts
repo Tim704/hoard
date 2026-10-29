@@ -4,6 +4,7 @@
 
 import { backupWarning, readBackupStatus } from '@/lib/backups';
 import { getOwnerId, notify } from '@/lib/notify';
+import { settingsHref } from '@/lib/settings-nav';
 
 export async function runBackupWatch(now = new Date()): Promise<void> {
   const status = await readBackupStatus();
@@ -20,6 +21,6 @@ export async function runBackupWatch(now = new Date()): Promise<void> {
     kind: 'backup',
     title: 'Hoard backups need attention',
     body: problem,
-    url: '/settings#system',
+    url: settingsHref('system'),
   });
 }

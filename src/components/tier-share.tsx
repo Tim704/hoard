@@ -15,6 +15,7 @@ import { proxiedImageUrl } from '@/lib/img-proxy';
 import { formatYmd, todayYmd } from '@/lib/release';
 import { tierPngFileName } from '@/lib/share';
 import { TIERS, type TierBoardData } from '@/lib/tiers';
+import { settingsHref } from '@/lib/settings-nav';
 
 interface TierShareProps {
   slug: CategorySlug;
@@ -116,7 +117,7 @@ export function TierShare({ slug, label, board }: TierShareProps) {
           </div>
           <p className="text-xs text-muted-foreground">
             Anyone with this link sees this tier list (titles and covers only). Revoke it any time in{' '}
-            <Link href="/settings#sharing" className="underline underline-offset-2">
+            <Link href={settingsHref('sharing')} className="underline underline-offset-2">
               Settings → Sharing
             </Link>
             .

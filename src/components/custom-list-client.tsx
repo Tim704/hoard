@@ -44,6 +44,7 @@ import { CATEGORIES, NAV_ORDER, type CategorySlug } from '@/lib/categories';
 import type { CustomListView, ListItemView } from '@/lib/data-lists';
 import { LIST_DESCRIPTION_MAX, LIST_NAME_MAX } from '@/lib/lists';
 import type { ActionResult, NormalizedResult } from '@/lib/types';
+import { settingsHref } from '@/lib/settings-nav';
 
 interface Props {
   list: CustomListView;
@@ -307,7 +308,7 @@ function ListHeader({ list }: { list: CustomListView }) {
           </div>
           <p className="text-xs text-muted-foreground">
             Anyone with this link sees the list&apos;s titles and covers, nothing else. Revoke it any time in{' '}
-            <Link href="/settings#sharing" className="underline underline-offset-2">
+            <Link href={settingsHref('sharing')} className="underline underline-offset-2">
               Settings → Sharing
             </Link>
             .

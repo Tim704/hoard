@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ImageOff } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { settingsHref } from '@/lib/settings-nav';
 
 // ───────────────────────────────────────────────────────────────────────────
 //  Small server-rendered pieces shared by /compare, /compare/[username] and
@@ -18,7 +19,7 @@ export function CompareOffNotice() {
         <strong>Let other users of this Hoard compare with me</strong> in Settings.
       </p>
       <Button asChild variant="outline" size="sm">
-        <Link href="/settings#compare">Open Settings</Link>
+        <Link href={settingsHref('sharing', 'compare')}>Open Settings</Link>
       </Button>
     </div>
   );

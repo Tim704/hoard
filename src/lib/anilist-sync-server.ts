@@ -38,6 +38,7 @@ import { openToken, secretConfigured } from '@/lib/secret-box';
 import type { Status } from '@/lib/status';
 import { UserError } from '@/lib/action-error';
 import { isDiaryStatus } from '@/lib/diary';
+import { settingsHref } from '@/lib/settings-nav';
 
 export const ANILIST_SYNC_ERROR_PREFIX = 'AniList';
 
@@ -169,7 +170,7 @@ async function syncErrorNotice(userId: string, body: string): Promise<void> {
     kind: 'sync',
     title: 'AniList sync problem',
     body,
-    url: '/settings#accounts',
+    url: settingsHref('accounts'),
     dedupeKey: `anilist-sync-error:${day}`,
   });
 }

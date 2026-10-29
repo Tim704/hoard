@@ -10,6 +10,7 @@ import { getPrefs } from '@/lib/data-prefs';
 import { decodeCursor, encodeCursor, FEED_DAYS, relativeTime } from '@/lib/feed';
 import { requireUser } from '@/lib/session';
 import { doneVerb } from '@/lib/status';
+import { settingsHref } from '@/lib/settings-nav';
 
 export const metadata = { title: 'Feed · Hoard' };
 export const dynamic = 'force-dynamic';
@@ -51,7 +52,7 @@ export default async function FeedPage({ searchParams }: { searchParams: { curso
         <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
           <p>Your own activity isn’t in the feed. Turn on “Show my activity in the feed” to share it.</p>
           <Button asChild variant="outline" size="sm" className="shrink-0">
-            <Link href="/settings#feed">Open Settings</Link>
+            <Link href={settingsHref('sharing', 'feed')}>Open Settings</Link>
           </Button>
         </div>
       )}

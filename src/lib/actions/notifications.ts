@@ -13,6 +13,7 @@ import { requireUser } from '@/lib/session';
 import type { ActionResult } from '@/lib/types';
 import { publicError } from '@/lib/action-error';
 import { takeActionRate } from '@/lib/rate-limit';
+import { settingsHref } from '@/lib/settings-nav';
 
 export async function markNotificationRead(id: string): Promise<ActionResult> {
   try {
@@ -56,7 +57,7 @@ export async function sendTestNotification(): Promise<ActionResult & { pushed?: 
       kind: 'test',
       title: 'Test notification',
       body: `Hello ${user.username}, notifications from Hoard work.`,
-      url: '/settings#notifications',
+      url: settingsHref('notifications'),
     });
     revalidatePath('/', 'layout');
     if (!res.id) return { ok: false, error: 'Could not create the notification.' };

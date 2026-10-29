@@ -3,6 +3,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import { prisma } from '@/lib/prisma';
+import { upgradeSettingsLink } from '@/lib/settings-nav';
 
 /** What the bell shows: a notification serialized for client components. */
 export interface NotificationItem {
@@ -40,7 +41,8 @@ export async function getNotificationSummary(userId: string): Promise<Notificati
       kind: r.kind,
       title: r.title,
       body: r.body,
-      url: r.url,
+      // Older rows point at the single Settings page's anchors (/settings#system).
+      url: r.url ? upgradeSettingsLink(r.url) : null,
       createdAt: r.createdAt.toISOString(),
       read: r.readAt !== null,
     })),
