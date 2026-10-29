@@ -41,19 +41,36 @@ import { displayTitle } from '@/lib/title';
 import type { ActivityWithMedia } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
+/**
+ * The tiles take their layout's card treatment (variants only; Classic keeps
+ * the plain card it always had):
+ * - Minimal: quiet: a soft fill, no border or shadow, lighter type;
+ * - Organised: crisp and dense: no shadow, tighter padding, smaller titles;
+ * - Fresh: the cinematic cards' rounder glass, a faint top light, a deep shadow.
+ */
+const TILE =
+  'minimal:border-transparent minimal:bg-secondary/60 minimal:shadow-none organised:shadow-none fresh:rounded-xl fresh:border-white/10 fresh:bg-gradient-to-b fresh:from-white/[0.05] fresh:to-transparent fresh:shadow-lg fresh:shadow-black/40';
+const TILE_HEAD = 'organised:p-4 organised:pb-2';
+const TILE_BODY = 'organised:px-4 organised:pb-4';
+const TILE_TITLE = 'minimal:font-medium organised:text-sm';
+/** A section tile's headline number. */
+const METRIC = 'minimal:font-semibold organised:text-xl';
+/** The tiles' grid gap: the layout's card spacing (--grid-gap); Classic keeps gap-4. */
+export const TILE_GAP = 'minimal:gap-[var(--grid-gap)] organised:gap-[var(--grid-gap)] fresh:gap-[var(--grid-gap)]';
+
 /** This year's goals (6.3) with their progress bars. */
 export function GoalsCard({ year, goals }: { year: number; goals: GoalProgress[] }) {
   return (
-    <Card className="col-span-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="text-base font-semibold">
+    <Card className={cn('col-span-full', TILE)}>
+      <CardHeader className={cn('flex flex-row items-center justify-between space-y-0 pb-3', TILE_HEAD)}>
+        <CardTitle className={cn('text-base font-semibold', TILE_TITLE)}>
           <Link href={`/stats?tab=goals&year=${year}`} className="hover:underline">
             Goals for {year}
           </Link>
         </CardTitle>
         <Target className="h-5 w-5 text-muted-foreground" aria-hidden />
       </CardHeader>
-      <CardContent>
+      <CardContent className={TILE_BODY}>
         <ul className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
           {goals.map((g) => (
             <li key={g.id}>
@@ -69,12 +86,12 @@ export function GoalsCard({ year, goals }: { year: number; goals: GoalProgress[]
 /** "Coming up" (5.9): the next five Planned releases with a known day. */
 export function ComingUpCard({ items }: { items: ComingUpItem[] }) {
   return (
-    <Card className="col-span-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="text-base font-semibold">Coming up</CardTitle>
+    <Card className={cn('col-span-full', TILE)}>
+      <CardHeader className={cn('flex flex-row items-center justify-between space-y-0 pb-3', TILE_HEAD)}>
+        <CardTitle className={cn('text-base font-semibold', TILE_TITLE)}>Coming up</CardTitle>
         <CalendarClock className="h-5 w-5 text-sky-500" aria-hidden />
       </CardHeader>
-      <CardContent>
+      <CardContent className={TILE_BODY}>
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No announced release dates among your planned titles.
@@ -142,14 +159,16 @@ export function OverviewCard({ stats, defaultOrder }: { stats: CategoryStat[]; d
     <Card
       className={cn(
         'h-full border-primary/30 bg-gradient-to-br from-muted/60 to-card sm:col-span-2 lg:col-span-1',
+        // Its own accent stays: a stronger fill in Minimal, the amber edge in Fresh.
+        'minimal:border-transparent minimal:bg-secondary minimal:bg-none minimal:shadow-none organised:shadow-none fresh:rounded-xl fresh:shadow-lg fresh:shadow-black/40',
         defaultOrder && 'sm:order-first lg:order-none',
       )}
     >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="text-base font-semibold">Your hoard</CardTitle>
+      <CardHeader className={cn('flex flex-row items-center justify-between space-y-0 pb-3', TILE_HEAD)}>
+        <CardTitle className={cn('text-base font-semibold', TILE_TITLE)}>Your hoard</CardTitle>
         <Boxes className="h-5 w-5 text-primary" />
       </CardHeader>
-      <CardContent>
+      <CardContent className={TILE_BODY}>
         <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4 lg:grid-cols-2">
           {cells.map(({ icon: Icon, value, label }) => (
             <div key={label} className="flex items-center gap-2.5">
@@ -179,12 +198,12 @@ export function NowConsumingCard({
   const extra = items.length - shown.length;
 
   return (
-    <Card className="h-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="text-base font-semibold">Now consuming</CardTitle>
+    <Card className={cn('h-full', TILE)}>
+      <CardHeader className={cn('flex flex-row items-center justify-between space-y-0 pb-3', TILE_HEAD)}>
+        <CardTitle className={cn('text-base font-semibold', TILE_TITLE)}>Now consuming</CardTitle>
         <Play className="h-5 w-5 fill-emerald-500/30 text-emerald-500" />
       </CardHeader>
-      <CardContent>
+      <CardContent className={TILE_BODY}>
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Nothing in progress. Start something from your backlog.
@@ -247,17 +266,17 @@ export function FavouritesRow({
         <Heart className="h-5 w-5 fill-rose-500/30 text-rose-500" aria-hidden />
         Favorites
       </h2>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className={cn('grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3', TILE_GAP)}>
         {sections.map(({ slug, items }) => (
-          <Card key={slug}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">
+          <Card key={slug} className={TILE}>
+            <CardHeader className={cn('pb-3', TILE_HEAD)}>
+              <CardTitle className={cn('text-sm font-semibold', TILE_TITLE)}>
                 <Link href={`/${slug}`} className="hover:underline">
                   {CATEGORIES[slug].label}
                 </Link>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className={TILE_BODY}>
               <ol className="grid grid-cols-4 gap-2">
                 {items.map((a) => {
                   const title = displayTitle(a.media, titleLanguage);
@@ -310,19 +329,26 @@ export function CategoryCard({ stat }: { stat: CategoryStat }) {
       href={`/${stat.slug}`}
       className="group block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <Card className="h-full transition-colors group-hover:border-primary/50">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-          <CardTitle className="text-base font-semibold">{stat.label}</CardTitle>
+      <Card
+        className={cn(
+          'h-full transition-colors group-hover:border-primary/50',
+          TILE,
+          // Hover where the layout's tile has no border of its own to light up.
+          'minimal:group-hover:bg-secondary fresh:group-hover:border-primary/40',
+        )}
+      >
+        <CardHeader className={cn('flex flex-row items-center justify-between space-y-0 pb-3', TILE_HEAD)}>
+          <CardTitle className={cn('text-base font-semibold', TILE_TITLE)}>{stat.label}</CardTitle>
           <Icon className="h-5 w-5 text-muted-foreground" />
         </CardHeader>
-        <CardContent className="[container-type:inline-size]">
+        <CardContent className={cn('[container-type:inline-size]', TILE_BODY)}>
           {/* BIG headline metric */}
           {empty ? (
-            <p className="text-2xl font-bold tracking-tight text-muted-foreground">
+            <p className={cn('text-2xl font-bold tracking-tight text-muted-foreground', METRIC)}>
               Nothing yet
             </p>
           ) : (
-            <p className="text-2xl font-bold tracking-tight">
+            <p className={cn('text-2xl font-bold tracking-tight', METRIC)}>
               <span className="tabular-nums">{stat.metricValue.toLocaleString()}</span>{' '}
               <span className="text-lg font-semibold text-muted-foreground">
                 {stat.metricUnit} {stat.metricVerb}

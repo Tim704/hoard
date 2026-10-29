@@ -6,6 +6,7 @@ import {
   GoalsCard,
   NowConsumingCard,
   OverviewCard,
+  TILE_GAP,
 } from '@/components/dashboard/tiles';
 import { RecommendAcrossButton } from '@/components/recommend-across';
 import { getDashboardStats, getFavourites, getNowConsuming } from '@/lib/data';
@@ -16,6 +17,7 @@ import type { TileId } from '@/lib/dashboard-tile-ids';
 import { dataNeeds, isDefaultOrder, resolveTiles, tileSection } from '@/lib/dashboard-tiles';
 import { favouritesShowcase } from '@/lib/favourites';
 import { getCurrentUser } from '@/lib/session';
+import { cn } from '@/lib/utils';
 
 /**
  * The dashboard: the tiles the user picked (Customize, or Settings → Themes),
@@ -99,7 +101,7 @@ export default async function DashboardPage() {
         // One grid for every tile, in the user's order: the section tiles, the
         // overview and Now consuming take a cell; Coming up, Goals and
         // Favourites span the row. 3 columns on desktop, 2 at sm, 1 on phones.
-        <div data-dashboard-tiles="" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div data-dashboard-tiles="" className={cn('grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3', TILE_GAP)}>
           {shown}
         </div>
       ) : (
