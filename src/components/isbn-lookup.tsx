@@ -6,6 +6,7 @@ import { Camera, Loader2, X } from 'lucide-react';
 import { AddResultRow, useAddRows, type LibraryEntry } from '@/components/add-row';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { settle } from '@/lib/action-result';
 import { lookupBookByIsbn, type IsbnLookupResult } from '@/lib/actions/search';
 import { normalizeIsbn } from '@/lib/isbn';
 
@@ -71,13 +72,9 @@ export function IsbnLookup({ library }: { library: Record<string, LibraryEntry> 
       return;
     }
     setBusy(true);
-    try {
-      setAnswer(await lookupBookByIsbn(isbn));
-    } catch {
-      setAnswer({ ok: false, error: 'Could not look that ISBN up.' });
-    } finally {
-      setBusy(false);
-    }
+    // An error page or no network: the unreachable message, not nothing.
+    setAnswer(await settle(lookupBookByIsbn(isbn)));
+    setBusy(false);
   }
 
   function onCode(code: string): boolean {

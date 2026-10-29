@@ -141,14 +141,10 @@ export function SearchDialog({
     setError(null);
     setLoading(true);
     if (isLink(q)) {
-      try {
-        const res = await resolveLink(q);
-        if (!guard.current.isLatest(id)) return;
-        setLink(res);
-      } catch {
-        if (!guard.current.isLatest(id)) return;
-        setLink({ ok: false, error: 'Could not read that link.' });
-      }
+      // An error page or no network: the unreachable message, not "no results".
+      const res = await settle(resolveLink(q));
+      if (!guard.current.isLatest(id)) return;
+      setLink(res);
       setResults([]);
       setSearched(true);
       setLoading(false);

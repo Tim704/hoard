@@ -15,6 +15,8 @@ import { ImageOff, Loader2, Maximize2, Trash2 } from 'lucide-react';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useFocusReturn } from '@/hooks/use-focus-return';
+import { useIsomorphicLayoutEffect } from '@/hooks/use-isomorphic-layout-effect';
 import { showsListenBadge } from '@/lib/lastfm-suggest';
 import { mediaSubtitle } from '@/lib/media-meta';
 import { titleHref } from '@/lib/title-href';
@@ -44,6 +46,15 @@ export function TitlePopup({ activity, onClose }: { activity: ActivityWithMedia 
     },
   });
   const seasonTracked = useHasSeasons(activity?.category === 'tv' ? activity.id : null);
+  // The popup has no trigger (a card, a list row's title or a link opens
+  // it), so closing it would leave focus on <body>: note what had focus as
+  // it opens (before paint, so before the dialog takes focus) and focus
+  // that again on close.
+  const { remember, restore } = useFocusReturn();
+  const openId = activity?.id ?? null;
+  useIsomorphicLayoutEffect(() => {
+    if (openId) remember();
+  }, [openId, remember]);
 
   if (!activity) {
     // Render a closed, controlled dialog so transitions stay mounted.
@@ -68,7 +79,9 @@ export function TitlePopup({ activity, onClose }: { activity: ActivityWithMedia 
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       {/* Phones: a sheet docked to the bottom edge; sm+: a centred dialog.
           The fields scroll inside while the footer stays put. */}
-      <DialogContent className="bottom-0 top-auto flex max-h-[92dvh] max-w-full translate-y-0 flex-col overflow-hidden rounded-t-2xl border-b-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:bottom-auto sm:top-[50%] sm:max-h-[90dvh] sm:max-w-lg sm:translate-y-[-50%] sm:border-b sm:p-6">
+      <DialogContent
+        onCloseAutoFocus={restore}
+        className="bottom-0 top-auto flex max-h-[92dvh] max-w-full translate-y-0 flex-col overflow-hidden rounded-t-2xl border-b-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:bottom-auto sm:top-[50%] sm:max-h-[90dvh] sm:max-w-lg sm:translate-y-[-50%] sm:border-b sm:p-6">
         <DialogHeader className="flex-row items-center gap-3 space-y-0 pr-6 text-left">
           <div className="relative aspect-[2/3] w-12 shrink-0 overflow-hidden rounded bg-muted sm:w-14">
             {media.imageUrl ? (

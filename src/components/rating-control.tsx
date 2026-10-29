@@ -15,7 +15,7 @@ export function RatingControl({ value }: RatingControlProps) {
     return <span className="text-sm text-muted-foreground">—</span>;
   }
   return (
-    <span className="inline-flex items-center gap-1 text-sm font-medium text-amber-300">
+    <span className="inline-flex items-center gap-1 text-sm font-medium text-amber-700 dark:text-amber-300">
       <Star className="h-3.5 w-3.5 fill-current" aria-hidden />
       {scoreOutOfPlain(value)}
     </span>

@@ -101,9 +101,10 @@ export function MediaTable({ units, onSelect, hrefFor, expanded, onToggleGroup, 
             const Chevron = open ? ChevronDown : ChevronRight;
             return (
               <Fragment key={franchise.id}>
+                {/* The whole row toggles on a click; the name is the button
+                    a keyboard reaches (and that says expanded or not). */}
                 <TableRow
                   onClick={() => onToggleGroup(franchise.id)}
-                  aria-expanded={open}
                   className={cn('cursor-pointer bg-muted/20', dark && 'border-white/5 bg-white/[0.03] hover:bg-white/[0.06]')}
                 >
                   {ranks && <TableCell />}
@@ -125,7 +126,18 @@ export function MediaTable({ units, onSelect, hrefFor, expanded, onToggleGroup, 
                     <div className="flex items-center gap-1.5">
                       <Chevron className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                       <Layers className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                      <span className="text-base font-semibold leading-tight">{franchise.name}</span>
+                      <button
+                        type="button"
+                        aria-expanded={open}
+                        // The row's own click would toggle it straight back.
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleGroup(franchise.id);
+                        }}
+                        className="rounded-sm text-left text-base font-semibold leading-tight hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {franchise.name}
+                      </button>
                     </div>
                     <div className="mt-1 text-sm text-muted-foreground">
                       {members.length} titles

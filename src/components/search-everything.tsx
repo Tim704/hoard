@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { settle } from '@/lib/action-result';
 import { resolveLink, searchEverything, type ResolveLinkResult } from '@/lib/actions/search';
 import { CATEGORIES } from '@/lib/categories';
 import type { LibraryMarks } from '@/lib/data-search';
@@ -229,13 +230,11 @@ export function PasteLinkField({ initialUrl = '' }: { initialUrl?: string }) {
     if (!u) return;
     const id = guard.current.next();
     setBusy(true);
-    try {
-      const res = await resolveLink(u);
-      if (guard.current.isLatest(id)) setResolution(res);
-    } catch {
-      if (guard.current.isLatest(id)) setResolution({ ok: false, error: 'Could not read that link.' });
-    }
-    if (guard.current.isLatest(id)) setBusy(false);
+    // An error page or no network: the unreachable message, not nothing.
+    const res = await settle(resolveLink(u));
+    if (!guard.current.isLatest(id)) return;
+    setResolution(res);
+    setBusy(false);
   }
 
   return (
