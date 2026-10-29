@@ -278,6 +278,11 @@ if (failures.length === 0) {
         return !!r && r.top >= 0 && r.top < window.innerHeight;
       }, anchor, { timeout: 10_000 });
     }
+    // The AniList OAuth callback's result is toasted as the page mounts
+    // (the Toaster must already listen), then the URL is tidied.
+    await page.goto(`${BASE_URL}/settings?tab=accounts&anilist=expired`, { waitUntil: 'networkidle' });
+    await page.getByText('That AniList connection link expired or belongs to another session. Try again.').waitFor({ timeout: 10_000 });
+    await page.waitForURL((url) => url.search === '?tab=accounts', { timeout: 10_000 });
   });
   // Phones: the tabs are one strip that scrolls sideways (the open one in
   // view), the layout picker is two by two, and nothing scrolls the page

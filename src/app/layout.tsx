@@ -104,10 +104,13 @@ export default async function RootLayout({
           outfit.variable,
         )}
       >
+        {/* Before the page: sonner's Toaster subscribes in an effect, and
+            effects run in tree order, so a toast fired while a page mounts
+            (the AniList OAuth result on Settings) would be lost after it. */}
+        <Toaster richColors closeButton />
         {children}
         {/* After the page: see LayoutSync (login / logout keep `dark` right). */}
         <LayoutSync layout={layout} />
-        <Toaster richColors closeButton />
       </body>
     </html>
   );
