@@ -75,10 +75,11 @@ This is the easiest way to run Hoard — including on a Raspberry Pi.
 cp .env.example .env
 $EDITOR .env
 
-# 2. Create the backup folder (owned by you, so the backup service can write).
+# 2. Create the backup folder (owned by you; see "Backups" for who writes it).
 mkdir -p ../backups/hoard
 
-# 3. Build and start the database, app and nightly backups.
+# 3. Build and start the database and app. Add `--profile backup` for the
+#    built-in nightly backups if the host doesn't back up its databases itself.
 docker compose up -d --build
 
 # 4. Open the app.
@@ -107,14 +108,37 @@ A demo account can be seeded for kicking the tyres — see [Seeding](#-seeding-a
 
 ## 💾 Backups
 
-The `backup` service (the `postgres:16-alpine` image running
-[`scripts/backup.sh`](scripts/backup.sh)) dumps the database once a night.
+Hoard **only reads** the backup folder: the app mounts
+`${HOARD_BACKUP_DIR:-../backups/hoard}` (a `backups/hoard` folder next to this
+checkout) read-only at `/backups`, and Settings → System and the `backup-watch`
+job report on what they find there. Something else has to write the dumps;
+pick one of two options.
 
-- **Where:** `${HOARD_BACKUP_DIR:-../backups/hoard}` on the host, i.e. a
-  `backups/hoard` folder next to this checkout. Inside it:
+**Option A: a backup you already run on the host.** If a host cron already
+dumps your databases into that folder (e.g. `pg_dump -Fc` per container into
+`~/backups/<db>/<db>-YYYYMMDD.dump`), point `HOARD_BACKUP_DIR` at it and you're
+done. Without a `status.json`, Hoard takes the **newest `*.dump` file** (by
+modification time, in the folder itself or in `daily/` / `weekly/`; `*.tmp` is
+ignored) as the last successful backup. Leave the `backup` profile off: such a
+cron often dumps "every running `postgres:*` container" and would also exec
+into the backup container, and its own retention may delete our dumps.
+
+**Option B: the opt-in `backup` service.** For hosts without their own
+backups, the `backup` service (the `postgres:16-alpine` image running
+[`scripts/backup.sh`](scripts/backup.sh)) dumps the database once a night. It
+sits behind a compose profile, so a plain `docker compose up -d --build` does
+**not** start it:
+
+```bash
+mkdir -p ../backups/hoard          # create it yourself, see Ownership
+docker compose --profile backup up -d --build
+```
+
+- **Where:** inside the backup folder:
   - `daily/hoard-YYYY-MM-DD.dump`: one `pg_dump --format=custom` per day;
   - `weekly/hoard-YYYY-MM-DD.dump`: a copy of each Sunday's dump;
-  - `status.json`: `{lastSuccess, lastAttempt, lastError, file, bytes}`.
+  - `status.json`: `{lastSuccess, lastAttempt, lastError, file, bytes}` (when
+    present, Hoard reads this instead of looking at the dump files).
 - **When:** at `BACKUP_HOUR` (default 3, i.e. 03:00) in `TZ` (default
   `Europe/Berlin`). If the service starts after that hour and today's dump is
   missing, it makes one straight away.
@@ -125,16 +149,24 @@ The `backup` service (the `postgres:16-alpine` image running
   so the files belong to you. Create the folder yourself before the first
   `docker compose up` (`mkdir -p ../backups/hoard`); a folder Docker creates is
   owned by root and the service can't write to it.
-- **Monitoring:** Settings → System shows the last backup. The `backup-watch`
-  job (09:00) sends the owner (the first registered account) a notification when
-  the newest backup is older than 26 hours (or, once the app has been up for
-  26 hours, when there is no backup at all).
 
-Make a backup right now (for example before an upgrade):
+Make a backup right now with the service (for example before an upgrade):
 
 ```bash
-docker compose exec backup sh /backup.sh --once
+docker compose --profile backup exec backup sh /backup.sh --once
 ```
+
+Without the service, dump through the `db` container instead:
+
+```bash
+docker compose exec -T db sh -c 'pg_dump --format=custom -U "$POSTGRES_USER" "$POSTGRES_DB"' \
+  > ../backups/hoard/hoard-predeploy-$(date +%Y%m%d-%H%M).dump
+```
+
+**Monitoring (both options):** Settings → System shows the newest backup. The
+`backup-watch` job (09:00) sends the owner (the first registered account) a
+notification when the newest backup is older than 26 hours (or, once the app
+has been up for 26 hours, when there is no backup at all).
 
 ### Restoring
 
@@ -153,6 +185,7 @@ docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
 # 2. Restore a dump into it (newest daily shown here).
 docker compose exec -T db sh -c 'pg_restore --no-owner \
   -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backups/hoard/daily/hoard-2026-10-28.dump
+#    (or e.g. ../backups/hoard/hoard-20261028.dump from a host cron)
 
 # 3. Start the app (it brings the schema up to date for its own version).
 docker compose start app
@@ -164,17 +197,16 @@ container, then `-d hoard_restore_test`), and drop it afterwards.
 
 ### Before an upgrade, and rolling back
 
-**First deploy of a version with the `backup` service:** the service doesn't
-exist yet on the old version, so take a manual dump through the `db`
-container before you pull:
+**Before deploying a new version**, take a manual dump through the `db`
+container (this works on every version, with or without the `backup` service):
 
 ```bash
 mkdir -p ../backups/hoard
 docker compose exec -T db sh -c 'pg_dump --format=custom -U "$POSTGRES_USER" "$POSTGRES_DB"' \
-  > ../backups/hoard/pre-deploy-$(date +%F).dump
+  > ../backups/hoard/hoard-predeploy-$(date +%Y%m%d-%H%M).dump
 ```
 
-(Later upgrades: `docker compose exec backup sh /backup.sh --once`, above.)
+(With the `backup` profile on, `docker compose --profile backup exec backup sh /backup.sh --once` works too.)
 
 **A plain redeploy of an older version does not work after a schema
 upgrade:** the newer schema has columns and tables the older code doesn't
@@ -297,7 +329,7 @@ the app keeps working.
 
 | Variable                                            | Default                         | What it does                                                                                                 |
 | --------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | required                        | The `db` container's database; the backup service logs in with them too                                      |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | required                        | The `db` container's database; the opt-in backup service logs in with them too                                  |
 | `DATABASE_URL`                                      | required                        | How the app reaches Postgres; must agree with the three above. With `connection_limit`, keep it at 3 or more |
 | `HOARD_PUBLISH`                                     | `3000:3000`                     | Host port binding for the app. Behind a tunnel use a localhost port, e.g. `127.0.0.1:3010:3000`              |
 | `HOARD_PUBLIC_URL`                                  | `https://hoard.timhufnagel.org` | Hoard's outside address: share links, the iCal feed, links in notifications, the AniList OAuth redirect      |
@@ -309,8 +341,8 @@ the app keeps working.
 | Variable                               | Default            | What it does                                                                                                        |
 | -------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------- |
 | `HOARD_BACKUP_DIR`                     | `../backups/hoard` | Host folder for the dumps (relative to this checkout); the app mounts it read-only. Create it before the first `up` |
-| `HOARD_BACKUP_UID`, `HOARD_BACKUP_GID` | `1000`             | User and group the backup service runs as, so the dumps belong to you                                               |
-| `BACKUP_HOUR`                          | `3`                | Hour of the nightly dump (0–23, in `TZ`)                                                                            |
+| `HOARD_BACKUP_UID`, `HOARD_BACKUP_GID` | `1000`             | User and group the opt-in backup service runs as, so the dumps belong to you                                        |
+| `BACKUP_HOUR`                          | `3`                | Hour of the opt-in service's nightly dump (0–23, in `TZ`)                                                           |
 
 ### Search sources
 

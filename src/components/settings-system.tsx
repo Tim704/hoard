@@ -66,9 +66,18 @@ export function SettingsSystem({
               )}
               <span>
                 {backup.lastSuccess
-                  ? `Last backup ${formatWhen(backup.lastSuccess, timeZone)}${
-                      backup.bytes ? ` · ${formatBytes(backup.bytes)}` : ''
-                    }.`
+                  ? backup.source === 'folder'
+                    ? // Found in the folder (e.g. a host cron), so don't claim Hoard made it.
+                      `Newest backup: ${[
+                        backup.file?.split('/').pop(),
+                        formatWhen(backup.lastSuccess, timeZone),
+                        backup.bytes ? formatBytes(backup.bytes) : null,
+                      ]
+                        .filter(Boolean)
+                        .join(', ')}.`
+                    : `Last backup ${formatWhen(backup.lastSuccess, timeZone)}${
+                        backup.bytes ? ` · ${formatBytes(backup.bytes)}` : ''
+                      }.`
                   : 'No backup yet.'}
                 {problem && backup.lastSuccess ? ` ${problem}` : ''}
                 {!backup.lastSuccess && backup.lastError ? ` Last error: ${backup.lastError}` : ''}

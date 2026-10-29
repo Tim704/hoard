@@ -1,8 +1,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #  HOARD — docker-compose
 #
-#  Three services: a PostgreSQL database, the Next.js app and a nightly
-#  `backup` job (scripts/backup.sh, see README "Backups"). Compose reads the
+#  Two services, a PostgreSQL database and the Next.js app, plus an opt-in
+#  nightly `backup` job (scripts/backup.sh, `--profile backup`, see README
+#  "Backups") for hosts without their own database backups. Compose reads the
 #  sibling `.env` file automatically, so copy `.env.example` → `.env` and fill in
 #  your keys before running `docker compose up -d --build`.
 #
@@ -58,7 +59,8 @@ services:
       TZ: ${TZ:-Europe/Berlin}
       NODE_ENV: production
     volumes:
-      # Read-only view of the backups, so Settings can show "Last backup …".
+      # Read-only view of the backup folder (written by the opt-in `backup`
+      # service or by a host cron), so Settings can show the newest backup.
       - ${HOARD_BACKUP_DIR:-../backups/hoard}:/backups:ro
     ports:
       # Local dev exposes 3000 on all interfaces. On the Pi (behind the
@@ -67,8 +69,12 @@ services:
       - "${HOARD_PUBLISH:-3000:3000}"
 
   backup:
+    # Opt-in: only started with `docker compose --profile backup up -d`, for
+    # hosts that don't already back up their databases (a host cron that dumps
+    # every running postgres:* container would otherwise exec into this one).
     # Nightly pg_dump into ${HOARD_BACKUP_DIR} (daily/ + weekly/ + status.json).
     # Runs as the host user so the files belong to them, not root.
+    profiles: ["backup"]
     image: postgres:16-alpine
     restart: unless-stopped
     depends_on:

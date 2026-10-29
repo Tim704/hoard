@@ -1,11 +1,14 @@
 // ───────────────────────────────────────────────────────────────────────────
-//  Backup status (spec 1.1). The `backup` container writes
-//  `<BACKUP_DIR>/status.json` = {lastSuccess, lastAttempt, lastError, file,
-//  bytes}; the app mounts the same directory read-only at /backups. Settings
-//  shows it and the `backup-watch` job warns the owner when it gets stale.
+//  Backup status (spec 1.1). The app mounts the backup folder read-only at
+//  /backups and understands two layouts:
+//    - the opt-in `backup` compose service writes `status.json` =
+//      {lastSuccess, lastAttempt, lastError, file, bytes} (preferred);
+//    - otherwise (e.g. a host cron writing `<db>-YYYYMMDD.dump`) the newest
+//      `*.dump` file in the folder, daily/ or weekly/ is taken, by mtime.
+//  Settings shows it and the `backup-watch` job warns the owner when stale.
 // ───────────────────────────────────────────────────────────────────────────
 
-import { readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 /** A backup older than this (hours) triggers the owner's warning. */
@@ -14,6 +17,11 @@ export const BACKUP_STALE_HOURS = 26;
 export interface BackupStatus {
   /** False when the backup directory isn't mounted (e.g. local dev). */
   mounted: boolean;
+  /**
+   * Where the status came from: Hoard's own `status.json`, the newest dump
+   * file found in the folder, or nothing yet.
+   */
+  source: 'status' | 'folder' | null;
   lastSuccess: string | null;
   lastAttempt: string | null;
   lastError: string | null;
@@ -22,6 +30,7 @@ export interface BackupStatus {
 }
 
 const EMPTY: Omit<BackupStatus, 'mounted'> = {
+  source: null,
   lastSuccess: null,
   lastAttempt: null,
   lastError: null,
@@ -47,6 +56,7 @@ export function parseBackupStatus(raw: string, mounted = true): BackupStatus {
   const bytes = Number(data.bytes);
   return {
     mounted,
+    source: 'status',
     lastSuccess: isoOrNull(data.lastSuccess),
     lastAttempt: isoOrNull(data.lastAttempt),
     lastError: textOrNull(data.lastError),
@@ -81,7 +91,62 @@ export function backupDir(): string {
   return process.env.HOARD_BACKUP_MOUNT || '/backups';
 }
 
-/** Read the status file. Never throws. */
+export interface DumpFile {
+  /** Path relative to the backup folder, e.g. `hoard-20261028.dump`. */
+  file: string;
+  mtimeMs: number;
+  bytes: number;
+}
+
+/** The newest finished dump (`*.dump`, non-empty; temp files ignored), or null. */
+export function pickNewestDump(files: DumpFile[]): DumpFile | null {
+  let best: DumpFile | null = null;
+  for (const f of files) {
+    if (!f.file.endsWith('.dump') || !(f.bytes > 0) || !Number.isFinite(f.mtimeMs)) continue;
+    if (!best || f.mtimeMs > best.mtimeMs) best = f;
+  }
+  return best;
+}
+
+/** Status derived from the newest dump file in the folder (no status.json). */
+export function statusFromDump(dump: DumpFile | null): BackupStatus {
+  if (!dump) return { mounted: true, ...EMPTY };
+  const at = new Date(dump.mtimeMs).toISOString();
+  return {
+    mounted: true,
+    source: 'folder',
+    lastSuccess: at,
+    lastAttempt: at,
+    lastError: null,
+    file: dump.file,
+    bytes: dump.bytes,
+  };
+}
+
+/** The dump files in `dir`, `dir/daily` and `dir/weekly` (missing ones skipped). */
+async function listDumps(dir: string): Promise<DumpFile[]> {
+  const out: DumpFile[] = [];
+  for (const sub of ['', 'daily', 'weekly']) {
+    let names: string[];
+    try {
+      names = await readdir(path.join(dir, sub));
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      if (!name.endsWith('.dump')) continue;
+      try {
+        const s = await stat(path.join(dir, sub, name));
+        if (s.isFile()) out.push({ file: sub ? `${sub}/${name}` : name, mtimeMs: s.mtimeMs, bytes: s.size });
+      } catch {
+        // vanished between readdir and stat
+      }
+    }
+  }
+  return out;
+}
+
+/** Read status.json, or else derive the status from the newest dump. Never throws. */
 export async function readBackupStatus(dir = backupDir()): Promise<BackupStatus> {
   try {
     const s = await stat(dir);
@@ -91,6 +156,11 @@ export async function readBackupStatus(dir = backupDir()): Promise<BackupStatus>
   }
   try {
     return parseBackupStatus(await readFile(path.join(dir, 'status.json'), 'utf8'));
+  } catch {
+    // no status.json: fall back to the folder's dump files
+  }
+  try {
+    return statusFromDump(pickNewestDump(await listDumps(dir)));
   } catch {
     return { mounted: true, ...EMPTY };
   }
