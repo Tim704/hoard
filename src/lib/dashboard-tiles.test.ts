@@ -179,7 +179,7 @@ describe('labels and helpers', () => {
     for (const id of TILE_IDS) expect(TILE_LABELS[id]).toBeTruthy();
     expect(TILE_LABELS['cat:games']).toBe('Video Games');
     expect(TILE_LABELS.recommend).toBe('Recommend across media');
-    expect(TILE_LABELS.favourites).toBe('Favourites');
+    expect(TILE_LABELS.favourites).toBe('Favorites');
   });
 
   it('finds a section tile’s section', () => {

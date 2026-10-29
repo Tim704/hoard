@@ -3,7 +3,7 @@
 import { ChevronRight, Layers } from 'lucide-react';
 
 import { CardAction } from '@/components/card-action';
-import { FranchiseGroupHeader, GroupRating } from '@/components/franchise-group';
+import { FranchiseGroupHeader, GroupRating, StackStatus } from '@/components/franchise-group';
 import { CardBadgePill, useCardBadge } from '@/components/card-badges';
 import { StatusIcon } from '@/components/status-icon';
 import type { CategorySlug } from '@/lib/categories';
@@ -87,7 +87,10 @@ export function MediaCompact({ units, slug, onSelect, hrefFor, expanded, onToggl
               <Layers className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold">{franchise.name}</span>
-                <span className="block text-xs text-muted-foreground">{members.length} titles</span>
+                <span className="block text-xs text-muted-foreground">
+                  {members.length} titles
+                  <StackStatus members={members} inStatusSection={inStatusSection} />
+                </span>
               </span>
               <GroupRating franchise={franchise} members={members} className="shrink-0" />
               <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />

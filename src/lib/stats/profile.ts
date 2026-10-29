@@ -234,7 +234,7 @@ export function tasteSentences(p: TasteProfile, format: ScoreFormat = 'ten'): st
 
   if (p.eras.length) {
     out.push(
-      `Your favourite ${p.eras.length === 1 ? 'era is' : 'eras are'} the ${listWords(p.eras.map((e) => `${e.decade}s`))}.`,
+      `Your favorite ${p.eras.length === 1 ? 'era is' : 'eras are'} the ${listWords(p.eras.map((e) => `${e.decade}s`))}.`,
     );
   }
   return out;

@@ -54,7 +54,7 @@ const SOURCES: SourceInfo[] = [
     what: 'A library.csv exported from Hoard (this account or another one).',
     how: [
       'Settings → Data → Library (CSV).',
-      'Brings back statuses, scores, favourites, progress, tags, dates and notes. Tiers, Up next order and franchises are not restored.',
+      'Brings back statuses, scores, favorites, progress, tags, dates and notes. Tiers, Up next order and franchises are not restored.',
     ],
     input: 'file',
     accept: '.csv,text/csv',

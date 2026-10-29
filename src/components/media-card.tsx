@@ -241,7 +241,7 @@ function CinematicCard({ activity, onClick, href }: MediaCardProps) {
         {meta && <p className="truncate text-xs text-white/65">{meta}</p>}
         <span className="sr-only">
           {statusLabel(status, activity.category)}
-          {activity.favorite && ', favourite'}
+          {activity.favorite && ', favorite'}
         </span>
       </div>
       <span aria-hidden className="absolute left-2 top-2 flex items-center gap-1">

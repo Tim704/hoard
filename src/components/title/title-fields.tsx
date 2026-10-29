@@ -385,7 +385,8 @@ export function FavouriteField({ value, onToggle }: { value: boolean; onToggle: 
           size="sm"
           aria-pressed={value}
           onClick={onToggle}
-          className={cn(value && 'border-amber-500/40 text-amber-300')}
+          // amber-700 holds 4.5:1 on light backgrounds; amber-300 on dark.
+          className={cn(value && 'border-amber-500/40 text-amber-700 dark:text-amber-300')}
         >
           <Star className={cn('mr-2 h-4 w-4', value && 'fill-current')} aria-hidden />
           {value ? 'Favorited' : 'Mark favorite'}

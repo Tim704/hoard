@@ -245,7 +245,7 @@ export function FavouritesRow({
     >
       <h2 id="favourites-heading" className="mb-3 flex items-center gap-2 text-lg font-semibold">
         <Heart className="h-5 w-5 fill-rose-500/30 text-rose-500" aria-hidden />
-        Favourites
+        Favorites
       </h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {sections.map(({ slug, items }) => (

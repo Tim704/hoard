@@ -141,7 +141,7 @@ describe('tasteSentences', () => {
       'You rate anime 0.8 higher than films.',
       'You drop 30% of TV you start.',
       'Your best-rated genre is Sports (8.6); your lowest is Horror (5.2).',
-      'Your favourite eras are the 2010s and 1990s.',
+      'Your favorite eras are the 2010s and 1990s.',
     ]);
   });
 

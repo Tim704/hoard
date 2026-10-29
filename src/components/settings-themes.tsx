@@ -22,7 +22,7 @@ import { LAYOUT_IDS, LAYOUTS } from '@/lib/layouts';
 import { cn } from '@/lib/utils';
 
 const TITLE_VIEW_DESCRIPTIONS: Record<TitleView, string> = {
-  popup: 'A short popup over the page: status, score, favourite, progress and notes, and a link to the full page.',
+  popup: 'A short popup over the page: status, score, favorite, progress and notes, and a link to the full page.',
   page: 'Its own page, with the history, seasons, sessions, tags, lists and the rest.',
 };
 

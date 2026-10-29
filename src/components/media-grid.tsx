@@ -48,6 +48,7 @@ export function MediaGrid({ units, onSelect, hrefFor, expanded, onToggleGroup, i
               members={members}
               expanded={false}
               onToggle={() => onToggleGroup(franchise.id)}
+              inStatusSection={inStatusSection}
             />
           );
         }

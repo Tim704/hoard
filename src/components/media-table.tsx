@@ -7,7 +7,7 @@ import { ChevronDown, ChevronRight, ImageOff, Layers, Star } from 'lucide-react'
 
 import { CardBadgePill, useCardBadge } from '@/components/card-badges';
 import { useDisplayTitle, useLayout } from '@/components/prefs-provider';
-import { GroupRating, groupCover } from '@/components/franchise-group';
+import { GroupRating, StackStatus, groupCover } from '@/components/franchise-group';
 import { RatingControl } from '@/components/rating-control';
 import { StatusBadge } from '@/components/status-badge';
 import { StatusIcon } from '@/components/status-icon';
@@ -127,7 +127,10 @@ export function MediaTable({ units, onSelect, hrefFor, expanded, onToggleGroup, 
                       <Layers className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                       <span className="text-base font-semibold leading-tight">{franchise.name}</span>
                     </div>
-                    <div className="mt-1 text-sm text-muted-foreground">{members.length} titles</div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      {members.length} titles
+                      <StackStatus members={members} inStatusSection={inStatusSection} />
+                    </div>
                   </TableCell>
                   {cols.status && (
                     <TableCell>

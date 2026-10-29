@@ -59,7 +59,7 @@ export function RecommendAcrossButton({ className, header = false }: { className
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Picks across media</DialogTitle>
-            <DialogDescription>From your S and A tier favourites and your taste profile.</DialogDescription>
+            <DialogDescription>From your S and A tier favorites and your taste profile.</DialogDescription>
           </DialogHeader>
           {pending ? (
             <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground" role="status">

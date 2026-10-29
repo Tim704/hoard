@@ -145,5 +145,5 @@ export const TILE_LABELS: Record<TileId, string> = {
   'now-consuming': 'Now consuming',
   'coming-up': 'Coming up',
   goals: 'Goals',
-  favourites: 'Favourites',
+  favourites: 'Favorites',
 };

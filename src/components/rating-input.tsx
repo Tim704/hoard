@@ -75,9 +75,10 @@ export function RatingInput({
             aria-pressed={value === pip}
             className={cn(
               'flex h-11 items-center justify-center rounded-md border text-sm font-medium transition-colors sm:h-7 sm:w-7 sm:text-xs',
+              // On the amber tint: amber-800 holds 4.5:1 in light mode, amber-200 in dark.
               pip <= floor
-                ? 'border-amber-500/40 bg-amber-500/20 text-amber-200'
-                : 'border-border bg-muted/40 text-muted-foreground hover:border-amber-500/30 hover:text-amber-200',
+                ? 'border-amber-500/40 bg-amber-500/20 text-amber-800 dark:text-amber-200'
+                : 'border-border bg-muted/40 text-muted-foreground hover:border-amber-500/30 hover:text-amber-800 dark:hover:text-amber-200',
             )}
           >
             {pip}

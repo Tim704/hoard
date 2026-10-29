@@ -3,7 +3,8 @@
 import Image from 'next/image';
 import { ChevronDown, ImageOff, Layers, Star } from 'lucide-react';
 
-import { useScoreFormat } from '@/components/prefs-provider';
+import { useLayout, useScoreFormat } from '@/components/prefs-provider';
+import { statusSummary } from '@/lib/status';
 import type { ActivityWithMedia, FranchiseRef } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -45,15 +46,31 @@ export function GroupRating({
   );
 }
 
+/**
+ * Minimal's cards show no status, so a collapsed franchise names its
+ * members' statuses to screen readers (", 2 read, 1 unread") when they
+ * differ, or when no status heading above it says theirs. Nothing in the
+ * other layouts.
+ */
+export function StackStatus({ members, inStatusSection }: { members: ActivityWithMedia[]; inStatusSection?: boolean }) {
+  const minimal = useLayout().card === 'poster';
+  const statuses = members.map((m) => m.status);
+  const mixed = new Set(statuses).size > 1;
+  if (!minimal || members.length === 0 || (inStatusSection && !mixed)) return null;
+  return <span className="sr-only">, {statusSummary(statuses, members[0].category)}</span>;
+}
+
 interface FranchiseStackCardProps {
   franchise: FranchiseRef;
   members: ActivityWithMedia[];
   expanded: boolean;
   onToggle: () => void;
+  /** Under a status heading (see StackStatus). */
+  inStatusSection?: boolean;
 }
 
 /** Grid view: a poster with stacked layers behind it, standing in for a franchise. */
-export function FranchiseStackCard({ franchise, members, expanded, onToggle }: FranchiseStackCardProps) {
+export function FranchiseStackCard({ franchise, members, expanded, onToggle, inStatusSection }: FranchiseStackCardProps) {
   const cover = groupCover(franchise, members);
   return (
     <button
@@ -88,7 +105,10 @@ export function FranchiseStackCard({ franchise, members, expanded, onToggle }: F
       </div>
       <div className="flex flex-col gap-1 px-0.5 pt-2.5">
         <h3 className="line-clamp-2 text-sm font-semibold leading-tight">{franchise.name}</h3>
-        <p className="text-xs text-muted-foreground">{members.length} titles · tap to {expanded ? 'collapse' : 'expand'}</p>
+        <p className="text-xs text-muted-foreground">
+          {members.length} titles
+          <StackStatus members={members} inStatusSection={inStatusSection} /> · tap to {expanded ? 'collapse' : 'expand'}
+        </p>
         <GroupRating franchise={franchise} members={members} />
       </div>
     </button>

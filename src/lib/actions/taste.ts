@@ -70,7 +70,7 @@ export async function recommendAcrossMedia(): Promise<RecommendResult> {
   if (input.seeds.length === 0 && !input.profile) {
     return {
       ok: false,
-      error: 'Put a few favourites in the S or A tier first (any section), then ask again.',
+      error: 'Put a few favorites in the S or A tier first (any section), then ask again.',
     };
   }
 

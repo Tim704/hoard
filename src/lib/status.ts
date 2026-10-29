@@ -64,6 +64,20 @@ export function statusLabel(status: Status, slug?: CategorySlug): string {
 }
 
 /**
+ * "2 read, 1 unread": how many titles have each status, in the section's
+ * words, the commonest first (ties in STATUS_ORDER). For a franchise stack
+ * whose cards show no status (Minimal).
+ */
+export function statusSummary(statuses: readonly Status[], slug?: CategorySlug): string {
+  const counts = new Map<Status, number>();
+  for (const s of statuses) counts.set(s, (counts.get(s) ?? 0) + 1);
+  return [...counts]
+    .sort(([a, n], [b, m]) => m - n || STATUS_ORDER[a] - STATUS_ORDER[b])
+    .map(([status, n]) => `${n} ${statusLabel(status, slug).toLowerCase()}`)
+    .join(', ');
+}
+
+/**
  * Ordering for the default "by status" sort: in-progress first, then the
  * backlog, then finished, then the parked/abandoned tail (Paused, Retired,
  * Dropped).
