@@ -34,7 +34,6 @@ import type { ActivityWithMedia } from '@/lib/types';
 
 import { clearTitleDraft, readTitleDraft, writeTitleDraft } from './title-drafts';
 
-export { NEW_FRANCHISE, NO_FRANCHISE } from '@/lib/title-draft';
 
 export interface TitleEditor extends TitleValues {
   setStatus: (s: Status) => void;
