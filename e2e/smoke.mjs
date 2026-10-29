@@ -780,20 +780,38 @@ if (failures.length === 0) {
           await checkDashboard(`${label} at ${width}`);
           if (width !== 375) continue;
           // Rows that used to wrap or spill (the custom periods' date
-          // fields): nothing scrolls sideways on a phone, and the tier list
-          // tray's header stays on one line.
-          for (const path of ['/dashboard', '/books/arena', '/diary', '/settings?tab=system', CUSTOM_PERIODS]) {
+          // fields): nothing scrolls sideways on a phone, the tier list
+          // tray's header stays on one line, and Up next's reorder arrows
+          // are at least 24px each yet stack within the 64px poster, the
+          // row on one line.
+          for (const path of ['/dashboard', '/books/arena', '/books/arena?tab=queue', '/diary', '/settings?tab=system', CUSTOM_PERIODS]) {
             await page.goto(`${BASE_URL}${path}`, { waitUntil: 'networkidle' });
             const r = await page.evaluate(() => {
               const tray = document.getElementById('tray-heading')?.parentElement;
               const items = tray ? [...tray.children].map((el) => el.getBoundingClientRect()) : [];
+              const ups = [...document.querySelectorAll('main button[aria-label^="Move "][aria-label$=" up"]')];
+              const rows = ups.map((up) => {
+                const col = up.parentElement;
+                const kids = [...col.parentElement.children].filter((c) => c.getClientRects().length > 0);
+                const mid = (c) => Math.round(c.getBoundingClientRect().top + c.getBoundingClientRect().height / 2);
+                return {
+                  small: [...col.children].some((b) => b.getBoundingClientRect().width < 24 || b.getBoundingClientRect().height < 24),
+                  tall: col.getBoundingClientRect().height > 64,
+                  lines: new Set(kids.map(mid)).size,
+                };
+              });
               return {
                 trayRows: items.length ? (Math.max(...items.map((b) => b.top)) < Math.min(...items.map((b) => b.bottom)) ? 1 : 2) : 0,
+                arrows: rows.length,
+                badArrows: rows.filter((x) => x.small || x.tall || x.lines !== 1).length,
               };
             });
             const overflow = await sideways();
             if (overflow > 0) throw new Error(`${label} ${path} at 375: the page scrolls sideways by ${overflow}px`);
             if (path === '/books/arena' && r.trayRows !== 1) throw new Error(`${label} at 375: the tier tray header wraps`);
+            if (path === '/books/arena?tab=queue' && (r.arrows === 0 || r.badArrows > 0)) {
+              throw new Error(`${label} at 375: ${r.badArrows} of ${r.arrows} Up next rows have small, too tall or wrapping arrows`);
+            }
           }
         }
         await page.setViewportSize({ width: 1280, height: 900 });

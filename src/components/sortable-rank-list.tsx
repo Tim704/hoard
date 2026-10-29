@@ -172,13 +172,14 @@ function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRe
         </span>
       )}
 
+      {/* 28px targets (over WCAG's 24px minimum), stacked inside the 64px poster's height. */}
       <div className="flex shrink-0 flex-col">
         <button
           type="button"
           onClick={onUp}
           disabled={disabled || isFirst}
           aria-label={`Move ${item.title} up`}
-          className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-25"
+          className="rounded p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-25"
         >
           <ChevronUp className="h-4 w-4" />
         </button>
@@ -187,7 +188,7 @@ function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRe
           onClick={onDown}
           disabled={disabled || isLast}
           aria-label={`Move ${item.title} down`}
-          className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-25"
+          className="rounded p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-25"
         >
           <ChevronDown className="h-4 w-4" />
         </button>
