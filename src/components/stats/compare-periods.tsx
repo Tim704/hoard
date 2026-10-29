@@ -99,7 +99,7 @@ export function ComparePeriods({ compare }: { compare: TastePage['compare'] }) {
 
 function RangeFields({ legend, from, to }: { legend: string; from: [string, string]; to: [string, string] }) {
   return (
-    <fieldset className="rounded-md border border-border p-3">
+    <fieldset className="min-w-0 rounded-md border border-border p-3">
       <legend className="px-1 text-xs text-muted-foreground">{legend}</legend>
       <div className="flex items-center gap-2">
         <input type="date" name={from[0]} defaultValue={from[1]} required aria-label={`${legend} from`} className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-base sm:flex-none sm:text-sm" />
