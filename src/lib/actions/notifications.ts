@@ -45,7 +45,8 @@ export async function markAllNotificationsRead(): Promise<ActionResult> {
 }
 
 /**
- * Send a test notification to the bell and the saved ntfy / Discord targets.
+ * Send a test notification to Notifications (the user menu) and the saved
+ * ntfy / Discord targets.
  * `pushed` lists the targets that accepted it; `error` explains failures.
  */
 export async function sendTestNotification(): Promise<ActionResult & { pushed?: string[] }> {

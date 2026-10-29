@@ -1,11 +1,11 @@
 // ───────────────────────────────────────────────────────────────────────────
-//  Server-only fetchers for the notification bell.
+//  Server-only fetchers for Notifications (the user menu's sheet).
 // ───────────────────────────────────────────────────────────────────────────
 
 import { prisma } from '@/lib/prisma';
 import { upgradeSettingsLink } from '@/lib/settings-nav';
 
-/** What the bell shows: a notification serialized for client components. */
+/** What Notifications shows: a notification serialized for client components. */
 export interface NotificationItem {
   id: string;
   kind: string;

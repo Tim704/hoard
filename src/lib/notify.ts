@@ -1,8 +1,9 @@
 // ───────────────────────────────────────────────────────────────────────────
-//  Notifications (spec 5.7). `notify` writes the in-app row (the bell) and then
-//  pushes it to the user's own ntfy topic / Discord webhook when configured and
-//  the kind is enabled. Pushing never throws: the outcome is recorded on the
-//  row (`sentAt` when at least one target accepted it, `error` otherwise).
+//  Notifications (spec 5.7). `notify` writes the in-app row (Notifications, in
+//  the user menu) and then pushes it to the user's own ntfy topic / Discord
+//  webhook when configured and the kind is enabled. Pushing never throws: the
+//  outcome is recorded on the row (`sentAt` when at least one target accepted
+//  it, `error` otherwise).
 //
 //  Server-only (imports prisma). The pure push code is src/lib/notify-push.ts.
 // ───────────────────────────────────────────────────────────────────────────

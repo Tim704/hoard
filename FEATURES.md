@@ -101,10 +101,10 @@ The **Add** button on each section opens a search:
 
 ### Other ways in
 
-- **Search everything** (the header button, or `/`): searches every visible section at
-  once, grouped by section, with a 6 s limit per source.
-- **Command palette** (Cmd+K on a Mac, Ctrl+K elsewhere): jump to any title in your
-  library or any page. On the highlighted title: Enter opens it, Cmd/Ctrl+Enter marks it
+- **Search everything** (`/`, or **Search** in the user menu): searches every visible
+  section at once, grouped by section, with a 6 s limit per source.
+- **Command palette** (Cmd+K on a Mac, Ctrl+K elsewhere, or **Command palette** in the
+  user menu): jump to any title in your library or any page. On the highlighted title: Enter opens it, Cmd/Ctrl+Enter marks it
   done, Alt+Enter moves it to the top of Up next. Enter on no match runs Search everything.
 - **Add by link** (`/add`): paste a link from TMDB, IMDb, AniList, MyAnimeList, IGDB,
   Steam, Goodreads, Letterboxd or OpenLibrary. Other links are searched by their page
@@ -386,7 +386,8 @@ Settings → Accounts:
 
 ## 18. Notifications
 
-The bell in the header lists notifications. Each user can also push them to their own
+**Notifications** in the user menu lists them (a dot on the avatar, or beside your name
+in Classic's sidebar, means some are unread). Each user can also push them to their own
 [ntfy](https://ntfy.sh) topic and/or a Discord webhook (Settings → Notifications; public
 https addresses only, with **Send test**) and choose which kinds are pushed:
 
@@ -411,7 +412,8 @@ Everything here is off until you turn it on.
 - **Feed** (`/feed`): what opted-in users finished, dropped or put in S tier over the
   last 30 days, with scores. Your own activity appears only if you turn on "Show my
   activity in the feed".
-- These pages sit under **Friends** in the navigation once you opt in.
+- These pages join the navigation once you opt in (the user menu; Organised's
+  **Friends** group).
 
 ## 20. Your data
 
@@ -446,11 +448,19 @@ Up to 10 tokens, each shown once, 60 requests a minute. See [`docs/API.md`](docs
 ## 22. Look and navigation
 
 - **Theme:** dark and light, toggled by hand.
-- **Desktop:** a sidebar with Dashboard, Franchises, the seven sections, Diary, Stats,
-  Tonight, Calendar, Tags, Lists, Views, Friends, Import and Settings. It collapses to an
-  icon rail, and that choice is remembered.
-- **Phones:** a slim top bar with a menu drawer, thumb-sized controls, and layouts
-  checked at 375 px.
+- **Navigation** follows the layout (Settings → Themes):
+  - **Classic:** a sidebar with Dashboard, Franchises and the seven sections;
+  - **Minimal:** a sidebar with the seven sections, Dashboard in a top bar;
+  - **Organised:** a sidebar of groups (Library, Plan & track, Organise, Insights,
+    Friends);
+  - **Fresh:** a glass top bar with tabs for Home and the seven sections.
+- **User menu** (your avatar, or "Signed in as" in Classic's sidebar): Notifications,
+  Search, Command palette, the pages the layout keeps out of its sidebar or tabs, Theme
+  (not in Fresh), Settings and Log out.
+- **Sidebar** (where there is one): collapses to an icon rail with Ctrl/Cmd+B, and that
+  choice is remembered.
+- **Phones:** a slim top bar (menu drawer, logo, avatar; in Fresh a second line of
+  section chips), thumb-sized controls, and layouts checked at 375 px.
 - **Settings:** time zone, score format, title language, week start, and sections
   to hide (they leave the navigation, dashboard and stats; their pages still work).
 - **Installable:** Hoard can be added to the home screen as an app (no offline mode).

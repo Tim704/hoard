@@ -132,6 +132,17 @@ async function pickLayout(label) {
   if (!(await radio.isChecked())) throw new Error(`${label} is not shown as chosen`);
 }
 
+/**
+ * Opens the user menu through whichever trigger the layout shows (Classic's
+ * "Signed in as" block, a sidebar row or a top bar's avatar).
+ */
+async function openUserMenu(p = page) {
+  await p.locator('[data-user-menu]').filter({ visible: true }).first().click();
+  const menu = p.getByRole('menu');
+  await menu.waitFor({ timeout: 10_000 });
+  return menu;
+}
+
 console.log(`Smoke test against ${BASE_URL}`);
 
 await step('login', async () => {
@@ -211,7 +222,8 @@ if (failures.length === 0) {
         if (s.dark !== (label === 'Fresh')) throw new Error(`${label}: ${JSON.stringify(s)}`);
       }
       // Arrowing through the thumbnails switches at once each time but saves
-      // once, after the last (one server action, one toast).
+      // once, after the last (one server action, one toast). The radio keeps
+      // focus although the chrome changes around the page each time.
       const saves = [];
       const onRequest = (req) => {
         if (req.method() === 'POST' && req.headers()['next-action']) saves.push(req.url());
@@ -223,6 +235,11 @@ if (failures.length === 0) {
           await page.keyboard.press('ArrowRight');
           const s = await docState();
           if (s.layout !== want) throw new Error(`arrow → ${want}: data-layout is ${s.layout}`);
+          const focused = await page.evaluate(() => {
+            const el = document.activeElement;
+            return el instanceof HTMLInputElement && el.name === 'layout' ? el.value : el?.outerHTML.slice(0, 80) ?? null;
+          });
+          if (focused !== want) throw new Error(`arrow → ${want}: focus is on ${focused}`);
         }
         await page.getByText('Layout: Fresh').first().waitFor({ timeout: 15_000 });
         await page.waitForLoadState('networkidle');
@@ -266,9 +283,11 @@ if (failures.length === 0) {
       await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
       let s = await docState();
       if (s.layout !== 'fresh' || !s.dark) throw new Error(`Fresh after a reload: ${JSON.stringify(s)}`);
+      // Fresh has no sidebar: the user menu logs out.
+      const menu = await openUserMenu();
       await Promise.all([
         page.waitForURL((url) => url.pathname === '/login', { timeout: 20_000 }),
-        page.locator('aside').getByRole('button', { name: 'Log out' }).click(),
+        menu.getByRole('menuitem', { name: 'Log out', exact: true }).click(),
       ]);
       await page.waitForLoadState('networkidle');
       s = await docState();
@@ -381,6 +400,80 @@ if (failures.length === 0) {
       }
     } finally {
       await page.setViewportSize({ width: 1280, height: 900 });
+    }
+  });
+  // The shell in every layout, at desktop and phone width: no search button
+  // and no bell in the chrome, the layout's navigation marks the open
+  // section, the user menu has Settings and Log out and opens
+  // Notifications, nothing scrolls sideways; with a sticky top bar, Settings'
+  // side list sticks below it. Classic is restored afterwards.
+  await step('navigation in every layout', async () => {
+    try {
+      for (const label of ['Classic', 'Minimal', 'Organised', 'Fresh']) {
+        await pickLayout(label);
+        for (const width of [1280, 375]) {
+          const where = `${label} at ${width}`;
+          await page.setViewportSize({ width, height: width === 375 ? 812 : 900 });
+          await page.goto(`${BASE_URL}/books`, { waitUntil: 'networkidle' });
+          const chrome = await page.evaluate(() => {
+            const shown = (el) => el.getClientRects().length > 0;
+            const controls = [...document.querySelectorAll('[data-shell] button, [data-shell] a')].filter(shown);
+            const current = controls.filter((el) => el.getAttribute('aria-current') === 'page').map((el) => el.textContent.trim());
+            const tabs = [...document.querySelectorAll('[data-shell] nav[aria-label="Main"] li')].filter(shown);
+            return {
+              overflow: document.documentElement.scrollWidth - window.innerWidth,
+              stray: controls
+                .map((el) => `${el.getAttribute('aria-label') ?? ''} ${el.getAttribute('title') ?? ''} ${el.textContent ?? ''}`)
+                .filter((t) => /search|notification|bell/i.test(t) && !/account menu/i.test(t)),
+              current,
+              tabRows: new Set(tabs.map((li) => Math.round(li.getBoundingClientRect().top))).size,
+            };
+          });
+          if (chrome.overflow > 0) throw new Error(`${where}: the page scrolls sideways by ${chrome.overflow}px`);
+          if (chrome.stray.length) throw new Error(`${where}: search or bell in the chrome: ${chrome.stray.join(' | ')}`);
+          if (label === 'Fresh' && chrome.tabRows !== 1) throw new Error(`${where}: the tabs wrap onto ${chrome.tabRows} rows`);
+          if (width === 375 && label !== 'Fresh') {
+            // Phones: the sections are in the drawer.
+            await page.getByRole('button', { name: 'Open navigation' }).click();
+            const drawer = page.getByRole('dialog', { name: 'HOARD' });
+            const books = drawer.getByRole('link', { name: 'Books', exact: true });
+            await books.waitFor({ timeout: 10_000 });
+            if ((await books.getAttribute('aria-current')) !== 'page') throw new Error(`${where}: Books is not current in the drawer`);
+            await page.keyboard.press('Escape');
+            await drawer.waitFor({ state: 'hidden', timeout: 10_000 });
+          } else if (!chrome.current.includes('Books')) {
+            throw new Error(`${where}: the navigation doesn't mark Books (current: ${chrome.current.join(', ') || 'none'})`);
+          }
+          const menu = await openUserMenu();
+          for (const name of ['Settings', 'Log out', 'Search', 'Command palette']) {
+            await menu.getByRole('menuitem', { name, exact: true }).waitFor({ timeout: 10_000 });
+          }
+          const themeItems = await menu.getByRole('menuitem', { name: /^(Dark|Light) mode$/ }).count();
+          if (themeItems !== (label === 'Fresh' ? 0 : 1)) throw new Error(`${where}: ${themeItems} theme items in the menu`);
+          await menu.getByRole('menuitem', { name: /^Notifications/ }).click();
+          const sheet = page.getByRole('dialog', { name: 'Notifications' });
+          await sheet.getByRole('button', { name: 'Mark all read' }).waitFor({ timeout: 10_000 });
+          await page.keyboard.press('Escape');
+          await sheet.waitFor({ state: 'hidden', timeout: 10_000 });
+          const after = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (after > 0) throw new Error(`${where}: the page scrolls sideways by ${after}px after the menu`);
+        }
+        if (label === 'Minimal' || label === 'Fresh') {
+          await page.setViewportSize({ width: 1280, height: 600 });
+          await page.goto(`${BASE_URL}/settings?tab=general`, { waitUntil: 'networkidle' });
+          await page.evaluate(() => window.scrollTo(0, 400));
+          const m = await page.evaluate(() => ({
+            scrolled: window.scrollY,
+            bar: [...document.querySelectorAll('header[data-shell]')].find((h) => h.getClientRects().length > 0)?.getBoundingClientRect().bottom ?? 0,
+            list: document.querySelector('nav[aria-label="Settings"]').getBoundingClientRect().top,
+          }));
+          if (m.scrolled < 100) throw new Error(`${label}: Settings didn't scroll (${m.scrolled}px)`);
+          if (Math.abs(m.list - (m.bar + 24)) > 2) throw new Error(`${label}: the Settings list sticks at ${m.list}px, not below the ${m.bar}px top bar`);
+        }
+      }
+    } finally {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await pickLayout('Classic');
     }
   });
   // TV seasons (3.3 / 4.5): the demo show's details list its seasons and
@@ -502,12 +595,14 @@ if (failures.length === 0) {
     if (!value.endsWith('[[Cowboy Bebop]]')) throw new Error(`autocomplete gave: ${value}`);
     await page.keyboard.press('Escape');
   });
-  // Saved views (8.6): the demo view opens from the navigation with results.
+  // Saved views (8.6): the demo view opens from the navigation (in Classic,
+  // under Views in the user menu) with results.
   await step('saved view from the navigation', async () => {
     await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+    const menu = await openUserMenu();
     await Promise.all([
       page.waitForURL((url) => url.pathname === '/views' && url.searchParams.get('view') === 'demo-view-scifi', { timeout: 15_000 }),
-      page.locator('aside').getByRole('link', { name: 'Sci-fi favourites' }).click(),
+      menu.getByRole('menuitem', { name: 'Sci-fi favourites' }).click(),
     ]);
     await page.getByRole('heading', { name: 'Sci-fi favourites' }).waitFor({ timeout: 15_000 });
     await page.getByText(/^\d+ titles?$/).waitFor({ timeout: 10_000 });
@@ -538,7 +633,7 @@ if (failures.length === 0) {
     if (gone.status !== 401) throw new Error(`API with a revoked token: HTTP ${gone.status}`);
   });
   // Compare and the feed (9.1 / 9.2) against the seeded, opted-in demo2:
-  // turn both opt-ins on, see the comparison, the feed and the Friends links;
+  // turn both opt-ins on, see the comparison, the feed and the Friends pages;
   // then, as demo2, see demo vanish from Compare the moment demo opts out
   // (the same answer as for an unknown user), and come back after.
   const setOptIn = async (card, on, toast) => {
@@ -563,9 +658,12 @@ if (failures.length === 0) {
     if (!/Titles you both have \(\d+\)/.test(main)) throw new Error('no shared titles count');
     await page.goto(`${BASE_URL}/feed`, { waitUntil: 'networkidle' });
     await page.getByText('demo2', { exact: true }).first().waitFor({ timeout: 15_000 });
+    // The Friends pages are in Classic's user menu once opted in.
+    const menu = await openUserMenu();
     for (const name of ['Feed', 'Compare', 'Watch together']) {
-      await page.locator('aside').getByRole('link', { name, exact: true }).waitFor({ timeout: 10_000 });
+      await menu.getByRole('menuitem', { name, exact: true }).waitFor({ timeout: 10_000 });
     }
+    await page.keyboard.press('Escape');
 
     const friend = await browser.newContext();
     try {

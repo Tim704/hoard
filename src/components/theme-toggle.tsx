@@ -8,28 +8,33 @@ import { Button } from '@/components/ui/button';
 import { THEME_STORAGE_KEY } from '@/lib/document-theme';
 
 /**
- * Light/dark theme toggle. This project does NOT use next-themes — the theme is
+ * Light/dark switching. This project does NOT use next-themes — the theme is
  * just the `dark` class on <html>, applied pre-paint by the no-FOUC script in
  * layout.tsx and persisted in localStorage under `hoard-theme`.
  *
- * Hidden in a layout that forces dark (Fresh); the stored choice is kept for
- * when the user leaves it (src/lib/document-theme.ts).
+ * `hidden` in a layout that forces dark (Fresh); the stored choice is kept
+ * for when the user leaves it (src/lib/document-theme.ts).
  *
- * A `mounted` guard avoids a hydration mismatch: the server can't know which
- * theme the client resolved, so we render a stable placeholder until mounted.
+ * `mounted` guards against a hydration mismatch: the server can't know which
+ * theme the client resolved, so render a stable placeholder until mounted.
  */
-export function ThemeToggle() {
-  const { id: layout, forceDark } = useLayout();
+export function useThemeToggle() {
+  const { forceDark } = useLayout();
   const [mounted, setMounted] = useState(false);
   const [isDark, setIsDark] = useState(false);
 
-  // Re-read after a layout switch: leaving Fresh restores the stored theme.
+  // Follow the class itself: a layout switch (leaving Fresh restores the
+  // stored theme) or the other toggle (Classic's footer and the user menu)
+  // may change it.
   useEffect(() => {
-    setIsDark(document.documentElement.classList.contains('dark'));
+    const root = document.documentElement;
+    const read = () => setIsDark(root.classList.contains('dark'));
+    read();
     setMounted(true);
-  }, [layout]);
-
-  if (forceDark) return null;
+    const watch = new MutationObserver(read);
+    watch.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => watch.disconnect();
+  }, []);
 
   const toggle = () => {
     const next = !document.documentElement.classList.contains('dark');
@@ -41,6 +46,14 @@ export function ThemeToggle() {
     }
     setIsDark(next);
   };
+
+  return { hidden: forceDark, mounted, isDark, toggle };
+}
+
+/** The light/dark icon button (Classic's sidebar footer). */
+export function ThemeToggle() {
+  const { hidden, mounted, isDark, toggle } = useThemeToggle();
+  if (hidden) return null;
 
   return (
     <Button

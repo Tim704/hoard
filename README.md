@@ -261,7 +261,8 @@ at any time from Settings → Accounts.
 
 ### Notifications
 
-Notifications appear under the bell in the header: releases and new episodes
+Notifications appear under **Notifications** in the user menu (a dot on the avatar
+means some are unread): releases and new episodes
 (the `releases` job), new seasons (`new-seasons`), Last.fm "Mark as Listened?"
 suggestions (`lastfm`), AniList sync errors, lists shared with you and, for the owner
 only, backup problems (`backup-watch`).
@@ -269,7 +270,7 @@ only, backup problems (`backup-watch`).
 Each user can also push them to their own [ntfy](https://ntfy.sh) topic URL and/or a
 Discord channel webhook (Settings → Notifications: public https URLs only, no
 localhost or private IP addresses, with a "Send test" button) and pick which kinds are
-pushed; the bell always shows all of them. Pushes time out after 5 seconds; failures
+pushed; Notifications in Hoard always shows all of them. Pushes time out after 5 seconds; failures
 are recorded on the notification, never thrown.
 
 ---

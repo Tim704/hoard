@@ -66,7 +66,7 @@ const httpsUrl = z
 
 /**
  * `kinds` lists the kinds pushed to ntfy/Discord; empty means every kind. The
- * in-app bell always shows every notification.
+ * in-app list (Notifications, in the user menu) always shows every notification.
  */
 const NotifySchema = z.object({
   ntfyUrl: httpsUrl.nullable().catch(null),
