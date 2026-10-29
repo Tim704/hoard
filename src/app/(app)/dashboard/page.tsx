@@ -1,3 +1,4 @@
+import { CustomizeDashboard } from '@/components/dashboard/customize-dashboard';
 import {
   CategoryCard,
   ComingUpCard,
@@ -17,7 +18,8 @@ import { favouritesShowcase } from '@/lib/favourites';
 import { getCurrentUser } from '@/lib/session';
 
 /**
- * The dashboard: the tiles the user picked, in their order (src/lib/dashboard-tiles.ts). Only the shown tiles' data is
+ * The dashboard: the tiles the user picked (Customize, or Settings → Themes),
+ * in their order (src/lib/dashboard-tiles.ts). Only the shown tiles' data is
  * loaded. Recommend across media is the header's button, not a tile.
  */
 export default async function DashboardPage() {
@@ -74,9 +76,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-      {/* Stacked below lg (the greeting would be cut short beside the button),
-          one row that never wraps from lg. */}
-      <header className="mb-6 flex flex-col items-start gap-3 sm:mb-8 lg:flex-row lg:items-end lg:justify-between">
+      {/* One line that never wraps: the greeting truncates beside the buttons
+          (icons where a label wouldn't leave it room, see HeaderButton). */}
+      <header data-dashboard-header="" className="mb-6 flex items-end justify-between gap-3 sm:mb-8">
         <div className="min-w-0">
           <h1 className="truncate text-2xl font-bold tracking-tight sm:text-3xl">
             Welcome back{user ? `, ${user.username}` : ''} 👋
@@ -87,7 +89,10 @@ export default async function DashboardPage() {
               : 'Your hoard at a glance.'}
           </p>
         </div>
-        {tiles.includes('recommend') && <RecommendAcrossButton className="shrink-0" />}
+        <div className="flex shrink-0 items-center gap-2">
+          {tiles.includes('recommend') && <RecommendAcrossButton header />}
+          <CustomizeDashboard saved={prefs.dashboard} />
+        </div>
       </header>
 
       {shown.length > 0 ? (
@@ -100,6 +105,7 @@ export default async function DashboardPage() {
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-4 py-10 text-center">
           <p className="text-muted-foreground">Your dashboard is empty.</p>
+          <CustomizeDashboard saved={prefs.dashboard} empty />
         </div>
       )}
     </div>

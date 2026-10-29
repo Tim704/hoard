@@ -5,14 +5,18 @@
 //  switches the whole app at once, with Undo in the toast) and the title
 //  view (a short popup or a full page). Both go through useSetDisplayPref,
 //  which shows the choice straight away and rolls it back if the save fails.
+//  Then the dashboard tiles: the dashboard's Customize editor, inline, which
+//  saves on Save.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { useId } from 'react';
 import { Check } from 'lucide-react';
 
+import { TileEditor } from '@/components/dashboard/tile-editor';
 import { LayoutThumbnail, TitleViewThumbnail } from '@/components/layout-thumbnails';
 import { usePrefs, useSetDisplayPref } from '@/components/prefs-provider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { DashboardTilesPref } from '@/lib/dashboard-tiles';
 import { TITLE_VIEWS, TITLE_VIEW_LABELS, type TitleView } from '@/lib/display-prefs';
 import { LAYOUT_IDS, LAYOUTS } from '@/lib/layouts';
 import { cn } from '@/lib/utils';
@@ -22,8 +26,9 @@ const TITLE_VIEW_DESCRIPTIONS: Record<TitleView, string> = {
   page: 'Its own page, with the history, seasons, sessions, tags, lists and the rest.',
 };
 
-export function SettingsThemes() {
-  const { layout, titleView } = usePrefs();
+export function SettingsThemes({ dashboard }: { dashboard: DashboardTilesPref }) {
+  const { layout, titleView, hiddenSections } = usePrefs();
+  const sectionsHidden = hiddenSections.some((s) => s !== 'franchises');
   const set = useSetDisplayPref();
 
   return (
@@ -77,7 +82,20 @@ export function SettingsThemes() {
         </CardContent>
       </Card>
 
-      {/* Phase 7 adds the dashboard tile editor (tile-editor.tsx) here, as its own card. */}
+      <Card id="dashboard-tiles" className="scroll-mt-bar">
+        <CardHeader>
+          <CardTitle className="text-base">Dashboard tiles</CardTitle>
+          <CardDescription>
+            Which tiles the dashboard shows, and in what order: drag a tile or use its arrows, then Save. Customize on
+            the dashboard opens the same list.
+            {sectionsHidden && ' Sections you hide under General aren’t listed; their tiles keep their places.'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* A new saved value (after Save, Undo or another tab's change) starts the editor afresh. */}
+          <TileEditor key={JSON.stringify(dashboard)} saved={dashboard} className="max-w-xl" />
+        </CardContent>
+      </Card>
     </>
   );
 }

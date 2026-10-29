@@ -159,6 +159,38 @@ async function gameId() {
   return demoGameId;
 }
 
+/**
+ * The dashboard at the current width: nothing scrolls sideways, the header
+ * is one row (the greeting beside Recommend and Customize, both named in
+ * every layout), and every section tile's status line is one row that
+ * doesn't spill.
+ */
+async function checkDashboard(where) {
+  await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+  for (const name of ['Recommend across media', 'Customize dashboard']) {
+    if (!(await page.getByRole('button', { name, exact: true }).isVisible())) throw new Error(`${where}: no ${name} button`);
+  }
+  const m = await page.evaluate(() => {
+    const [greeting, buttons] = [...document.querySelector('[data-dashboard-header]').children].map((el) => el.getBoundingClientRect());
+    const lines = [...document.querySelectorAll('[data-dashboard-tiles] div')].filter(
+      (el) => getComputedStyle(el).display === 'flex' && /^\s*\d[\d,.]*\s*ongoing/.test(el.textContent ?? ''),
+    );
+    const tops = (el) => new Set([...el.children].map((c) => Math.round(c.getBoundingClientRect().top))).size;
+    const right = (el) => Math.max(...[...el.children].map((c) => c.getBoundingClientRect().right));
+    return {
+      overflow: document.documentElement.scrollWidth - window.innerWidth,
+      oneRow: buttons.top < greeting.bottom && buttons.left >= greeting.right - 1,
+      lines: lines.length,
+      wrapped: lines.filter((el) => tops(el) > 1).length,
+      spilled: lines.filter((el) => right(el) > el.getBoundingClientRect().right + 1).length,
+    };
+  });
+  if (m.overflow > 0) throw new Error(`${where}: the dashboard scrolls sideways by ${m.overflow}px`);
+  if (!m.oneRow) throw new Error(`${where}: the dashboard header wraps`);
+  if (m.lines === 0) throw new Error(`${where}: no section tile status lines found`);
+  if (m.wrapped || m.spilled) throw new Error(`${where}: ${m.wrapped} status lines wrap, ${m.spilled} spill`);
+}
+
 console.log(`Smoke test against ${BASE_URL}`);
 
 await step('login', async () => {
@@ -638,6 +670,7 @@ if (failures.length === 0) {
               throw new Error(`${where}: More shows although everything fits`);
             }
           }
+          await checkDashboard(`${label} at ${width}`);
           if (width !== 375) continue;
           // Rows that used to wrap: nothing scrolls sideways on a phone, and
           // the tier list tray's header stays on one line.
@@ -766,6 +799,122 @@ if (failures.length === 0) {
     if (hadNone) console.log('    (started without a profile)');
     await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
     await page.getByRole('button', { name: 'Recommend across media' }).waitFor({ timeout: 10_000 });
+  });
+  // Dashboard tiles: Customize opens the tile editor. Closing it drops a
+  // change; hiding the overview and moving Coming up up one place (focus
+  // stays on the button) changes the dashboard after Save; Undo puts it
+  // back; Reset to default saves the default. At 640 the overview of the
+  // default order still moves first; at 1024 (narrow tiles) the header and
+  // the status lines stay one row. On a phone the editor is a bottom sheet
+  // whose rows fit, with 36px controls; Settings → Themes has the same
+  // editor inline. The demo's dashboard prefs end as they started.
+  await step('dashboard tiles: customize, undo, reset', async () => {
+    const stored = async () => JSON.stringify((await (await page.request.get(`${BASE_URL}/api/export/all.json`)).json()).prefs?.dashboard);
+    const before = await stored();
+    const tiles = () => page.locator('[data-dashboard-tiles] > *').evaluateAll((els) => els.map((el) => el.innerText.split('\n')[0].trim()));
+    const showsTiles = (want, what) =>
+      page
+        .waitForFunction(
+          (want) => [...document.querySelectorAll('[data-dashboard-tiles] > *')].map((el) => el.innerText.split('\n')[0].trim()).join('|') === want,
+          want.join('|'),
+          { timeout: 15_000 },
+        )
+        .catch(async () => {
+          throw new Error(`${what}: the dashboard shows ${(await tiles()).join(', ')}`);
+        });
+    const customize = async () => {
+      await page.getByRole('button', { name: 'Customize dashboard', exact: true }).click();
+      const dialog = page.getByRole('dialog', { name: 'Customize dashboard' });
+      await dialog.getByRole('checkbox', { name: 'Show Overview' }).waitFor({ timeout: 15_000 });
+      return dialog;
+    };
+    try {
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+      const start = await tiles();
+      const coming = start.indexOf('Coming up');
+      if (!start.includes('Your hoard') || coming < 1) throw new Error(`the dashboard starts with ${start.join(', ')}`);
+
+      let dialog = await customize();
+      await dialog.getByRole('checkbox', { name: 'Show Overview' }).uncheck();
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
+      dialog = await customize();
+      if (!(await dialog.getByRole('checkbox', { name: 'Show Overview' }).isChecked())) throw new Error('closing the dialog kept a change');
+
+      await dialog.getByRole('checkbox', { name: 'Show Overview' }).uncheck();
+      await dialog.getByRole('button', { name: 'Move Coming up up', exact: true }).click();
+      const focused = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'));
+      if (focused !== 'Move Coming up up') throw new Error(`after Move up, focus is on ${focused}`);
+      await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByText('Dashboard updated.').first().waitFor({ timeout: 15_000 });
+      await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
+      const moved = [...start];
+      [moved[coming - 1], moved[coming]] = [moved[coming], moved[coming - 1]];
+      await showsTiles(moved.filter((t) => t !== 'Your hoard'), 'after Save');
+
+      await page.getByRole('button', { name: 'Undo' }).click();
+      await page.getByText('Undone.').first().waitFor({ timeout: 15_000 });
+      await showsTiles(start, 'after Undo');
+
+      dialog = await customize();
+      await dialog.getByRole('button', { name: 'Reset to default' }).click();
+      await page.getByText('Dashboard reset to default.').first().waitFor({ timeout: 15_000 });
+      await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
+      await showsTiles(start, 'after Reset');
+
+      await page.setViewportSize({ width: 640, height: 900 });
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+      const first = await page.locator('[data-dashboard-tiles] > *').evaluateAll((els) => {
+        const at = (el) => el.getBoundingClientRect();
+        return els.sort((a, b) => at(a).top - at(b).top || at(a).left - at(b).left)[0].innerText.split('\n')[0].trim();
+      });
+      if (first !== 'Your hoard') throw new Error(`at 640 the default order starts with ${first}`);
+      await page.setViewportSize({ width: 1024, height: 900 });
+      await checkDashboard('Classic at 1024');
+
+      await page.setViewportSize({ width: 375, height: 812 });
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
+      dialog = await customize();
+      const fit = await page.evaluate(() => {
+        const d = document.querySelector('[role="dialog"]');
+        const list = d.querySelector('ul[aria-label="Dashboard tiles"]');
+        const rows = [...list.children];
+        const footer = [...d.querySelectorAll('button')].filter((b) => /^(Reset to default|Cancel|Save)$/.test(b.textContent.trim()));
+        return {
+          bottom: Math.round(window.innerHeight - d.getBoundingClientRect().bottom),
+          rows: rows.length,
+          tall: rows.filter((li) => li.getBoundingClientRect().height > 50).length,
+          spill: rows.filter((li) => li.scrollWidth > li.clientWidth).length,
+          small: [...list.querySelectorAll('button, label')]
+            .filter((c) => c.getBoundingClientRect().height < 36)
+            .map((c) => c.getAttribute('aria-label') ?? c.textContent.trim()),
+          footerRows: new Set(footer.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+          overflow: document.documentElement.scrollWidth - window.innerWidth,
+        };
+      });
+      if (fit.bottom !== 0) throw new Error(`at 375 the editor is not a bottom sheet (${fit.bottom}px above the bottom)`);
+      if (fit.rows < 10 || fit.tall || fit.spill) throw new Error(`at 375 the editor's ${fit.rows} rows: ${fit.tall} wrap, ${fit.spill} spill`);
+      if (fit.small.length) throw new Error(`at 375 these controls are under 36px: ${fit.small.join(', ')}`);
+      if (fit.footerRows !== 1 || fit.overflow > 0) throw new Error(`at 375 the footer is ${fit.footerRows} rows (page ${fit.overflow}px)`);
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
+
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.goto(`${BASE_URL}/settings?tab=themes`, { waitUntil: 'networkidle' });
+      const card = page.locator('#dashboard-tiles');
+      const box = card.getByRole('checkbox', { name: 'Show Goals' });
+      await box.waitFor({ timeout: 15_000 });
+      const save = card.getByRole('button', { name: 'Save', exact: true });
+      if (!(await save.isDisabled())) throw new Error('Settings: Save is on before any change');
+      await box.uncheck();
+      if (await save.isDisabled()) throw new Error('Settings: Save is off after a change');
+      await card.getByRole('button', { name: 'Cancel', exact: true }).click();
+      if (!(await box.isChecked()) || !(await save.isDisabled())) throw new Error('Settings: Cancel kept the change');
+    } finally {
+      await page.setViewportSize({ width: 1280, height: 900 });
+    }
+    const after = await stored();
+    if (after !== before) throw new Error(`demo's dashboard prefs were ${before}, now ${after}`);
   });
   // Settings → Accounts (8.1–8.3): each account renders either its link form
   // or a friendly "not configured" note, with or without provider keys.

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Loader2, Search, Wand2 } from 'lucide-react';
 
+import { HeaderButton } from '@/components/dashboard/header-button';
 import { useGlobalSearch } from '@/components/global-search';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -13,9 +14,10 @@ import type { Recommendation } from '@/lib/recommend';
 /**
  * "Recommend across media" (spec 7.1): asks the AI for a few picks from your
  * S/A favourites and taste profile, shown as cards. "Find it" opens Search
- * everything (2.5) with the title filled in.
+ * everything (2.5) with the title filled in. `header`: the dashboard header's
+ * button (HeaderButton: an icon where the layout or the width calls for one).
  */
-export function RecommendAcrossButton({ className }: { className?: string }) {
+export function RecommendAcrossButton({ className, header = false }: { className?: string; header?: boolean }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Recommendation[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -44,10 +46,14 @@ export function RecommendAcrossButton({ className }: { className?: string }) {
 
   return (
     <>
-      <Button type="button" variant="outline" onClick={run} disabled={pending} className={className}>
-        <Wand2 className="mr-2 h-4 w-4" aria-hidden />
-        Recommend across media
-      </Button>
+      {header ? (
+        <HeaderButton icon={Wand2} label="Recommend across media" labelAt="lg" onClick={run} disabled={pending} className={className} />
+      ) : (
+        <Button type="button" variant="outline" onClick={run} disabled={pending} className={className}>
+          <Wand2 className="mr-2 h-4 w-4" aria-hidden />
+          Recommend across media
+        </Button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>

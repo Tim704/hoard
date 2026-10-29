@@ -48,7 +48,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
 
   return (
     <SettingsShell active={tab} tabs={settingsTabsFor(isOwner)}>
-      {tab === 'themes' && <SettingsThemes />}
+      {tab === 'themes' && <SettingsThemes dashboard={prefs.dashboard} />}
       {tab === 'general' && (
         // The zone list is built here, not in the browser, so the server
         // render and hydration use the same ICU data.
