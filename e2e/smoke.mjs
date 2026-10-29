@@ -40,6 +40,21 @@ const browser = await chromium.launch(
     : { channel: 'chrome', headless: true },
 );
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+
+// Provider posters and covers are a 1×1 GIF for the whole run: a slow image
+// host (archive.org behind Open Library's covers can hang for 30 s) must not
+// hold a page's network idle, and no step reads their pixels (their load
+// failures were never app errors either, see the console filter). It also
+// means first paints come without waiting on images, as for a user whose
+// covers are cached (Fresh's tab strip must not move after it).
+const PIXEL = Buffer.from('R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', 'base64');
+await context.route(
+  (url) => !sameOrigin(url.href),
+  (route) =>
+    route.request().resourceType() === 'image'
+      ? route.fulfill({ status: 200, contentType: 'image/gif', body: PIXEL })
+      : route.continue(),
+);
 const page = await context.newPage();
 
 /** Problems seen while the current step runs. */
@@ -203,31 +218,14 @@ await step('login', async () => {
   ]);
 });
 
-// While the route list loads, provider posters and covers are a 1×1 GIF: a
-// slow image host (archive.org behind Open Library's covers can hang for
-// 30 s) must not hold a page's network idle. The list doesn't read their
-// pixels, and their load failures were never app errors (see the console
-// filter). Later steps get the real images, as before.
-const PIXEL = Buffer.from('R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', 'base64');
-const crossOrigin = (url) => !sameOrigin(url.href);
-const stubImage = (route) =>
-  route.request().resourceType() === 'image'
-    ? route.fulfill({ status: 200, contentType: 'image/gif', body: PIXEL })
-    : route.continue();
-
 if (failures.length === 0) {
-  await context.route(crossOrigin, stubImage);
-  try {
-    for (const route of routes) {
-      await step(route, async () => {
-        const res = await page.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle', timeout: 45_000 });
-        if (!res) throw new Error('no response');
-        if (res.status() >= 400) throw new Error(`HTTP ${res.status()}`);
-        if (new URL(page.url()).pathname === '/login') throw new Error('redirected to /login');
-      });
-    }
-  } finally {
-    await context.unroute(crossOrigin, stubImage);
+  for (const route of routes) {
+    await step(route, async () => {
+      const res = await page.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle', timeout: 45_000 });
+      if (!res) throw new Error('no response');
+      if (res.status() >= 400) throw new Error(`HTTP ${res.status()}`);
+      if (new URL(page.url()).pathname === '/login') throw new Error('redirected to /login');
+    });
   }
 }
 
@@ -461,7 +459,14 @@ if (failures.length === 0) {
           const s = strip.getBoundingClientRect();
           const a = strip.querySelector('[aria-current="page"]').getBoundingClientRect();
           const radios = [...document.querySelectorAll('input[name="layout"]')].map((r) => r.closest('label').getBoundingClientRect());
+          // Action rows: one line on a phone (or a deliberate stack, one per line).
+          const wrapped = [...document.querySelectorAll('main [data-actions]')].filter((row) => {
+            if (getComputedStyle(row).flexDirection !== 'row') return false;
+            const shown = [...row.children].filter((c) => c.getClientRects().length > 0);
+            return new Set(shown.map((c) => Math.round(c.getBoundingClientRect().top))).size > 1;
+          }).length;
           return {
+            wrapped,
             overflow: document.documentElement.scrollWidth - window.innerWidth,
             rows: new Set(tops).size,
             activeInView: a.left >= s.left - 1 && a.right <= s.right + 1,
@@ -470,6 +475,7 @@ if (failures.length === 0) {
           };
         });
         if (m.overflow > 0) throw new Error(`${tab}: the page scrolls sideways by ${m.overflow}px`);
+        if (m.wrapped > 0) throw new Error(`${tab}: ${m.wrapped} action rows wrap`);
         if (m.rows !== 1) throw new Error(`${tab}: the tab strip wraps onto ${m.rows} rows`);
         if (!m.activeInView) throw new Error(`${tab}: the open tab is scrolled out of the strip`);
         if (tab === 'themes' && (m.pickerRows !== 2 || m.pickerCols !== 2)) throw new Error(`picker is ${m.pickerCols}×${m.pickerRows}`);
@@ -572,8 +578,14 @@ if (failures.length === 0) {
           await sheet.getByRole('button', { name: 'Mark all read' }).waitFor({ timeout: 10_000 });
           await page.keyboard.press('Escape');
           await sheet.waitFor({ state: 'hidden', timeout: 10_000 });
-          // Closing it hands focus back to the menu's trigger, not <body>.
-          const back = await page.evaluate(() => document.activeElement?.matches('[data-user-menu]') ?? false);
+          // Closing it hands focus back to the menu's trigger, not <body>
+          // (Radix returns focus a tick after the sheet unmounts: poll for a second).
+          const back = await page
+            .waitForFunction(() => document.activeElement?.matches('[data-user-menu]') ?? false, null, { timeout: 1_000 })
+            .then(
+              () => true,
+              () => false,
+            );
           if (!back) throw new Error(`${where}: focus didn't return to the user menu after Notifications`);
           const after = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
           if (after > 0) throw new Error(`${where}: the page scrolls sideways by ${after}px after the menu`);
@@ -799,6 +811,7 @@ if (failures.length === 0) {
       // The popup keeps its markup: its title is its one heading.
       const heads = await dialog.getByRole('heading').count();
       if (heads !== 1) throw new Error(`at ${width} the popup has ${heads} headings`);
+      await dialog.evaluate((d) => Promise.all(d.getAnimations().map((a) => a.finished)));
       const text = await dialog.innerText();
       const extra = ['Franchise', 'Tags', 'History', 'Season tiers', 'Add to list', 'More by the same people'].filter((t) => text.includes(t));
       if (extra.length) throw new Error(`at ${width} the popup still shows ${extra.join(', ')}`);
@@ -935,6 +948,9 @@ if (failures.length === 0) {
       await page.setViewportSize({ width: 375, height: 812 });
       await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
       dialog = await customize();
+      // Measured once it has slid in (with the editor's code cached, the
+      // checkbox shows on the opening animation's first frame).
+      await dialog.evaluate((d) => Promise.all(d.getAnimations().map((a) => a.finished)));
       const fit = await page.evaluate(() => {
         const d = document.querySelector('[role="dialog"]');
         const list = d.querySelector('ul[aria-label="Dashboard tiles"]');

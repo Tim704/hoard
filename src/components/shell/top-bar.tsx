@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils';
  *   the avatar. On phones the tabs drop to a second line of chips.
  */
 
-/** How far a clipped edge of the tab strip fades out (globals.css .edge-fade). */
+/** How far a clipped edge of the tab strip fades out: px, as in globals.css .edge-fade. */
 const FADE_PX = 32;
 
 /**
@@ -57,26 +57,36 @@ export function TopBar({ variant, links }: { variant: 'links' | 'tabs'; links: N
   const pathname = usePathname();
   const view = useSearchParams().get('view');
   const strip = useRef<HTMLUListElement>(null);
+  // The tabs shown (Friends comes and goes, a section can be hidden).
+  const tabs = links.map((l) => l.id).join(' ');
 
-  // Keep the open tab in view after a navigation or a switch to Fresh (before paint).
+  // Keep the open tab in view after a navigation, a switch to Fresh or a
+  // change of tabs (before paint).
   useIsomorphicLayoutEffect(() => {
     if (strip.current) syncStrip(strip.current, true);
-  }, [pathname, variant]);
+  }, [pathname, variant, tabs]);
 
-  // The fades follow scrolling, resizing and the display font arriving.
+  // The fades follow scrolling, resizing, a change of tabs and the display
+  // font arriving (which also re-centres the open tab if it moved).
   useEffect(() => {
     const ul = strip.current;
     if (!ul) return;
+    let live = true;
     const update = () => syncStrip(ul, false);
+    update();
     ul.addEventListener('scroll', update, { passive: true });
     const resize = new ResizeObserver(update);
     resize.observe(ul);
-    document.fonts?.ready.then(update, () => {});
+    document.fonts?.ready.then(
+      () => live && syncStrip(ul, true),
+      () => {},
+    );
     return () => {
+      live = false;
       ul.removeEventListener('scroll', update);
       resize.disconnect();
     };
-  }, [variant]);
+  }, [variant, tabs]);
 
   if (variant === 'links') {
     return (

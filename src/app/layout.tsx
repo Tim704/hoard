@@ -15,8 +15,9 @@ import { cn } from '@/lib/utils';
 
 // Classic uses the system sans stack (Tailwind's `font-sans`). These are the
 // display fonts of the Minimal and Fresh layouts (globals.css switches to
-// them under [data-layout]). Not preloaded: a browser only downloads one
-// when a layout that uses it is on.
+// them under [data-layout]). Not preloaded for everyone: a browser only
+// downloads one when a layout that uses it is on (Fresh asks for its own
+// early, FRESH_FONT_EARLY).
 const manrope = Manrope({
   subsets: ['latin'],
   variable: '--font-manrope',
@@ -47,6 +48,15 @@ async function currentLayout(): Promise<LayoutId> {
 }
 
 const THEME_BOOTSTRAP = themeBootstrapScript();
+
+/**
+ * Fresh's tab strip is laid out (and scrolled to the open tab) in the first
+ * paint; Outfit arriving later narrows the tabs and the strip jumps. In
+ * Fresh this asks for the font as soon as the stylesheet that declares it
+ * is in (an inline script waits for it), well before the browser would find
+ * it needed, so it is normally there for the first paint.
+ */
+const FRESH_FONT_EARLY = `try{document.fonts.load(${JSON.stringify(`1em ${outfit.style.fontFamily}`)})}catch(e){}`;
 
 export const metadata: Metadata = {
   title: 'Hoard — Media Tracker',
@@ -97,6 +107,7 @@ export default async function RootLayout({
           no light→dark flash. Generated from src/lib/document-theme.ts.
         */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
+        {layout === 'fresh' && <script dangerouslySetInnerHTML={{ __html: FRESH_FONT_EARLY }} />}
       </head>
       <body
         className={cn(
