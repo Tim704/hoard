@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { THEME_STORAGE_KEY, resolveDocumentTheme, themeBootstrapScript } from './document-theme';
+import {
+  THEME_COLORS,
+  THEME_STORAGE_KEY,
+  resolveDocumentTheme,
+  themeBootstrapScript,
+  themeColorFor,
+} from './document-theme';
 import { LAYOUT_IDS } from './layouts';
 
 describe('resolveDocumentTheme', () => {
@@ -77,5 +83,28 @@ describe('themeBootstrapScript', () => {
   it('only ever adds the class (never writes the stored theme)', () => {
     const script = themeBootstrapScript();
     expect(script).not.toMatch(/setItem|removeItem|className\s*=/);
+  });
+});
+
+describe('themeColorFor', () => {
+  const light = '(prefers-color-scheme: light)';
+  const dark = '(prefers-color-scheme: dark)';
+
+  it('uses Fresh\'s background on every tag while a layout forces dark', () => {
+    for (const media of [light, dark, null]) {
+      expect(themeColorFor(media, { layout: 'fresh', dark: true })).toBe(THEME_COLORS.forcedDark);
+    }
+  });
+
+  it('keeps the light / dark pair outside a forced layout', () => {
+    for (const isDark of [true, false]) {
+      expect(themeColorFor(light, { layout: 'classic', dark: isDark })).toBe(THEME_COLORS.light);
+      expect(themeColorFor(dark, { layout: 'minimal', dark: isDark })).toBe(THEME_COLORS.dark);
+    }
+  });
+
+  it('makes a single tag (left from Fresh) follow the document', () => {
+    expect(themeColorFor(null, { layout: 'classic', dark: true })).toBe(THEME_COLORS.dark);
+    expect(themeColorFor(null, { layout: 'organised', dark: false })).toBe(THEME_COLORS.light);
   });
 });

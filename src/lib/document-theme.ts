@@ -15,6 +15,13 @@ import { LAYOUT_IDS, LAYOUTS, resolveLayout, type LayoutId } from '@/lib/layouts
 /** localStorage key of the light/dark choice (ThemeToggle). */
 export const THEME_STORAGE_KEY = 'hoard-theme';
 
+/**
+ * Browser chrome colours (<meta name="theme-color">): the light and dark
+ * backgrounds, and Fresh's while a layout forces dark (globals.css).
+ */
+export const THEME_COLORS = { light: '#f9f9fb', dark: '#09090b', forcedDark: '#09090c' } as const;
+const PREFERS_DARK = '(prefers-color-scheme: dark)';
+
 /** The document state for a layout, the stored theme and the OS preference. */
 export function resolveDocumentTheme(
   layout: unknown,
@@ -24,6 +31,18 @@ export function resolveDocumentTheme(
   const id = resolveLayout(layout);
   const dark = LAYOUTS[id].forceDark || (storedTheme ? storedTheme === 'dark' : prefersDark);
   return { layout: id, dark };
+}
+
+/**
+ * The colour for one theme-color meta tag. Outside a forced layout the root
+ * layout renders a light / dark pair keyed by `media`, which stays as it is;
+ * a tag without `media` (rendered while a layout forced dark) follows the
+ * document instead.
+ */
+export function themeColorFor(media: string | null, theme: { layout: LayoutId; dark: boolean }): string {
+  if (LAYOUTS[theme.layout].forceDark) return THEME_COLORS.forcedDark;
+  if (media) return media.includes(PREFERS_DARK) ? THEME_COLORS.dark : THEME_COLORS.light;
+  return theme.dark ? THEME_COLORS.dark : THEME_COLORS.light;
 }
 
 /**
@@ -43,8 +62,9 @@ export function themeBootstrapScript(): string {
 }
 
 /**
- * Client only: switch <html> to a layout straight away (the instant switch and
- * its rollback), recomputing `dark` from the stored theme and the OS.
+ * Client only: switch <html> to a layout straight away (the instant switch,
+ * its rollback, a login or logout), recomputing `dark` from the stored theme
+ * and the OS, and the theme-color tags with it.
  */
 export function applyLayoutToDocument(layout: LayoutId): void {
   if (typeof document === 'undefined') return;
@@ -56,7 +76,7 @@ export function applyLayoutToDocument(layout: LayoutId): void {
     // Storage blocked (private mode…): fall back to the OS preference.
   }
   try {
-    prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    prefersDark = window.matchMedia(PREFERS_DARK).matches;
   } catch {
     // No matchMedia: light.
   }
@@ -64,4 +84,8 @@ export function applyLayoutToDocument(layout: LayoutId): void {
   const root = document.documentElement;
   root.dataset.layout = next.layout;
   root.classList.toggle('dark', next.dark);
+  for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
+    const color = themeColorFor(meta.getAttribute('media'), next);
+    if (meta.content !== color) meta.content = color;
+  }
 }

@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 
 import { Toaster } from '@/components/ui/sonner';
 import { getPrefs } from '@/lib/data-prefs';
-import { themeBootstrapScript } from '@/lib/document-theme';
+import { THEME_COLORS, themeBootstrapScript } from '@/lib/document-theme';
 import { DEFAULT_LAYOUT, LAYOUTS, type LayoutId } from '@/lib/layouts';
 import { SESSION_COOKIE, getCurrentUser } from '@/lib/session';
 import { cn } from '@/lib/utils';
@@ -46,9 +46,6 @@ async function currentLayout(): Promise<LayoutId> {
 
 const THEME_BOOTSTRAP = themeBootstrapScript();
 
-/** Fresh's background (globals.css), for the browser chrome while it forces dark. */
-const FORCED_DARK_THEME_COLOR = '#09090c';
-
 export const metadata: Metadata = {
   title: 'Hoard — Media Tracker',
   description:
@@ -71,11 +68,12 @@ export async function generateViewport(): Promise<Viewport> {
     viewportFit: 'cover',
     // Browser chrome follows the page: light background in light mode, the
     // dark theme's background otherwise (always dark in Fresh).
+    // applyLayoutToDocument keeps these in step with an instant switch.
     themeColor: forcedDark
-      ? FORCED_DARK_THEME_COLOR
+      ? THEME_COLORS.forcedDark
       : [
-          { media: '(prefers-color-scheme: light)', color: '#f9f9fb' },
-          { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+          { media: '(prefers-color-scheme: light)', color: THEME_COLORS.light },
+          { media: '(prefers-color-scheme: dark)', color: THEME_COLORS.dark },
         ],
   };
 }
