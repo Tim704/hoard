@@ -7,40 +7,70 @@ import {
   OverviewCard,
 } from '@/components/dashboard/tiles';
 import { RecommendAcrossButton } from '@/components/recommend-across';
-import type { CategorySlug } from '@/lib/categories';
 import { getDashboardStats, getFavourites, getNowConsuming } from '@/lib/data';
-import { favouritesShowcase } from '@/lib/favourites';
 import { getCurrentPrefs } from '@/lib/data-prefs';
-import { getComingUp } from '@/lib/data-tonight';
 import { getCurrentGoals } from '@/lib/data-stats';
+import { getComingUp } from '@/lib/data-tonight';
+import type { TileId } from '@/lib/dashboard-tile-ids';
+import { dataNeeds, isDefaultOrder, resolveTiles, tileSection } from '@/lib/dashboard-tiles';
+import { favouritesShowcase } from '@/lib/favourites';
 import { getCurrentUser } from '@/lib/session';
 
-// 3×3 layout on desktop: the overview tile sits in the centre, "Now consuming"
-// fills the last cell. Category order matches the sidebar.
-const ROW_1_2_LEFT: CategorySlug[] = ['books', 'movies', 'anime', 'games'];
-const ROW_2_RIGHT_3: CategorySlug[] = ['tv', 'manga', 'music'];
-
+/**
+ * The dashboard: the tiles the user picked, in their order (src/lib/dashboard-tiles.ts). Only the shown tiles' data is
+ * loaded. Recommend across media is the header's button, not a tile.
+ */
 export default async function DashboardPage() {
-  // `goals`: this year's goals (6.3) in the user's time zone; the tile hides without any.
-  const [user, allStats, allConsuming, prefs, favourites, comingUp, { year: goalYear, goals }] = await Promise.all([
-    getCurrentUser(),
-    getDashboardStats(),
-    getNowConsuming(),
-    getCurrentPrefs(),
-    getFavourites(),
-    getComingUp(5),
-    getCurrentGoals(),
+  const [user, prefs] = await Promise.all([getCurrentUser(), getCurrentPrefs()]);
+  const tiles = resolveTiles(prefs.dashboard, prefs.hiddenSections);
+  const needs = dataNeeds(tiles);
+  const [allStats, allConsuming, favourites, comingUp, goals] = await Promise.all([
+    needs.stats ? getDashboardStats() : null,
+    needs.nowConsuming ? getNowConsuming() : null,
+    needs.favourites ? getFavourites() : null,
+    needs.comingUp ? getComingUp(5) : null,
+    // This year's goals (6.3) in the user's time zone; the tile hides without any.
+    needs.goals ? getCurrentGoals() : null,
   ]);
 
   // Sections hidden in Settings drop out of the tiles, the totals and "Now consuming".
   const hidden = new Set<string>(prefs.hiddenSections);
-  const stats = allStats.filter((s) => !hidden.has(s.slug));
-  const consuming = allConsuming.filter((a) => !hidden.has(a.category));
-  const shown = (slugs: CategorySlug[]) => slugs.filter((s) => !hidden.has(s));
-  const showcase = favouritesShowcase(favourites, prefs.hiddenSections);
+  const stats = allStats?.filter((s) => !hidden.has(s.slug)) ?? null;
+  const bySlug = new Map(stats?.map((s) => [s.slug, s]));
+  const defaultOrder = isDefaultOrder(prefs.dashboard.order);
 
-  const bySlug = new Map(stats.map((s) => [s.slug, s]));
-  const statFor = (slug: CategorySlug) => bySlug.get(slug);
+  function tile(id: TileId): React.ReactNode {
+    switch (id) {
+      case 'recommend':
+        return null;
+      case 'overview':
+        return stats && <OverviewCard key={id} stats={stats} defaultOrder={defaultOrder} />;
+      case 'now-consuming':
+        return (
+          allConsuming && (
+            <NowConsumingCard
+              key={id}
+              items={allConsuming.filter((a) => !hidden.has(a.category))}
+              titleLanguage={prefs.titleLanguage}
+            />
+          )
+        );
+      case 'coming-up':
+        return comingUp && <ComingUpCard key={id} items={comingUp} />;
+      case 'goals':
+        return goals && goals.goals.length > 0 && <GoalsCard key={id} year={goals.year} goals={goals.goals} />;
+      case 'favourites': {
+        const showcase = favourites ? favouritesShowcase(favourites, prefs.hiddenSections) : [];
+        return showcase.length > 0 && <FavouritesRow key={id} sections={showcase} titleLanguage={prefs.titleLanguage} />;
+      }
+      default: {
+        const slug = tileSection(id);
+        const stat = slug && bySlug.get(slug);
+        return stat && <CategoryCard key={id} stat={stat} />;
+      }
+    }
+  }
+  const shown = tiles.map(tile).filter(Boolean);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
@@ -52,35 +82,25 @@ export default async function DashboardPage() {
             Welcome back{user ? `, ${user.username}` : ''} 👋
           </h1>
           <p className="mt-1 text-muted-foreground">
-            {stats.length === allStats.length
+            {allStats && stats?.length === allStats.length
               ? 'Your hoard at a glance — across all seven domains.'
               : 'Your hoard at a glance.'}
           </p>
         </div>
-        <RecommendAcrossButton className="shrink-0" />
+        {tiles.includes('recommend') && <RecommendAcrossButton className="shrink-0" />}
       </header>
 
-      {/* 3×3 on desktop. At sm (2 columns) the overview spans the full width and
-          moves first, leaving 8 tiles in 4 even rows. Phones: one column. */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {shown(ROW_1_2_LEFT).map((slug) => {
-          const stat = statFor(slug);
-          return stat ? <CategoryCard key={slug} stat={stat} /> : null;
-        })}
-        <OverviewCard stats={stats} />
-        {shown(ROW_2_RIGHT_3).map((slug) => {
-          const stat = statFor(slug);
-          return stat ? <CategoryCard key={slug} stat={stat} /> : null;
-        })}
-        <NowConsumingCard items={consuming} titleLanguage={prefs.titleLanguage} />
-      </div>
-
-      <ComingUpCard items={comingUp} />
-
-      {goals.length > 0 && <GoalsCard year={goalYear} goals={goals} />}
-
-      {showcase.length > 0 && (
-        <FavouritesRow sections={showcase} titleLanguage={prefs.titleLanguage} />
+      {shown.length > 0 ? (
+        // One grid for every tile, in the user's order: the section tiles, the
+        // overview and Now consuming take a cell; Coming up, Goals and
+        // Favourites span the row. 3 columns on desktop, 2 at sm, 1 on phones.
+        <div data-dashboard-tiles="" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {shown}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-4 py-10 text-center">
+          <p className="text-muted-foreground">Your dashboard is empty.</p>
+        </div>
       )}
     </div>
   );

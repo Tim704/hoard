@@ -1,6 +1,9 @@
 // ───────────────────────────────────────────────────────────────────────────
 //  The dashboard's tiles (src/lib/dashboard-tiles.ts has the registry: which
-//  show, in what order). Server components; the page loads their data.
+//  show, in what order). Server components; the page loads their data and
+//  renders them in one grid (1, 2 and 3 columns), in the user's order:
+//  - small tiles take one cell: the sections, the overview, Now consuming;
+//  - wide tiles span the row: Coming up, Goals, Favourites.
 // ───────────────────────────────────────────────────────────────────────────
 
 import Image from 'next/image';
@@ -41,7 +44,7 @@ import { cn } from '@/lib/utils';
 /** This year's goals (6.3) with their progress bars. */
 export function GoalsCard({ year, goals }: { year: number; goals: GoalProgress[] }) {
   return (
-    <Card className="mt-4">
+    <Card className="col-span-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <CardTitle className="text-base font-semibold">
           <Link href={`/stats?tab=goals&year=${year}`} className="hover:underline">
@@ -66,7 +69,7 @@ export function GoalsCard({ year, goals }: { year: number; goals: GoalProgress[]
 /** "Coming up" (5.9): the next five Planned releases with a known day. */
 export function ComingUpCard({ items }: { items: ComingUpItem[] }) {
   return (
-    <Card className="mt-4">
+    <Card className="col-span-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <CardTitle className="text-base font-semibold">Coming up</CardTitle>
         <CalendarClock className="h-5 w-5 text-sky-500" aria-hidden />
@@ -113,7 +116,12 @@ export function ComingUpCard({ items }: { items: ComingUpItem[] }) {
   );
 }
 
-export function OverviewCard({ stats }: { stats: CategoryStat[] }) {
+/**
+ * "Your hoard": the totals. At sm (2 columns) it spans the row; in the
+ * default order it also moves first there, leaving the 8 section tiles in 4
+ * even rows. In a custom order it stays where the user put it.
+ */
+export function OverviewCard({ stats, defaultOrder }: { stats: CategoryStat[]; defaultOrder: boolean }) {
   const totalItems = stats.reduce((sum, s) => sum + s.total, 0);
   const totalCompleted = stats.reduce((sum, s) => sum + s.completed, 0);
   const activeDomains = stats.filter((s) => s.total > 0).length;
@@ -131,7 +139,12 @@ export function OverviewCard({ stats }: { stats: CategoryStat[] }) {
   ];
 
   return (
-    <Card className="h-full border-primary/30 bg-gradient-to-br from-muted/60 to-card sm:order-first sm:col-span-2 lg:order-none lg:col-span-1">
+    <Card
+      className={cn(
+        'h-full border-primary/30 bg-gradient-to-br from-muted/60 to-card sm:col-span-2 lg:col-span-1',
+        defaultOrder && 'sm:order-first lg:order-none',
+      )}
+    >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <CardTitle className="text-base font-semibold">Your hoard</CardTitle>
         <Boxes className="h-5 w-5 text-primary" />
@@ -215,6 +228,8 @@ export function NowConsumingCard({
 /**
  * "Favourites" (spec 1.10): each visible section's first four starred titles,
  * in tier list order. Only rendered when there is at least one favourite.
+ * A headed section rather than a card: below another tile it keeps its extra
+ * space (24px, 32px from sm, with the grid's 16px gap).
  */
 export function FavouritesRow({
   sections,
@@ -224,7 +239,10 @@ export function FavouritesRow({
   titleLanguage: TitleLanguage;
 }) {
   return (
-    <section className="mt-6 sm:mt-8" aria-labelledby="favourites-heading">
+    <section
+      className="col-span-full [&:not(:first-child)]:mt-2 sm:[&:not(:first-child)]:mt-4"
+      aria-labelledby="favourites-heading"
+    >
       <h2 id="favourites-heading" className="mb-3 flex items-center gap-2 text-lg font-semibold">
         <Heart className="h-5 w-5 fill-rose-500/30 text-rose-500" aria-hidden />
         Favourites
