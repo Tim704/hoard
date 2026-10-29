@@ -14,6 +14,8 @@ describe('layouts', () => {
       expect(l.label.length).toBeGreaterThan(0);
       expect(l.description.length).toBeGreaterThan(0);
       expect(l.gridCols).toMatch(/^grid grid-cols-\d/);
+      // Only what the app reads: density is CSS (--page-pad, --grid-gap).
+      expect(Object.keys(l).sort()).toEqual(['card', 'description', 'forceDark', 'gridCols', 'id', 'label', 'nav', 'toolbar']);
     }
   });
 

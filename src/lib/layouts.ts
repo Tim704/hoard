@@ -1,8 +1,8 @@
 // ───────────────────────────────────────────────────────────────────────────
 //  The four layouts (Settings → Themes): one set of pages, four skins. Each
-//  layout picks the navigation, how much a card shows, the density, the
-//  section toolbar style and whether it forces dark mode. Colours, fonts and
-//  spacing live in CSS (`[data-layout=…]` blocks in src/app/globals.css) and
+//  layout picks the navigation, how much a card shows, the section toolbar
+//  style and whether it forces dark mode. Colours, fonts and spacing (its
+//  density) live in CSS (`[data-layout=…]` blocks in src/app/globals.css) and
 //  shared components style themselves with the `classic:` / `minimal:` /
 //  `organised:` / `fresh:` Tailwind variants (tailwind.config.ts).
 //
@@ -25,7 +25,6 @@ export const DEFAULT_LAYOUT: LayoutId = 'classic';
 export type NavStyle = 'sidebar-flat' | 'sidebar-sections+topbar' | 'sidebar-grouped' | 'topbar-tabs';
 /** How much a media card shows. */
 export type CardStyle = 'plain' | 'poster' | 'one-badge' | 'cinematic';
-export type Density = 'compact' | 'cozy' | 'roomy';
 /** Section toolbar: labelled buttons, or icons with tooltips. */
 export type ToolbarStyle = 'labelled' | 'icons';
 
@@ -35,7 +34,6 @@ export interface LayoutConfig {
   description: string;
   nav: NavStyle;
   card: CardStyle;
-  density: Density;
   toolbar: ToolbarStyle;
   /** Dark mode regardless of the stored theme; the light/dark toggle hides. */
   forceDark: boolean;
@@ -54,7 +52,6 @@ export const LAYOUTS: Record<LayoutId, LayoutConfig> = {
     description: 'The original Hoard: a full sidebar, labelled buttons and plain cards.',
     nav: 'sidebar-flat',
     card: 'plain',
-    density: 'cozy',
     toolbar: 'labelled',
     forceDark: false,
     // MediaGrid's columns before layouts; --grid-gap is its old gap-3 sm:gap-4.
@@ -66,7 +63,6 @@ export const LAYOUTS: Record<LayoutId, LayoutConfig> = {
     description: 'Airy and quiet: the sections in the sidebar, everything else up top, big posters.',
     nav: 'sidebar-sections+topbar',
     card: 'poster',
-    density: 'roomy',
     toolbar: 'icons',
     forceDark: false,
     gridCols: 'grid grid-cols-2 gap-[var(--grid-gap)] sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5',
@@ -77,7 +73,6 @@ export const LAYOUTS: Record<LayoutId, LayoutConfig> = {
     description: 'Tidy and dense: a grouped sidebar and cards with one badge that matters.',
     nav: 'sidebar-grouped',
     card: 'one-badge',
-    density: 'compact',
     toolbar: 'icons',
     forceDark: false,
     gridCols: 'grid grid-cols-2 gap-[var(--grid-gap)] sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7',
@@ -88,7 +83,6 @@ export const LAYOUTS: Record<LayoutId, LayoutConfig> = {
     description: 'Cinematic dark: a glass top bar with tabs and large, image-led cards.',
     nav: 'topbar-tabs',
     card: 'cinematic',
-    density: 'cozy',
     toolbar: 'icons',
     forceDark: true,
     gridCols: 'grid grid-cols-2 gap-[var(--grid-gap)] sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5',
