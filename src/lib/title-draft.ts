@@ -7,8 +7,8 @@
 //  - a newer server value (another tab, Watch again, "Mark as Listened")
 //    flows into every field the user hasn't edited, never over an edit;
 //  - a draft (unsaved edits kept when leaving the title page) stores both
-//    copies, so coming back re-applies only the fields that were edited, onto
-//    whatever the server holds by then; anything malformed is ignored.
+//    copies, so coming back re-applies only the fields that were edited and
+//    that the server hasn't changed since; anything malformed is ignored.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { STATUSES, type Status } from '@/lib/status';
@@ -114,9 +114,24 @@ export function parseDraft(raw: unknown): TitleDraft | null {
   return local && base ? { local, base } : null;
 }
 
-/** The fields to show for a draft: the server's values, with the draft's edits on top. */
+/** Two field values are the same (by value, should a field ever hold an array or object). */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * The fields to show for a draft: the server's values, with the draft's edits
+ * on top — but only where the server still holds what the edit was made
+ * against. A field saved since (from the popup, another tab) has moved on,
+ * so its stale edit is dropped rather than shown as unsaved, where a later
+ * Save would overwrite the newer value.
+ */
 export function applyDraft(server: TitleValues, draft: TitleDraft): TitleValues {
   const out = { ...server };
-  for (const k of changedFields(draft.local, draft.base)) (out as Record<string, unknown>)[k] = draft.local[k];
+  for (const k of changedFields(draft.local, draft.base)) {
+    if (sameValue(server[k], draft.base[k])) (out as Record<string, unknown>)[k] = draft.local[k];
+  }
   return out;
 }

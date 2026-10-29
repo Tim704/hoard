@@ -122,6 +122,23 @@ describe('applyDraft', () => {
     const server = { ...base, status: 'COMPLETED' as const, rating: 9 };
     expect(applyDraft(server, draft)).toEqual({ ...server, notes: 'edited' });
   });
+  it('drops an edit to a field the server changed since, keeping the other edits', () => {
+    // Notes and the score edited on the page and left unsaved; the notes were
+    // then saved from the popup. The stale notes must not come back as an
+    // unsaved edit (a later Save would overwrite the newer notes).
+    const draft = { local: { ...base, notes: 'from the page', rating: 9 }, base };
+    const server = { ...base, notes: 'saved in popup' };
+    expect(applyDraft(server, draft)).toEqual({ ...server, rating: 9 });
+    expect(changedFields(applyDraft(server, draft), server)).toEqual(['rating']);
+  });
+  it('keeps an edit whose field the server still holds as it was, drops the moved ones', () => {
+    const draft = { local: { ...base, status: 'COMPLETED' as const, favorite: true }, base };
+    const server = { ...base, status: 'DROPPED' as const, favorite: false, notes: 'x' };
+    // favorite: the server still holds the draft's base (false), so that edit stays.
+    expect(applyDraft(server, draft)).toEqual({ ...server, favorite: true });
+    const moved = { ...server, favorite: true };
+    expect(applyDraft(moved, draft)).toEqual(moved);
+  });
   it('a draft without edits shows the server as it is', () => {
     const server = { ...base, favorite: true };
     expect(applyDraft(server, { local: base, base })).toEqual(server);

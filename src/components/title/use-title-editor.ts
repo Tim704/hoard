@@ -158,7 +158,10 @@ export function useTitleEditor(activity: ActivityWithMedia | null, options: Titl
           toast.error(moved.error ?? 'Could not change the franchise.');
         }
       }
-      // The fields now match what was saved; anything typed meanwhile stays an edit.
+      // The fields now match what was saved; anything typed meanwhile stays an
+      // edit. Unsaved edits kept for this title (the full page's draft) are
+      // now older than the server: drop them, from the popup too.
+      clearTitleDraft(activity.id);
       const now = latest.current;
       commit({ ...now, local: statusOverride ? { ...now.local, status: statusOverride } : now.local, base: saved });
 
