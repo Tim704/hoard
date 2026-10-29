@@ -234,6 +234,20 @@ The numbers behind the Stats page's Overview, for the sections you haven't hidde
 curl -s -H "Authorization: Bearer $HOARD_TOKEN" https://hoard.timhufnagel.org/api/v1/stats | jq .streaks
 ```
 
+## Linking into the app
+
+The API answers with each title's `id` and `category`. To send someone (or a script's
+output) to a title or a Settings tab in the web app, these page URLs are stable:
+
+| URL | Opens |
+|---|---|
+| `/<category>/title/<id>` | The title's full page. `id` is the activity id; a wrong `category` redirects to the right one, an unknown id is a 404. |
+| `/<category>?open=<id>` | The universal link (notifications and the iCal feed use it). In the **Popup** title view the section page opens with the title's popup; in the **Full page** view it redirects to `/<category>/title/<id>` in whichever section the title is. A title that isn't yours simply doesn't open. |
+| `/settings?tab=<tab>` | A Settings tab: `themes`, `general`, `accounts`, `notifications`, `sharing`, `data` or `system` (owner only). A bare `/settings`, or an unknown tab, opens `general`. |
+| `/settings#<anchor>` | Old links to the single Settings page: the anchor is mapped to the tab that now holds that card (`#accounts`, `#api-tokens` → Data, `#calendar` → Sharing & privacy, …; a tab id works too) by a shim in the page. |
+
+`category` is one of `books`, `movies`, `tv`, `anime`, `manga`, `games` or `music`.
+
 ## Stability
 
 The `v1` shapes only grow: new fields may appear, existing ones keep their names and

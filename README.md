@@ -22,8 +22,13 @@ A short tour; [`FEATURES.md`](FEATURES.md) describes everything in detail.
   out of 100), a hand-placed **S–F tier list** per section, and an **Arena** of
   head-to-head duels that orders titles within a tier, challenges tier borders and picks
   your best of the year. TV seasons get their own tier lists.
+- **Your layout:** four switchable looks in Settings → Themes (Classic, the default;
+  Minimal; Organised; Fresh, cinematic dark), each with its own navigation, cards,
+  density, colours and fonts; titles open in a short popup or on a full page; the
+  dashboard shows the tiles you pick, in your order; thin themed scrollbars.
 - **Getting titles in:** search, select several, add by link or barcode, Search
-  everything (`/`), a Cmd/Ctrl+K palette, hand-made entries, and imports from Hoard CSV,
+  everything (`/`), a Cmd/Ctrl+K palette (both also in the user menu on phones),
+  hand-made entries, and imports from Hoard CSV,
   AniList, Letterboxd, Goodreads, StoryGraph, MyAnimeList, Trakt, Steam, any CSV, or a
   pasted list read by AI.
 - **Tracking:** progress counters, TV seasons and episodes, rewatches, a dated diary with
@@ -52,7 +57,7 @@ A short tour; [`FEATURES.md`](FEATURES.md) describes everything in detail.
 | ------------ | ------------------------------------------------------------- |
 | Framework    | Next.js 14.2 (App Router, React Server Components)            |
 | Language     | TypeScript (strict)                                           |
-| UI           | Tailwind CSS + shadcn/ui (zinc dark theme), lucide-react      |
+| UI           | Tailwind CSS + shadcn/ui, Radix, lucide-react; four layouts   |
 | Toasts       | sonner                                                        |
 | ORM / DB     | Prisma 5 + PostgreSQL 16                                      |
 | Auth         | Custom cookie sessions + bcryptjs                             |
@@ -417,8 +422,7 @@ provider (through the nightly `metadata` job) owns the rest.
 `UserMediaActivity` is the join layer that ties a user to exactly one media row and
 carries the per-user state: status, a 0–10 score with one decimal, tier and place,
 Up next order, the hidden Elo score and duel count, progress, favourite, tags,
-notes, owned platforms or format, and Steam playtime. (The `subScores` column is
-legacy and no longer shown.)
+notes, owned platforms or format, and Steam playtime.
 
 Around it:
 
@@ -432,8 +436,7 @@ Around it:
 - **Per user:** `User.prefs` (a JSON column validated by `src/lib/prefs.ts`),
   `TasteProfile`, `Notification`, `ShareLink`, `ApiToken` (SHA-256 hashes only) and
   `ExternalLink` (Steam, Last.fm and AniList accounts; tokens encrypted).
-- **System:** `JobRun` (scheduler state). `WatchProviderCache` is legacy and no longer
-  used (Where to watch was removed).
+- **System:** `JobRun` (scheduler state).
 
 Schema changes are additive only (new tables, nullable or defaulted columns), so
 `prisma db push` never needs `--accept-data-loss`.

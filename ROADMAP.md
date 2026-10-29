@@ -16,6 +16,17 @@
 >
 > The AI features (the critic, 2.8 paste a list, 6.1's verdict, 7.1 recommendations) need
 > `GEMINI_API_KEY`, as before. See README → Configuration for every variable.
+>
+> **Shipped since (29 Oct 2026): switchable layouts and a UI clean-up**
+> (`docs/superpowers/plans/2026-10-29-layout-themes.md`). Settings → Themes picks one of
+> four layouts (Classic, the default and the look above; Minimal; Organised; Fresh), the
+> title view (a short popup or a full page) and the dashboard's tiles; Settings has a side
+> menu; notifications, Search and the Command palette moved into the user menu;
+> scrollbars are thin and themed. Some items below were then **removed on the owner's request (layout themes, Oct 2026)**:
+> 5.1 Where to stream (and streaming in 5.2 and F4), 4.10 sub-scores, 1.9's panel on the
+> section pages (Stats keeps You vs. the crowd), 1.3's banner on the section pages (Score
+> these lives in the tier list's tray), and the header's bell and search button. They are
+> struck through or annotated below; the rest of the text is kept as planned.
 
 This roadmap ranks a list of feature ideas drawn from other trackers: Ryot, Yamtrack,
 StoryGraph, Letterboxd, Serializd, Backloggd, Hardcover, Trakt, TV Time, AniList apps,
@@ -52,7 +63,7 @@ cheaper.
 | **F1. An event log** | Hoard keeps only the current state and the first finish date. Rewatches, the diary, the year in review, streaks and taste trends all need a history, **and history can't be filled in after the fact.** Start recording every add, status change, score and progress change now, even before any screen shows it. | S to record, M for the screens that use it |
 | **F2. Release dates and genres** | The catalogue stores only a year. "Not out yet", the release calendar, countdowns, the picker's mood and genre filters, and the genre charts all need a full release date and genres. Store them when titles are added, and fill in existing titles in one run. | S–M |
 | **F3. A nightly job runner** | Nothing in Hoard runs on a schedule. Backups, new-season checks, release reminders and notifications all need one: a small cron service in `docker-compose.yml` that calls a protected route or a script. | S |
-| **F4. User settings** | No settings are stored yet. Streaming services, region (guessed from the browser's time zone, never from location), score display, title language, week start and which sections to show need a `prefs` JSON column on `User` and a Settings page. | S |
+| **F4. User settings** | No settings are stored yet. ~~Streaming services, region (guessed from the browser's time zone, never from location),~~ *(streaming and region removed on the owner's request (layout themes, Oct 2026))* score display, title language, week start and which sections to show need a `prefs` JSON column on `User` and a Settings page. | S |
 
 ---
 
@@ -62,13 +73,13 @@ cheaper.
 |---|---|---|---|---|
 | 1.1 | **Nightly backups** | ★★★★★ | S | Nothing backs up the database except the one manual dump taken during the October deploy. Add a `backup` service (built on F3) that runs `pg_dump` every night into `~/backups/hoard` on the Pi, outside the Docker volume, and keeps 14 daily and 8 weekly copies. The Pi runs from a single 256 GB NVMe SSD with 188 GB free, so the backups fit easily. They protect against mistakes, a bad schema change and a damaged volume, but not against the SSD itself failing. For that, an occasional copy to the Mac over Tailscale is the cheap extra step. |
 | 1.2 | **Start the event log** (F1, recording only) | ★★★★★ | S | Add an `ActivityEvent` table (`activityId`, `kind`, `from`, `to`, `at`) written by `addToList`, `updateActivity`, the rating step and the queue. No screen yet. |
-| 1.3 | **Score the unscored** | ★★★★ | S | A "Score these" list of finished titles with no score, using the existing rating step. Scoring one sends it to the tier list's tray with a suggested tier, which closes the gap left by Skip. |
+| 1.3 | **Score the unscored** | ★★★★ | S | A "Score these" list of finished titles with no score, using the existing rating step. Scoring one sends it to the tier list's tray with a suggested tier, which closes the gap left by Skip. *The section pages' Score these banner was removed on the owner's request (layout themes, Oct 2026); Score these lives in the tier list's tray.* |
 | 1.4 | **Progress counters** | ★★★★ | S | `progress Int?` on the activity, compared against the counts already stored (`pageCount`, `chapters`, `episodes`, `episodeCount`). Shows "p. 120 / 340" and a bar on cards, with a +1 button in the details. Covers TV and anime episodes until full season tracking (3.3). |
 | 1.5 | **Manual entries** | ★★★★ | S–M | "Can't find it? Add it yourself": a title, year, optional cover URL and the medium's own counts. Stored with `externalId = "manual:<id>"`, and skipped by provider lookups and franchise detection. Indie games, regional films and fan translations become trackable. |
 | 1.6 | **Undo in toasts** | ★★★★ | S | Removing a title deletes its row, losing tier, notes and franchise. Keep a snapshot and offer Undo for a few seconds; do the same for status changes. |
 | 1.7 | **Install as an app (PWA)** | ★★★★ | S | Add `app/manifest.ts` and icons, so Hoard opens from the home screen in its own window. It also makes 2.4's share target possible on Android. |
 | 1.8 | **Mark several as done in the Add dialog** | ★★★★ | S | A "select several" mode: search "Marvel", tick everything you've seen, then press Add. Scores can follow later through 1.3. |
-| 1.9 | **You vs. the crowd** | ★★★ | S | TMDB, MAL and IGDB scores are already stored. Put them on the same 0–10 scale (IGDB is out of 100) and list your biggest disagreements per section. A good extra for the AI roast. |
+| 1.9 | **You vs. the crowd** | ★★★ | S | TMDB, MAL and IGDB scores are already stored. Put them on the same 0–10 scale (IGDB is out of 100) and list your biggest disagreements per section. A good extra for the AI roast. *The panel on the section pages was removed on the owner's request (layout themes, Oct 2026); Stats keeps it.* |
 | 1.10 | **Favourites showcase** | ★★★ | S | Your top four starred titles per section, on the dashboard. |
 | 1.11 | **CSV export** | ★★★ | S | Everything to CSV, one file per section plus franchises. Re-importing it reuses 2.1. |
 | 1.12 | **Richer finish states** | ★★★ | S–M | Add *Retired*, for endless games such as multiplayer titles. It means adding a value to the `MediaStatus` enum and deciding whether it counts for the tier list (recommendation: yes, like Dropped). Add it before importers, so Backloggd's states have somewhere to land. |
@@ -118,15 +129,15 @@ and reused by importers, AI parsing and adding by link.
 | 4.7 | **Franchise watch order** | ★★★ | M | Release order from provider dates, or a chronological order you drag into place, replacing the free-text notes. Up next shows "Next in franchise". |
 | 4.8 | **Reference lists with progress** | ★★ | S–M | Import a list (IMDb Top 250, 1001 Albums, AniList top 100) as a checklist with progress against your library. |
 | 4.9 | **Title language for anime and manga** | ★★★ | S–M | Store AniList's English, romaji and native titles and show the one you prefer (F4). Existing titles need refetching once. |
-| 4.10 | **Sub-scores** | ★★ | M | Scores for story, characters and so on (gameplay for games) that average into the overall score. Optional per title. |
+| 4.10 | ~~**Sub-scores**~~ | ★★ | M | ~~Scores for story, characters and so on (gameplay for games) that average into the overall score. Optional per title.~~ *Built, then removed on the owner's request (layout themes, Oct 2026).* |
 | 4.11 | **Custom lists, optionally shared** | ★★ | M | Lists beyond the statuses, which other users of the instance can edit with you. |
 
 ## Phase 5: Deciding what's next and upcoming releases (about 2–3 weeks, needs F2 and F3)
 
 | # | Feature | Value | Effort | How |
 |---|---|---|---|---|
-| 5.1 | **Where to stream** | ★★★★ | S–M | TMDB's watch-providers endpoint for your region, filtered to the services you subscribe to (F4). The region is guessed once from the browser's time zone (for example `Europe/Zurich` → CH), never from location. It is shown in Settings and can be changed there, and it is stored per user, so each friend sees their own country's services. Shown on cards and in Up next. |
-| 5.2 | **"What should I start tonight?"** | ★★★★ | M | Up next filtered by the time you have (runtime, episodes × length, pages, time to beat), genre and streaming. Up next itself stays the order. |
+| 5.1 | ~~**Where to stream**~~ *(built, then removed on the owner's request (layout themes, Oct 2026))* | ★★★★ | S–M | TMDB's watch-providers endpoint for your region, filtered to the services you subscribe to (F4). The region is guessed once from the browser's time zone (for example `Europe/Zurich` → CH), never from location. It is shown in Settings and can be changed there, and it is stored per user, so each friend sees their own country's services. Shown on cards and in Up next. |
+| 5.2 | **"What should I start tonight?"** | ★★★★ | M | Up next filtered by the time you have (runtime, episodes × length, pages, time to beat), genre ~~and streaming~~ *(streaming removed on the owner's request (layout themes, Oct 2026))*. Up next itself stays the order. |
 | 5.3 | **Time to beat (games)** | ★★★ | S | IGDB's time-to-beat data, stored on the game. Feeds 5.2. |
 | 5.4 | **"Not out yet"** | ★★★ | S | Up next split into *available now* and *not out yet*, using release dates (F2). |
 | 5.5 | **New season alerts** | ★★★★ | M | A nightly job (F3) compares the season count of each completed show with TMDB. A new season gets a "new season" badge, and its tier placement is untouched until you start it. |
@@ -218,7 +229,7 @@ F2 release dates + genres ─┬─ 5.4 not out yet, 5.6 calendar, 5.9 countdown
 F3 nightly jobs ─┬─ 1.1 backups
                  ├─ 5.5 new season alerts
                  └─ 5.7 notifications
-F4 settings ── 1.13 score display, 4.9 title language, 5.1 streaming
+F4 settings ── 1.13 score display, 4.9 title language, 5.1 streaming (removed, Oct 2026)
 2.1 review step ─┬─ 2.2, 2.3, 2.7 importers
                  ├─ 2.4 add by link, 2.8 AI paste, 2.10 add franchise
                  └─ 1.11 CSV re-import
@@ -231,6 +242,7 @@ F4 settings ── 1.13 score display, 4.9 title language, 5.1 streaming
   until friends actually join, and are opt-in when they do.
 - **Integrations:** Steam only. 8.1 stays in; Jellyfin, Plex, KOReader and Audiobookshelf
   are skipped.
-- **Streaming region:** guessed from the time zone and editable in Settings. Never from
-  location, so no friend's location is ever asked for or stored.
+- ~~**Streaming region:** guessed from the time zone and editable in Settings. Never from
+  location, so no friend's location is ever asked for or stored.~~ *Streaming and the
+  region setting were removed on the owner's request (layout themes, Oct 2026).*
 - **Backups:** stored on the Pi, in `~/backups/hoard` (see 1.1).

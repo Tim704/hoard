@@ -6,7 +6,8 @@ and listened to, and what you still mean to. It runs at
 has its own private library; anything shared with other people is opt-in.
 
 This list describes the app as of commit `2de2e8b` (28 Oct 2026), after the whole of
-[`ROADMAP.md`](ROADMAP.md) was built.
+[`ROADMAP.md`](ROADMAP.md) was built, plus the layout themes update of 29 Oct 2026
+(section 22).
 
 ### Features that need a key
 
@@ -187,25 +188,40 @@ screen** before anything is saved.
 Each section page has:
 
 - **Three views:** Grid (poster wall), List (a table) and Compact (dense rows).
-- **Filters:** title (all title variants), status, tags (all must match), and owned
-  platform or format.
+- **One toolbar line** that never wraps: Add, the title filter, **Filters**, Tiers, the AI
+  critic and the view switch, with a **More** menu for what doesn't fit. Classic labels
+  its buttons; the other layouts show icons with tooltips.
+- **Filters** (a popover; its button counts what's set): status, tags (all must match),
+  owned platform or format, sort and grouping, and Reset. The title filter matches all
+  title variants.
 - **Five ways to sort:** by status, recently added, highest rated, tier list order, or
   title A–Z.
 - **Group by status** (collapsible sections, Planned in Up next order) and **group
   franchises** (one expandable row per franchise). View, sort, grouping and collapsed
   sections are remembered per section on each device.
-- **Badges on cards:** progress, "in 12 days" for planned titles not out yet, "New
-  season", "≈ 32 h" to beat (games), and "Mark as Listened?" (albums).
+- **Cards follow the layout** (section 22): Classic's plain cards, Minimal's posters,
+  Organised's cards with one badge, Fresh's cinematic cards. Organised's badge is the one
+  that matters most: "New season", then "in 12 days" for planned titles not out yet,
+  "Mark as Listened?" (albums), progress, then "≈ 32 h" to beat (games). Franchise stacks
+  take the same style.
 
 ### Title details
 
-Clicking a title opens its details: cover, year, release date, genres, time to beat,
-Steam playtime and the provider's score, and everything you can change:
+Clicking a title opens it the way you chose in Settings → Themes → **Title view**:
 
-- status, score, favourite (★), progress, tags, notes;
-- the franchise it belongs to;
-- seasons (TV), owned on / format, play sessions (games), review;
-- "Add to list…", "More by the same people", "Mentioned in" and the history.
+- **Popup** (the default): a short popup over the page with status, score, favourite
+  (★), progress and notes, the new-season and Last.fm notices, and **Remove**, **Open
+  full page** (unsaved edits carried over) and **Save**. Closing it returns focus to
+  what opened it.
+- **Full page** (`/<section>/title/<id>`): the cover, year, release date, genres, time to
+  beat, Steam playtime and the provider's score, and everything you can change: status,
+  score, favourite, the franchise, notes and history, tags and lists, progress, seasons
+  (TV), owned on / format, play sessions (games), review, "More by the same people" and
+  "Mentioned in". A Save bar appears while there are unsaved changes, which are kept
+  per tab until saved or discarded.
+
+Links into a title (notifications, the calendar feed, the palette) use `?open=`, which
+opens the popup, or redirects to the full page in page mode.
 
 **Linked notes:** `[[Title]]` in notes or reviews links to that title in your library
 (autocomplete after `[[`), and the target shows "Mentioned in".
@@ -323,7 +339,11 @@ The home screen after logging in:
 - **Coming up:** the next 5 releases among your planned titles.
 - **Goals for this year,** when you have any.
 - **Favourites:** the first four starred titles per section, in tier order.
-- **Recommend across media** (Gemini), top right.
+- **Recommend across media** (Gemini), a button top right.
+- **Customize** (top right, or Settings → Themes → Dashboard tiles): tick the tiles to
+  show and put them in order by dragging or with the arrows, then Save (with Undo);
+  Reset brings back the default. Hidden sections drop out of the tiles. The tiles take
+  the layout's card style.
 
 ## 15. Stats
 
@@ -446,24 +466,51 @@ Up to 10 tokens, each shown once, 60 requests a minute. See [`docs/API.md`](docs
   `demo` / `demo1234` with a small library, and a second user `demo2` for trying the
   friends features.
 
-## 22. Look and navigation
+## 22. Layouts and themes
 
-- **Theme:** dark and light, toggled by hand.
-- **Navigation** follows the layout (Settings → Themes):
+### Settings → Themes
+
+- **Layout:** four thumbnails; picking one switches at once and saves, with **Undo** in
+  the toast. Each layout sets the navigation, how much a card shows, the density, and
+  the colours and fonts:
+
+  | Layout | Navigation | Cards | Look |
+  |---|---|---|---|
+  | **Classic** (default) | full sidebar | plain cards, labelled toolbar buttons | Hoard as it was: violet accent, system font |
+  | **Minimal** | sidebar of the 7 sections; Dashboard in a top bar | posters with the title and a quiet line | white paper, ink accent, rounder corners, more room; Manrope |
+  | **Organised** | sidebar in groups: Library, Plan & track, Organise, Insights, Friends | tidy cards with one badge | slate and blue, squarer corners, denser |
+  | **Fresh** | glass top bar with scrollable tabs (Home and the 7 sections) | cinematic poster cards, the title on a gradient | always dark, amber accent, glass cards; Outfit |
+
+- **Title view:** a short popup or the full page (section 7), whichever layout you use.
+- **Dashboard tiles:** the same editor as the dashboard's Customize (section 14).
+
+Where to watch, sub-scores, the crowd panel on section pages, the section pages' Score
+these banner (Score these lives in the tier list's tray), and the header's bell and search
+button were removed on the owner's request with this update.
+
+### Look and navigation
+
+- **Theme:** dark and light, toggled by hand (from the user menu; Fresh is always dark).
+- **Scrollbars:** thin and in the theme's colours everywhere (page, dialogs, menus, lists).
+- **Navigation** follows the layout:
   - **Classic:** a sidebar with Dashboard, Franchises and the seven sections;
   - **Minimal:** a sidebar with the seven sections, Dashboard in a top bar;
   - **Organised:** a sidebar of groups (Library, Plan & track, Organise, Insights,
     Friends);
   - **Fresh:** a glass top bar with tabs for Home and the seven sections.
-- **User menu** (your avatar, or "Signed in as" in Classic's sidebar): Notifications,
-  Search, Command palette, the pages the layout keeps out of its sidebar or tabs, Theme
-  (not in Fresh), Settings and Log out.
+- **User menu** (your avatar, or "Signed in as" in Classic's sidebar): **Notifications**
+  (an unread dot on the avatar), **Search** and **Command palette** (the phone's way in;
+  `/` and Cmd/Ctrl+K on a keyboard), the pages the layout keeps out of its sidebar or
+  tabs, Theme (not in Fresh), Settings and Log out. There is no bell or search button in
+  the header.
 - **Sidebar** (where there is one): collapses to an icon rail with Ctrl/Cmd+B, and that
   choice is remembered.
 - **Phones:** a slim top bar (menu drawer, logo, avatar; in Fresh a second line of
   section chips), thumb-sized controls, and layouts checked at 375 px.
-- **Settings:** time zone, score format, title language, week start, and sections
-  to hide (they leave the navigation, dashboard and stats; their pages still work).
+- **Settings** (a side menu on desktop, a strip of tabs on phones: Themes, General,
+  Accounts, Notifications, Sharing & privacy, Data, and System for the owner): time zone,
+  score format, title language, week start, and sections to hide (they leave the
+  navigation, dashboard and stats; their pages still work).
 - **Installable:** Hoard can be added to the home screen as an app (no offline mode).
 
 ## 23. Running it
