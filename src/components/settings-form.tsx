@@ -24,12 +24,10 @@ import {
   type TitleLanguage,
 } from '@/lib/prefs';
 import { formatScore } from '@/lib/rating';
-import { countryForTimeZone } from '@/lib/timezones';
 import { cn } from '@/lib/utils';
 
 interface SettingsFormProps {
   initial: DisplayPrefs;
-  regions: { code: string; name: string }[];
   timeZones: string[];
   serverTimeZone: string;
   /** Extra cards rendered after the built-in ones (Notifications, System). */
@@ -59,7 +57,7 @@ const SECTION_LABEL = (s: HideableSection) => (s === 'franchises' ? 'Franchises'
 const selectClass =
   'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50';
 
-export function SettingsForm({ initial, regions, timeZones, serverTimeZone, children }: SettingsFormProps) {
+export function SettingsForm({ initial, timeZones, serverTimeZone, children }: SettingsFormProps) {
   const [prefs, setPrefs] = useState<DisplayPrefs>(initial);
   const [isPending, startTransition] = useTransition();
 
@@ -84,15 +82,11 @@ export function SettingsForm({ initial, regions, timeZones, serverTimeZone, chil
     } catch {
       // fall through to the error below
     }
-    const region = countryForTimeZone(tz);
     if (!tz) {
       toast.error('This browser did not report a time zone.');
       return;
     }
-    save(
-      region ? { timeZone: tz, region } : { timeZone: tz },
-      region ? `Set to ${tz} (${region}).` : `Time zone set to ${tz}.`,
-    );
+    save({ timeZone: tz }, `Time zone set to ${tz}.`);
   }
 
   function toggleSection(s: HideableSection) {
@@ -105,10 +99,6 @@ export function SettingsForm({ initial, regions, timeZones, serverTimeZone, chil
   // Keep a stored zone selectable even if this runtime lists it under another name.
   const zoneOptions =
     prefs.timeZone && !timeZones.includes(prefs.timeZone) ? [prefs.timeZone, ...timeZones] : timeZones;
-  const regionOptions =
-    prefs.region && !regions.some((r) => r.code === prefs.region)
-      ? [{ code: prefs.region, name: prefs.region }, ...regions]
-      : regions;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
@@ -121,32 +111,14 @@ export function SettingsForm({ initial, regions, timeZones, serverTimeZone, chil
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Region and time</CardTitle>
+          <CardTitle className="text-base">Time zone</CardTitle>
           <CardDescription>
-            Your region comes from your browser&apos;s time zone, never your location.
+            Sets what counts as today for release days, the diary, the calendar and stats. It starts
+            as your browser&apos;s time zone, never your location.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <label htmlFor="region" className="text-sm font-medium">
-                Region
-              </label>
-              <select
-                id="region"
-                className={selectClass}
-                value={prefs.region ?? ''}
-                disabled={isPending}
-                onChange={(e) => save({ region: e.target.value || null })}
-              >
-                <option value="">Not set</option>
-                {regionOptions.map((r) => (
-                  <option key={r.code} value={r.code}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div className="space-y-1.5">
               <label htmlFor="timeZone" className="text-sm font-medium">
                 Time zone

@@ -437,8 +437,8 @@ Up to 10 tokens, each shown once, 60 requests a minute. See [`docs/API.md`](docs
 - **Every library is private.** The shared part is the catalogue of title details (two
   people adding the same film share one copy). The providers own those details: what a
   user sends can only fill in a missing one, never overwrite it.
-- **No location:** your region is guessed once from your browser's time
-  zone and can be changed in Settings.
+- **No location:** your time zone starts as your browser's (never a location) and can be
+  changed in Settings.
 - **Demo accounts:** the seed script (for local use; production never runs it) creates
   `demo` / `demo1234` with a small library, and a second user `demo2` for trying the
   friends features.
@@ -451,7 +451,7 @@ Up to 10 tokens, each shown once, 60 requests a minute. See [`docs/API.md`](docs
   icon rail, and that choice is remembered.
 - **Phones:** a slim top bar with a menu drawer, thumb-sized controls, and layouts
   checked at 375 px.
-- **Settings:** region, time zone, score format, title language, week start, and sections
+- **Settings:** time zone, score format, title language, week start, and sections
   to hide (they leave the navigation, dashboard and stats; their pages still work).
 - **Installable:** Hoard can be added to the home screen as an app (no offline mode).
 

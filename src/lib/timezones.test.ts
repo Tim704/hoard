@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { countryForTimeZone, isValidTimeZone, knownRegions } from './timezones';
+import { countryForTimeZone, isValidTimeZone } from './timezones';
 
 describe('countryForTimeZone', () => {
   it('maps canonical IANA zones to their country', () => {
@@ -34,14 +34,7 @@ describe('countryForTimeZone', () => {
   });
 });
 
-describe('knownRegions / isValidTimeZone', () => {
-  it('lists unique two-letter codes', () => {
-    const r = knownRegions();
-    expect(r).toContain('DE');
-    expect(new Set(r).size).toBe(r.length);
-    expect(r.every((c) => /^[A-Z]{2}$/.test(c))).toBe(true);
-  });
-
+describe('isValidTimeZone', () => {
   it('checks zones with Intl', () => {
     expect(isValidTimeZone('Europe/Berlin')).toBe(true);
     expect(isValidTimeZone('Nowhere/Land')).toBe(false);

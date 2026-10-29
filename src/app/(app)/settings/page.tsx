@@ -22,14 +22,13 @@ import { registeredJobs } from '@/lib/jobs';
 import { getOwnerId } from '@/lib/notify';
 import { effectiveTimeZone, serverTimeZone, toDisplayPrefs } from '@/lib/prefs';
 import { requireUser } from '@/lib/session';
-import { knownRegions } from '@/lib/timezones';
 
 export const metadata = { title: 'Settings · Hoard' };
 // Backup status and job runs change on their own; always render fresh.
 export const dynamic = 'force-dynamic';
 
-// Option lists are built here, not in the browser, so the server render and
-// hydration use the same ICU data (no mismatched country names).
+// The zone list is built here, not in the browser, so the server render and
+// hydration use the same ICU data.
 export default async function SettingsPage() {
   const user = await requireUser();
   const [prefs, ownerId, shareLinks, steamLink, lastfmLink, anilistLink] = await Promise.all([
@@ -47,16 +46,11 @@ export default async function SettingsPage() {
   const [backup, jobs] = isOwner
     ? await Promise.all([readBackupStatus(), getJobRuns(registeredJobs())])
     : [null, null];
-  const names = new Intl.DisplayNames(['en'], { type: 'region' });
-  const regions = knownRegions()
-    .map((code) => ({ code, name: names.of(code) ?? code }))
-    .sort((a, b) => a.name.localeCompare(b.name));
   const zones = Intl.supportedValuesOf('timeZone');
 
   return (
     <SettingsForm
       initial={toDisplayPrefs(prefs)}
-      regions={regions}
       timeZones={zones}
       serverTimeZone={serverTimeZone()}
     >

@@ -1,7 +1,8 @@
 // ───────────────────────────────────────────────────────────────────────────
-//  Time zone → country. The user's region is derived from the browser's IANA
-//  time zone, never from any location API. The table is IANA's zone.tab (one country per zone) plus the
-//  legacy names browsers still report (Asia/Calcutta, Europe/Kiev, US/Eastern…).
+//  Time zone → country. The user's stored region is derived from the
+//  browser's IANA time zone, never from any location API. The table is IANA's
+//  zone.tab (one country per zone) plus the legacy names browsers still
+//  report (Asia/Calcutta, Europe/Kiev, US/Eastern…).
 //  Client-safe: no server imports.
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -551,11 +552,6 @@ export function countryForTimeZone(tz: string): string | null {
   const lower = zone.toLowerCase();
   const hit = Object.keys(ZONE_COUNTRY).find((z) => z.toLowerCase() === lower);
   return hit ? ZONE_COUNTRY[hit] : null;
-}
-
-/** Every country code the table can produce, for the region picker. */
-export function knownRegions(): string[] {
-  return [...new Set(Object.values(ZONE_COUNTRY))].sort();
 }
 
 /** True when `tz` is a time zone this runtime can format dates in. */
