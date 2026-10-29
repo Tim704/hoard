@@ -1,7 +1,7 @@
 'use client';
 
 import { useId } from 'react';
-import { Layers, ListTree, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { Layers, ListTree, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
 
 import type { SectionFiltersState } from '@/components/section/use-section-filters';
 import { TagFilter } from '@/components/tag-filter';
@@ -13,7 +13,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import type { CategorySlug } from '@/lib/categories';
 import type { ToolbarStyle } from '@/lib/layouts';
 import { hasOwnership } from '@/lib/ownership';
-import { activeFilterCount, SORT_LABEL, SORT_MODES, type SortMode, type StatusFilter } from '@/lib/section-filters';
+import {
+  activeFilterCount,
+  hasDefaultView,
+  SORT_LABEL,
+  SORT_MODES,
+  type SortMode,
+  type StatusFilter,
+} from '@/lib/section-filters';
 import { STATUSES, statusLabel } from '@/lib/status';
 import { cn } from '@/lib/utils';
 
@@ -28,12 +35,13 @@ interface FiltersPopoverProps {
 }
 
 /**
- * The section toolbar's Filters button and popover: status, sort, owned
- * platform / format (where the section has one), tags, the two groupings and
- * Reset. The button counts the settings that differ from the defaults.
+ * The section toolbar's Filters button and popover. On top, the filters that
+ * hide titles (status, owned platform / format where the section has one,
+ * tags), which the button counts and "Clear filters" clears; below, the
+ * remembered sort and groupings, with their own "Default sort & grouping".
  */
 export function FiltersPopover({ slug, state, ownedChoices, sectionTags, style }: FiltersPopoverProps) {
-  const { filters, set, reset } = state;
+  const { filters, set, clear, resetView } = state;
   const count = activeFilterCount(filters);
   const id = useId();
   const games = slug === 'games';
@@ -61,7 +69,7 @@ export function FiltersPopover({ slug, state, ownedChoices, sectionTags, style }
           variant="outline"
           aria-label={name}
           data-filter-count={count}
-          className="h-10 shrink-0 px-3 sm:px-4 md:h-9"
+          className="h-10 shrink-0 px-3 sm:px-4"
         >
           <SlidersHorizontal className="h-4 w-4 sm:mr-2" aria-hidden />
           <span className="hidden sm:inline">Filters</span>
@@ -102,11 +110,11 @@ export function FiltersPopover({ slug, state, ownedChoices, sectionTags, style }
             variant="ghost"
             size="sm"
             disabled={count === 0}
-            onClick={reset}
+            onClick={clear}
             className="-mr-2 h-8 px-2 text-xs"
           >
-            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-            Reset
+            <X className="h-3.5 w-3.5" aria-hidden />
+            Clear filters
           </Button>
         </div>
 
@@ -123,22 +131,6 @@ export function FiltersPopover({ slug, state, ownedChoices, sectionTags, style }
               {STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
                   {statusLabel(s, slug)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Label htmlFor={`${id}-sort`} className="text-xs text-muted-foreground">
-            Sort
-          </Label>
-          <Select value={filters.sort} onValueChange={(v) => set('sort', v as SortMode)}>
-            <SelectTrigger id={`${id}-sort`} className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SORT_MODES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {SORT_LABEL[s]}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -168,7 +160,9 @@ export function FiltersPopover({ slug, state, ownedChoices, sectionTags, style }
 
           {showTags && (
             <>
-              <span className="text-xs font-medium text-muted-foreground">Tags</span>
+              <span aria-hidden className="text-xs font-medium text-muted-foreground">
+                Tags
+              </span>
               <TagFilter
                 tags={sectionTags}
                 selected={filters.tags}
@@ -180,6 +174,37 @@ export function FiltersPopover({ slug, state, ownedChoices, sectionTags, style }
         </div>
 
         <div className="space-y-2.5 border-t border-border px-4 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-xs font-medium text-muted-foreground">Sort &amp; grouping</h3>
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              disabled={hasDefaultView(filters)}
+              onClick={resetView}
+              className="-mr-1 h-auto p-0 px-1 text-xs"
+            >
+              <RotateCcw className="h-3 w-3" aria-hidden />
+              Default sort &amp; grouping
+            </Button>
+          </div>
+          <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-3">
+            <Label htmlFor={`${id}-sort`} className="text-xs text-muted-foreground">
+              Sort
+            </Label>
+            <Select value={filters.sort} onValueChange={(v) => set('sort', v as SortMode)}>
+              <SelectTrigger id={`${id}-sort`} className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_MODES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {SORT_LABEL[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Toggle
             icon={Layers}
             label="Group franchises"

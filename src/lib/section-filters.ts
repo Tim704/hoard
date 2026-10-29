@@ -1,9 +1,9 @@
 // ───────────────────────────────────────────────────────────────────────────
 //  A section page's filters, sort and grouping (src/components/section/):
 //  the state shape and its defaults, which of it is remembered per section
-//  (localStorage, src/hooks/use-persistent-state.ts), how many settings
-//  differ from the defaults (the Filters button's count), and the pure
-//  filter / sort / grouping steps the page runs on its titles.
+//  (localStorage, src/hooks/use-persistent-state.ts), how many filters hide
+//  titles (the Filters button's count), and the pure filter / sort /
+//  grouping steps the page runs on its titles.
 //
 //  The remembered keys are the ones the page has always used
 //  (`hoard:<section>:view|sort|grouped|franchises|collapsed`), with the same
@@ -59,17 +59,20 @@ export const DEFAULT_FILTERS: SectionFilters = {
 };
 
 /**
- * How many of the popover's settings differ from the defaults: the number
- * Reset would change, shown on the Filters button. Each selected tag counts.
+ * How many filters hide titles: a status, an owned platform / format, and
+ * each selected tag. The Filters button shows it; "Clear filters" clears
+ * exactly these. Sort and grouping only reorder, so they never count.
  */
 export function activeFilterCount(f: SectionFilters): number {
+  return (f.status !== DEFAULT_FILTERS.status ? 1 : 0) + (f.owned !== DEFAULT_FILTERS.owned ? 1 : 0) + f.tags.length;
+}
+
+/** Whether sort and both groupings are at their defaults ("Default sort & grouping" has nothing to do). */
+export function hasDefaultView(f: SectionFilters): boolean {
   return (
-    (f.status !== DEFAULT_FILTERS.status ? 1 : 0) +
-    (f.sort !== DEFAULT_FILTERS.sort ? 1 : 0) +
-    (f.owned !== DEFAULT_FILTERS.owned ? 1 : 0) +
-    f.tags.length +
-    (f.groupFranchises !== DEFAULT_FILTERS.groupFranchises ? 1 : 0) +
-    (f.grouped !== DEFAULT_FILTERS.grouped ? 1 : 0)
+    f.sort === DEFAULT_FILTERS.sort &&
+    f.groupFranchises === DEFAULT_FILTERS.groupFranchises &&
+    f.grouped === DEFAULT_FILTERS.grouped
   );
 }
 

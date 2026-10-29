@@ -523,9 +523,10 @@ if (failures.length === 0) {
   });
   // The section toolbar in every layout, at desktop and phone width, on
   // Books and Video Games (the longest "Add …"): one row that never wraps
-  // or overflows; the Filters popover applies a status (the count on the
-  // button follows, Reset clears it); in Classic on a phone the folded
-  // items are in More. Then the cards on TV Shows (the demo show is
+  // or overflows, every control the same height; the Filters popover
+  // applies a status (the count on the button follows, Clear filters clears
+  // it), while a sort doesn't count and has its own "Default sort &
+  // grouping"; in Classic on a phone the folded items are in More. Then the cards on TV Shows (the demo show is
   // ongoing, with progress): Classic's plain card has no progress bar,
   // Organised shows at most one badge (the show's progress), Minimal and
   // Fresh render their own cards. On a phone, pages whose rows used to wrap
@@ -550,12 +551,14 @@ if (failures.length === 0) {
                 spill: Math.max(bar.scrollWidth - bar.clientWidth, Math.round(Math.max(...items.map((el) => el.getBoundingClientRect().right)) - r.right)),
                 overflow: document.documentElement.scrollWidth - window.innerWidth,
                 filter: Math.round(bar.querySelector('input').getBoundingClientRect().width),
+                heights: [...new Set(items.map((el) => Math.round(el.getBoundingClientRect().height)))],
               };
             });
             if (m.rows !== 1 || m.height > m.tallest + 1) throw new Error(`${where}: the toolbar is ${m.rows} rows, ${m.height}px tall`);
             if (m.spill > 0) throw new Error(`${where}: the toolbar spills ${m.spill}px`);
             if (m.overflow > 0) throw new Error(`${where}: the page scrolls sideways by ${m.overflow}px`);
             if (m.filter < 96) throw new Error(`${where}: the title filter is squeezed to ${m.filter}px`);
+            if (m.heights.length !== 1) throw new Error(`${where}: the controls are ${m.heights.join(' / ')}px tall`);
             if (path !== '/books') continue;
             const toolbar = page.locator('[data-section-toolbar]');
             const filters = toolbar.locator('[data-filter-count]');
@@ -575,8 +578,24 @@ if (failures.length === 0) {
             const sections = await page.locator('main section button[aria-controls^="section-"]').evaluateAll((els) => els.map((el) => el.getAttribute('aria-controls')));
             if (sections.join() !== 'section-books-CONSUMING') throw new Error(`${where}: filtered to Reading, the page shows ${sections.join(', ')}`);
             if ((await filters.getAttribute('aria-label')) !== 'Filters (1 active)') throw new Error(`${where}: the button is named ${await filters.getAttribute('aria-label')}`);
-            await popover.getByRole('button', { name: 'Reset' }).click();
+            await popover.getByRole('button', { name: 'Clear filters' }).click();
             await counted('0');
+            // The sort only reorders: no count, and its own reset.
+            await popover.getByRole('combobox', { name: 'Sort' }).click();
+            await page.getByRole('option', { name: 'Title (A–Z)', exact: true }).click();
+            const sortDefault = (state) => popover.locator(`button${state}`, { hasText: 'Default sort & grouping' });
+            await sortDefault(':not([disabled])')
+              .waitFor({ timeout: 10_000 })
+              .catch(() => {
+                throw new Error(`${where}: Default sort & grouping is off after a sort change`);
+              });
+            if ((await count()) !== '0') throw new Error(`${where}: a sort counts as a filter`);
+            await sortDefault(':not([disabled])').click();
+            await sortDefault('[disabled]')
+              .waitFor({ timeout: 10_000 })
+              .catch(() => {
+                throw new Error(`${where}: Default sort & grouping didn't restore the sort`);
+              });
             await page.keyboard.press('Escape');
             await popover.waitFor({ state: 'hidden', timeout: 10_000 });
             const more = toolbar.getByRole('button', { name: 'More', exact: true });

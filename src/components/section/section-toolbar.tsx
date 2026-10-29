@@ -61,8 +61,15 @@ const FOLD: Record<ToolbarStyle, { tiers: Fold; critic: Fold; view: Fold; more: 
   },
 };
 
-/** Icon buttons: 40px touch targets on phones, 36px from md. */
-const ICON_BUTTON = 'h-10 w-10 shrink-0 md:h-9 md:w-9';
+/**
+ * One control height per toolbar: Classic's labelled controls are all 40px
+ * (its buttons' height before layouts); the icon toolbars are 40px touch
+ * targets on phones and 36px from md.
+ */
+const HEIGHT: Record<ToolbarStyle, { field: string; icon: string; view: 'toolbar' | 'toolbar-md' }> = {
+  labelled: { field: 'h-10', icon: 'h-10 w-10 shrink-0', view: 'toolbar' },
+  icons: { field: 'h-10 md:h-9', icon: 'h-10 w-10 shrink-0 md:h-9 md:w-9', view: 'toolbar-md' },
+};
 
 interface SectionToolbarProps {
   slug: CategorySlug;
@@ -100,6 +107,7 @@ export function SectionToolbar({
   const style = useLayout().toolbar;
   const icons = style === 'icons';
   const fold = FOLD[style];
+  const height = HEIGHT[style];
   const critic = useRoastCritic(slug);
   const addLabel = `Add ${config.singular}`;
   const tiersHref = `/${slug}/arena`;
@@ -116,7 +124,7 @@ export function SectionToolbar({
             library={library}
             trigger={
               <TooltipTrigger asChild>
-                <Button size="icon" aria-label={addLabel} className={ICON_BUTTON}>
+                <Button size="icon" aria-label={addLabel} className={height.icon}>
                   <Plus className="h-4 w-4" aria-hidden />
                 </Button>
               </TooltipTrigger>
@@ -145,7 +153,7 @@ export function SectionToolbar({
         placeholder="Filter by title…"
         aria-label="Filter by title"
         // text-base on phones stops iOS zooming the page on focus (<16px does).
-        className="h-10 min-w-0 flex-1 truncate text-base md:h-9 md:text-sm"
+        className={cn('min-w-0 flex-1 truncate text-base md:text-sm', height.field)}
       />
 
       <FiltersPopover slug={slug} state={filters} ownedChoices={ownedChoices} sectionTags={sectionTags} style={style} />
@@ -156,7 +164,7 @@ export function SectionToolbar({
           aria-label={icons ? 'Tiers' : undefined}
           className={cn(
             buttonVariants({ variant: 'outline', size: icons ? 'icon' : 'default' }),
-            icons ? ICON_BUTTON : 'shrink-0',
+            icons ? height.icon : 'shrink-0',
             fold.tiers.bar,
           )}
         >
@@ -174,7 +182,7 @@ export function SectionToolbar({
             variant="outline"
             size={icons ? 'icon' : 'default'}
             aria-label={icons ? 'AI Critic' : undefined}
-            className={icons ? ICON_BUTTON : 'shrink-0'}
+            className={icons ? height.icon : 'shrink-0'}
           >
             <Sparkles className={cn('h-4 w-4', !icons && 'mr-2')} aria-hidden />
             {!icons && 'AI Critic'}
@@ -191,14 +199,20 @@ export function SectionToolbar({
         }
       </MenuButton>
 
-      <ViewToggle value={view} onChange={onView} tooltips={icons} className={cn('shrink-0', fold.view.bar)} />
+      <ViewToggle
+        value={view}
+        onChange={onView}
+        tooltips={icons}
+        size={height.view}
+        className={cn('shrink-0', fold.view.bar)}
+      />
 
       <MenuButton
         label="More"
         tooltip
         className={fold.more}
         trigger={
-          <Button variant="outline" size="icon" aria-label="More" className={ICON_BUTTON}>
+          <Button variant="outline" size="icon" aria-label="More" className={height.icon}>
             <MoreHorizontal className="h-4 w-4" aria-hidden />
           </Button>
         }

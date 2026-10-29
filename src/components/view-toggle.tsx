@@ -16,7 +16,16 @@ interface ViewToggleProps {
   modes?: ViewMode[];
   /** Name each button in a tooltip too (the icon toolbars). */
   tooltips?: boolean;
+  /** The control's outer height: `toolbar` 40px, `toolbar-md` 40px then 36px from md (default: 42 / 38px). */
+  size?: keyof typeof BUTTON_SIZE;
 }
+
+/** Button sizes; the control adds 6px (1px border, 2px padding, each side). */
+const BUTTON_SIZE = {
+  default: 'h-9 w-9 md:h-8 md:w-8',
+  toolbar: 'h-[34px] w-[34px]',
+  'toolbar-md': 'h-[34px] w-[34px] md:h-[30px] md:w-[30px]',
+};
 
 export const VIEW_MODES: { mode: ViewMode; label: string; Icon: typeof LayoutGrid }[] = [
   { mode: 'grid', label: 'Grid view', Icon: LayoutGrid },
@@ -25,7 +34,7 @@ export const VIEW_MODES: { mode: ViewMode; label: string; Icon: typeof LayoutGri
 ];
 
 /** Three-button segmented control: grid, list and compact views. */
-export function ViewToggle({ value, onChange, className, modes, tooltips }: ViewToggleProps) {
+export function ViewToggle({ value, onChange, className, modes, tooltips, size = 'default' }: ViewToggleProps) {
   return (
     <div
       className={cn(
@@ -45,7 +54,7 @@ export function ViewToggle({ value, onChange, className, modes, tooltips }: View
             onClick={() => onChange(mode)}
             className={cn(
               // Slightly larger touch targets on phones; original 32px at md+.
-              'h-9 w-9 md:h-8 md:w-8',
+              BUTTON_SIZE[size],
               value === mode && 'bg-background text-foreground shadow-sm',
             )}
           >

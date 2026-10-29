@@ -17,8 +17,10 @@ import {
 export interface SectionFiltersState {
   filters: SectionFilters;
   set: <K extends keyof SectionFilters>(key: K, value: SectionFilters[K]) => void;
-  /** Everything back to the defaults (the remembered settings too). */
-  reset: () => void;
+  /** "Clear filters": status, format and tags only; the saved sort and grouping stay. */
+  clear: () => void;
+  /** "Default sort & grouping": the remembered sort and both groupings back to the defaults. */
+  resetView: () => void;
 }
 
 /**
@@ -64,14 +66,17 @@ export function useSectionFilters(slug: CategorySlug, initialTags: string[] = []
     [setSort, setGrouped, setGroupFranchises],
   );
 
-  const reset = useCallback(() => {
+  const clear = useCallback(() => {
     setStatus(DEFAULT_FILTERS.status);
-    setSort(DEFAULT_FILTERS.sort);
     setOwned(DEFAULT_FILTERS.owned);
     setTags([]);
+  }, []);
+
+  const resetView = useCallback(() => {
+    setSort(DEFAULT_FILTERS.sort);
     setGroupFranchises(DEFAULT_FILTERS.groupFranchises);
     setGrouped(DEFAULT_FILTERS.grouped);
   }, [setSort, setGrouped, setGroupFranchises]);
 
-  return { filters, set, reset };
+  return { filters, set, clear, resetView };
 }

@@ -43,6 +43,7 @@ export function TagFilter({
         <Button
           type="button"
           variant="outline"
+          aria-label={`Tags: ${selected.length === 0 ? 'any' : selected.join(', ')}`}
           className={cn('h-10 md:h-9', selected.length > 0 && 'bg-accent text-accent-foreground', className)}
         >
           <Tag className="mr-2 h-4 w-4" aria-hidden />

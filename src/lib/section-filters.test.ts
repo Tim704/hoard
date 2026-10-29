@@ -5,6 +5,7 @@ import {
   applySectionFilters,
   DEFAULT_FILTERS,
   franchiseSections,
+  hasDefaultView,
   isBool,
   isSortMode,
   isStatusList,
@@ -73,22 +74,28 @@ describe('activeFilterCount', () => {
     expect(activeFilterCount(DEFAULT_FILTERS)).toBe(0);
   });
 
-  it('counts each setting that differs from its default', () => {
+  it('counts the filters that hide titles: a status, a format or platform, each tag', () => {
     expect(activeFilterCount({ ...DEFAULT_FILTERS, status: 'PLANNED' })).toBe(1);
-    expect(activeFilterCount({ ...DEFAULT_FILTERS, sort: 'recent' })).toBe(1);
     expect(activeFilterCount({ ...DEFAULT_FILTERS, owned: 'NONE' })).toBe(1);
-    expect(activeFilterCount({ ...DEFAULT_FILTERS, groupFranchises: false })).toBe(1);
-    expect(activeFilterCount({ ...DEFAULT_FILTERS, grouped: false })).toBe(1);
-  });
-
-  it('counts every selected tag', () => {
     expect(activeFilterCount({ ...DEFAULT_FILTERS, tags: ['cozy', 'sci-fi'] })).toBe(2);
+    expect(activeFilterCount({ ...DEFAULT_FILTERS, status: 'COMPLETED', owned: 'Switch', tags: ['a'] })).toBe(3);
   });
 
-  it('adds them all up', () => {
-    expect(
-      activeFilterCount({ status: 'COMPLETED', sort: 'title', owned: 'Switch', tags: ['a'], groupFranchises: false, grouped: false }),
-    ).toBe(6);
+  it('never counts the sort or the groupings (they only reorder)', () => {
+    expect(activeFilterCount({ ...DEFAULT_FILTERS, sort: 'recent', groupFranchises: false, grouped: false })).toBe(0);
+  });
+});
+
+describe('hasDefaultView', () => {
+  it('is true at the default sort and groupings, whatever the filters', () => {
+    expect(hasDefaultView(DEFAULT_FILTERS)).toBe(true);
+    expect(hasDefaultView({ ...DEFAULT_FILTERS, status: 'PLANNED', tags: ['a'] })).toBe(true);
+  });
+
+  it('is false once the sort or a grouping changes', () => {
+    expect(hasDefaultView({ ...DEFAULT_FILTERS, sort: 'title' })).toBe(false);
+    expect(hasDefaultView({ ...DEFAULT_FILTERS, groupFranchises: false })).toBe(false);
+    expect(hasDefaultView({ ...DEFAULT_FILTERS, grouped: false })).toBe(false);
   });
 });
 
