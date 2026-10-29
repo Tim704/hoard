@@ -356,7 +356,8 @@ model UserMediaActivity {
   format         String?
   // 3.1: a repeat run is in progress; the next finish logs a rewatch.
   rewatching     Boolean  @default(false)
-  // 4.10: per-medium sub-scores { [key]: 0–10 } (keys from src/lib/subscores.ts).
+  // 4.10 (removed): per-medium sub-scores { [key]: 0–10 }. Nothing reads or
+  // writes them any more; the column keeps what was saved.
   subScores      Json?
   // 4.7: position inside the franchise when its order mode is "manual" (asc).
   franchiseOrder Float?
@@ -553,9 +554,10 @@ model Franchise {
 }
 
 // ── Notifications ────────────────────────────────────────────────────────────
-//  Shown in-app (the bell) and, when the user configured them, pushed to their
-//  own ntfy topic and/or Discord webhook by src/lib/notify.ts. `sentAt` is set
-//  once at least one push succeeded; `error` records failed pushes.
+//  Shown in-app (Notifications in the user menu) and, when the user configured
+//  them, pushed to their own ntfy topic and/or Discord webhook by
+//  src/lib/notify.ts. `sentAt` is set once at least one push succeeded;
+//  `error` records failed pushes.
 
 model Notification {
   id        String    @id @default(cuid())
@@ -700,8 +702,9 @@ model CustomListMember {
   @@index([userId])
 }
 
-// ── Where to stream (5.1) ───────────────────────────────────────────────────
-//  Cached provider answers, 7 days each. Keys: "movie:<tmdbId>:<REGION>",
+// ── Where to stream (5.1, removed) ───────────────────────────────────────────
+//  Unused since Where to watch was removed; the table stays. It held cached
+//  provider answers, 7 days each. Keys: "movie:<tmdbId>:<REGION>",
 //  "tv:<tmdbId>:<REGION>" (TMDB watch providers, JustWatch data),
 //  "anime:<externalId>" (AniList STREAMING links, region-agnostic) and
 //  "providers:<REGION>" (the region's service list for Settings).

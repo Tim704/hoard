@@ -3,9 +3,9 @@
 // ───────────────────────────────────────────────────────────────────────────
 //  A title's full page (/<section>/title/<id>): everything the short popup
 //  leaves out. The poster on the left (in Fresh one blurred backdrop behind
-//  the header, the only blur on the page) and the editable basics on the
-//  right; Notes | History; Tags · Lists; then Progress, Seasons, Format,
-//  Review, Play sessions and More by.
+//  the header, the only blur inside <main>; Fresh's top bar blurs too) and
+//  the editable basics on the right; Notes | History; Tags · Lists; then
+//  Progress, Seasons, Format, Review, Play sessions and More by.
 //
 //  Status, rating, favourite, notes and franchise save together: a sticky
 //  bar with Save and Discard appears while any of them has unsaved edits.
