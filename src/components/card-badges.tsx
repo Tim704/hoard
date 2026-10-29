@@ -1,10 +1,9 @@
 'use client';
 
-import { CalendarClock, Headphones, Sparkles } from 'lucide-react';
+import { CalendarClock, Clock, Headphones, Sparkles, TrendingUp } from 'lucide-react';
 
 import { useToday } from '@/components/prefs-provider';
-import { showsListenBadge } from '@/lib/lastfm-suggest';
-import { formatTimeToBeat } from '@/lib/media-meta';
+import { pickCardBadge, type CardBadge, type CardBadgeKind } from '@/lib/card-badge';
 import { countdownLabel } from '@/lib/release';
 import type { ActivityWithMedia } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -16,14 +15,7 @@ export function useCountdown(activity: ActivityWithMedia): string | null {
   return countdownLabel(activity.media, today);
 }
 
-/** "≈ 32 h" for a game with a time to beat (5.3), else null. */
-export function cardTimeToBeat(activity: ActivityWithMedia): string | null {
-  if (activity.category !== 'games') return null;
-  const h = activity.media.timeToBeatHours;
-  return formatTimeToBeat(typeof h === 'number' ? h : null);
-}
-
-/** The countdown chip shown on cards and rows. */
+/** The countdown chip (Up next's rows). */
 export function CountdownBadge({ activity, className }: { activity: ActivityWithMedia; className?: string }) {
   const label = useCountdown(activity);
   if (!label) return null;
@@ -41,41 +33,34 @@ export function CountdownBadge({ activity, className }: { activity: ActivityWith
   );
 }
 
-/** "New season" (5.5) for a finished show with an aired season beyond the one seen. */
-export function newSeasonLabel(activity: ActivityWithMedia): string | null {
-  return activity.newSeason != null ? 'New season' : null;
+const PILL: Record<CardBadgeKind, { Icon: typeof Sparkles; tone: string }> = {
+  'new-season': { Icon: Sparkles, tone: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+  countdown: { Icon: CalendarClock, tone: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300' },
+  listen: { Icon: Headphones, tone: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300' },
+  progress: { Icon: TrendingUp, tone: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+  'time-to-beat': { Icon: Clock, tone: 'border-border bg-muted/60 text-muted-foreground' },
+};
+
+/** The one badge that matters for a title now (Organised's cards and rows), or null. */
+export function useCardBadge(activity: ActivityWithMedia): CardBadge | null {
+  return pickCardBadge(activity, useToday());
 }
 
-/** The "New season" chip shown on cards and rows. */
-export function NewSeasonBadge({ activity, className }: { activity: ActivityWithMedia; className?: string }) {
-  if (activity.newSeason == null) return null;
+/** A small pill for a picked badge (src/lib/card-badge.ts). */
+export function CardBadgePill({ badge, className }: { badge: CardBadge; className?: string }) {
+  const { Icon, tone } = PILL[badge.kind];
   return (
     <span
+      data-card-badge={badge.kind}
+      title={badge.title}
       className={cn(
-        'inline-flex w-fit items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300',
+        'inline-flex w-fit max-w-full items-center gap-1 rounded-full border px-1.5 py-px text-[10.5px] font-medium leading-4',
+        tone,
         className,
       )}
-      title={`Season ${activity.newSeason} is out`}
     >
-      <Sparkles className="h-3 w-3 shrink-0" aria-hidden />
-      New season
-    </span>
-  );
-}
-
-/** "Mark as Listened?" (8.3): Last.fm counted most of the album's tracks. */
-export function ListenBadge({ activity, className }: { activity: ActivityWithMedia; className?: string }) {
-  if (!showsListenBadge(activity)) return null;
-  return (
-    <span
-      className={cn(
-        'inline-flex w-fit items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300',
-        className,
-      )}
-      title="Last.fm says you've played most of this album"
-    >
-      <Headphones className="h-3 w-3 shrink-0" aria-hidden />
-      Mark as Listened?
+      <Icon className="h-3 w-3 shrink-0" aria-hidden />
+      <span className="truncate">{badge.label}</span>
     </span>
   );
 }

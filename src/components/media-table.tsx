@@ -4,9 +4,8 @@ import { Fragment } from 'react';
 import Image from 'next/image';
 import { ChevronDown, ChevronRight, ImageOff, Layers, Star } from 'lucide-react';
 
-import { ProgressBar } from '@/components/progress-field';
-import { CountdownBadge, ListenBadge, NewSeasonBadge, cardTimeToBeat } from '@/components/card-badges';
-import { useDisplayTitle } from '@/components/prefs-provider';
+import { CardBadgePill, useCardBadge } from '@/components/card-badges';
+import { useDisplayTitle, useLayout } from '@/components/prefs-provider';
 import { GroupRating, groupCover } from '@/components/franchise-group';
 import { RatingControl } from '@/components/rating-control';
 import { StatusBadge } from '@/components/status-badge';
@@ -19,8 +18,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import type { CardStyle } from '@/lib/layouts';
 import { mediaSubtitle } from '@/lib/media-meta';
-import { ownershipText } from '@/lib/ownership';
+import { statusLabel } from '@/lib/status';
 import type { ActivityWithMedia, DisplayUnit } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -33,27 +33,53 @@ interface MediaTableProps {
   ranks?: Map<string, number>;
 }
 
-/** List view: large covers with title, subtitle, status and rating. */
+/** Which columns the list view shows, per the layout's card detail. */
+const COLUMNS: Record<CardStyle, { status: boolean; badge: boolean; rating: boolean; table: string }> = {
+  // Classic: the columns before layouts.
+  plain: { status: true, badge: false, rating: true, table: 'min-w-[560px]' },
+  // Minimal: the cover and the title alone.
+  poster: { status: false, badge: false, rating: false, table: '' },
+  // Organised: plus one badge column (pickCardBadge).
+  'one-badge': { status: true, badge: true, rating: true, table: 'min-w-[680px]' },
+  // Fresh: the Classic columns on darker rows.
+  cinematic: { status: true, badge: false, rating: true, table: 'min-w-[560px]' },
+};
+
+/**
+ * List view: large covers with title, subtitle, status and rating, showing
+ * as much as the layout's cards do (`useLayout().card`).
+ */
 export function MediaTable({ units, onSelect, expanded, onToggleGroup, ranks }: MediaTableProps) {
+  const style = useLayout().card;
+  const cols = COLUMNS[style];
+  const dark = style === 'cinematic';
   return (
-    <div className="rounded-lg border border-border">
+    <div
+      data-list={style}
+      className={cn('rounded-lg border border-border', dark && 'rounded-xl border-white/10 bg-black/40')}
+    >
       {/* min-w keeps the columns readable on phones — the Table primitive's
           own overflow-auto wrapper provides the horizontal scroll. */}
-      <Table className="min-w-[560px]">
+      <Table className={cols.table}>
         <TableHeader>
-          <TableRow>
+          <TableRow className={cn(dark && 'border-white/10 hover:bg-transparent')}>
             {ranks && <TableHead className="w-12 text-center">#</TableHead>}
             <TableHead className="w-20" />
             <TableHead>Title</TableHead>
-            <TableHead className="w-36">Status</TableHead>
-            <TableHead className="w-24">Rating</TableHead>
+            {cols.status && <TableHead className="w-36">Status</TableHead>}
+            {cols.badge && (
+              <TableHead className="w-40">
+                <span className="sr-only">Now</span>
+              </TableHead>
+            )}
+            {cols.rating && <TableHead className="w-24">Rating</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {units.map((unit) => {
             if (unit.kind === 'item') {
               return (
-                <ItemRow key={unit.activity.id} activity={unit.activity} onSelect={onSelect} ranks={ranks} />
+                <ItemRow key={unit.activity.id} activity={unit.activity} onSelect={onSelect} ranks={ranks} style={style} />
               );
             }
             const { franchise, members } = unit;
@@ -65,7 +91,7 @@ export function MediaTable({ units, onSelect, expanded, onToggleGroup, ranks }: 
                 <TableRow
                   onClick={() => onToggleGroup(franchise.id)}
                   aria-expanded={open}
-                  className="cursor-pointer bg-muted/20"
+                  className={cn('cursor-pointer bg-muted/20', dark && 'border-white/5 bg-white/[0.03] hover:bg-white/[0.06]')}
                 >
                   {ranks && <TableCell />}
                   <TableCell className="py-2.5">
@@ -90,20 +116,25 @@ export function MediaTable({ units, onSelect, expanded, onToggleGroup, ranks }: 
                     </div>
                     <div className="mt-1 text-sm text-muted-foreground">{members.length} titles</div>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1.5">
-                      {members.map((m) => (
-                        <StatusIcon key={m.id} status={m.status} className="h-3.5 w-3.5" />
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <GroupRating franchise={franchise} members={members} />
-                  </TableCell>
+                  {cols.status && (
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1.5">
+                        {members.map((m) => (
+                          <StatusIcon key={m.id} status={m.status} className="h-3.5 w-3.5" />
+                        ))}
+                      </div>
+                    </TableCell>
+                  )}
+                  {cols.badge && <TableCell />}
+                  {cols.rating && (
+                    <TableCell>
+                      <GroupRating franchise={franchise} members={members} />
+                    </TableCell>
+                  )}
                 </TableRow>
                 {open &&
                   members.map((a) => (
-                    <ItemRow key={a.id} activity={a} onSelect={onSelect} ranks={ranks} nested />
+                    <ItemRow key={a.id} activity={a} onSelect={onSelect} ranks={ranks} style={style} nested />
                   ))}
               </Fragment>
             );
@@ -118,26 +149,44 @@ function ItemRow({
   activity,
   onSelect,
   ranks,
+  style,
   nested,
 }: {
   activity: ActivityWithMedia;
   onSelect: (a: ActivityWithMedia) => void;
   ranks?: Map<string, number>;
+  style: CardStyle;
   nested?: boolean;
 }) {
   const { media } = activity;
   const title = useDisplayTitle()(media);
+  const badge = useCardBadge(activity);
+  const cols = COLUMNS[style];
+  const dark = style === 'cinematic';
   const subtitle = mediaSubtitle(media, activity.category);
   const dropped = activity.status === 'DROPPED';
   return (
-    <TableRow onClick={() => onSelect(activity)} className={cn('cursor-pointer', nested && 'bg-muted/10')}>
+    <TableRow
+      onClick={() => onSelect(activity)}
+      className={cn(
+        'cursor-pointer',
+        nested && 'bg-muted/10',
+        dark && 'border-white/5 hover:bg-white/[0.05]',
+        dark && nested && 'bg-white/[0.02]',
+      )}
+    >
       {ranks && (
         <TableCell className="text-center text-base font-semibold tabular-nums text-muted-foreground">
           {ranks.get(activity.id) ?? '—'}
         </TableCell>
       )}
-      <TableCell className={cn('py-2.5', nested && 'pl-6')}>
-        <div className="relative h-24 w-16 overflow-hidden rounded-md bg-muted shadow-sm ring-1 ring-border">
+      <TableCell className={cn('py-2.5', nested && 'pl-6', style === 'poster' && 'py-3')}>
+        <div
+          className={cn(
+            'relative h-24 w-16 overflow-hidden rounded-md bg-muted shadow-sm ring-1 ring-border',
+            dark && 'rounded-lg shadow-md shadow-black/50 ring-white/10',
+          )}
+        >
           {media.imageUrl ? (
             <Image
               src={media.imageUrl}
@@ -155,25 +204,33 @@ function ItemRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1.5">
-          <span className="text-base font-medium leading-tight">{title}</span>
-          {activity.favorite && (
+          <span className={cn('text-base font-medium leading-tight', dark && 'font-display font-semibold')}>{title}</span>
+          {activity.favorite && style !== 'poster' && (
             <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" aria-label="Favorite" />
           )}
         </div>
-        <div className="mt-1 text-sm text-muted-foreground">
-          {[media.year, subtitle, cardTimeToBeat(activity), ownershipText(activity)].filter(Boolean).join(' · ')}
+        <div className={cn('mt-1 text-sm text-muted-foreground', style === 'poster' && 'text-xs')}>
+          {[media.year, subtitle].filter(Boolean).join(' · ')}
         </div>
-        <CountdownBadge activity={activity} className="mt-1.5" />
-        <NewSeasonBadge activity={activity} className="mt-1.5" />
-        <ListenBadge activity={activity} className="mt-1.5" />
-        <ProgressBar activity={activity} className="mt-1.5 max-w-48" />
       </TableCell>
-      <TableCell>
-        <StatusBadge status={activity.status} slug={activity.category} />
-      </TableCell>
-      <TableCell>
-        <RatingControl value={activity.rating} />
-      </TableCell>
+      {cols.status && (
+        <TableCell>
+          {style === 'one-badge' ? (
+            <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+              <StatusIcon status={activity.status} className="h-3.5 w-3.5" />
+              {statusLabel(activity.status, activity.category)}
+            </span>
+          ) : (
+            <StatusBadge status={activity.status} slug={activity.category} />
+          )}
+        </TableCell>
+      )}
+      {cols.badge && <TableCell>{badge && <CardBadgePill badge={badge} />}</TableCell>}
+      {cols.rating && (
+        <TableCell>
+          <RatingControl value={activity.rating} />
+        </TableCell>
+      )}
     </TableRow>
   );
 }

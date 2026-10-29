@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_DISPLAY_PREFS } from './display-prefs';
@@ -24,10 +26,23 @@ describe('layouts', () => {
     expect(DEFAULT_LAYOUT).toBe('classic');
     expect(DEFAULT_DISPLAY_PREFS.layout).toBe('classic');
     expect(LAYOUTS.classic).toMatchObject({ nav: 'sidebar-flat', card: 'plain', toolbar: 'labelled', forceDark: false });
-    // MediaGrid's grid before layouts.
+    // MediaGrid's columns before layouts (its gap is --grid-gap, below).
     expect(LAYOUTS.classic.gridCols).toBe(
-      'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6',
+      'grid grid-cols-2 gap-[var(--grid-gap)] sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6',
     );
+  });
+
+  it('spaces cards with --grid-gap alone: one source for the gap', () => {
+    for (const id of LAYOUT_IDS) {
+      const gaps = LAYOUTS[id].gridCols.split(' ').filter((c) => /(^|:)gap-/.test(c));
+      expect(gaps).toEqual(['gap-[var(--grid-gap)]']);
+    }
+  });
+
+  it("keeps Classic's old gap (gap-3, sm:gap-4) in --grid-gap", () => {
+    const css = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
+    expect(css).toMatch(/ {2}:root \{[^}]*--grid-gap: 0\.75rem;/);
+    expect(css).toMatch(/@media \(min-width: 640px\) \{\s*:root \{[^}]*--grid-gap: 1rem;/);
   });
 
   it('matches the plan for the other three', () => {

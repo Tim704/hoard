@@ -525,8 +525,11 @@ if (failures.length === 0) {
   // Books and Video Games (the longest "Add …"): one row that never wraps
   // or overflows; the Filters popover applies a status (the count on the
   // button follows, Reset clears it); in Classic on a phone the folded
-  // items are in More. Classic is restored afterwards.
-  await step('section toolbar in every layout', async () => {
+  // items are in More. Then the cards on TV Shows (the demo show is
+  // ongoing, with progress): Classic's plain card has no progress bar,
+  // Organised shows at most one badge (the show's progress), Minimal and
+  // Fresh render their own cards. Classic is restored afterwards.
+  await step('section toolbar and cards in every layout', async () => {
     try {
       for (const label of ['Classic', 'Minimal', 'Organised', 'Fresh']) {
         await pickLayout(label);
@@ -581,6 +584,22 @@ if (failures.length === 0) {
             }
           }
         }
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await page.evaluate(() => localStorage.setItem('hoard:tv:view', '"grid"'));
+        await page.goto(`${BASE_URL}/tv`, { waitUntil: 'networkidle' });
+        const cards = await page.evaluate(() => {
+          const all = [...document.querySelectorAll('main [data-card]')];
+          return {
+            kinds: [...new Set(all.map((c) => c.dataset.card))].join(),
+            badges: all.map((c) => c.querySelectorAll('[data-card-badge]').length),
+            bars: document.querySelectorAll('main [role="progressbar"]').length,
+          };
+        });
+        const want = { Classic: 'plain', Minimal: 'poster', Organised: 'one-badge', Fresh: 'cinematic' }[label];
+        if (cards.kinds !== want) throw new Error(`${label}: /tv shows ${cards.kinds || 'no'} cards, not ${want}`);
+        if (cards.bars > 0) throw new Error(`${label}: a card shows a progress bar`);
+        const most = Math.max(0, ...cards.badges);
+        if (label === 'Organised' ? most !== 1 : most !== 0) throw new Error(`${label}: a card shows ${most} badges`);
       }
     } finally {
       await page.setViewportSize({ width: 1280, height: 900 });

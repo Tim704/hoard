@@ -90,7 +90,8 @@
      override them per layout (light and dark apart where they differ), plus
      the layout variables:
        --page-pad      horizontal page padding;
-       --grid-gap      gap between cards;
+       --grid-gap      gap between cards, its only source (every
+                       LAYOUTS[id].gridCols uses gap-[var(--grid-gap)]);
        --font-display  the layout's display face (Tailwind `font-display`);
        --card-alpha    card opacity (Fresh's glass cards), multiplied into
                        Tailwind's `card` colour; `--card` stays a bare HSL

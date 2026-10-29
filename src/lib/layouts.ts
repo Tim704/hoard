@@ -39,7 +39,11 @@ export interface LayoutConfig {
   toolbar: ToolbarStyle;
   /** Dark mode regardless of the stored theme; the light/dark toggle hides. */
   forceDark: boolean;
-  /** The media grid's classes (columns per breakpoint and gaps). */
+  /**
+   * The media grid's classes: its columns per breakpoint. The gap between
+   * cards is the layout's --grid-gap (globals.css), the one place card
+   * spacing is set, so every gridCols uses gap-[var(--grid-gap)].
+   */
   gridCols: string;
 }
 
@@ -53,8 +57,8 @@ export const LAYOUTS: Record<LayoutId, LayoutConfig> = {
     density: 'cozy',
     toolbar: 'labelled',
     forceDark: false,
-    // Must match MediaGrid's grid before layouts (src/components/media-grid.tsx).
-    gridCols: 'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6',
+    // MediaGrid's columns before layouts; --grid-gap is its old gap-3 sm:gap-4.
+    gridCols: 'grid grid-cols-2 gap-[var(--grid-gap)] sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6',
   },
   minimal: {
     id: 'minimal',
@@ -65,7 +69,7 @@ export const LAYOUTS: Record<LayoutId, LayoutConfig> = {
     density: 'roomy',
     toolbar: 'icons',
     forceDark: false,
-    gridCols: 'grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-5',
+    gridCols: 'grid grid-cols-2 gap-[var(--grid-gap)] sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5',
   },
   organised: {
     id: 'organised',
@@ -76,7 +80,7 @@ export const LAYOUTS: Record<LayoutId, LayoutConfig> = {
     density: 'compact',
     toolbar: 'icons',
     forceDark: false,
-    gridCols: 'grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7',
+    gridCols: 'grid grid-cols-2 gap-[var(--grid-gap)] sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7',
   },
   fresh: {
     id: 'fresh',
@@ -87,7 +91,7 @@ export const LAYOUTS: Record<LayoutId, LayoutConfig> = {
     density: 'cozy',
     toolbar: 'icons',
     forceDark: true,
-    gridCols: 'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5',
+    gridCols: 'grid grid-cols-2 gap-[var(--grid-gap)] sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5',
   },
 };
 

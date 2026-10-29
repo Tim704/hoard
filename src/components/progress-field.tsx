@@ -216,32 +216,3 @@ function ProgressTrack({ fraction, className }: { fraction: number; className?: 
     </div>
   );
 }
-
-/**
- * The bar on grid and list cards: only while the title is ongoing and some
- * progress is stored. Without a known total it shows the count alone.
- */
-export function ProgressBar({ activity, className }: { activity: ActivityWithMedia; className?: string }) {
-  if (activity.status !== 'CONSUMING' || activity.progress == null) return null;
-  if (!tracksProgress(activity.category)) return null;
-  const total = progressTotal(activity);
-  const fraction = progressFraction(activity.progress, total);
-  const text = progressText(activity.category, activity.progress, total);
-  return (
-    <div className={cn('space-y-1', className)}>
-      {fraction != null && (
-        <div
-          role="progressbar"
-          aria-label={text}
-          aria-valuemin={0}
-          aria-valuemax={total ?? undefined}
-          aria-valuenow={activity.progress}
-          className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
-        >
-          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${fraction * 100}%` }} />
-        </div>
-      )}
-      <p className="text-[11px] tabular-nums text-muted-foreground">{text}</p>
-    </div>
-  );
-}
