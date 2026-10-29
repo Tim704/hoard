@@ -92,8 +92,8 @@ export function SettingsThemes({ dashboard }: { dashboard: DashboardTilesPref })
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* A new saved value (after Save, Undo or another tab's change) starts the editor afresh. */}
-          <TileEditor key={JSON.stringify(dashboard)} saved={dashboard} className="max-w-xl" />
+          {/* A new saved value (after Save, Undo or another tab's change) shows in it, unless it has unsaved edits. */}
+          <TileEditor saved={dashboard} className="max-w-xl" />
         </CardContent>
       </Card>
     </>

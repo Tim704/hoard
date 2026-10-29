@@ -8,9 +8,10 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { CalendarPlus, Copy, Link2Off, RefreshCw } from 'lucide-react';
+import { CalendarPlus, Copy, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { FoldedAction } from '@/components/folded-action';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -70,19 +71,17 @@ export function SettingsCalendar({ initialUrl }: { initialUrl: string | null }) 
         {url ? (
           <>
             <Input readOnly value={url} onFocus={(e) => e.currentTarget.select()} aria-label="Private calendar link" />
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => void copy()}>
+            {/* One row at every width: on phones Turn off is in the ⋯ menu. */}
+            <div data-actions="" className="flex gap-2 sm:flex-wrap">
+              <Button variant="outline" size="sm" onClick={() => void copy()} className="shrink-0">
                 <Copy className="mr-2 h-4 w-4" aria-hidden />
                 Copy
               </Button>
-              <Button variant="outline" size="sm" onClick={create} disabled={isPending}>
+              <Button variant="outline" size="sm" onClick={create} disabled={isPending} className="shrink-0">
                 <RefreshCw className="mr-2 h-4 w-4" aria-hidden />
                 Regenerate
               </Button>
-              <Button variant="outline" size="sm" onClick={revoke} disabled={isPending}>
-                <Link2Off className="mr-2 h-4 w-4" aria-hidden />
-                Turn off
-              </Button>
+              <FoldedAction fold="phone" menuLabel="More calendar link actions" label="Turn off" onSelect={revoke} disabled={isPending} />
             </div>
           </>
         ) : (

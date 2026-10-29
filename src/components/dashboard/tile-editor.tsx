@@ -67,6 +67,15 @@ function editorState(saved: DashboardTilesPref): DashboardPatch {
   return { order: pinRecommend(normalizeOrder(saved.order)), hidden: knownTileIds(saved.hidden) };
 }
 
+/** The editor's order and hidden tiles differ from `from`. */
+function differs(order: readonly TileId[], hidden: ReadonlySet<TileId>, from: DashboardPatch): boolean {
+  return (
+    order.some((id, i) => id !== from.order[i]) ||
+    hidden.size !== from.hidden.length ||
+    from.hidden.some((id) => !hidden.has(id))
+  );
+}
+
 const saveDashboard = (dashboard: DashboardPatch): Promise<ActionResult> => settle(updatePrefs({ dashboard }));
 
 /** Undo: puts the value from before the save back. */
@@ -99,17 +108,28 @@ export function TileEditor({
 }) {
   const router = useRouter();
   const { hiddenSections } = usePrefs();
-  const initial = useMemo(() => editorState(saved), [saved]);
+  // By value: every refresh hands over a new (often equal) object.
+  const savedKey = JSON.stringify(saved);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- savedKey stands for saved
+  const initial = useMemo(() => editorState(saved), [savedKey]);
   const [order, setOrder] = useState(initial.order);
   const [hidden, setHidden] = useState<ReadonlySet<TileId>>(() => new Set(initial.hidden));
   const [saving, setSaving] = useState(false);
+  // A new saved value (after Save, Undo or another tab's change) shows in
+  // the editor, unless it has unsaved edits: those stay (adjusted while
+  // rendering, React's "state from a prop change"; never a remount).
+  const [base, setBase] = useState(initial);
+  if (base !== initial) {
+    if (!differs(order, hidden, base)) {
+      setOrder(initial.order);
+      setHidden(new Set(initial.hidden));
+    }
+    setBase(initial);
+  }
 
   const isListed = (id: TileId) => id !== 'recommend' && !isHiddenSectionTile(id, hiddenSections);
   const listed = order.filter(isListed);
-  const dirty =
-    order.some((id, i) => id !== initial.order[i]) ||
-    hidden.size !== initial.hidden.length ||
-    initial.hidden.some((id) => !hidden.has(id));
+  const dirty = differs(order, hidden, initial);
 
   async function save(next: DashboardPatch, message: string) {
     // Undo writes back what was stored, minus anything a save can't take.

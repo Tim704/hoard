@@ -139,7 +139,7 @@ export function SettingsNotifications({ initial }: { initial: NotifySettings }) 
             />
           </div>
           {/* Phones: full-width buttons, one per line; one row from sm. */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div data-actions="" className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <Button type="submit" size="sm" disabled={isPending || !dirty} className="w-full sm:w-auto">
               Save
             </Button>

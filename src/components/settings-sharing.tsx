@@ -68,7 +68,7 @@ export function SettingsSharing({ links }: { links: MyShareLink[] }) {
                   <p className="text-sm font-medium">{link.label}</p>
                   <p className="truncate text-xs text-muted-foreground">{link.url}</p>
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div data-actions="" className="flex shrink-0 gap-2">
                   <Button variant="outline" size="sm" onClick={() => void copy(link.url)} aria-label={`Copy the ${link.label} link`}>
                     <Copy className="h-4 w-4 sm:mr-2" aria-hidden />
                     <span className="hidden sm:inline">Copy</span>
