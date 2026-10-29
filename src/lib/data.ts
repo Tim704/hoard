@@ -30,6 +30,7 @@ import { todayYmd } from '@/lib/release';
 import { sectionStat } from '@/lib/stats/measures';
 import { bucketPair, challengePairs, fewestDuelsPair } from '@/lib/arena-pick';
 import { buildTierBoard, TIERS, withinTierPairs, type TierBoardData } from '@/lib/tiers';
+import { unscoredFinished } from '@/lib/unscored';
 import type {
   ActivityWithMedia,
   FranchiseRef,
@@ -281,6 +282,17 @@ export async function getQueueHints(queue: ActivityWithMedia[]): Promise<Record<
 /** The category's tier list: placed items per tier plus the Unranked tray. */
 export async function getTierBoard(slug: CategorySlug): Promise<TierBoardData> {
   return buildTierBoard(await loadCategory(slug));
+}
+
+/**
+ * The tier list page's data from one load: the board, plus the titles for
+ * the tray's "Score these" (finished or well-played, no score yet).
+ */
+export async function getTierPage(
+  slug: CategorySlug,
+): Promise<{ board: TierBoardData; unscored: ActivityWithMedia[] }> {
+  const all = await loadCategory(slug);
+  return { board: buildTierBoard(all), unscored: unscoredFinished(all) };
 }
 
 /**

@@ -166,6 +166,24 @@ if (failures.length === 0) {
     ]);
     await page.getByRole('heading', { name: 'Which season is better?' }).waitFor({ timeout: 15_000 });
   });
+  // Score these (1.3): no banner (or crowd panel) on the section page any
+  // more, and ?score=1 does nothing there; the tier list's tray opens the
+  // dialog in place (the demo has an unscored finished book, Snow Crash).
+  await step('score these from the tier tray', async () => {
+    await page.goto(`${BASE_URL}/books?score=1`, { waitUntil: 'networkidle' });
+    const main = await page.locator('main').innerText();
+    if (/Score these/.test(main)) throw new Error('the section page still shows Score these');
+    if (/You vs\. the crowd/.test(main)) throw new Error('the section page still shows the crowd panel');
+    if ((await page.getByRole('dialog').count()) > 0) throw new Error('?score=1 still opens a dialog');
+    await page.goto(`${BASE_URL}/books/arena`, { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: /^Score these · \d+$/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Score these' });
+    await dialog.waitFor({ timeout: 10_000 });
+    await dialog.getByText('Snow Crash').waitFor({ timeout: 10_000 });
+    await page.keyboard.press('Escape');
+    await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
+    if (new URL(page.url()).pathname !== '/books/arena') throw new Error(`left the tier list: ${page.url()}`);
+  });
   // Taste profile (7.2): the Taste tab renders with or without one, and
   // Refresh builds it (the demo has enough finished titles). Recommend
   // across media (7.1) is on the dashboard; it is not clicked (no AI key).

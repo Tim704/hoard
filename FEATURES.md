@@ -72,7 +72,7 @@ Every title has one of six statuses, each with its own colour and icon:
 | Dropped | ✕ | abandoned (its cover is shown greyed out) |
 
 - **Finished** means Completed, Retired or Dropped: these can go on the tier list and are
-  offered in "Score these".
+  offered in "Score these" (on the tier list).
 - **Retired** is offered in the details, not in the Add dialog.
 - **The finish date** is stamped the first time a title is completed.
 - **Undo:** changing a status, or removing a title, shows a toast with **Undo** for 8
@@ -154,9 +154,9 @@ screen** before anything is saved.
   anything outside 0–10.
 - **Display format** (Settings): out of 10 (`8.5`), five stars (`4.3★`) or out of 100
   (`85`). Storage and input stay 0–10.
-- **Score these:** a "Score these · N" banner on each section lists finished titles
-  without a score (and, for games, any game with 10 h or more on Steam), each with the
-  score step. The tier list's tray links to it.
+- **Score these:** the "Score these · N" button in the tier list's tray opens a list of
+  finished titles without a score (and, for games, any game with 10 h or more on Steam),
+  each with the score step.
 
 ## 6. Progress, history and the diary
 
@@ -195,8 +195,6 @@ Each section page has:
   sections are remembered per section on each device.
 - **Badges on cards:** progress, "in 12 days" for planned titles not out yet, "New
   season", "≈ 32 h" to beat (games), and "Mark as Listened?" (albums).
-- **You vs. the crowd** at the foot of the page: your 10 biggest disagreements with the
-  TMDB, MAL or IGDB score, and how far you usually differ.
 
 ### Title details
 

@@ -22,9 +22,9 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import Link from 'next/link';
 import { ChevronDown, ChevronUp, GripVertical, ImageOff, Sparkles, Star, Wand2 } from 'lucide-react';
 
+import { ScoreThese } from '@/components/score-these';
 import { Button } from '@/components/ui/button';
 import { acceptSuggestedTiers, saveTiers } from '@/lib/actions/ranking';
 import type { CategorySlug } from '@/lib/categories';
@@ -44,12 +44,13 @@ import {
   type TierPlacement,
 } from '@/lib/tiers';
 import type { ActionResult, ActivityWithMedia } from '@/lib/types';
-import { unscoredFinished } from '@/lib/unscored';
 import { cn } from '@/lib/utils';
 
 interface TierBoardProps {
   slug: CategorySlug;
   initial: TierBoardData;
+  /** Finished (or well-played) titles with no score yet (`unscoredFinished`), for "Score these". */
+  unscored: ActivityWithMedia[];
 }
 
 /** What a board row shows for an item. */
@@ -67,8 +68,8 @@ export interface ItemTierBoardProps<T extends RankableItem> {
   view: (item: T) => BoardItemView;
   /** Shown when nothing is on the board. */
   emptyText: string;
-  /** "Score these · n" link next to the tray heading (activities only). */
-  scoreThese?: { href: string; count: number } | null;
+  /** "Score these · n" button next to the tray heading (activities only). */
+  scoreThese?: { count: number; onOpen: () => void } | null;
 }
 
 /** Accent per tier: label cell and suggestion chip (readable in light and dark). */
@@ -86,25 +87,28 @@ const samePlacement = <T extends RankableItem>(a: TierBoardData<T>, b: TierBoard
 
 /**
  * A section's tier list: its finished titles on the generic board, saved
- * through `saveTiers`.
+ * through `saveTiers`. The tray's "Score these" button opens the scoring
+ * dialog in place (its only entry point).
  */
-export function TierBoard({ slug, initial }: TierBoardProps) {
+export function TierBoard({ slug, initial, unscored }: TierBoardProps) {
   const titleOf = useDisplayTitle();
-  // Every title on the board is finished, so the unscored ones are "Score these".
-  const unscored = unscoredFinished([...TIERS.flatMap((t) => initial.tiers[t]), ...initial.tray]).length;
+  const [scoring, setScoring] = useState(false);
   return (
-    <ItemTierBoard<ActivityWithMedia>
-      initial={initial}
-      save={(placement, trayIds) => saveTiers(slug, placement, trayIds)}
-      acceptAll={() => acceptSuggestedTiers(slug)}
-      view={(a) => ({
-        title: titleOf(a.media),
-        subtitle: [a.media.year, mediaSubtitle(a.media, a.category)].filter(Boolean).join(' · '),
-        imageUrl: a.media.imageUrl,
-      })}
-      emptyText="Nothing to tier yet — finish something first."
-      scoreThese={unscored > 0 ? { href: `/${slug}?score=1`, count: unscored } : null}
-    />
+    <>
+      <ItemTierBoard<ActivityWithMedia>
+        initial={initial}
+        save={(placement, trayIds) => saveTiers(slug, placement, trayIds)}
+        acceptAll={() => acceptSuggestedTiers(slug)}
+        view={(a) => ({
+          title: titleOf(a.media),
+          subtitle: [a.media.year, mediaSubtitle(a.media, a.category)].filter(Boolean).join(' · '),
+          imageUrl: a.media.imageUrl,
+        })}
+        emptyText="Nothing to tier yet — finish something first."
+        scoreThese={unscored.length > 0 ? { count: unscored.length, onOpen: () => setScoring(true) } : null}
+      />
+      <ScoreThese slug={slug} items={unscored} open={scoring} onOpenChange={setScoring} />
+    </>
   );
 }
 
@@ -240,13 +244,15 @@ export function ItemTierBoard<T extends RankableItem>({
             </h2>
             <div className="flex flex-wrap items-center gap-2">
               {scoreThese && (
-                <Link
-                  href={scoreThese.href}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 underline-offset-4 hover:underline dark:text-amber-300"
+                <button
+                  type="button"
+                  onClick={scoreThese.onOpen}
+                  aria-haspopup="dialog"
+                  className="inline-flex items-center gap-1.5 rounded-sm text-sm font-medium text-amber-700 underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-amber-300"
                 >
                   <Sparkles className="h-4 w-4" aria-hidden />
                   Score these · {scoreThese.count}
-                </Link>
+                </button>
               )}
               {hasSuggestions && (
                 <Button variant="outline" size="sm" onClick={acceptAll} disabled={isPending}>

@@ -8,7 +8,7 @@ import { normalizeTags } from '@/lib/tags';
 interface CategoryPageProps {
   // Next 14: route params are a plain object (not a Promise).
   params: { category: string };
-  searchParams: { score?: string; open?: string; t?: string; tag?: string | string[] };
+  searchParams: { open?: string; t?: string; tag?: string | string[] };
 }
 
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
@@ -26,7 +26,6 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       config={config}
       activities={activities}
       franchises={franchises}
-      scoreOpen={searchParams.score === '1'}
       openId={typeof searchParams.open === 'string' ? searchParams.open : undefined}
       openNonce={typeof searchParams.t === 'string' ? searchParams.t : undefined}
       initialTags={normalizeTags([searchParams.tag ?? []].flat())}

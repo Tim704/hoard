@@ -222,7 +222,7 @@ export function SearchDialog({
   /**
    * Add every ticked title, one after another (each is a normal add, so
    * franchise grouping and events behave exactly as for a single add). Done
-   * titles get no score here: they wait in "Score these". Failures stay
+   * titles get no score here: they wait in the tier list's "Score these". Failures stay
    * ticked so they can be retried.
    */
   async function addPicked(status: 'COMPLETED' | 'PLANNED') {
@@ -262,7 +262,7 @@ export function SearchDialog({
     if (added > 0) {
       toast.success(
         status === 'COMPLETED'
-          ? `Added ${titles(added)} as ${labels.done}. Score them from “Score these”.${extra}`
+          ? `Added ${titles(added)} as ${labels.done}. Score them from “Score these” on the tier list.${extra}`
           : `Added ${titles(added)} to Up next.${extra}`,
       );
     } else if (already > 0) {

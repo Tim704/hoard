@@ -1,8 +1,8 @@
 // ───────────────────────────────────────────────────────────────────────────
 //  "You vs. the crowd" (spec 1.9): the providers' community scores on the same
 //  0–10 scale as yours. TMDB and MAL already are; IGDB's 0–100 is divided by
-//  10. Books and music have no crowd score. Pure, shared by the section pages
-//  and (later) the stats page.
+//  10. Books and music have no crowd score. Pure; the stats page's crowd panel
+//  uses it (the section pages' panel was removed).
 // ───────────────────────────────────────────────────────────────────────────
 
 import type { CategorySlug } from './categories';

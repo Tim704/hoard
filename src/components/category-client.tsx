@@ -5,13 +5,11 @@ import Link from 'next/link';
 import { Layers, ListTree, Rows3 } from 'lucide-react';
 
 import { ActivityDetailDialog } from '@/components/activity-detail-dialog';
-import { CrowdPanel } from '@/components/crowd-panel';
 import { MediaCompact } from '@/components/media-compact';
 import { MediaGrid } from '@/components/media-grid';
 import { MediaTable } from '@/components/media-table';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { RoastButton } from '@/components/roast-button';
-import { ScoreThese } from '@/components/score-these';
 import { SearchDialog } from '@/components/search-dialog';
 import { StatusSection } from '@/components/status-section';
 import { TagFilter } from '@/components/tag-filter';
@@ -48,8 +46,6 @@ interface CategoryClientProps {
   activities: ActivityWithMedia[];
   /** The user's franchises, for the detail dialog's franchise picker. */
   franchises: { id: string; name: string }[];
-  /** Open the "Score these" dialog on arrival (linked from the tier list). */
-  scoreOpen?: boolean;
   /** Open this activity's details on arrival (`?open=<id>`, from the Cmd/Ctrl+K palette). */
   openId?: string;
   /** Changes with every palette pick (`?t=`), so the same title reopens. */
@@ -99,7 +95,6 @@ export function CategoryClient({
   config,
   activities,
   franchises,
-  scoreOpen = false,
   openId,
   openNonce,
   initialTags = [],
@@ -420,8 +415,6 @@ export function CategoryClient({
         </div>
       </div>
 
-      <ScoreThese slug={slug} activities={activities} defaultOpen={scoreOpen} />
-
       {/* Body */}
       {activities.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border py-20 text-center">
@@ -461,8 +454,6 @@ export function CategoryClient({
       ) : (
         renderView(visible)
       )}
-
-      <CrowdPanel slug={slug} activities={activities} source={config.source} />
 
       <ActivityDetailDialog
         activity={selected}
