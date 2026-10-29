@@ -101,10 +101,10 @@ function RangeFields({ legend, from, to }: { legend: string; from: [string, stri
   return (
     <fieldset className="rounded-md border border-border p-3">
       <legend className="px-1 text-xs text-muted-foreground">{legend}</legend>
-      <div className="flex flex-wrap items-center gap-2">
-        <input type="date" name={from[0]} defaultValue={from[1]} required aria-label={`${legend} from`} className="h-9 rounded-md border border-input bg-background px-2 text-base sm:text-sm" />
-        <span className="text-xs text-muted-foreground">to</span>
-        <input type="date" name={to[0]} defaultValue={to[1]} required aria-label={`${legend} to`} className="h-9 rounded-md border border-input bg-background px-2 text-base sm:text-sm" />
+      <div className="flex items-center gap-2">
+        <input type="date" name={from[0]} defaultValue={from[1]} required aria-label={`${legend} from`} className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-base sm:flex-none sm:text-sm" />
+        <span className="shrink-0 text-xs text-muted-foreground">to</span>
+        <input type="date" name={to[0]} defaultValue={to[1]} required aria-label={`${legend} to`} className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-base sm:flex-none sm:text-sm" />
       </div>
     </fieldset>
   );

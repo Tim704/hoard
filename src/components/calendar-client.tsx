@@ -77,8 +77,8 @@ export function CalendarClient(props: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-md border border-border p-0.5" role="group" aria-label="View">
+      <div className="flex items-center gap-2">
+        <div className="inline-flex shrink-0 rounded-md border border-border p-0.5" role="group" aria-label="View">
           <Button
             size="sm"
             variant={view === 'grid' ? 'secondary' : 'ghost'}
@@ -100,10 +100,10 @@ export function CalendarClient(props: Props) {
         </div>
         <Link
           href={settingsHref('sharing', 'calendar')}
-          className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground underline-offset-2 hover:underline"
+          className="ml-auto inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground underline-offset-2 hover:underline"
         >
-          <Rss className="h-3.5 w-3.5" aria-hidden />
-          {props.hasFeed ? 'Calendar feed in Settings' : 'Subscribe in your calendar app'}
+          <Rss className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span className="truncate">{props.hasFeed ? 'Calendar feed in Settings' : 'Subscribe in your calendar app'}</span>
         </Link>
       </div>
 

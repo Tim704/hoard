@@ -95,15 +95,16 @@ export function FranchisesClient({ franchises }: { franchises: FranchiseWithMemb
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-1">
+      {/* Stacked on phones, one row that never wraps from sm. */}
+      <header className="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0 space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">Franchises</h1>
           <p className="text-sm text-muted-foreground">
             Seasons, movies, manga and games of one IP, grouped. Rate the IP as a
             whole without touching each title&apos;s own rating.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           {progress && <span className="text-xs text-muted-foreground">{progress}</span>}
           <Button variant="outline" onClick={detect} disabled={detecting}>
             {detecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Radar className="mr-2 h-4 w-4" />}

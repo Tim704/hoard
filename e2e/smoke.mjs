@@ -528,7 +528,8 @@ if (failures.length === 0) {
   // items are in More. Then the cards on TV Shows (the demo show is
   // ongoing, with progress): Classic's plain card has no progress bar,
   // Organised shows at most one badge (the show's progress), Minimal and
-  // Fresh render their own cards. Classic is restored afterwards.
+  // Fresh render their own cards. On a phone, pages whose rows used to wrap
+  // don't scroll sideways. Classic is restored afterwards.
   await step('section toolbar and cards in every layout', async () => {
     try {
       for (const label of ['Classic', 'Minimal', 'Organised', 'Fresh']) {
@@ -582,6 +583,22 @@ if (failures.length === 0) {
             } else if (width === 1280 && (await more.isVisible())) {
               throw new Error(`${where}: More shows although everything fits`);
             }
+          }
+          if (width !== 375) continue;
+          // Rows that used to wrap: nothing scrolls sideways on a phone, and
+          // the tier list tray's header stays on one line.
+          for (const path of ['/dashboard', '/books/arena', '/diary', '/settings?tab=system']) {
+            await page.goto(`${BASE_URL}${path}`, { waitUntil: 'networkidle' });
+            const r = await page.evaluate(() => {
+              const tray = document.getElementById('tray-heading')?.parentElement;
+              const items = tray ? [...tray.children].map((el) => el.getBoundingClientRect()) : [];
+              return {
+                overflow: document.documentElement.scrollWidth - window.innerWidth,
+                trayRows: items.length ? (Math.max(...items.map((b) => b.top)) < Math.min(...items.map((b) => b.bottom)) ? 1 : 2) : 0,
+              };
+            });
+            if (r.overflow > 0) throw new Error(`${label} ${path} at 375: the page scrolls sideways by ${r.overflow}px`);
+            if (path === '/books/arena' && r.trayRows !== 1) throw new Error(`${label} at 375: the tier tray header wraps`);
           }
         }
         await page.setViewportSize({ width: 1280, height: 900 });

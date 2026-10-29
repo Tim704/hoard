@@ -80,19 +80,20 @@ export function DiaryClient({ entries, library, today }: DiaryClientProps) {
         </p>
       </header>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" onClick={() => setAdding(true)} className="w-full sm:w-auto">
+      {/* Two by two below lg, one row that never wraps from lg. */}
+      <div className="grid grid-cols-2 gap-2 lg:flex lg:items-center">
+        <Button type="button" onClick={() => setAdding(true)} className="min-w-0 px-3 sm:px-4">
           <Plus className="mr-2 h-4 w-4" aria-hidden />
-          Log a past one
+          <span className="truncate">Log a past one</span>
         </Button>
-        <Button asChild variant="outline" className="w-full sm:w-auto">
+        <Button asChild variant="outline" className="min-w-0 px-3 sm:px-4">
           <Link href="/arena/year">
             <Trophy className="mr-2 h-4 w-4" aria-hidden />
-            Best of the year
+            <span className="truncate">Best of the year</span>
           </Link>
         </Button>
         <Select value={section} onValueChange={setSection}>
-          <SelectTrigger aria-label="Section" className="h-10 w-[calc(50%-0.25rem)] sm:ml-auto sm:h-9 sm:w-40">
+          <SelectTrigger aria-label="Section" className="h-10 lg:ml-auto lg:h-9 lg:w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -105,7 +106,7 @@ export function DiaryClient({ entries, library, today }: DiaryClientProps) {
           </SelectContent>
         </Select>
         <Select value={year} onValueChange={setYear}>
-          <SelectTrigger aria-label="Year" className="h-10 w-[calc(50%-0.25rem)] sm:h-9 sm:w-32">
+          <SelectTrigger aria-label="Year" className="h-10 lg:h-9 lg:w-32">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

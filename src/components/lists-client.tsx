@@ -446,8 +446,9 @@ function PasteForm({ aiConfigured }: { aiConfigured: boolean }) {
             </Link>
           </div>
         )}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <label className={cn('inline-flex items-center gap-2 text-sm', !aiConfigured && 'text-muted-foreground')}>
+        {/* Stacked on phones, one row that never wraps from sm. */}
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <label className={cn('inline-flex min-w-0 items-center gap-2 text-sm', !aiConfigured && 'text-muted-foreground')}>
             <input
               type="checkbox"
               checked={useAi}
@@ -459,7 +460,7 @@ function PasteForm({ aiConfigured }: { aiConfigured: boolean }) {
             Let the AI pick out the titles
             {!aiConfigured && <span className="text-xs">(not configured on this server)</span>}
           </label>
-          <Button type="submit" disabled={busy || !name.trim() || !text.trim() || (useAi && tooLong)}>
+          <Button type="submit" className="shrink-0" disabled={busy || !name.trim() || !text.trim() || (useAi && tooLong)}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
             {progress ?? 'Create list'}
           </Button>

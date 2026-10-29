@@ -63,9 +63,11 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-3 sm:mb-8">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+      {/* Stacked below lg (the greeting would be cut short beside the button),
+          one row that never wraps from lg. */}
+      <header className="mb-6 flex flex-col items-start gap-3 sm:mb-8 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-bold tracking-tight sm:text-3xl">
             Welcome back{user ? `, ${user.username}` : ''} 👋
           </h1>
           <p className="mt-1 text-muted-foreground">
@@ -74,7 +76,7 @@ export default async function DashboardPage() {
               : 'Your hoard at a glance.'}
           </p>
         </div>
-        <RecommendAcrossButton />
+        <RecommendAcrossButton className="shrink-0" />
       </header>
 
       {/* 3×3 on desktop. At sm (2 columns) the overview spans the full width and

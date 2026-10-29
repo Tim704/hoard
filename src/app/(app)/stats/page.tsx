@@ -57,12 +57,13 @@ export default async function StatsPage({ searchParams }: { searchParams: Search
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-      <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
+      {/* Stacked on phones, one row that never wraps from sm. */}
+      <header className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Stats</h1>
           <p className="mt-1 text-muted-foreground">What your hoard says about you.</p>
         </div>
-        <RecommendAcrossButton />
+        <RecommendAcrossButton className="shrink-0" />
       </header>
       <StatsTabs active={tab} currentYear={cy} />
       {tab === 'overview' && <Overview data={await getStatsOverview(user.id, parseYear(searchParams.year), prefs)} />}
@@ -247,8 +248,8 @@ function TasteProfilePanel({ stored, prefs }: { stored: StoredTasteProfile | nul
   const top = p?.top ?? [];
   return (
     <section aria-labelledby="taste-profile-heading" className="rounded-xl border border-border bg-card p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <h2 id="taste-profile-heading" className="font-semibold">
             Your taste profile
           </h2>

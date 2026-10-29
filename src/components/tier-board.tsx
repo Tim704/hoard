@@ -241,16 +241,25 @@ export function ItemTierBoard<T extends RankableItem>({
         </section>
 
         <section className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="tray-heading" className="text-base font-semibold text-muted-foreground">
+          {/* One row that never wraps: Accept all is an icon on phones. */}
+          <div className="flex items-center justify-between gap-2">
+            <h2 id="tray-heading" className="min-w-0 truncate text-base font-semibold text-muted-foreground">
               Unranked · {board.tray.length}
             </h2>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               {scoreThese && <ScoreTheseButton {...scoreThese} />}
               {hasSuggestions && (
-                <Button variant="outline" size="sm" onClick={acceptAll} disabled={isPending}>
-                  <Wand2 className="mr-2 h-4 w-4" aria-hidden />
-                  Accept all suggestions
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={acceptAll}
+                  disabled={isPending}
+                  aria-label="Accept all suggestions"
+                  title="Accept all suggestions"
+                  className="w-9 px-0 sm:w-auto sm:px-3"
+                >
+                  <Wand2 className="h-4 w-4 sm:mr-2" aria-hidden />
+                  <span className="hidden sm:inline">Accept all suggestions</span>
                 </Button>
               )}
             </div>

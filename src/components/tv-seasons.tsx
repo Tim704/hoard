@@ -205,12 +205,12 @@ function SeasonLine({
 
   return (
     <li className="space-y-2 p-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="min-w-0 flex-1 basis-32">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
           <label htmlFor={inputId} className="block truncate text-sm font-medium">
             {row.name}
           </label>
-          {aired && <p className="text-xs text-muted-foreground">{aired}</p>}
+          {aired && <p className="truncate text-xs text-muted-foreground">{aired}</p>}
         </div>
         <Input
           id={inputId}
@@ -227,13 +227,14 @@ function SeasonLine({
           }}
           aria-label={`Watched episodes of ${row.name}`}
           // text-base on phones stops iOS zooming the page on focus (<16px does).
-          className="h-9 w-14 text-base tabular-nums sm:text-sm"
+          className="h-9 w-14 shrink-0 text-base tabular-nums sm:text-sm"
         />
-        <span className="text-sm text-muted-foreground">{total != null ? `/ ${total}` : 'eps'}</span>
+        <span className="shrink-0 text-sm text-muted-foreground">{total != null ? `/ ${total}` : 'eps'}</span>
         <Button
           type="button"
           variant="outline"
           size="sm"
+          className="shrink-0"
           disabled={disabled || (total != null && watched >= total)}
           onClick={() => onChange({ kind: 'inc' })}
           aria-label={`Add one episode of ${row.name}`}
@@ -245,6 +246,7 @@ function SeasonLine({
             type="button"
             variant="outline"
             size="sm"
+            className="shrink-0"
             disabled={disabled || watched >= total}
             onClick={() => onChange({ kind: 'all' })}
           >
@@ -256,7 +258,7 @@ function SeasonLine({
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-label={`${open ? 'Hide' : 'Show'} episodes and score of ${row.name}`}
-          className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           {open ? <ChevronUp className="h-4 w-4" aria-hidden /> : <ChevronDown className="h-4 w-4" aria-hidden />}
         </button>

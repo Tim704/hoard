@@ -93,8 +93,11 @@ export function SettingsSystem({
           <p className="font-medium">Scheduled jobs</p>
           <ul className="divide-y divide-border rounded-md border border-border">
             {jobs.map((j) => (
-              <li key={j.name} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 px-3 py-2">
-                <span className="font-mono text-xs">
+              <li
+                key={j.name}
+                className="flex flex-col gap-0.5 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-4"
+              >
+                <span className="min-w-0 truncate font-mono text-xs">
                   {j.name} <span className="text-muted-foreground">({j.schedule})</span>
                 </span>
                 <span className="text-xs text-muted-foreground">
