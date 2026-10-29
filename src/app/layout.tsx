@@ -1,7 +1,7 @@
 import './globals.css';
 
 import type { Metadata, Viewport } from 'next';
-import { Inter, Manrope, Outfit } from 'next/font/google';
+import { Manrope, Outfit } from 'next/font/google';
 import { cookies } from 'next/headers';
 
 import { Toaster } from '@/components/ui/sonner';
@@ -11,16 +11,9 @@ import { DEFAULT_LAYOUT, LAYOUTS, type LayoutId } from '@/lib/layouts';
 import { SESSION_COOKIE, getCurrentUser } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
-// Inter as the app's sans typeface; exposed as a CSS variable so Tailwind's
-// `font-sans` (configured to fall back to system fonts) picks it up.
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-sans',
-  display: 'swap',
-});
-
-// The display fonts of the Minimal and Fresh layouts (globals.css switches
-// to them under [data-layout]). Not preloaded: a browser only downloads one
+// Classic uses the system sans stack (Tailwind's `font-sans`). These are the
+// display fonts of the Minimal and Fresh layouts (globals.css switches to
+// them under [data-layout]). Not preloaded: a browser only downloads one
 // when a layout that uses it is on.
 const manrope = Manrope({
   subsets: ['latin'],
@@ -108,7 +101,6 @@ export default async function RootLayout({
       <body
         className={cn(
           'min-h-screen bg-background font-sans antialiased',
-          inter.variable,
           manrope.variable,
           outfit.variable,
         )}
