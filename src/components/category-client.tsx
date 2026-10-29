@@ -24,18 +24,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useSectionFilters } from '@/components/section/use-section-filters';
 import type { CategoryConfig, CategorySlug } from '@/lib/categories';
 import {
-  isStatus,
-  STATUS_ORDER,
-  STATUSES,
-  statusLabel,
-  type Status,
-} from '@/lib/status';
-import { hasOwnership, matchesOwnership, ownershipChoices } from '@/lib/ownership';
-import { orderQueue } from '@/lib/queue';
-import { countTags, hasAllTags } from '@/lib/tags';
-import { matchesTitle } from '@/lib/title';
+  applySectionFilters,
+  franchiseSections,
+  isStatusList,
+  isViewMode,
+  SECTION_ORDER,
+  sectionPrefKey,
+  SORT_LABEL,
+  SORT_MODES,
+  type SortMode,
+  type StatusFilter,
+} from '@/lib/section-filters';
+import { STATUSES, statusLabel, type Status } from '@/lib/status';
+import { hasOwnership, ownershipChoices } from '@/lib/ownership';
+import { countTags } from '@/lib/tags';
 import { compareTierOrder, isTierEligible } from '@/lib/tiers';
 import { toDisplayUnits, type ActivityWithMedia, type ViewMode } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -54,38 +59,6 @@ interface CategoryClientProps {
   initialTags?: string[];
 }
 
-type SortMode = 'status' | 'recent' | 'rating' | 'ranking' | 'title';
-type StatusFilter = 'ALL' | Status;
-
-const isViewMode = (v: unknown): v is ViewMode =>
-  v === 'grid' || v === 'list' || v === 'compact';
-const isSortMode = (v: unknown): v is SortMode =>
-  typeof v === 'string' && v in SORT_LABEL;
-const isBool = (v: unknown): v is boolean => typeof v === 'boolean';
-const isStatusList = (v: unknown): v is Status[] =>
-  Array.isArray(v) && v.every((x) => typeof x === 'string' && isStatus(x));
-
-/** Which section a franchise with mixed statuses lands in, best first. */
-const FRANCHISE_SECTION_PRIORITY: Status[] = [
-  'CONSUMING',
-  'COMPLETED',
-  'ON_HOLD',
-  'PLANNED',
-  'RETIRED',
-  'DROPPED',
-];
-
-/** Section order when grouping by status: in progress first, dropped last. */
-const SECTION_ORDER = [...STATUSES].sort((a, b) => STATUS_ORDER[a] - STATUS_ORDER[b]);
-
-const SORT_LABEL: Record<SortMode, string> = {
-  status: 'Status',
-  recent: 'Recently added',
-  rating: 'Highest rated',
-  ranking: 'Tier list',
-  title: 'Title (A–Z)',
-};
-
 /**
  * The interactive shell for a category page: search/add, filter, sort, switch
  * between grid and table views, and open the detail dialog for any item.
@@ -99,21 +72,18 @@ export function CategoryClient({
   openNonce,
   initialTags = [],
 }: CategoryClientProps) {
-  // View preferences persist per category across visits.
-  const key = (name: string) => `hoard:${slug}:${name}`;
-  const [viewMode, setViewMode] = usePersistentState<ViewMode>(key('view'), 'grid', isViewMode);
-  const [sort, setSort] = usePersistentState<SortMode>(key('sort'), 'status', isSortMode);
-  const [grouped, setGrouped] = usePersistentState<boolean>(key('grouped'), true, isBool);
-  const [collapsed, setCollapsed] = usePersistentState<Status[]>(
-    key('collapsed'),
-    [],
-    isStatusList,
-  );
-  const [groupFranchises, setGroupFranchises] = usePersistentState<boolean>(
-    key('franchises'),
-    true,
-    isBool,
-  );
+  // View preferences persist per category across visits (sort and the two
+  // groupings inside useSectionFilters).
+  const [viewMode, setViewMode] = usePersistentState<ViewMode>(sectionPrefKey(slug, 'view'), 'grid', isViewMode);
+  const [collapsed, setCollapsed] = usePersistentState<Status[]>(sectionPrefKey(slug, 'collapsed'), [], isStatusList);
+  const { filters, set } = useSectionFilters(slug, initialTags);
+  const { sort, grouped, groupFranchises, status: statusFilter, owned: ownedFilter, tags: tagFilter } = filters;
+  const setSort = (v: SortMode) => set('sort', v);
+  const setGrouped = (v: boolean) => set('grouped', v);
+  const setGroupFranchises = (v: boolean) => set('groupFranchises', v);
+  const setStatusFilter = (v: StatusFilter) => set('status', v);
+  const setOwnedFilter = (v: string) => set('owned', v);
+  const setTagFilter = (v: string[]) => set('tags', v);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const toggleGroup = (id: string) =>
     setExpandedGroups((prev) => {
@@ -123,11 +93,6 @@ export function CategoryClient({
       return next;
     });
   const [filter, setFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
-  // 3.5: owned platform (games) or format (books, manga, music); ALL / NONE / a value.
-  const [ownedFilter, setOwnedFilter] = useState('ALL');
-  // 4.2: titles carrying ALL of these tags.
-  const [tagFilter, setTagFilter] = useState<string[]>(initialTags);
   const sectionTags = useMemo(
     () => countTags(activities.map((a) => ({ tags: a.tags, section: slug }))).map((t) => t.tag),
     [activities, slug],
@@ -157,54 +122,10 @@ export function CategoryClient({
     );
 
   const titleOf = useDisplayTitle();
-  const visible = useMemo(() => {
-    const text = filter.trim();
-
-    const filtered = activities.filter((a) => {
-      if (statusFilter !== 'ALL' && a.status !== statusFilter) return false;
-      if (!matchesOwnership(a, ownedFilter)) return false;
-      if (!hasAllTags(a.tags, tagFilter)) return false;
-      // Matches every stored title (anime / manga: English, romaji and native).
-      if (text && !matchesTitle(a.media, text)) return false;
-      return true;
-    });
-
-    const sorted = [...filtered];
-    switch (sort) {
-      case 'status':
-        // In-progress first, then by rating (desc, null last), then title.
-        sorted.sort((a, b) => {
-          const byStatus = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
-          if (byStatus !== 0) return byStatus;
-          const byRating = (b.rating ?? -1) - (a.rating ?? -1);
-          if (byRating !== 0) return byRating;
-          return titleOf(a.media).localeCompare(titleOf(b.media));
-        });
-        break;
-      case 'rating':
-        sorted.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
-        break;
-      case 'ranking':
-        // Tier list order: S→F by position, untiered after.
-        sorted.sort(compareTierOrder);
-        break;
-      case 'title':
-        sorted.sort((a, b) => titleOf(a.media).localeCompare(titleOf(b.media)));
-        break;
-      case 'recent':
-      default:
-        sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        break;
-    }
-    // PLANNED items follow the Up next queue order, not the sort mode's order
-    // (the 'status' sort and the Planned section both rely on this).
-    if (sort === 'status' || grouped) {
-      const queue = orderQueue(sorted);
-      let q = 0;
-      return sorted.map((a) => (a.status === 'PLANNED' ? queue[q++] : a));
-    }
-    return sorted;
-  }, [activities, filter, statusFilter, ownedFilter, tagFilter, sort, grouped, titleOf]);
+  const visible = useMemo(
+    () => applySectionFilters(activities, filters, filter, titleOf),
+    [activities, filters, filter, titleOf],
+  );
 
   // Tier list positions across the whole category (stable inside sections).
   const ranks = useMemo(() => {
@@ -218,25 +139,11 @@ export function CategoryClient({
   // without having to expand its franchise.
   const groupingOn = groupFranchises && !filter.trim();
 
-  // With both groupings on, a franchise is shown whole in ONE status section:
-  // wherever you are in the IP (anything in progress, else anything finished…).
-  const franchiseSection = useMemo(() => {
-    const map = new Map<string, Status>();
-    if (!groupingOn) return map;
-    const members = new Map<string, Status[]>();
-    for (const a of visible) {
-      if (!a.franchise) continue;
-      const list = members.get(a.franchise.id) ?? [];
-      list.push(a.status);
-      members.set(a.franchise.id, list);
-    }
-    for (const [id, statuses] of members) {
-      if (statuses.length < 2) continue;
-      const best = FRANCHISE_SECTION_PRIORITY.find((s) => statuses.includes(s));
-      if (best) map.set(id, best);
-    }
-    return map;
-  }, [visible, groupingOn]);
+  // With both groupings on, a franchise is shown whole in ONE status section.
+  const franchiseSection = useMemo(
+    () => (groupingOn ? franchiseSections(visible) : new Map<string, Status>()),
+    [visible, groupingOn],
+  );
 
   const sectionOf = (a: ActivityWithMedia): Status =>
     (a.franchise && franchiseSection.get(a.franchise.id)) || a.status;
@@ -343,7 +250,7 @@ export function CategoryClient({
             <SelectValue placeholder="Sort" />
           </SelectTrigger>
           <SelectContent>
-            {(Object.keys(SORT_LABEL) as SortMode[]).map((s) => (
+            {SORT_MODES.map((s) => (
               <SelectItem key={s} value={s}>
                 {SORT_LABEL[s]}
               </SelectItem>
