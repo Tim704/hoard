@@ -150,12 +150,15 @@ export function useTitleEditor(activity: ActivityWithMedia | null, options: Titl
       }
       // A franchise picked by hand is locked, so automatic detection never undoes it.
       let saved = values;
+      let franchiseFailed = false;
       if (values.franchiseId !== before.base.franchiseId) {
         const target = values.franchiseId === NO_FRANCHISE ? null : values.franchiseId === NEW_FRANCHISE ? 'new' : values.franchiseId;
         const moved = await assignFranchise(activity.id, target).catch(() => ({ ok: false as const, error: undefined }));
         if (!moved.ok) {
+          franchiseFailed = true;
           saved = { ...values, franchiseId: before.base.franchiseId };
-          toast.error(moved.error ?? 'Could not change the franchise.');
+          // The one toast for this save: it also says the rest was saved.
+          toast.error(moved.error ?? 'Could not change the franchise.', { description: 'Everything else was saved.' });
         }
       }
       // The fields now match what was saved; anything typed meanwhile stays an
@@ -173,7 +176,7 @@ export function useTitleEditor(activity: ActivityWithMedia | null, options: Titl
           res.previous,
           refresh,
         );
-      } else {
+      } else if (!franchiseFailed) {
         toast.success('Saved.');
       }
       refresh();

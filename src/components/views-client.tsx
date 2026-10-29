@@ -115,13 +115,11 @@ export function ViewsClient({
   views,
   selected,
   library,
-  franchises,
 }: {
   views: SavedViewData[];
   /** The saved view being shown (?view=), or null for a new one. */
   selected: SavedViewData | null;
   library: ActivityWithMedia[];
-  franchises: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const titleOf = useDisplayTitle();
@@ -428,7 +426,7 @@ export function ViewsClient({
         <MediaGrid units={toDisplayUnits(results, false)} onSelect={openTitle} hrefFor={hrefFor} expanded={NO_EXPANDED} onToggleGroup={() => {}} />
       )}
 
-      <ActivityDetailDialog activity={opened} onClose={() => setOpenId(null)} franchises={franchises} />
+      <ActivityDetailDialog activity={opened} onClose={() => setOpenId(null)} />
     </div>
   );
 }

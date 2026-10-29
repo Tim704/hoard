@@ -277,6 +277,10 @@ export function TitlePage({
         </div>
       </div>
 
+      {/* Always mounted, so screen readers hear the Save bar come and go. */}
+      <p role="status" className="sr-only">
+        {editor.dirty ? 'Unsaved changes' : ''}
+      </p>
       {editor.dirty && (
         <div
           role="region"

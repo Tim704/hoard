@@ -27,12 +27,12 @@ export async function generateMetadata({ params }: TitleRouteProps): Promise<Met
  * someone else's, is a 404.
  */
 export default async function TitleRoute({ params }: TitleRouteProps) {
-  const activity = await getActivity(params.activityId);
+  // Both at once: a 404 or a redirect wastes the (small) franchise query.
+  const [activity, franchises] = await Promise.all([getActivity(params.activityId), getFranchiseOptions()]);
   const outcome = titlePageOutcome(params.category, activity ? { id: activity.id, category: activity.category } : null);
   if (outcome.kind === 'redirect') redirect(outcome.href);
   if (outcome.kind === 'not-found' || !activity) notFound();
 
-  const franchises = await getFranchiseOptions();
   return (
     <TitlePage
       key={activity.id}

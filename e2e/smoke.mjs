@@ -918,9 +918,12 @@ if (failures.length === 0) {
       const bar = page.getByRole('region', { name: 'Unsaved changes' });
       const before = await notes.inputValue();
       const edited = `${before}${before ? ' ' : ''}smoke note`;
+      // Screen readers hear the bar come up: an always-present status line.
+      const announced = () => page.locator('main p[role="status"]', { hasText: 'Unsaved changes' }).count();
       const saveNotes = async (value) => {
         await notes.fill(value);
         await bar.waitFor({ timeout: 10_000 });
+        if ((await announced()) !== 1) throw new Error('the unsaved changes are not announced');
         await bar.getByRole('button', { name: 'Save', exact: true }).click();
         await bar.waitFor({ state: 'hidden', timeout: 15_000 });
       };
@@ -928,6 +931,7 @@ if (failures.length === 0) {
         if ((await bar.count()) > 0) throw new Error('the Save bar shows before any edit');
         await saveNotes(edited);
         await page.getByText('Saved.').first().waitFor({ timeout: 15_000 });
+        if ((await announced()) !== 0) throw new Error('"Unsaved changes" is still announced after Save');
         await page.reload({ waitUntil: 'networkidle' });
         if ((await notes.inputValue()) !== edited) throw new Error(`after Save and a reload the notes are: ${await notes.inputValue()}`);
         if ((await bar.count()) > 0) throw new Error('the Save bar shows after a reload');

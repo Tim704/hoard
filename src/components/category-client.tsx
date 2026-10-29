@@ -33,8 +33,6 @@ interface CategoryClientProps {
   slug: CategorySlug;
   config: CategoryConfig;
   activities: ActivityWithMedia[];
-  /** The user's franchises, for the detail dialog's franchise picker. */
-  franchises: { id: string; name: string }[];
   /** Open this activity's popup on arrival (`?open=<id>`: the palette, notifications, links). */
   openId?: string;
   /** Changes with every palette pick (`?t=`), so the same title reopens. */
@@ -51,7 +49,6 @@ export function CategoryClient({
   slug,
   config,
   activities,
-  franchises,
   openId,
   openNonce,
   initialTags = [],
@@ -239,11 +236,7 @@ export function CategoryClient({
         renderView(visible)
       )}
 
-      <ActivityDetailDialog
-        activity={selected}
-        onClose={() => setSelected(null)}
-        franchises={franchises}
-      />
+      <ActivityDetailDialog activity={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }

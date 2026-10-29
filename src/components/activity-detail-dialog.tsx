@@ -6,11 +6,6 @@ import type { ActivityWithMedia } from '@/lib/types';
 interface ActivityDetailDialogProps {
   activity: ActivityWithMedia | null;
   onClose: () => void;
-  /**
-   * The user's franchises. Unused since the franchise moved to the full
-   * title page (which loads its own); kept so callers needn't change.
-   */
-  franchises?: { id: string; name: string }[];
 }
 
 /**

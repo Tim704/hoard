@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 
 import { CategoryClient } from '@/components/category-client';
 import { getCategory } from '@/lib/categories';
-import { getCategoryActivities, getFranchiseOptions, getOwnedTitleRef } from '@/lib/data';
+import { getCategoryActivities, getOwnedTitleRef } from '@/lib/data';
 import { getCurrentPrefs } from '@/lib/data-prefs';
 import { normalizeTags } from '@/lib/tags';
 import { openRedirect } from '@/lib/title-href';
@@ -26,17 +26,13 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     if (to) redirect(to);
   }
 
-  const [activities, franchises] = await Promise.all([
-    getCategoryActivities(config.slug),
-    getFranchiseOptions(),
-  ]);
+  const activities = await getCategoryActivities(config.slug);
 
   return (
     <CategoryClient
       slug={config.slug}
       config={config}
       activities={activities}
-      franchises={franchises}
       openId={open}
       openNonce={typeof searchParams.t === 'string' ? searchParams.t : undefined}
       initialTags={normalizeTags([searchParams.tag ?? []].flat())}
