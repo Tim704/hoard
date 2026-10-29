@@ -76,7 +76,7 @@ export function SettingsShell({
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-4 sm:p-6">
+    <div className="mx-auto max-w-5xl px-[var(--page-pad)] py-4 sm:py-6">
       <header className="mb-4 space-y-1 lg:mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground">Changes save as you make them.</p>
@@ -85,9 +85,9 @@ export function SettingsShell({
         {/* Sticks below the layout's sticky top bar, if any (--topbar-h). */}
         <nav
           aria-label="Settings"
-          className="-mx-4 mb-5 border-b border-border sm:-mx-6 lg:sticky lg:top-[calc(var(--topbar-h)+1.5rem)] lg:mx-0 lg:mb-0 lg:w-48 lg:shrink-0 lg:border-0"
+          className="-mx-[var(--page-pad)] mb-5 border-b border-border lg:sticky lg:top-[calc(var(--topbar-h)+1.5rem)] lg:mx-0 lg:mb-0 lg:w-48 lg:shrink-0 lg:border-0"
         >
-          <ul className="scrollbar-none relative flex gap-1 overflow-x-auto px-4 pb-2 sm:px-6 lg:flex-col lg:overflow-visible lg:p-0">
+          <ul className="scrollbar-none relative flex gap-1 overflow-x-auto px-[var(--page-pad)] pb-2 lg:flex-col lg:overflow-visible lg:p-0">
             {tabs.map((tab) => {
               const Icon = TAB_ICONS[tab];
               const on = tab === shown;

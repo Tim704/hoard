@@ -36,7 +36,7 @@ export default async function FeedPage({ searchParams }: { searchParams: { curso
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
+    <div className="mx-auto max-w-3xl space-y-6 px-[var(--page-pad)] py-4 sm:py-6">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Rss className="h-6 w-6 text-orange-500" aria-hidden />

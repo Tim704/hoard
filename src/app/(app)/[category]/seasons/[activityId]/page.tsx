@@ -20,7 +20,7 @@ export default async function SeasonTiersPage({ params }: SeasonPageProps) {
   if (!data) notFound();
 
   return (
-    <div className="mx-auto max-w-5xl p-4 sm:p-6">
+    <div className="mx-auto max-w-5xl px-[var(--page-pad)] py-4 sm:py-6">
       <div className="mb-6">
         <TitleLink
           slug="tv"

@@ -100,7 +100,7 @@ export function CustomListClient({ list }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
+    <div className="mx-auto max-w-5xl space-y-6 px-[var(--page-pad)] py-4 sm:py-6">
       <ListHeader list={list} />
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">

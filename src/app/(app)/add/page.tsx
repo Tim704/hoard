@@ -27,7 +27,7 @@ export default function AddPage({ searchParams }: AddPageProps) {
   });
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 px-4 py-6 sm:px-6 sm:py-10">
+    <div className="mx-auto max-w-2xl space-y-4 px-[var(--page-pad)] py-6 sm:py-10">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">Add to Hoard</h1>
         <p className="text-sm text-muted-foreground">

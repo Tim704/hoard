@@ -79,7 +79,7 @@ export function RefListClient({ list }: { list: RefListView }) {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 p-4 sm:p-6">
+    <div className="mx-auto max-w-3xl space-y-5 px-[var(--page-pad)] py-4 sm:py-6">
       <div>
         <Link
           href="/lists?tab=ref"

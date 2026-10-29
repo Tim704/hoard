@@ -39,7 +39,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: { m
   );
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
+    <div className="mx-auto max-w-5xl space-y-6 px-[var(--page-pad)] py-4 sm:py-6">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <CalendarDays className="h-6 w-6 text-sky-500" aria-hidden />

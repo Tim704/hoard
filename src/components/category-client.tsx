@@ -163,7 +163,7 @@ export function CategoryClient({
   }, [activities]);
 
   return (
-    <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
+    <div className="space-y-4 px-[var(--page-pad)] py-4 sm:space-y-6 sm:py-6">
       {/* Header */}
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">

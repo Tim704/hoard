@@ -95,7 +95,7 @@ export function FranchisesClient({ franchises }: { franchises: FranchiseWithMemb
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+    <div className="mx-auto max-w-6xl space-y-6 px-[var(--page-pad)] py-4 sm:py-6">
       {/* Stacked on phones, one row that never wraps from sm. */}
       <header className="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0 space-y-1">

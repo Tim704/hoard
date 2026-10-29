@@ -56,7 +56,7 @@ export default async function StatsPage({ searchParams }: { searchParams: Search
     searchParams.tab === 'goals' || searchParams.tab === 'taste' || searchParams.tab === 'people' ? searchParams.tab : 'overview';
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+    <div className="mx-auto max-w-6xl px-[var(--page-pad)] py-6 sm:py-10">
       {/* Stacked on phones, one row that never wraps from sm. */}
       <header className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">

@@ -17,7 +17,7 @@ export function StatsTabs({ active, currentYear }: { active: StatsTab; currentYe
     { key: 'people', label: 'People', href: '/stats?tab=people' },
   ];
   return (
-    <nav aria-label="Stats" className="scrollbar-thin -mx-4 mb-6 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+    <nav aria-label="Stats" className="scrollbar-thin -mx-[var(--page-pad)] mb-6 overflow-x-auto px-[var(--page-pad)] sm:mx-0 sm:px-0">
       <ul className="flex w-max gap-1 rounded-lg border border-border bg-muted/40 p-1">
         {tabs.map((t) => (
           <li key={t.key}>

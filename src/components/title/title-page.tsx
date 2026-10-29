@@ -60,7 +60,8 @@ const FIELD_NAMES: Record<keyof TitleValues, string> = {
 };
 
 /** Full-bleed bands on phones (the content as wide as the popup's), cards from sm. */
-const PANEL = '-mx-4 min-w-0 space-y-4 border-x-0 border-y border-border bg-card p-4 sm:mx-0 sm:rounded-lg sm:border-x sm:p-5';
+const PANEL =
+  '-mx-[var(--page-pad)] min-w-0 space-y-4 border-x-0 border-y border-border bg-card px-[var(--page-pad)] py-4 sm:mx-0 sm:rounded-lg sm:border-x sm:p-5';
 
 /**
  * One block of the page; hidden when what it holds renders nothing. Not a
@@ -122,7 +123,7 @@ export function TitlePage({
 
   return (
     <div className="flex min-h-full flex-col">
-      <div className="mx-auto w-full max-w-5xl flex-1 space-y-6 p-4 sm:p-6">
+      <div className="mx-auto w-full max-w-5xl flex-1 space-y-6 px-[var(--page-pad)] py-4 sm:py-6">
         <Link
           href={sectionHref}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
@@ -297,7 +298,7 @@ export function TitlePage({
           role="region"
           aria-label="Unsaved changes"
           data-save-bar=""
-          className="sticky bottom-0 z-30 border-t border-border bg-background px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_30px_-15px_rgb(0_0_0/0.45)] sm:px-6"
+          className="sticky bottom-0 z-30 border-t border-border bg-background px-[var(--page-pad)] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_30px_-15px_rgb(0_0_0/0.45)]"
         >
           <div className="mx-auto flex max-w-5xl items-center gap-2">
             <p className="min-w-0 flex-1 truncate text-sm">

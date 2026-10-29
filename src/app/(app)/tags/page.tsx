@@ -28,7 +28,7 @@ export default async function TagsPage({ searchParams }: { searchParams: { tag?:
   const isSelected = (t: string) => selected.some((s) => tagKey(s) === tagKey(t));
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
+    <div className="mx-auto max-w-4xl space-y-6 px-[var(--page-pad)] py-4 sm:py-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">Tags</h1>
         <p className="text-sm text-muted-foreground">

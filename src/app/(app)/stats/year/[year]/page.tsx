@@ -57,7 +57,7 @@ export default async function YearInReviewPage({ params }: { params: { year: str
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+    <div className="mx-auto max-w-6xl px-[var(--page-pad)] py-6 sm:py-10">
       <header className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{year} in review</h1>
         <p className="mt-1 text-muted-foreground">Everything you finished in {year}, from your diary.</p>

@@ -43,7 +43,7 @@ const TABS = [
 /** `/lists`: custom lists (4.11) and reference lists (4.8). */
 export function ListsClient({ tab, mine, shared, refLists, builtins, aiConfigured }: ListsClientProps) {
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
+    <div className="mx-auto max-w-5xl space-y-6 px-[var(--page-pad)] py-4 sm:py-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">Lists</h1>
         <p className="text-sm text-muted-foreground">

@@ -75,7 +75,7 @@ export default async function DashboardPage() {
   const shown = tiles.map(tile).filter(Boolean);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+    <div className="mx-auto max-w-6xl px-[var(--page-pad)] py-6 sm:py-10">
       {/* One line that never wraps: the greeting truncates beside the buttons
           (icons where a label wouldn't leave it room, see HeaderButton). */}
       <header data-dashboard-header="" className="mb-6 flex items-end justify-between gap-3 sm:mb-8">

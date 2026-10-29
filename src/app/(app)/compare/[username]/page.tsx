@@ -35,7 +35,7 @@ export default async function CompareUserPage({ params }: { params: { username: 
   const view = await compareLibraries(user.id, username);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 p-4 sm:p-6">
+    <div className="mx-auto max-w-4xl space-y-8 px-[var(--page-pad)] py-4 sm:py-6">
       <header className="space-y-2">
         <Link href="/compare" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" aria-hidden />
