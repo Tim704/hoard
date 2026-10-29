@@ -58,7 +58,7 @@ export function SettingsSystem({
               No backup folder is mounted on this server.
             </p>
           ) : (
-            <p className={problem ? 'flex items-start gap-2 text-destructive fresh:text-rose-400' : 'flex items-start gap-2'}>
+            <p className={problem ? 'flex items-start gap-2 text-destructive fresh:text-rose-400 minimal:dark:text-rose-400 organised:dark:text-rose-400' : 'flex items-start gap-2'}>
               {problem ? (
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
               ) : (
@@ -105,7 +105,7 @@ export function SettingsSystem({
                     'Waiting for its first run'
                   ) : j.lastRunAt ? (
                     <>
-                      <span className={j.lastStatus === 'error' ? 'text-destructive fresh:text-rose-400' : undefined}>
+                      <span className={j.lastStatus === 'error' ? 'text-destructive fresh:text-rose-400 minimal:dark:text-rose-400 organised:dark:text-rose-400' : undefined}>
                         {j.lastStatus === 'ok' ? 'OK' : j.lastStatus}
                       </span>
                       {' · '}
@@ -117,7 +117,7 @@ export function SettingsSystem({
                   )}
                 </span>
                 {j.lastError && (
-                  <span className="w-full break-words text-xs text-destructive fresh:text-rose-400">{j.lastError}</span>
+                  <span className="w-full break-words text-xs text-destructive fresh:text-rose-400 minimal:dark:text-rose-400 organised:dark:text-rose-400">{j.lastError}</span>
                 )}
               </li>
             ))}

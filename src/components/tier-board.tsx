@@ -81,7 +81,7 @@ export interface ItemTierBoardProps<T extends RankableItem> {
 /** Accent per tier: label cell and suggestion chip (readable in light and dark). */
 const TIER_STYLE: Record<Tier, string> = {
   S: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40',
-  A: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/40',
+  A: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/40 minimal:text-orange-800 organised:text-orange-800 minimal:dark:text-orange-300 organised:dark:text-orange-300',
   B: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40',
   C: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40',
   D: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/40',

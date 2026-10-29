@@ -223,7 +223,7 @@ export function IsbnLookup({ library }: { library: Record<string, LibraryEntry> 
       />
 
       {cameraError && <p className="text-sm text-muted-foreground" role="status">{cameraError}</p>}
-      {answer && !answer.ok && <p className="text-sm text-rose-400">{answer.error}</p>}
+      {answer && !answer.ok && <p className="text-sm text-rose-400 minimal:text-rose-700 organised:text-rose-700 minimal:dark:text-rose-400 organised:dark:text-rose-400">{answer.error}</p>}
       {answer?.ok && !result && (
         <p className="text-sm text-muted-foreground">OpenLibrary doesn’t know that ISBN. Try searching by title.</p>
       )}

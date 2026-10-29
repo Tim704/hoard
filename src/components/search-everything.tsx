@@ -115,7 +115,7 @@ export function SearchEverythingPanel({
         {loading && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-label="Searching" />}
       </div>
 
-      {error && <p className="text-sm text-rose-400">{error}</p>}
+      {error && <p className="text-sm text-rose-400 minimal:text-rose-700 organised:text-rose-700 minimal:dark:text-rose-400 organised:dark:text-rose-400">{error}</p>}
 
       {sections && !loading && !anyHits && sections.every((s) => s.state === 'ok') && (
         <p className="py-6 text-center text-sm text-muted-foreground">No results in any section.</p>
@@ -131,7 +131,7 @@ export function SearchEverythingPanel({
                 <h3 className="flex items-baseline gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {cat.label}
                   {s.state === 'timeout' && <span className="font-normal normal-case">timed out</span>}
-                  {s.state === 'error' && <span className="font-normal normal-case text-rose-400">{s.message}</span>}
+                  {s.state === 'error' && <span className="font-normal normal-case text-rose-400 minimal:text-rose-700 organised:text-rose-700 minimal:dark:text-rose-400 organised:dark:text-rose-400">{s.message}</span>}
                 </h3>
                 {s.state === 'ok' && (
                   <div role="listbox" aria-label={`${cat.label} results`} className="space-y-2">
@@ -178,7 +178,7 @@ export function LinkResult({
 }) {
   const rows = useAddRows();
   if (!resolution.ok) {
-    return <p className="text-sm text-rose-400">{resolution.error}</p>;
+    return <p className="text-sm text-rose-400 minimal:text-rose-700 organised:text-rose-700 minimal:dark:text-rose-400 organised:dark:text-rose-400">{resolution.error}</p>;
   }
   const { slug, result } = resolution;
   if (slug && result) {

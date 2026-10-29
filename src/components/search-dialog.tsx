@@ -428,7 +428,7 @@ export function SearchDialog({
               </Button>
             </div>
 
-            {error && <p className="text-sm text-rose-400">{error}</p>}
+            {error && <p className="text-sm text-rose-400 minimal:text-rose-700 organised:text-rose-700 minimal:dark:text-rose-400 organised:dark:text-rose-400">{error}</p>}
 
             {slug === 'books' && (
               <div className="space-y-2">

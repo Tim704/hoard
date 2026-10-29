@@ -88,7 +88,7 @@ export function useRoastCritic(slug: CategorySlug): { run: (mode: RoastMode) => 
             Consulting the AI critic…
           </div>
         ) : error ? (
-          <p className="py-4 text-sm text-destructive fresh:text-rose-400">{error}</p>
+          <p className="py-4 text-sm text-destructive fresh:text-rose-400 minimal:dark:text-rose-400 organised:dark:text-rose-400">{error}</p>
         ) : (
           <p className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">
             {text}

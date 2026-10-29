@@ -615,7 +615,7 @@ function FinishedCard({
         {summary.updated > 0 && <li>{summary.updated} updated</li>}
         {summary.unchanged > 0 && <li>{summary.unchanged} already in your library, left as they were</li>}
         {summary.skipped > 0 && <li>{summary.skipped} skipped</li>}
-        {summary.failed > 0 && <li className="text-destructive fresh:text-rose-400">{summary.failed} could not be imported</li>}
+        {summary.failed > 0 && <li className="text-destructive fresh:text-rose-400 minimal:dark:text-rose-400 organised:dark:text-rose-400">{summary.failed} could not be imported</li>}
       </ul>
       {failed.length > 0 && (
         <div className="space-y-2 rounded-md border border-destructive/40 p-3">
