@@ -137,11 +137,12 @@ export function SettingsNotifications({ initial }: { initial: NotifySettings }) 
               onChange={(e) => setDiscordWebhook(e.target.value)}
             />
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" size="sm" disabled={isPending || !dirty}>
+          {/* Phones: full-width buttons, one per line; one row from sm. */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button type="submit" size="sm" disabled={isPending || !dirty} className="w-full sm:w-auto">
               Save
             </Button>
-            <Button type="button" size="sm" variant="outline" onClick={sendTest} disabled={isPending || dirty}>
+            <Button type="button" size="sm" variant="outline" onClick={sendTest} disabled={isPending || dirty} className="w-full sm:w-auto">
               <Send className="mr-2 h-4 w-4" aria-hidden />
               Send test
             </Button>

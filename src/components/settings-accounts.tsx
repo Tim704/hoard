@@ -11,11 +11,12 @@
 import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertTriangle, Download, Link2, Link2Off, Loader2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Download, Link2, Link2Off, Loader2, MoreHorizontal, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -90,6 +91,52 @@ function Missing({ children }: { children: React.ReactNode }) {
       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
       <span>{children}</span>
     </p>
+  );
+}
+
+/**
+ * A link's unlink action: a full-width button in the phone stack; from sm a
+ * "⋯" menu at the end of the row, so three actions stay on one line (CSS
+ * only, like the section toolbar's More).
+ */
+function FoldedAction({
+  account,
+  label,
+  onSelect,
+  disabled,
+}: {
+  account: string;
+  label: string;
+  onSelect: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <>
+      <Button size="sm" variant="outline" onClick={onSelect} disabled={disabled} className="w-full sm:hidden">
+        <Link2Off className="mr-2 h-4 w-4" aria-hidden />
+        {label}
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            aria-label={`More ${account} actions`}
+            title={`More ${account} actions`}
+            className="hidden w-9 shrink-0 px-0 sm:inline-flex"
+          >
+            <MoreHorizontal className="h-4 w-4" aria-hidden />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={onSelect}>
+            <Link2Off className="mr-2 h-4 w-4" aria-hidden />
+            {label}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }
 
@@ -193,21 +240,20 @@ function SteamSection({ configured, link: initial }: AccountsProps['steam']) {
             <span className="text-muted-foreground"> · {link.accountId}</span>
           </p>
           <SyncState link={link} />
-          <div className="flex flex-wrap gap-2">
-            <Button asChild size="sm" variant="outline">
+          {/* Phones: full-width buttons, one per line; one row from sm, with
+              Unlink in a menu so the row fits beside the sidebar. */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
               <Link href="/import?source=steam">
                 <Download className="mr-2 h-4 w-4" aria-hidden />
                 Import library
               </Link>
             </Button>
-            <Button size="sm" variant="outline" onClick={sync} disabled={pending}>
+            <Button size="sm" variant="outline" onClick={sync} disabled={pending} className="w-full sm:w-auto">
               <RefreshCw className="mr-2 h-4 w-4" aria-hidden />
               Update playtime now
             </Button>
-            <Button size="sm" variant="outline" onClick={disconnect} disabled={pending}>
-              <Link2Off className="mr-2 h-4 w-4" aria-hidden />
-              Unlink
-            </Button>
+            <FoldedAction account="Steam" label="Unlink" onSelect={disconnect} disabled={pending} />
           </div>
         </div>
       ) : (
@@ -278,12 +324,13 @@ function LastfmSection({ configured, link: initial }: AccountsProps['lastfm']) {
             Linked to <span className="font-medium">{link.accountId}</span>
           </p>
           <SyncState link={link} />
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={check} disabled={pending}>
+          {/* Phones: full-width buttons, one per line; one row from sm. */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button size="sm" variant="outline" onClick={check} disabled={pending} className="w-full sm:w-auto">
               <RefreshCw className="mr-2 h-4 w-4" aria-hidden />
               Check now
             </Button>
-            <Button size="sm" variant="outline" onClick={disconnect} disabled={pending}>
+            <Button size="sm" variant="outline" onClick={disconnect} disabled={pending} className="w-full sm:w-auto">
               <Link2Off className="mr-2 h-4 w-4" aria-hidden />
               Unlink
             </Button>
@@ -352,21 +399,20 @@ function AniListSection({ username: initialName, link: initial, pushConfigured, 
             {link?.hasToken && <span className="text-muted-foreground"> · changes are pushed back</span>}
           </p>
           {link && <SyncState link={link} />}
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={sync} disabled={pending}>
+          {/* Phones: full-width buttons, one per line; one row from sm, with
+              Disconnect in a menu so the row fits beside the sidebar. */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button size="sm" variant="outline" onClick={sync} disabled={pending} className="w-full sm:w-auto">
               {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <RefreshCw className="mr-2 h-4 w-4" aria-hidden />}
               Sync now
             </Button>
             {pushConfigured && !link?.hasToken && (
-              <Button size="sm" variant="outline" onClick={connect} disabled={pending}>
+              <Button size="sm" variant="outline" onClick={connect} disabled={pending} className="w-full sm:w-auto">
                 <Link2 className="mr-2 h-4 w-4" aria-hidden />
                 Connect to push changes
               </Button>
             )}
-            <Button size="sm" variant="outline" onClick={disconnect} disabled={pending}>
-              <Link2Off className="mr-2 h-4 w-4" aria-hidden />
-              Disconnect
-            </Button>
+            <FoldedAction account="AniList" label="Disconnect" onSelect={disconnect} disabled={pending} />
           </div>
         </div>
       ) : (
