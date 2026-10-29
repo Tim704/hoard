@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronUp, Plus, Rows3 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { Heading, type HeadingLevel } from '@/components/heading';
 import { RatingInput } from '@/components/rating-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,11 +32,14 @@ export function TvSeasons({
   activityId,
   disabled,
   onLoaded,
+  headingLevel = 3,
 }: {
   activityId: string;
   disabled?: boolean;
   /** Told whether the show has seasons (then its progress is their sum). */
   onLoaded?: (hasSeasons: boolean) => void;
+  /** Its "Seasons" heading's level (the title page's panels are h2). */
+  headingLevel?: HeadingLevel;
 }) {
   const router = useRouter();
   const [rows, setRows] = useState<SeasonRow[] | null>(null);
@@ -117,15 +121,25 @@ export function TvSeasons({
     router.refresh();
   }
 
-  if (failed) return <p className="text-xs text-muted-foreground">Could not load the seasons.</p>;
+  const heading = (
+    <Heading level={headingLevel} id={`seasons-${activityId}`} className="text-sm font-medium">
+      Seasons
+    </Heading>
+  );
+  if (failed) {
+    return (
+      <section aria-labelledby={`seasons-${activityId}`} className="space-y-2">
+        {heading}
+        <p className="text-xs text-muted-foreground">Could not load the seasons.</p>
+      </section>
+    );
+  }
   if (!rows) return null;
 
   return (
     <section aria-labelledby={`seasons-${activityId}`} className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id={`seasons-${activityId}`} className="text-sm font-medium">
-          Seasons
-        </h3>
+        {heading}
         {rows.length > 0 && (
           <Link
             href={`/tv/seasons/${encodeURIComponent(activityId)}`}

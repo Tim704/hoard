@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, History, Loader2, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { Heading, LabelHeading, type HeadingLevel } from '@/components/heading';
 import { LinkPreview, LinkTextarea } from '@/components/linked-text';
 import { useDisplayTitle, usePrefs, useScoreFormat } from '@/components/prefs-provider';
 import { toastStatusChange } from '@/components/undo-toast';
@@ -50,7 +51,16 @@ export function LogFailed() {
 // ── Ownership / format (3.5) ─────────────────────────────────────────────────
 
 /** Platforms a game is owned on, or a book / manga / album's format. Saves as it changes. */
-export function OwnershipField({ activity, disabled }: { activity: ActivityWithMedia; disabled?: boolean }) {
+export function OwnershipField({
+  activity,
+  disabled,
+  headingLevel,
+}: {
+  activity: ActivityWithMedia;
+  disabled?: boolean;
+  /** The label is also its panel's heading (the title page). */
+  headingLevel?: HeadingLevel;
+}) {
   const router = useRouter();
   const slug = activity.category;
   const [platforms, setPlatforms] = useState<string[]>(activity.ownedPlatforms);
@@ -91,9 +101,11 @@ export function OwnershipField({ activity, disabled }: { activity: ActivityWithM
     const listId = `owned-${activity.id}`;
     return (
       <div className="space-y-1.5">
-        <label className="text-sm font-medium" htmlFor={listId + '-input'}>
-          Owned on
-        </label>
+        <LabelHeading level={headingLevel}>
+          <label className="text-sm font-medium" htmlFor={listId + '-input'}>
+            Owned on
+          </label>
+        </LabelHeading>
         {platforms.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {platforms.map((p) => (
@@ -154,7 +166,9 @@ export function OwnershipField({ activity, disabled }: { activity: ActivityWithM
   const NONE = '__none';
   return (
     <div className="space-y-1.5">
-      <label className="text-sm font-medium">Format</label>
+      <LabelHeading level={headingLevel}>
+        <label className="text-sm font-medium">Format</label>
+      </LabelHeading>
       <Select
         value={format ?? NONE}
         disabled={disabled || saving}
@@ -248,11 +262,14 @@ export function ReviewField({
   category,
   initial,
   onSaved,
+  headingLevel,
 }: {
   activityId: string;
   category: string;
   initial: string;
   onSaved: () => void;
+  /** The label is also its panel's heading (the title page). */
+  headingLevel?: HeadingLevel;
 }) {
   const [value, setValue] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -275,9 +292,11 @@ export function ReviewField({
 
   return (
     <div className="space-y-1.5">
-      <label className="text-sm font-medium" htmlFor={`review-${activityId}`}>
-        Review
-      </label>
+      <LabelHeading level={headingLevel}>
+        <label className="text-sm font-medium" htmlFor={`review-${activityId}`}>
+          Review
+        </label>
+      </LabelHeading>
       <LinkTextarea
         id={`review-${activityId}`}
         value={value}
@@ -308,12 +327,15 @@ export function Sessions({
   log,
   onChanged,
   className,
+  headingLevel,
 }: {
   activityId: string;
   log: ActivityLog;
   onChanged: () => void;
   /** Extra classes for the box (the title page draws it as one of its panels). */
   className?: string;
+  /** "Play sessions" as a heading of this level (the title page); a plain line otherwise. */
+  headingLevel?: HeadingLevel;
 }) {
   const { weekStart } = usePrefs();
   const [date, setDate] = useState(log.today);
@@ -359,7 +381,13 @@ export function Sessions({
 
   return (
     <section aria-label="Play sessions" className={cn('space-y-3 rounded-md border border-border p-3', className)}>
-      <p className="text-sm font-medium">Play sessions</p>
+      {headingLevel ? (
+        <Heading level={headingLevel} className="text-sm font-medium">
+          Play sessions
+        </Heading>
+      ) : (
+        <p className="text-sm font-medium">Play sessions</p>
+      )}
       <div className="grid grid-cols-[1fr_5.5rem] gap-2">
         <Input
           type="date"

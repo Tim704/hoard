@@ -14,6 +14,7 @@ import { Layers, Loader2, PencilLine, Sparkles, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AddToList } from '@/components/add-to-list';
+import { LabelHeading, type HeadingLevel } from '@/components/heading';
 import { LinkPreview, LinkTextarea, MentionedIn } from '@/components/linked-text';
 import { ManualFields } from '@/components/manual-fields';
 import { MoreBySection } from '@/components/more-by';
@@ -443,17 +444,22 @@ export function NotesField({
   value,
   onChange,
   rows = 3,
+  headingLevel,
 }: {
   activity: ActivityWithMedia;
   value: string;
   onChange: (v: string) => void;
   rows?: number;
+  /** The label is also its panel's heading (the title page). */
+  headingLevel?: HeadingLevel;
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-sm font-medium" htmlFor={`notes-${activity.id}`}>
-        Notes
-      </label>
+      <LabelHeading level={headingLevel}>
+        <label className="text-sm font-medium" htmlFor={`notes-${activity.id}`}>
+          Notes
+        </label>
+      </LabelHeading>
       <LinkTextarea
         id={`notes-${activity.id}`}
         value={value}
@@ -470,8 +476,16 @@ export function NotesField({
 }
 
 /** Tags, saved as they change. Render with `key={`tags:${activity.id}`}`. */
-export function TagsField({ activity, disabled }: { activity: ActivityWithMedia; disabled?: boolean }) {
-  return <TagInput activityId={activity.id} initial={activity.tags} disabled={disabled} />;
+export function TagsField({
+  activity,
+  disabled,
+  headingLevel,
+}: {
+  activity: ActivityWithMedia;
+  disabled?: boolean;
+  headingLevel?: HeadingLevel;
+}) {
+  return <TagInput activityId={activity.id} initial={activity.tags} disabled={disabled} headingLevel={headingLevel} />;
 }
 
 /** The custom lists the title is on. Render with `key={`lists:${activity.id}`}`. */
@@ -488,11 +502,13 @@ export function TitleProgressField({
   disabled,
   seasonTracked,
   onMarkFinished,
+  headingLevel,
 }: {
   activity: ActivityWithMedia;
   disabled?: boolean;
   seasonTracked?: boolean;
   onMarkFinished: () => void;
+  headingLevel?: HeadingLevel;
 }) {
   return (
     // A stable wrapper, so the keyed remount below stays in place.
@@ -504,6 +520,7 @@ export function TitleProgressField({
         disabled={disabled}
         readOnlyHint={seasonTracked ? 'Tracked by seasons' : undefined}
         onMarkFinished={onMarkFinished}
+        headingLevel={headingLevel}
       />
     </div>
   );
@@ -514,13 +531,23 @@ export function SeasonsField({
   activity,
   disabled,
   onLoaded,
+  headingLevel,
 }: {
   activity: ActivityWithMedia;
   disabled?: boolean;
   onLoaded?: (hasSeasons: boolean) => void;
+  headingLevel?: HeadingLevel;
 }) {
   if (activity.category !== 'tv') return null;
-  return <TvSeasons key={`seasons:${activity.id}`} activityId={activity.id} disabled={disabled} onLoaded={onLoaded} />;
+  return (
+    <TvSeasons
+      key={`seasons:${activity.id}`}
+      activityId={activity.id}
+      disabled={disabled}
+      onLoaded={onLoaded}
+      headingLevel={headingLevel}
+    />
+  );
 }
 
 /** The titles whose notes or reviews link here. */
@@ -529,7 +556,7 @@ export function MentionedInField({ activity }: { activity: ActivityWithMedia }) 
 }
 
 /** More by the same people (provider titles only; a hand-made one has no credits). */
-export function MoreByField({ activity }: { activity: ActivityWithMedia }) {
+export function MoreByField({ activity, headingLevel }: { activity: ActivityWithMedia; headingLevel?: 2 | 3 }) {
   if (isManualId(activity.media.externalId)) return null;
-  return <MoreBySection key={`more-by:${activity.id}`} activityId={activity.id} />;
+  return <MoreBySection key={`more-by:${activity.id}`} activityId={activity.id} headingLevel={headingLevel} />;
 }

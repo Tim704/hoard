@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Tag, X } from 'lucide-react';
 
+import { LabelHeading, type HeadingLevel } from '@/components/heading';
 import { settle } from '@/lib/action-result';
 import { listMyTags, setActivityTags } from '@/lib/actions/tags';
 import { addTags, MAX_TAGS, removeTag, suggestTags } from '@/lib/tags';
@@ -18,10 +19,13 @@ export function TagInput({
   activityId,
   initial,
   disabled = false,
+  headingLevel,
 }: {
   activityId: string;
   initial: string[];
   disabled?: boolean;
+  /** The label is also its panel's heading (the title page). */
+  headingLevel?: HeadingLevel;
 }) {
   const router = useRouter();
   const [tags, setTags] = useState(initial);
@@ -72,10 +76,12 @@ export function TagInput({
 
   return (
     <div className="space-y-1.5">
-      <label htmlFor={inputId} className="flex items-center gap-1.5 text-sm font-medium">
-        <Tag className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-        Tags
-      </label>
+      <LabelHeading level={headingLevel}>
+        <label htmlFor={inputId} className="flex items-center gap-1.5 text-sm font-medium">
+          <Tag className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+          Tags
+        </label>
+      </LabelHeading>
       <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5">
         {tags.map((t) => (
           <span

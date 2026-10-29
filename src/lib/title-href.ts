@@ -7,6 +7,7 @@
 //  page, so a stored link works in either view.
 // ───────────────────────────────────────────────────────────────────────────
 
+import { isCategorySlug } from '@/lib/categories';
 import type { TitleView } from '@/lib/display-prefs';
 
 /**
@@ -40,10 +41,11 @@ export type TitlePageOutcome = { kind: 'show' } | { kind: 'redirect'; href: stri
 /**
  * What `/<requested>/title/<id>` does, given the user's own title with that
  * id (null: unknown, or someone else's — the same answer): shows it, moves
- * to its own section's address, or 404s.
+ * to its own section's address, or 404s. A section that doesn't exist is a
+ * 404 too, as `/<requested>` itself is.
  */
 export function titlePageOutcome(requested: string, found: OwnedTitleRef | null): TitlePageOutcome {
-  if (!found) return { kind: 'not-found' };
+  if (!found || !isCategorySlug(requested)) return { kind: 'not-found' };
   if (found.category !== requested) return { kind: 'redirect', href: titleHref(found.category, found.id, 'page') };
   return { kind: 'show' };
 }

@@ -35,9 +35,14 @@ describe('titlePageOutcome', () => {
   it('shows the title in its own section', () => {
     expect(titlePageOutcome('books', { id: 'a', category: 'books' })).toEqual({ kind: 'show' });
   });
-  it('moves a title asked for under the wrong section to its own', () => {
+  it('moves a title asked for under another section to its own', () => {
     expect(titlePageOutcome('tv', { id: 'a', category: 'books' })).toEqual({ kind: 'redirect', href: '/books/title/a' });
-    expect(titlePageOutcome('no-such-section', { id: 'a', category: 'games' })).toEqual({ kind: 'redirect', href: '/games/title/a' });
+    expect(titlePageOutcome('music', { id: 'a', category: 'games' })).toEqual({ kind: 'redirect', href: '/games/title/a' });
+  });
+  it('404s a section that doesn’t exist, even for one’s own title (like /nope)', () => {
+    expect(titlePageOutcome('nope', { id: 'a', category: 'games' })).toEqual({ kind: 'not-found' });
+    expect(titlePageOutcome('Books', { id: 'a', category: 'books' })).toEqual({ kind: 'not-found' });
+    expect(titlePageOutcome('', { id: 'a', category: 'books' })).toEqual({ kind: 'not-found' });
   });
   it('404s an unknown or someone else’s title', () => {
     expect(titlePageOutcome('books', null)).toEqual({ kind: 'not-found' });

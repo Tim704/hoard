@@ -727,12 +727,52 @@ if (failures.length === 0) {
       await pickLayout('Classic');
     }
   });
+  // A title page's outline: one h1, then an h2 for every panel (Notes,
+  // History, Tags, Lists, Progress, Seasons, Format, Play sessions, Review,
+  // More by), and no level skipped anywhere in <main>.
+  const checkTitleOutline = async (where) => {
+    const o = await page.evaluate(() => {
+      const heads = [...document.querySelectorAll('main :is(h1, h2, h3, h4, h5, h6)')];
+      const levels = heads.map((h) => Number(h.tagName[1]));
+      const name = (h) => `${h.tagName.toLowerCase()} “${h.textContent.trim()}”`;
+      const skips = heads.filter((h, i) => i > 0 && levels[i] > levels[i - 1] + 1).map((h, i) => name(h));
+      const panels = [...document.querySelectorAll('main [data-panel], main section[aria-label="Play sessions"]')].filter(
+        (el) => el.getClientRects().length > 0,
+      );
+      return {
+        h1: levels.filter((l) => l === 1).length,
+        first: levels[0],
+        skips,
+        bare: panels.filter((el) => !el.querySelector('h2')).map((el) => el.dataset.panel ?? el.getAttribute('aria-label')),
+        h2s: heads.filter((h) => h.tagName === 'H2').map((h) => h.textContent.trim()),
+      };
+    });
+    if (o.h1 !== 1 || o.first !== 1) throw new Error(`${where}: ${o.h1} h1s, the first heading is an h${o.first}`);
+    if (o.skips.length) throw new Error(`${where}: heading levels skip at ${o.skips.join(', ')}`);
+    if (o.bare.length) throw new Error(`${where}: panels without an h2: ${o.bare.join(', ')} (h2s: ${o.h2s.join(', ')})`);
+    return o.h2s;
+  };
   // TV seasons (3.3 / 4.5): the demo show's title page lists its seasons and
-  // links to the season tier page.
+  // links to the season tier page. Its outline, and a game's (Owned on, Play
+  // sessions), have an h2 per panel. A section that doesn't exist is a 404,
+  // even with one's own title id.
   await step('tv seasons on the title page → season tiers', async () => {
+    const game = await gameId();
+    await page.goto(`${BASE_URL}/games/title/${game}`, { waitUntil: 'networkidle' });
+    await page.getByRole('heading', { level: 2, name: 'Play sessions' }).waitFor({ timeout: 15_000 });
+    const gameH2s = await checkTitleOutline('the game page');
+    for (const want of ['Notes', 'History', 'Tags', 'Lists', 'Owned on', 'Play sessions']) {
+      if (!gameH2s.includes(want)) throw new Error(`the game page has no “${want}” h2 (h2s: ${gameH2s.join(', ')})`);
+    }
+    const nope = await page.request.get(`${BASE_URL}/nope/title/${game}`, { maxRedirects: 0 });
+    if (nope.status() !== 404) throw new Error(`/nope/title/<own id> answered ${nope.status()}`);
     await page.goto(`${BASE_URL}/tv/title/demo-activity-tv-expanse`, { waitUntil: 'networkidle' });
     await page.getByRole('heading', { level: 1, name: 'The Expanse' }).waitFor({ timeout: 15_000 });
-    await page.getByRole('heading', { name: 'Seasons' }).waitFor({ timeout: 15_000 });
+    await page.getByRole('heading', { level: 2, name: 'Seasons' }).waitFor({ timeout: 15_000 });
+    const tvH2s = await checkTitleOutline('the TV page');
+    for (const want of ['Notes', 'History', 'Tags', 'Lists', 'Progress', 'Seasons']) {
+      if (!tvH2s.includes(want)) throw new Error(`the TV page has no “${want}” h2 (h2s: ${tvH2s.join(', ')})`);
+    }
     await page.getByLabel('Watched episodes of Season 3').waitFor({ timeout: 10_000 });
     // Where to watch and sub-scores are gone from the details.
     const main = await page.locator('main').innerText();
@@ -756,6 +796,9 @@ if (failures.length === 0) {
       for (const label of ['Status', 'Rating', 'Favorite', 'Progress', 'Notes']) {
         await dialog.getByText(label, { exact: true }).first().waitFor({ timeout: 10_000 });
       }
+      // The popup keeps its markup: its title is its one heading.
+      const heads = await dialog.getByRole('heading').count();
+      if (heads !== 1) throw new Error(`at ${width} the popup has ${heads} headings`);
       const text = await dialog.innerText();
       const extra = ['Franchise', 'Tags', 'History', 'Season tiers', 'Add to list', 'More by the same people'].filter((t) => text.includes(t));
       if (extra.length) throw new Error(`at ${width} the popup still shows ${extra.join(', ')}`);
@@ -1031,6 +1074,18 @@ if (failures.length === 0) {
       await page.goto(`${BASE_URL}/books`, { waitUntil: 'networkidle' });
       const popupCard = await cardRoot();
       if (popupCard.tag !== 'button') throw new Error(`in popup mode a card is a <${popupCard.tag}>`);
+      // In the list view the title is a button: the keyboard opens the popup.
+      await page.evaluate(() => localStorage.setItem('hoard:books:view', '"list"'));
+      await page.goto(`${BASE_URL}/books`, { waitUntil: 'networkidle' });
+      const rowTitle = page.locator('main table td button').first();
+      const rowName = (await rowTitle.innerText()).trim();
+      await rowTitle.focus();
+      await page.keyboard.press('Enter');
+      const rowDialog = page.getByRole('dialog', { name: rowName, exact: true });
+      await rowDialog.waitFor({ timeout: 10_000 });
+      await page.keyboard.press('Escape');
+      await rowDialog.waitFor({ state: 'hidden', timeout: 10_000 });
+      await page.evaluate(() => localStorage.setItem('hoard:books:view', '"grid"'));
       await pickTitleView('Full page');
       // Real links: new tab, prefetch, read as links. In the list view the
       // title cell is the link.

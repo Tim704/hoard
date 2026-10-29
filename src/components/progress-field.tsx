@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Check, ListChecks, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { Heading, LabelHeading, type HeadingLevel } from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { settle } from '@/lib/action-result';
@@ -35,6 +36,8 @@ interface ProgressFieldProps {
    * read-only with this hint instead of the box and +1.
    */
   readOnlyHint?: string;
+  /** The label is also its panel's heading (the title page). */
+  headingLevel?: HeadingLevel;
 }
 
 /**
@@ -42,7 +45,7 @@ interface ProgressFieldProps {
  * +1 button (rapid taps are batched), each saving straight away as one
  * `progress` event. Render with `key={activity.id}`.
  */
-export function ProgressField({ activity, disabled, onMarkFinished, readOnlyHint }: ProgressFieldProps) {
+export function ProgressField({ activity, disabled, onMarkFinished, readOnlyHint, headingLevel }: ProgressFieldProps) {
   const router = useRouter();
   const slug = activity.category;
   const total = progressTotal(activity);
@@ -128,14 +131,22 @@ export function ProgressField({ activity, disabled, onMarkFinished, readOnlyHint
 
   if (!open && !readOnlyHint) {
     return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-      >
-        <ListChecks className="h-3.5 w-3.5" aria-hidden />
-        Track progress
-      </button>
+      <>
+        {/* No visible label yet: the panel's heading for screen readers only. */}
+        {headingLevel && (
+          <Heading level={headingLevel} className="sr-only">
+            Progress
+          </Heading>
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
+          <ListChecks className="h-3.5 w-3.5" aria-hidden />
+          Track progress
+        </button>
+      </>
     );
   }
 
@@ -147,9 +158,11 @@ export function ProgressField({ activity, disabled, onMarkFinished, readOnlyHint
 
   return (
     <div className="space-y-1.5">
-      <label htmlFor={readOnlyHint ? undefined : inputId} className="text-sm font-medium">
-        Progress
-      </label>
+      <LabelHeading level={headingLevel}>
+        <label htmlFor={readOnlyHint ? undefined : inputId} className="text-sm font-medium">
+          Progress
+        </label>
+      </LabelHeading>
       <div className="flex flex-wrap items-center gap-2">
         {readOnlyHint ? (
           <span className="text-sm tabular-nums">

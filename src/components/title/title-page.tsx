@@ -64,7 +64,10 @@ const PANEL = '-mx-4 min-w-0 space-y-4 border-x-0 border-y border-border bg-card
 
 /**
  * One block of the page; hidden when what it holds renders nothing. Not a
- * named region: the fields inside carry their own labels and headings.
+ * named region: each has an h2 under the page's h1 (Notes, History, Tags,
+ * Lists, Progress, Seasons, Format, Play sessions, Review, More by), most of
+ * them the field's own label wrapped in it (`headingLevel={2}`), so the
+ * outline costs no change in looks.
  */
 function Panel({ className, children, label }: { className?: string; children: React.ReactNode; label: string }) {
   return (
@@ -191,7 +194,7 @@ export function TitlePage({
 
         <div className="grid gap-6 md:grid-cols-2">
           <Panel label="Notes">
-            <NotesField activity={activity} value={editor.notes} onChange={editor.setNotes} rows={6} />
+            <NotesField activity={activity} value={editor.notes} onChange={editor.setNotes} rows={6} headingLevel={2} />
             <MentionedInField activity={activity} />
           </Panel>
           <Panel label="History">
@@ -212,7 +215,7 @@ export function TitlePage({
 
         <div className="grid gap-6 md:grid-cols-2">
           <Panel label="Tags">
-            <TagsField key={`tags:${activity.id}`} activity={activity} disabled={busy} />
+            <TagsField key={`tags:${activity.id}`} activity={activity} disabled={busy} headingLevel={2} />
           </Panel>
           <Panel label="Lists">
             <PanelTitle icon={ListPlus}>Lists</PanelTitle>
@@ -232,24 +235,31 @@ export function TitlePage({
                   editor.setStatus('COMPLETED');
                   void editor.save('COMPLETED');
                 }}
+                headingLevel={2}
               />
             </Panel>
           )}
 
           {slug === 'tv' && (
             <Panel label="Seasons" className="md:col-span-2">
-              <SeasonsField activity={activity} disabled={busy} onLoaded={setSeasonTracked} />
+              <SeasonsField activity={activity} disabled={busy} onLoaded={setSeasonTracked} headingLevel={2} />
             </Panel>
           )}
 
           {hasOwnership && (
             <Panel label={slug === 'games' ? 'Owned on' : 'Format'}>
-              <OwnershipField key={`own:${activity.id}`} activity={activity} disabled={busy} />
+              <OwnershipField key={`own:${activity.id}`} activity={activity} disabled={busy} headingLevel={2} />
             </Panel>
           )}
 
           {slug === 'games' && log && (
-            <Sessions activityId={activity.id} log={log} onChanged={logChanged} className={cn(PANEL, 'rounded-none')} />
+            <Sessions
+              activityId={activity.id}
+              log={log}
+              onChanged={logChanged}
+              className={cn(PANEL, 'rounded-none')}
+              headingLevel={2}
+            />
           )}
 
           {log && log.diary.length > 0 && (
@@ -260,13 +270,14 @@ export function TitlePage({
                 category={slug}
                 initial={log.diary[0].review ?? ''}
                 onSaved={logChanged}
+                headingLevel={2}
               />
             </Panel>
           )}
         </div>
 
         <Panel label="More by the same people">
-          <MoreByField activity={activity} />
+          <MoreByField activity={activity} headingLevel={2} />
         </Panel>
 
         <div className="flex justify-start border-t border-border pt-6">

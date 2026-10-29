@@ -178,7 +178,11 @@ function ItemRow({
 }: {
   activity: ActivityWithMedia;
   onSelect: (a: ActivityWithMedia) => void;
-  /** The title's page: the title is a link to it (the rest of the row still opens it on a click). */
+  /**
+   * The title's page: the title is a link to it. Without one (the popup) it
+   * is a button that opens the popup, so a keyboard reaches it. Either way
+   * the rest of the row still opens it on a click.
+   */
   href?: string;
   ranks?: Map<string, number>;
   style: CardStyle;
@@ -245,7 +249,20 @@ function ItemRow({
               {title}
             </Link>
           ) : (
-            <span className={cn('text-base font-medium leading-tight', dark && 'font-display font-semibold')}>{title}</span>
+            <button
+              type="button"
+              // The row's own click would open it a second time.
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(activity);
+              }}
+              className={cn(
+                'rounded-sm text-left text-base font-medium leading-tight hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                dark && 'font-display font-semibold',
+              )}
+            >
+              {title}
+            </button>
           )}
           {activity.favorite && style !== 'poster' && (
             <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" aria-label="Favorite" />
