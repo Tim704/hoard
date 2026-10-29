@@ -373,6 +373,7 @@ async function seedLibrary(userId: string) {
     'animeId',
   );
   await seedTv(userId);
+  await seedGame(userId);
   console.log('[seed] Demo library ready.');
 }
 
@@ -456,6 +457,24 @@ async function seedTv(userId: string) {
       },
     });
   }
+}
+
+/**
+ * A demo game played 12 h on Steam but not finished (8.1): the games tier
+ * list stays empty, yet "Score these" offers it, so the smoke test can check
+ * that an empty board still shows that button.
+ */
+async function seedGame(userId: string) {
+  const game = await prisma.videoGame.upsert({
+    where: { externalId: 'demo-game-outer-wilds' },
+    update: {},
+    create: { externalId: 'demo-game-outer-wilds', title: 'Outer Wilds', year: 2019, platforms: ['PC'] },
+  });
+  const existing = await prisma.userMediaActivity.findFirst({ where: { userId, videoGameId: game.id } });
+  if (existing) return; // never touch what the user changed in the app
+  await prisma.userMediaActivity.create({
+    data: { userId, category: 'GAME', videoGameId: game.id, status: 'CONSUMING', playtimeMinutes: 720 },
+  });
 }
 
 async function seedCategory(

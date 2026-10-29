@@ -184,6 +184,17 @@ if (failures.length === 0) {
     await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
     if (new URL(page.url()).pathname !== '/books/arena') throw new Error(`left the tier list: ${page.url()}`);
   });
+  // An empty tier list keeps the button: the demo's only game (Outer Wilds,
+  // 12 h on Steam, not finished) isn't on the board but waits in Score these.
+  await step('score these on an empty tier list', async () => {
+    await page.goto(`${BASE_URL}/games/arena`, { waitUntil: 'networkidle' });
+    await page.getByText('Nothing to tier yet').waitFor({ timeout: 10_000 });
+    await page.getByRole('button', { name: /^Score these · \d+$/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Score these' });
+    await dialog.getByText('Outer Wilds').waitFor({ timeout: 10_000 });
+    await page.keyboard.press('Escape');
+    await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
+  });
   // Taste profile (7.2): the Taste tab renders with or without one, and
   // Refresh builds it (the demo has enough finished titles). Recommend
   // across media (7.1) is on the dashboard; it is not clicked (no AI key).

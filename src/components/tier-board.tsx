@@ -205,9 +205,12 @@ export function ItemTierBoard<T extends RankableItem>({
 
   const placedCount = TIERS.reduce((n, t) => n + board.tiers[t].length, 0);
   if (placedCount === 0 && board.tray.length === 0) {
+    // Score these can still have titles (games well-played on Steam but not
+    // finished aren't on the board), and this is its only way in.
     return (
-      <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-        {emptyText}
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+        <p>{emptyText}</p>
+        {scoreThese && <ScoreTheseButton {...scoreThese} />}
       </div>
     );
   }
@@ -243,17 +246,7 @@ export function ItemTierBoard<T extends RankableItem>({
               Unranked · {board.tray.length}
             </h2>
             <div className="flex flex-wrap items-center gap-2">
-              {scoreThese && (
-                <button
-                  type="button"
-                  onClick={scoreThese.onOpen}
-                  aria-haspopup="dialog"
-                  className="inline-flex items-center gap-1.5 rounded-sm text-sm font-medium text-amber-700 underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-amber-300"
-                >
-                  <Sparkles className="h-4 w-4" aria-hidden />
-                  Score these · {scoreThese.count}
-                </button>
-              )}
+              {scoreThese && <ScoreTheseButton {...scoreThese} />}
               {hasSuggestions && (
                 <Button variant="outline" size="sm" onClick={acceptAll} disabled={isPending}>
                   <Wand2 className="mr-2 h-4 w-4" aria-hidden />
@@ -272,6 +265,21 @@ export function ItemTierBoard<T extends RankableItem>({
         </section>
       </div>
     </DndContext>
+  );
+}
+
+/** The tray's "Score these · n" button (opens the scoring dialog). */
+function ScoreTheseButton({ count, onOpen }: { count: number; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-haspopup="dialog"
+      className="inline-flex items-center gap-1.5 rounded-sm text-sm font-medium text-amber-700 underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-amber-300"
+    >
+      <Sparkles className="h-4 w-4" aria-hidden />
+      Score these · {count}
+    </button>
   );
 }
 
