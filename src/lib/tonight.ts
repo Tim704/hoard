@@ -120,8 +120,6 @@ export interface TonightFilters {
   sections: CategorySlug[];
   /** Genres to match (any of them); empty = every genre. */
   genres: string[];
-  /** When set, only titles this says are on your services. */
-  onServices?: ((id: string) => boolean) | null;
 }
 
 /** The fitting titles, interleaved across sections, each section in queue order. */
@@ -134,8 +132,7 @@ export function tonightPool<T extends TonightCandidate>(
     (queues[slug] ?? []).filter(
       (c) =>
         fitsTime(c.estimate, f.time) &&
-        (wanted.size === 0 || c.genres.some((g) => wanted.has(g.toLowerCase()))) &&
-        (!f.onServices || f.onServices(c.id)),
+        (wanted.size === 0 || c.genres.some((g) => wanted.has(g.toLowerCase()))),
     ),
   );
   const out: T[] = [];

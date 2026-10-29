@@ -123,8 +123,7 @@ export function SettingsForm({ initial, regions, timeZones, serverTimeZone, chil
         <CardHeader>
           <CardTitle className="text-base">Region and time</CardTitle>
           <CardDescription>
-            The region picks streaming and release info. It comes from your browser&apos;s time zone,
-            never your location.
+            Your region comes from your browser&apos;s time zone, never your location.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

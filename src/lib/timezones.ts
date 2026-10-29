@@ -1,7 +1,6 @@
 // ───────────────────────────────────────────────────────────────────────────
-//  Time zone → country. The user's region (for streaming availability and
-//  release dates) is derived from the browser's IANA time zone, never from any
-//  location API. The table is IANA's zone.tab (one country per zone) plus the
+//  Time zone → country. The user's region is derived from the browser's IANA
+//  time zone, never from any location API. The table is IANA's zone.tab (one country per zone) plus the
 //  legacy names browsers still report (Asia/Calcutta, Europe/Kiev, US/Eastern…).
 //  Client-safe: no server imports.
 // ───────────────────────────────────────────────────────────────────────────

@@ -13,10 +13,8 @@ import { ManualFields } from '@/components/manual-fields';
 import { MoreBySection } from '@/components/more-by';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { ProgressField } from '@/components/progress-field';
-import { SubScoresSection } from '@/components/sub-scores';
 import { TagInput } from '@/components/tag-input';
 import { TvSeasons } from '@/components/tv-seasons';
-import { WhereToWatch } from '@/components/where-to-watch';
 import { RatingInput } from '@/components/rating-input';
 import { toastRemoved, toastStatusChange } from '@/components/undo-toast';
 import { Button } from '@/components/ui/button';
@@ -43,7 +41,6 @@ import { isManualId, manualInputFrom, parseManualInput, type ManualInput } from 
 import { formatTimeToBeat } from '@/lib/media-meta';
 import { formatYmd, isYmd } from '@/lib/release';
 import { STATUSES, statusLabel, type Status } from '@/lib/status';
-import { isStreamable } from '@/lib/streaming';
 import type { ActivityWithMedia, MediaItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -467,10 +464,6 @@ export function ActivityDetailDialog({
               <NewSeasonNotice key={`new-season:${activity.id}`} activityId={activity.id} season={activity.newSeason} />
             )}
 
-            {isStreamable(activity.category) && (
-              <WhereToWatch key={`watch:${activity.id}`} activityId={activity.id} />
-            )}
-
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Status</label>
               <Select value={status} onValueChange={(v) => setStatus(v as Status)}>
@@ -526,15 +519,6 @@ export function ActivityDetailDialog({
               </div>
               <RatingInput value={rating} onChange={(v) => setRating(v)} />
             </div>
-
-            <SubScoresSection
-              key={`subscores:${activity.id}`}
-              activityId={activity.id}
-              slug={activity.category}
-              initial={activity.subScores}
-              disabled={busy}
-              onUseAsScore={(v) => setRating(v)}
-            />
 
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium">

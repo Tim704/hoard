@@ -16,7 +16,7 @@ missing says so ("not configured") instead of failing. The owner sets keys in `.
 
 | Key | Unlocks |
 |---|---|
-| `TMDB_API_KEY` | Movies and TV: search, details, seasons, where to stream; Letterboxd and Trakt matching; TMDB reference lists |
+| `TMDB_API_KEY` | Movies and TV: search, details, seasons; Letterboxd and Trakt matching; TMDB reference lists |
 | `IGDB_CLIENT_ID` + `IGDB_CLIENT_SECRET` | Games: search, details, time to beat; Steam matching; the IGDB reference list |
 | `LASTFM_API_KEY` | Albums: search and details; Last.fm "Mark as Listened?" suggestions |
 | `GEMINI_API_KEY` | the AI critic, Recommend across media, Paste a list, the AI pick in reference lists, the year-in-review verdict |
@@ -154,10 +154,6 @@ screen** before anything is saved.
   anything outside 0–10.
 - **Display format** (Settings): out of 10 (`8.5`), five stars (`4.3★`) or out of 100
   (`85`). Storage and input stay 0–10.
-- **Sub-scores** (optional, in the details): Story, Characters, Visuals, Audio and
-  Enjoyment for films, TV and anime; Gameplay instead of Characters for games; Writing,
-  Story, Characters and Enjoyment for books and manga; Songs, Production and Enjoyment for
-  albums. Their average can be applied as the score with "Use as score".
 - **Score these:** a "Score these · N" banner on each section lists finished titles
   without a score (and, for games, any game with 10 h or more on Steam), each with the
   score step. The tier list's tray links to it.
@@ -198,8 +194,7 @@ Each section page has:
   franchises** (one expandable row per franchise). View, sort, grouping and collapsed
   sections are remembered per section on each device.
 - **Badges on cards:** progress, "in 12 days" for planned titles not out yet, "New
-  season", "≈ 32 h" to beat (games), your streaming services, and "Mark as Listened?"
-  (albums).
+  season", "≈ 32 h" to beat (games), and "Mark as Listened?" (albums).
 - **You vs. the crowd** at the foot of the page: your 10 biggest disagreements with the
   TMDB, MAL or IGDB score, and how far you usually differ.
 
@@ -210,9 +205,8 @@ Steam playtime and the provider's score, and everything you can change:
 
 - status, score, favourite (★), progress, tags, notes;
 - the franchise it belongs to;
-- seasons (TV), sub-scores, owned on / format, play sessions (games), review;
-- "Add to list…", "Where to watch" (films, TV, anime), "More by the same people",
-  "Mentioned in" and the history.
+- seasons (TV), owned on / format, play sessions (games), review;
+- "Add to list…", "More by the same people", "Mentioned in" and the history.
 
 **Linked notes:** `[[Title]]` in notes or reviews links to that title in your library
 (autocomplete after `[[`), and the target shows "Mentioned in".
@@ -245,7 +239,6 @@ Each section has its own queue of everything you plan to get to.
   soonest first, without changing the queue order.
 - **Next in franchise:** a chip warns when an earlier part of the same franchise is still
   unfinished.
-- **Streaming badges** show which of your services carry a title.
 - **Finishing from the queue** opens the score step, with Undo.
 
 ## 10. Arena
@@ -299,12 +292,8 @@ movies and the manga become one group.
 ## 13. What's next and what's coming
 
 - **Tonight** (`/tonight`): three picks from Up next for the time you have (30 min, 1 h,
-  2 h, 3 h+ or a few sessions), filtered by section, genre and "on my services".
+  2 h, 3 h+ or a few sessions), filtered by section and genre.
   **Another** shows three more.
-- **Where to stream:** the details of a film, show or anime list where it streams, rents
-  or sells in your region (TMDB, data by JustWatch; official AniList links for anime),
-  your services first. Pick your services in Settings → Streaming. Answers are cached for
-  7 days.
 - **Calendar** (`/calendar`): a month grid or list of planned releases, next episodes of
   shows you watch, airing anime and unreleased sequels of your franchises. Settings →
   Calendar makes a private iCal link for your calendar app (regenerate or turn it off at
@@ -420,7 +409,7 @@ Everything here is off until you turn it on.
   both sides. Shows the titles you both have, your biggest disagreements, a compatibility
   score (needs 5 titles you have both scored) and their S-tier titles you haven't got.
 - **Watch together** (`/together`): same opt-in. The planned titles you share, ranked by
-  your combined queue positions, with streaming badges.
+  your combined queue positions.
 - **Feed** (`/feed`): what opted-in users finished, dropped or put in S tier over the
   last 30 days, with scores. Your own activity appears only if you turn on "Show my
   activity in the feed".
@@ -450,7 +439,7 @@ Up to 10 tokens, each shown once, 60 requests a minute. See [`docs/API.md`](docs
 - **Every library is private.** The shared part is the catalogue of title details (two
   people adding the same film share one copy). The providers own those details: what a
   user sends can only fill in a missing one, never overwrite it.
-- **No location:** your region (for streaming) is guessed once from your browser's time
+- **No location:** your region is guessed once from your browser's time
   zone and can be changed in Settings.
 - **Demo accounts:** the seed script (for local use; production never runs it) creates
   `demo` / `demo1234` with a small library, and a second user `demo2` for trying the

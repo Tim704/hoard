@@ -5,7 +5,7 @@ import { SettingsData } from '@/components/settings-data';
 import { SettingsForm } from '@/components/settings-form';
 import { SettingsNotifications } from '@/components/settings-notifications';
 import { SettingsSharing } from '@/components/settings-sharing';
-import { SettingsCompare, SettingsFeed, SettingsStreaming } from '@/components/settings-streaming';
+import { SettingsCompare, SettingsFeed } from '@/components/settings-social';
 import { SettingsSystem } from '@/components/settings-system';
 import { readBackupStatus } from '@/lib/backups';
 import { calendarFeedUrl } from '@/lib/calendar-token';
@@ -60,7 +60,6 @@ export default async function SettingsPage() {
       timeZones={zones}
       serverTimeZone={serverTimeZone()}
     >
-      <SettingsStreaming initial={prefs.streamingServices} region={prefs.region} />
       <SettingsAccounts
         steam={{ configured: steamConfigured(), link: publicLink(steamLink) }}
         lastfm={{ configured: lastfmConfigured(), link: publicLink(lastfmLink) }}

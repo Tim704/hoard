@@ -6,12 +6,10 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { ImageOff, Loader2 } from 'lucide-react';
 
-import { StreamingBadges, useStreamingBadges } from '@/components/streaming-badges';
 import { Button } from '@/components/ui/button';
 import { compareWith } from '@/lib/actions/together';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import type { TogetherItem } from '@/lib/data-together';
-import { isStreamable } from '@/lib/streaming';
 import { cn } from '@/lib/utils';
 
 const DEFAULT_SECTIONS: CategorySlug[] = ['movies', 'tv', 'anime'];
@@ -25,10 +23,6 @@ export function TogetherClient({ users, sections }: { users: string[]; sections:
   const [chosen, setChosen] = useState<CategorySlug[]>(defaults.length ? defaults : sections);
   const [result, setResult] = useState<{ with: string; items: TogetherItem[] } | null>(null);
   const [isPending, startTransition] = useTransition();
-
-  const badges = useStreamingBadges(
-    (result?.items ?? []).filter((i) => isStreamable(i.slug)).map((i) => i.activityId),
-  );
 
   function compare() {
     if (!other) return;
@@ -118,7 +112,6 @@ export function TogetherClient({ users, sections }: { users: string[]; sections:
                         {[CATEGORIES[item.slug].singular, item.year].filter(Boolean).join(' · ')} · #{item.myPosition} in
                         your queue, #{item.theirPosition} in theirs
                       </p>
-                      <StreamingBadges offers={badges?.[item.activityId]} className="mt-1" />
                     </div>
                   </Link>
                 </li>

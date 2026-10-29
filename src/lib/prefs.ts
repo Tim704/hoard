@@ -86,8 +86,10 @@ const fields = {
   titleLanguage: z.enum(TITLE_LANGUAGES),
   weekStart: z.number().int().min(0).max(6), // 0 = Sunday, 1 = Monday
   hiddenSections: z.array(z.enum(HIDEABLE_SECTIONS)).max(HIDEABLE_SECTIONS.length),
-  // Streaming and accounts
+  // Legacy: the removed "Where to watch" services (TMDB provider ids). Still
+  // read and exported so stored data stays readable; never patched.
   streamingServices: z.array(z.number().int().positive()).max(100),
+  // Accounts
   steamId: optionalText,
   lastfmUser: optionalText,
   anilistUser: optionalText,
@@ -152,7 +154,7 @@ export const PrefsPatchSchema = z
     titleLanguage: fields.titleLanguage,
     weekStart: fields.weekStart,
     hiddenSections: fields.hiddenSections,
-    streamingServices: fields.streamingServices,
+    // streamingServices is not here: Where to watch was removed (read-only now).
     // steamId / lastfmUser / anilistUser are not here: only the Accounts
     // actions (src/lib/actions/accounts.ts) write them, after validating.
     notify: NotifyPatchSchema,

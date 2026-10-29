@@ -30,8 +30,7 @@ A short tour; [`FEATURES.md`](FEATURES.md) describes everything in detail.
   reviews, per-title history, play sessions, owned platforms and formats, tags, linked
   notes (`[[Title]]`), franchises grouped across media with watch order.
 - **Deciding what's next:** Up next queues, a "what should I start tonight?" picker,
-  where to stream in your region, a release calendar with a private iCal feed,
-  countdowns, new-season alerts and notifications (in-app, ntfy, Discord).
+  a release calendar with a private iCal feed, countdowns, new-season alerts and notifications (in-app, ntfy, Discord).
 - **Stats:** charts, streaks, a year in review (PNG and share link), goals, taste trends,
   compare periods, people stats and a taste profile.
 - **AI (Gemini, optional):** a roast of your taste, recommendations across media, list
@@ -348,7 +347,7 @@ the app keeps working.
 
 | Service     | Variable(s)                            | Enables                                                                                 | Where to get it                                             |
 | ----------- | -------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| **TMDB**    | `TMDB_API_KEY`                         | Movies and TV: search, details, seasons, where to stream, Letterboxd and Trakt matching | <https://www.themoviedb.org/settings/api> (API Key v3 auth) |
+| **TMDB**    | `TMDB_API_KEY`                         | Movies and TV: search, details, seasons, Letterboxd and Trakt matching                  | <https://www.themoviedb.org/settings/api> (API Key v3 auth) |
 | **IGDB**    | `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET` | Games: search, details, time to beat, Steam matching                                    | A Twitch app: <https://dev.twitch.tv/console/apps>          |
 | **Last.fm** | `LASTFM_API_KEY`                       | Albums: search and details, "Mark as Listened?" suggestions                             | <https://www.last.fm/api/account/create>                    |
 
@@ -416,7 +415,8 @@ provider (through the nightly `metadata` job) owns the rest.
 `UserMediaActivity` is the join layer that ties a user to exactly one media row and
 carries the per-user state: status, a 0–10 score with one decimal, tier and place,
 Up next order, the hidden Elo score and duel count, progress, favourite, tags,
-notes, sub-scores, owned platforms or format, and Steam playtime.
+notes, owned platforms or format, and Steam playtime. (The `subScores` column is
+legacy and no longer shown.)
 
 Around it:
 

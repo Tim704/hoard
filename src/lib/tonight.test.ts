@@ -86,21 +86,13 @@ describe('pickTonight', () => {
     expect(pickTonight(queues, f, 1)).toEqual(pickTonight(queues, f, 1)); // deterministic
   });
 
-  it('filters by section, genre (any, case-insensitive) and services', () => {
+  it('filters by section and genre (any, case-insensitive)', () => {
     expect(
       pickTonight(queues, { time: '3h', sections: ['movies'], genres: ['comedy'] }).map((x) => x.id),
     ).toEqual(['m2', 'm4']);
     expect(pickTonight(queues, { time: 'sessions', sections: ['games', 'movies'], genres: [] }).map((x) => x.id)).toEqual([
       'g1',
     ]);
-    expect(
-      pickTonight(queues, {
-        time: '3h',
-        sections: ['movies', 'anime'],
-        genres: [],
-        onServices: (id) => id === 'm3' || id === 'a2',
-      }).map((x) => x.id),
-    ).toEqual(['m3', 'a2']);
     expect(pickTonight(queues, { time: '3h', sections: [], genres: [] })).toEqual([]);
   });
 });

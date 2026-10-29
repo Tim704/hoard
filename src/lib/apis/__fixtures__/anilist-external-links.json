@@ -1,8 +1,0 @@
-[
-  { "site": "Official Site", "url": "https://frieren-anime.jp/", "type": "INFO", "icon": null },
-  { "site": "Crunchyroll", "url": "https://www.crunchyroll.com/series/GG5H5XQX4/frieren", "type": "STREAMING", "icon": "https://s4.anilist.co/file/anilistcdn/link/icon/5-AWN2pVlluCOO.png" },
-  { "site": "Netflix", "url": "https://www.netflix.com/title/81726714", "type": "STREAMING", "icon": "https://s4.anilist.co/file/anilistcdn/link/icon/10-rVGPom8RCiwH.png" },
-  { "site": "crunchyroll", "url": "https://www.crunchyroll.com/de/series/GG5H5XQX4", "type": "STREAMING", "icon": null },
-  { "site": "Shady", "url": "http://example.com", "type": "STREAMING", "icon": "http://example.com/i.png" },
-  { "site": "Twitter", "url": "https://twitter.com/Anime_Frieren", "type": "SOCIAL", "icon": null }
-]

@@ -1,7 +1,6 @@
 import type { CategorySlug } from './categories';
 import type { Status } from './status';
 import type { OrderMode } from '@/lib/franchise/order';
-import type { SubScores } from '@/lib/subscores';
 import type { Tier } from '@/lib/tiers';
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -72,8 +71,6 @@ export interface ActivityWithMedia {
   format: string | null;
   /** 3.1: a repeat run is in progress. */
   rewatching: boolean;
-  /** 4.10: per-aspect scores (validated keys of src/lib/subscores.ts). */
-  subScores: SubScores;
   /** 4.7: position inside the franchise in manual order; null = not placed. */
   franchiseOrder: number | null;
   /** 8.1: minutes played on Steam (games); null/absent = not from Steam. */

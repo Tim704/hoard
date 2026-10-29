@@ -490,50 +490,6 @@ export async function fetchAniListTop(type: 'ANIME' | 'MANGA', page: number): Pr
   return media.map(type === 'ANIME' ? mapAnime : mapManga);
 }
 
-/** One entry of AniList `Media.externalLinks` (5.1). */
-export interface AniListExternalLink {
-  site?: string | null;
-  url?: string | null;
-  type?: string | null; // INFO | STREAMING | SOCIAL
-  icon?: string | null;
-  language?: string | null;
-}
-
-/**
- * The external links of many stored anime (Where to stream, 5.1), keyed by
- * our externalId (MAL id, or `al-123`), 50 per request through
- * `anilistQuery` (rate-limit aware). Ids AniList doesn't know are missing
- * from the map. Throws when a request fails.
- */
-export async function fetchAniListExternalLinks(
-  externalIds: string[],
-): Promise<Map<string, AniListExternalLink[]>> {
-  const fields = 'id idMal externalLinks { site url type icon language }';
-  const byMal = `query ($ids: [Int]) {
-    Page(perPage: ${DETAILS_BATCH}) { media(idMal_in: $ids, type: ANIME) { ${fields} } } }`;
-  const byId = `query ($ids: [Int]) {
-    Page(perPage: ${DETAILS_BATCH}) { media(id_in: $ids, type: ANIME) { ${fields} } } }`;
-  type WithLinks = AniListMedia & { externalLinks?: AniListExternalLink[] | null };
-
-  const mal: number[] = [];
-  const al: number[] = [];
-  for (const id of externalIds) {
-    const n = Number(id.startsWith('al-') ? id.slice(3) : id);
-    if (!Number.isInteger(n) || n <= 0) continue;
-    (id.startsWith('al-') ? al : mal).push(n);
-  }
-  const out = new Map<string, AniListExternalLink[]>();
-  const run = async (query: string, ids: number[], keyOf: (m: WithLinks) => string) => {
-    for (let i = 0; i < ids.length; i += DETAILS_BATCH) {
-      const media = await anilistQuery<WithLinks>(query, { ids: ids.slice(i, i + DETAILS_BATCH) }, 'AniList links');
-      for (const m of media) out.set(keyOf(m), m.externalLinks ?? []);
-    }
-  };
-  await run(byMal, mal, (m) => String(m.idMal));
-  await run(byId, al, (m) => `al-${m.id}`);
-  return out;
-}
-
 /**
  * One page of an anime season (5.11): AniList `Page(media: {season,
  * seasonYear, type: ANIME})`, most popular first, mapped like search hits.

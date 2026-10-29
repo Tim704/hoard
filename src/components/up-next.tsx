@@ -8,7 +8,6 @@ import { CalendarClock, Check, ImageOff } from 'lucide-react';
 
 import { CountdownBadge } from '@/components/card-badges';
 import { useDisplayTitle, useToday } from '@/components/prefs-provider';
-import { StreamingBadges, useStreamingBadges } from '@/components/streaming-badges';
 import { RatingStep } from '@/components/rating-step';
 import { SortableRankList, type RankRow } from '@/components/sortable-rank-list';
 import { toastStatusChange } from '@/components/undo-toast';
@@ -19,7 +18,6 @@ import { mediaSubtitle } from '@/lib/media-meta';
 import { mergeAvailableOrder, splitQueue } from '@/lib/queue';
 import { formatYmd, isYmd } from '@/lib/release';
 import { statusLabel } from '@/lib/status';
-import { isStreamable } from '@/lib/streaming';
 import type { ActivityWithMedia } from '@/lib/types';
 import type { QueueHint } from '@/lib/franchise/order';
 
@@ -69,16 +67,9 @@ export function UpNext({ slug, initial, hints }: UpNextProps) {
     setRows(available.map((a) => toRow(a, slug, titleOf, hints)));
   }, [available, slug, titleOf, hints]);
 
-  // "On your services" badges for the visible available rows (movies, TV, anime).
-  const badges = useStreamingBadges(isStreamable(slug) ? rows.map((r) => r.id) : []);
-  const shownRows = rows.map((r) => {
-    const offers = badges?.[r.id];
-    return offers?.length ? { ...r, extra: <StreamingBadges offers={offers} /> } : r;
-  });
-
   const reorder = async (next: RankRow[]) => {
     const prev = rowsRef.current;
-    setRows(next.map(({ extra: _extra, ...r }) => r));
+    setRows(next);
     setPending(true);
     const fullOrder = mergeAvailableOrder(
       initial.map((a) => a.id),
@@ -145,7 +136,7 @@ export function UpNext({ slug, initial, hints }: UpNextProps) {
           </p>
         ) : (
           <AvailableList
-            rows={shownRows}
+            rows={rows}
             pending={pending}
             doneLabel={doneLabel}
             ratingId={ratingId}

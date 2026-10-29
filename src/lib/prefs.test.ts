@@ -85,6 +85,15 @@ describe('PrefsPatchSchema', () => {
     const r = PrefsPatchSchema.parse({ calendarToken: 'abc', weekStart: 0 });
     expect(r).toEqual({ weekStart: 0 });
   });
+
+  it('no longer patches streaming services, but keeps the stored ones readable', () => {
+    const patch = PrefsPatchSchema.parse({ streamingServices: [8, 119], weekStart: 0 });
+    expect(patch).toEqual({ weekStart: 0 });
+    expect(PrefsPatchSchema.parse({ streamingServices: [] })).toEqual({});
+    const stored = parsePrefs({ streamingServices: [337] });
+    expect(stored.streamingServices).toEqual([337]);
+    expect(applyPrefsPatch(stored, patch).streamingServices).toEqual([337]);
+  });
 });
 
 describe('sections and display prefs', () => {

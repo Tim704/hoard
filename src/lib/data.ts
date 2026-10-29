@@ -27,7 +27,6 @@ import { displayTitle } from '@/lib/title';
 import { newSeasonBadge } from '@/lib/new-seasons';
 import { effectiveTimeZone } from '@/lib/prefs';
 import { todayYmd } from '@/lib/release';
-import { parseSubScores } from '@/lib/subscores';
 import { sectionStat } from '@/lib/stats/measures';
 import { bucketPair, challengePairs, fewestDuelsPair } from '@/lib/arena-pick';
 import { buildTierBoard, TIERS, withinTierPairs, type TierBoardData } from '@/lib/tiers';
@@ -76,7 +75,6 @@ export function flattenActivity(
     ownedPlatforms: row.ownedPlatforms ?? [],
     format: row.format ?? null,
     rewatching: row.rewatching ?? false,
-    subScores: parseSubScores(cat.slug, row.subScores),
     franchiseOrder: row.franchiseOrder ?? null,
     playtimeMinutes: row.playtimeMinutes ?? null,
     franchise: (row.franchise as FranchiseRef | undefined) ?? null,

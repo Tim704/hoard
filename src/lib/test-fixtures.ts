@@ -22,7 +22,6 @@ export function makeActivity(
     ownedPlatforms: [],
     format: null,
     rewatching: false,
-    subScores: {},
     franchiseOrder: null,
     franchise: null,
     franchiseLocked: false,

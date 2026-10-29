@@ -35,7 +35,7 @@ export interface TogetherItem {
   year: number | null;
   myPosition: number;
   theirPosition: number;
-  /** The caller's OWN activity for this title (for its details and streaming badges). */
+  /** The caller's OWN activity for this title (for its details link). */
   activityId: string;
 }
 

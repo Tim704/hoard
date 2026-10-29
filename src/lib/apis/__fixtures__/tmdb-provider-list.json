@@ -1,8 +1,0 @@
-{
-  "results": [
-    { "display_priorities": { "DE": 3 }, "display_priority": 3, "logo_path": "/netflix.jpg", "provider_name": "Netflix", "provider_id": 8 },
-    { "display_priorities": { "DE": 1 }, "display_priority": 1, "logo_path": "/prime.jpg", "provider_name": "Amazon Prime Video", "provider_id": 119 },
-    { "display_priorities": { "DE": 9 }, "display_priority": 9, "logo_path": "/crunchy.jpg", "provider_name": "Crunchyroll", "provider_id": 283 },
-    { "display_priority": 2, "provider_name": "", "provider_id": 999 }
-  ]
-}

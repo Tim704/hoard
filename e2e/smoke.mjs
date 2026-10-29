@@ -157,6 +157,9 @@ if (failures.length === 0) {
     await page.goto(`${BASE_URL}/tv?open=demo-activity-tv-expanse`, { waitUntil: 'networkidle' });
     await page.getByRole('heading', { name: 'Seasons' }).waitFor({ timeout: 15_000 });
     await page.getByLabel('Watched episodes of Season 3').waitFor({ timeout: 10_000 });
+    // Where to watch and sub-scores are gone from the details.
+    const details = await page.getByRole('dialog').innerText();
+    if (/Where to watch|Sub-scores/i.test(details)) throw new Error('the details still show Where to watch or sub-scores');
     await Promise.all([
       page.waitForURL((url) => url.pathname === '/tv/seasons/demo-activity-tv-expanse', { timeout: 20_000 }),
       page.getByRole('link', { name: 'Season tiers' }).click(),
