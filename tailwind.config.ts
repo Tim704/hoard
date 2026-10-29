@@ -87,8 +87,10 @@ const config: Config = {
     require('tailwindcss-animate'),
     // `classic:` / `minimal:` / `organised:` / `fresh:` style an element for
     // one layout (<html data-layout>, src/lib/layouts.ts), without JS branches.
+    // `:root` lifts them to (0,3,0), above `dark:` (0,2,0), so `fresh:x` wins
+    // over a `dark:x` on the same element; `fresh:dark:x` also works.
     plugin(({ addVariant }) => {
-      for (const id of LAYOUT_IDS) addVariant(id, `:is([data-layout="${id}"] &)`);
+      for (const id of LAYOUT_IDS) addVariant(id, `:is(:root[data-layout="${id}"] &)`);
     }),
   ],
 };
