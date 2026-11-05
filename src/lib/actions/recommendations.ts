@@ -11,7 +11,8 @@
 import { revalidatePath } from 'next/cache';
 
 import { publicError } from '@/lib/action-error';
-import { CATEGORY_LIST, getCategory } from '@/lib/categories';
+import { getCategory } from '@/lib/categories';
+import { catalogueKeyOf, fkSelect, loadMediaRow } from '@/lib/data-compare';
 import {
   getRecommendContext,
   mutuallyOptedIn,
@@ -34,8 +35,6 @@ const ALREADY_SENT: ActionResult = { ok: false, error: "You've already sent them
 
 const isId = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 64;
 
-const fkSelect = Object.fromEntries(CATEGORY_LIST.map((c) => [c.fkField, true])) as Record<string, true>;
-
 export async function sendRecommendation(
   activityId: string,
   username: string,
@@ -55,13 +54,10 @@ export async function sendRecommendation(
       where: { id: activityId, userId: user.id },
       select: { category: true, ...fkSelect },
     });
-    const cat = activity ? CATEGORY_LIST.find((c) => c.dbCategory === activity.category) : undefined;
-    const mediaId = activity && cat ? (activity as unknown as Record<string, string | null>)[cat.fkField] : null;
-    if (!cat || !mediaId) return NOT_FOUND;
-    const model = (prisma as unknown as Record<string, { findUnique: (a: unknown) => Promise<Record<string, unknown> | null> }>)[
-      cat.prismaModel
-    ];
-    const media = await model.findUnique({ where: { id: mediaId } });
+    const title = activity ? catalogueKeyOf(activity) : null;
+    if (!title) return NOT_FOUND;
+    const { cat, mediaId } = title;
+    const media = await loadMediaRow(cat, mediaId);
     if (!media) return NOT_FOUND;
     if (isManualId(String(media.externalId))) return { ok: false, error: "Hand-made entries can't be sent." };
 
@@ -98,10 +94,10 @@ export async function sendRecommendation(
       throw err;
     }
 
-    const title = displayTitle(media as never, parsePrefs(other.prefs).titleLanguage);
+    const shown = displayTitle(media as never, parsePrefs(other.prefs).titleLanguage);
     await notify(other.id, {
       kind: 'friends',
-      title: `${user.username} recommended ${title}`,
+      title: `${user.username} recommended ${shown}`,
       body: 'Open Recommendations to see it.',
       url: '/recommendations',
       dedupeKey: `rec-new:${id}`,

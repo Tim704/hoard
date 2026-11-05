@@ -59,18 +59,28 @@ export type CompareView =
     }
   | { ok: false; reason: 'me-off' | 'unavailable' };
 
-const fkSelect = Object.fromEntries(CATEGORY_LIST.map((c) => [c.fkField, true])) as Record<string, true>;
+/** Select this on an activity to know which catalogue row it points at. */
+export const fkSelect = Object.fromEntries(CATEGORY_LIST.map((c) => [c.fkField, true])) as Record<string, true>;
 const catByDb = new Map(CATEGORY_LIST.map((c) => [c.dbCategory as string, c]));
+
+/** The catalogue row an activity (selected with `category` and `fkSelect`) points at. */
+export function catalogueKeyOf(row: { category: string }): { cat: CategoryConfig; mediaId: string } | null {
+  const cat = catByDb.get(row.category);
+  const mediaId = cat ? (row as unknown as Record<string, unknown>)[cat.fkField] : null;
+  return cat && typeof mediaId === 'string' && mediaId ? { cat, mediaId } : null;
+}
+
+/** The key of `loadMedia`'s map. */
+export const mediaKey = (slug: CategorySlug, mediaId: string) => `${slug}:${mediaId}`;
 
 function toEntries(rows: Record<string, unknown>[]): (CompareEntry & { id?: string })[] {
   const out: (CompareEntry & { id?: string })[] = [];
   for (const r of rows) {
-    const cat = catByDb.get(r.category as string);
-    const mediaId = cat ? (r[cat.fkField] as string | null) : null;
-    if (!cat || !mediaId) continue;
+    const key = catalogueKeyOf(r as { category: string });
+    if (!key) continue;
     out.push({
-      slug: cat.slug,
-      mediaId,
+      slug: key.cat.slug,
+      mediaId: key.mediaId,
       rating: typeof r.rating === 'number' ? r.rating : null,
       // A tier counts only while it is shown (a finished status), as in the export.
       tier: typeof r.tier === 'string' && isTierEligible(r.status as Status) ? r.tier : null,
@@ -80,28 +90,54 @@ function toEntries(rows: Record<string, unknown>[]): (CompareEntry & { id?: stri
   return out;
 }
 
+type MediaRow = Record<string, unknown>;
+
+/** The section's catalogue model; the seven share the fields read here. */
+const mediaModel = (cat: CategoryConfig) =>
+  (
+    prisma as unknown as Record<
+      string,
+      { findMany: (a: unknown) => Promise<MediaRow[]>; findUnique: (a: unknown) => Promise<MediaRow | null> }
+    >
+  )[cat.prismaModel];
+
+/** One catalogue row, or null when it no longer exists. */
+export function loadMediaRow(cat: CategoryConfig, mediaId: string): Promise<MediaRow | null> {
+  return mediaModel(cat).findUnique({ where: { id: mediaId } });
+}
+
 /** Catalogue rows by "slug:id" for the given keys. */
-async function loadMedia(keys: { slug: CategorySlug; mediaId: string }[]) {
+export async function loadMedia(keys: { slug: CategorySlug; mediaId: string }[]) {
   const media = new Map<string, Record<string, unknown>>();
   for (const cat of CATEGORY_LIST as CategoryConfig[]) {
     const ids = [...new Set(keys.filter((k) => k.slug === cat.slug).map((k) => k.mediaId))];
     if (ids.length === 0) continue;
-    const model = (prisma as unknown as Record<string, { findMany: (a: unknown) => Promise<Record<string, unknown>[]> }>)[
-      cat.prismaModel
-    ];
-    for (const m of await model.findMany({ where: { id: { in: ids } } })) media.set(`${cat.slug}:${m.id as string}`, m);
+    for (const m of await mediaModel(cat).findMany({ where: { id: { in: ids } } })) media.set(mediaKey(cat.slug, m.id as string), m);
   }
   return media;
 }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : null);
 
-function titleOf(slug: CategorySlug, m: Record<string, unknown>, prefs: Prefs): CompareTitle {
+export function titleOf(slug: CategorySlug, m: Record<string, unknown>, prefs: Prefs): CompareTitle {
   return {
     slug,
     title: displayTitle(m as never, prefs.titleLanguage),
     imageUrl: str(m.imageUrl),
     year: typeof m.year === 'number' ? m.year : null,
+  };
+}
+
+/** A catalogue row's stored title and variants, in the add row's search-hit shape. */
+export function catalogueFields(m: Record<string, unknown>, externalId: string): Record<string, unknown> {
+  return {
+    externalId,
+    title: str(m.title) ?? '',
+    imageUrl: str(m.imageUrl),
+    year: typeof m.year === 'number' ? m.year : null,
+    ...(str(m.titleEnglish) ? { titleEnglish: m.titleEnglish } : {}),
+    ...(str(m.titleRomaji) ? { titleRomaji: m.titleRomaji } : {}),
+    ...(str(m.titleNative) ? { titleNative: m.titleNative } : {}),
   };
 }
 
@@ -137,14 +173,14 @@ export async function compareLibraries(meId: string, otherUsername: string): Pro
   ]);
   const mine = toEntries(mineRows as Record<string, unknown>[]);
   const theirs = toEntries(theirRows as Record<string, unknown>[]);
-  const myIds = new Map(mine.map((e) => [`${e.slug}:${e.mediaId}`, e.id!]));
+  const myIds = new Map(mine.map((e) => [mediaKey(e.slug, e.mediaId), e.id!]));
   const cmp = buildComparison(mine, theirs);
 
   const media = await loadMedia([...cmp.shared, ...cmp.theirSMissing]);
   const sharedViews: SharedView[] = [];
   for (const s of cmp.shared) {
-    const m = media.get(`${s.slug}:${s.mediaId}`);
-    const myActivityId = myIds.get(`${s.slug}:${s.mediaId}`);
+    const m = media.get(mediaKey(s.slug, s.mediaId));
+    const myActivityId = myIds.get(mediaKey(s.slug, s.mediaId));
     if (!m || !myActivityId) continue;
     sharedViews.push({ ...titleOf(s.slug, m, myPrefs), myRating: s.myRating, theirRating: s.theirRating, myActivityId });
   }
@@ -156,30 +192,22 @@ export async function compareLibraries(meId: string, otherUsername: string): Pro
 
   const disagreements: DisagreementView[] = [];
   for (const d of cmp.disagreements) {
-    const m = media.get(`${d.slug}:${d.mediaId}`);
-    const myActivityId = myIds.get(`${d.slug}:${d.mediaId}`);
+    const m = media.get(mediaKey(d.slug, d.mediaId));
+    const myActivityId = myIds.get(mediaKey(d.slug, d.mediaId));
     if (!m || !myActivityId) continue;
     disagreements.push({ ...titleOf(d.slug, m, myPrefs), myRating: d.myRating, theirRating: d.theirRating, myActivityId, gap: d.gap });
   }
 
   const theirS: MissingView[] = [];
   for (const t of cmp.theirSMissing) {
-    const m = media.get(`${t.slug}:${t.mediaId}`);
+    const m = media.get(mediaKey(t.slug, t.mediaId));
     const externalId = m ? str(m.externalId) : null;
     // Hand-made rows (1.5) belong to their maker and can't be added by others.
     if (!m || !externalId || isManualId(externalId)) continue;
     theirS.push({
       ...titleOf(t.slug, m, myPrefs),
       externalId,
-      fields: {
-        externalId,
-        title: str(m.title) ?? '',
-        imageUrl: str(m.imageUrl),
-        year: typeof m.year === 'number' ? m.year : null,
-        ...(str(m.titleEnglish) ? { titleEnglish: m.titleEnglish } : {}),
-        ...(str(m.titleRomaji) ? { titleRomaji: m.titleRomaji } : {}),
-        ...(str(m.titleNative) ? { titleNative: m.titleNative } : {}),
-      },
+      fields: catalogueFields(m, externalId),
     });
   }
   theirS.sort((a, b) => a.slug.localeCompare(b.slug) || a.title.localeCompare(b.title));

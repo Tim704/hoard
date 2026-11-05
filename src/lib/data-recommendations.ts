@@ -11,7 +11,8 @@
 
 import type { Prisma } from '@prisma/client';
 
-import { CATEGORIES, CATEGORY_LIST, getCategory, type CategoryConfig, type CategorySlug } from '@/lib/categories';
+import { CATEGORIES, getCategory, type CategorySlug } from '@/lib/categories';
+import { catalogueFields, catalogueKeyOf, fkSelect, loadMedia, mediaKey, titleOf } from '@/lib/data-compare';
 import { comparableUsernames } from '@/lib/data-together';
 import { parsePrefs } from '@/lib/prefs';
 import { prisma } from '@/lib/prisma';
@@ -28,7 +29,6 @@ import {
   type Verdict,
 } from '@/lib/recommendations';
 import type { Status } from '@/lib/status';
-import { displayTitle } from '@/lib/title';
 import { canCompare } from '@/lib/together';
 
 export interface RecView {
@@ -93,35 +93,14 @@ export async function readLibraryState(userId: string, slug: CategorySlug, media
   return row ? { status: row.status as Status, rating: row.rating } : null;
 }
 
-const fkSelect = Object.fromEntries(CATEGORY_LIST.map((c) => [c.fkField, true])) as Record<string, true>;
-const catByDb = new Map(CATEGORY_LIST.map((c) => [c.dbCategory as string, c]));
-
-const titleKey = (slug: CategorySlug, mediaId: string) => `${slug}:${mediaId}`;
+/** A person as the gate and the settling code need them. */
+export const personSelect = { select: { id: true, username: true, prefs: true } } as const;
 
 /** The "slug:id" key of an activity row selected with `category` and `fkSelect`. */
-function keyOf(row: Record<string, unknown>): string | null {
-  const cat = catByDb.get(row.category as string);
-  const mediaId = cat ? (row[cat.fkField] as string | null) : null;
-  return cat && mediaId ? titleKey(cat.slug, mediaId) : null;
+function keyOf(row: { category: string }): string | null {
+  const key = catalogueKeyOf(row);
+  return key && mediaKey(key.cat.slug, key.mediaId);
 }
-
-/** Catalogue rows by "slug:id" for the given keys. */
-async function loadMedia(keys: { slug: CategorySlug; mediaId: string }[]) {
-  const media = new Map<string, Record<string, unknown>>();
-  for (const cat of CATEGORY_LIST as CategoryConfig[]) {
-    const ids = [...new Set(keys.filter((k) => k.slug === cat.slug).map((k) => k.mediaId))];
-    if (ids.length === 0) continue;
-    const model = (prisma as unknown as Record<string, { findMany: (a: unknown) => Promise<Record<string, unknown>[]> }>)[
-      cat.prismaModel
-    ];
-    for (const m of await model.findMany({ where: { id: { in: ids } } })) media.set(titleKey(cat.slug, m.id as string), m);
-  }
-  return media;
-}
-
-const str = (v: unknown) => (typeof v === 'string' ? v : null);
-
-const person = { select: { id: true, username: true, prefs: true } } as const;
 
 /**
  * Everything /recommendations shows, or `me-off`. `inbox` is to-me, PENDING and
@@ -143,13 +122,13 @@ export async function getRecommendationsPage(meId: string): Promise<Recommendati
       guess: true,
       response: true,
       createdAt: true,
-      from: person,
-      to: person,
+      from: personSelect,
+      to: personSelect,
     },
   });
   const visible = rows.flatMap((r) => {
     const cat = getCategory(r.category);
-    return cat && mutuallyOptedIn(r.from, r.to) ? [{ ...r, slug: cat.slug, key: titleKey(cat.slug, r.mediaId) }] : [];
+    return cat && mutuallyOptedIn(r.from, r.to) ? [{ ...r, slug: cat.slug, key: mediaKey(cat.slug, r.mediaId) }] : [];
   });
 
   // My own entries, for my scores, my verdicts as a recipient and myActivityId.
@@ -193,7 +172,7 @@ export async function getRecommendationsPage(meId: string): Promise<Recommendati
 
   for (const r of visible) {
     const m = media.get(r.key);
-    const externalId = m ? str(m.externalId) : null;
+    const externalId = typeof m?.externalId === 'string' ? m.externalId : null;
     if (!m || !externalId) continue;
 
     const incoming = r.to.id === me.id;
@@ -204,10 +183,9 @@ export async function getRecommendationsPage(meId: string): Promise<Recommendati
     const sender: LibraryState | null = incoming ? theirEntry : myEntry;
     const response = r.response as RecResponse;
     const verdict = verdictOf(recipient);
-    const title = displayTitle(m as never, myPrefs.titleLanguage);
-    const year = typeof m.year === 'number' ? m.year : null;
+    const shown = titleOf(r.slug, m, myPrefs);
 
-    titles.set(r.id, title);
+    titles.set(r.id, shown.title);
     (incoming ? theirPicks : myPicks).push({ id: r.id, response, guess: r.guess, recipient, createdAt: r.createdAt });
 
     const view: RecView = {
@@ -216,20 +194,9 @@ export async function getRecommendationsPage(meId: string): Promise<Recommendati
       note: r.note,
       response,
       createdAt: r.createdAt.toISOString(),
-      slug: r.slug,
-      title,
-      imageUrl: str(m.imageUrl),
-      year,
+      ...shown,
       externalId,
-      fields: {
-        externalId,
-        title: str(m.title) ?? '',
-        imageUrl: str(m.imageUrl),
-        year,
-        ...(str(m.titleEnglish) ? { titleEnglish: m.titleEnglish } : {}),
-        ...(str(m.titleRomaji) ? { titleRomaji: m.titleRomaji } : {}),
-        ...(str(m.titleNative) ? { titleNative: m.titleNative } : {}),
-      },
+      fields: catalogueFields(m, externalId),
       myActivityId: myEntry?.id ?? null,
       verdict: verdict && {
         kind: verdict.kind,
@@ -265,11 +232,10 @@ export async function getRecommendContext(meId: string, activityId: string): Pro
     where: { id: activityId, userId: me.id },
     select: { category: true, ...fkSelect },
   });
-  const cat = activity ? catByDb.get(activity.category) : undefined;
-  const mediaId = activity && cat ? (activity as unknown as Record<string, string | null>)[cat.fkField] : null;
-  if (!cat || !mediaId) return { friends: [], recommendedBy: [] };
+  const key = activity ? catalogueKeyOf(activity) : null;
+  if (!key) return { friends: [], recommendedBy: [] };
 
-  const title = { category: cat.slug, mediaId };
+  const title = { category: key.cat.slug, mediaId: key.mediaId };
   const [usernames, sentRows, receivedRows] = await Promise.all([
     comparableUsernames(me.id),
     prisma.recommendation.findMany({
@@ -279,7 +245,7 @@ export async function getRecommendContext(meId: string, activityId: string): Pro
     prisma.recommendation.findMany({
       where: { toId: me.id, ...title },
       orderBy: { createdAt: 'desc' },
-      select: { note: true, from: person },
+      select: { note: true, from: personSelect },
     }),
   ]);
   const alreadySent = new Set(sentRows.map((r) => r.to.username));

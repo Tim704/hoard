@@ -30,6 +30,7 @@ function project(row: Row | null | undefined, select?: Row): Row | null {
 
 const catalogue = (name: string) => ({
   findMany: async ({ where }: any) => media[name].filter((m) => where.id.in.includes(m.id)),
+  findUnique: async ({ where }: any) => media[name].find((m) => m.id === where.id) ?? null,
 });
 
 vi.mock('@/lib/prisma', () => ({
@@ -57,11 +58,18 @@ vi.mock('@/lib/prisma', () => ({
           .filter((r) => matches(r, where))
           .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
           .map((r) => project(r, select)),
+      updateMany: async ({ where, data }: any) => {
+        const hits = recs.filter((r) => matches(r, where));
+        hits.forEach((r) => Object.assign(r, data));
+        return { count: hits.length };
+      },
     },
   },
 }));
+vi.mock('@/lib/notify', () => ({ notify: async () => ({ id: 'n', push: { sent: [], error: null } }) }));
 
 const { getRecommendationsPage, getRecommendContext } = await import('./data-recommendations');
+const { settleRecommendationsForTitle } = await import('./recommendations-server');
 
 const SENT_AT = new Date('2026-10-01T00:00:00Z');
 
@@ -260,6 +268,71 @@ describe('getRecommendationsPage: verdicts', () => {
     expect(p.sent[0].verdict).toBeNull();
     expect(p.sent[0].waiting).toBe('Removed from their library');
     expect(p.sent[0].withdrawable).toBe(false);
+  });
+});
+
+describe('getRecommendationsPage: a title the recipient already owned when it was sent', () => {
+  // The activity's createdAt (September) is before the pick's (October).
+  const owned = () => activity('theirs', 'u2', 'b1');
+
+  it('stays as nothing having happened while it is unscored', async () => {
+    recs.push(rec('r1', 'u1', 'u2', 'b1'));
+    activities.push(owned());
+    await settleRecommendationsForTitle('u2', 'books', 'b1');
+    expect(recs[0].response).toBe('PENDING');
+    const sender = (await page('u1')).sent[0];
+    expect(sender.waiting).toBe('Unread');
+    expect(sender.withdrawable).toBe(true);
+    expect((await page('u2')).inbox.map((v) => v.id)).toEqual(['r1']);
+  });
+
+  it('stays PENDING when removed without ever being scored', async () => {
+    recs.push(rec('r1', 'u1', 'u2', 'b1'));
+    activities.push(owned());
+    await settleRecommendationsForTitle('u2', 'books', 'b1');
+    activities.length = 0;
+    await settleRecommendationsForTitle('u2', 'books', 'b1');
+    expect(recs[0].response).toBe('PENDING');
+    expect((await page('u1')).sent[0].waiting).toBe('Not answered yet');
+    expect((await page('u2')).inbox.map((v) => v.id)).toEqual(['r1']);
+  });
+
+  it('once scored and settled, removing it says Removed from their library and stays out of the inbox', async () => {
+    recs.push(rec('r1', 'u1', 'u2', 'b1', { guess: 8 }));
+    const theirs = owned();
+    activities.push(theirs);
+
+    theirs.rating = 7;
+    await settleRecommendationsForTitle('u2', 'books', 'b1');
+    expect(recs[0].response).toBe('ADDED');
+    expect((await page('u1')).sent[0].verdict?.recipientScore).toBe(7);
+
+    activities.length = 0;
+    await settleRecommendationsForTitle('u2', 'books', 'b1');
+
+    const sender = (await page('u1')).sent[0];
+    expect(sender.verdict).toBeNull();
+    expect(sender.waiting).toBe('Removed from their library');
+    expect(sender.withdrawable).toBe(false);
+
+    const recipient = await page('u2');
+    expect(recipient.inbox).toEqual([]);
+    expect(recipient.received.map((v) => v.id)).toEqual(['r1']);
+  });
+
+  it('comes out the same when it was scored with a switch off', async () => {
+    recs.push(rec('r1', 'u1', 'u2', 'b1'));
+    activities.push({ ...owned(), rating: 7 });
+    users[0].prefs = { compareOptIn: false };
+    await settleRecommendationsForTitle('u2', 'books', 'b1');
+    expect(recs[0].verdictNotifiedAt).toBeNull();
+    users[0].prefs = { compareOptIn: true };
+
+    activities.length = 0;
+    const sender = (await page('u1')).sent[0];
+    expect(sender.waiting).toBe('Removed from their library');
+    expect(sender.withdrawable).toBe(false);
+    expect((await page('u2')).inbox).toEqual([]);
   });
 });
 

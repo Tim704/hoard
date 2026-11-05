@@ -1,5 +1,6 @@
 // Settling: a recipient's library change turns into ADDED and one verdict
-// notification, never twice and never while either switch is off.
+// notification, never twice and never while either switch is off. Only a
+// verdict's promotion to ADDED happens with a switch off, since it tells nobody.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type Row = Record<string, any>;
@@ -143,6 +144,62 @@ describe('settleRecommendationsForTitle: ADDED', () => {
     expect(recs[0].response).toBe('PASSED');
   });
 
+  it('promotes a title they already had once it has a verdict', async () => {
+    recs.push(rec());
+    activities.push(theirActivity({ createdAt: BEFORE, rating: 8 }));
+    await settle();
+    expect(recs[0].response).toBe('ADDED');
+    expect(recs[0].respondedAt).toBeInstanceOf(Date);
+    expect(notifyMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('promotes on dropping it unscored as well', async () => {
+    recs.push(rec());
+    activities.push(theirActivity({ createdAt: BEFORE, status: 'DROPPED' }));
+    await settle();
+    expect(recs[0].response).toBe('ADDED');
+  });
+
+  it.each([
+    ['the sender', 'u1'],
+    ['the recipient', 'u2'],
+  ])('promotes on a verdict with %s switched off, and sends nothing', async (_label, id) => {
+    recs.push(rec());
+    activities.push(theirActivity({ createdAt: BEFORE, rating: 8 }));
+    setOptIn(id, false);
+
+    await settle();
+    expect(recs[0].response).toBe('ADDED');
+    expect(recs[0].respondedAt).toBeInstanceOf(Date);
+    expect(recs[0].verdictNotifiedAt).toBeNull();
+    expect(notifyMock).not.toHaveBeenCalled();
+
+    // The nightly sweep agrees, and still holds the news until the switch is back.
+    expect(await settleAllRecommendations()).toEqual({ checked: 1, notified: 0 });
+    expect(notifyMock).not.toHaveBeenCalled();
+
+    setOptIn(id, true);
+    expect(await settleAllRecommendations()).toEqual({ checked: 1, notified: 1 });
+  });
+
+  it('keeps an existing respondedAt when promoting', async () => {
+    const earlier = new Date('2026-10-05T00:00:00Z');
+    recs.push(rec({ respondedAt: earlier }));
+    activities.push(theirActivity({ createdAt: BEFORE, rating: 8 }));
+    await settle();
+    expect(recs[0].response).toBe('ADDED');
+    expect(recs[0].respondedAt).toBe(earlier);
+  });
+
+  it('with a switch off, a title added without a verdict waits as PENDING', async () => {
+    recs.push(rec());
+    activities.push(theirActivity({ createdAt: AFTER }));
+    setOptIn('u2', false);
+    await settle();
+    expect(recs[0].response).toBe('PENDING');
+    expect(recs[0].respondedAt).toBeNull();
+  });
+
   it('does nothing when the title is not in their library', async () => {
     recs.push(rec());
     await settle();
@@ -250,7 +307,6 @@ describe('settleRecommendationsForTitle: the verdict notification', () => {
     await settleAllRecommendations();
     expect(notifyMock).not.toHaveBeenCalled();
     expect(recs[0].verdictNotifiedAt).toBeNull();
-    expect(recs[0].response).toBe('PENDING');
 
     setOptIn(id, true);
     await settle();
