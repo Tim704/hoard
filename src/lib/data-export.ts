@@ -146,7 +146,8 @@ async function titleListItems(items: { category: string; mediaId: string }[]) {
  * (minus secrets), every activity with its media row, the event log,
  * franchises, diary, play sessions, seasons, best-of-the-year duels, owned
  * custom lists, reference lists, goals, saved views, API token names, linked
- * accounts, the taste profile and share links. What is left out (hashes,
+ * accounts, the taste profile, recommendations sent and received (the received
+ * ones without the sender's guess) and share links. What is left out (hashes,
  * tokens, share ids) is listed in src/lib/export-full.ts.
  */
 export async function getFullExport(userId: string) {
@@ -168,6 +169,8 @@ export async function getFullExport(userId: string) {
     externalLinks,
     tasteProfile,
     shareLinks,
+    recsSent,
+    recsReceived,
   ] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { username: true, createdAt: true } }),
     getPrefs(userId),
@@ -208,6 +211,16 @@ export async function getFullExport(userId: string) {
       select: { kind: true, target: true, createdAt: true, revokedAt: true },
       orderBy: { createdAt: 'asc' },
     }),
+    prisma.recommendation.findMany({
+      where: { fromId: userId },
+      include: { to: { select: { username: true } } },
+      orderBy: { createdAt: 'asc' },
+    }),
+    prisma.recommendation.findMany({
+      where: { toId: userId },
+      include: { from: { select: { username: true } } },
+      orderBy: { createdAt: 'asc' },
+    }),
   ]);
 
   const activities = (rows as any[]).map((row) => {
@@ -235,6 +248,12 @@ export async function getFullExport(userId: string) {
     members: members.map(({ user: u, ...m }) => ({ ...m, username: u.username })),
   }));
 
+  const recTitles = await titleListItems([...recsSent, ...recsReceived]);
+  const recTitle = (r: { category: string; mediaId: string }) =>
+    recTitles.get(`${r.category}:${r.mediaId}`) ?? { title: null, year: null, externalId: null };
+  const recommendationsSent = recsSent.map(({ to, ...r }) => ({ ...r, ...recTitle(r), to: to.username }));
+  const recommendationsReceived = recsReceived.map(({ from, ...r }) => ({ ...r, ...recTitle(r), from: from.username }));
+
   return shapeFullExport({
     user,
     prefs,
@@ -252,6 +271,8 @@ export async function getFullExport(userId: string) {
     apiTokens,
     externalLinks,
     tasteProfile,
+    recommendationsSent,
+    recommendationsReceived,
     shareLinks,
   });
 }

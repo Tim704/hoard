@@ -242,6 +242,7 @@ each job at its time in the server's `TZ`:
 | `lastfm`        | 05:00         | Suggests "Mark as Listened?" from Last.fm plays (300 a night)   |
 | `anilist-sync`  | 05:30         | Pulls the AniList lists of users with an AniList username       |
 | `taste-profile` | Sundays 05:45 | Rebuilds every user's taste profile                             |
+| `recommendations` | 05:50       | Sends verdicts on recommendations scored through imports/sync   |
 | `releases`      | 06:00         | Notifies about titles out today and new episodes                |
 | `airing`        | 06:30         | Refreshes anime's next airing episode (after `releases`)        |
 | `backup-watch`  | 09:00         | Warns the owner if the newest backup is over 26 h old           |

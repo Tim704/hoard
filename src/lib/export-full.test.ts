@@ -35,6 +35,8 @@ function input(over: Partial<FullExportInput> = {}): FullExportInput {
       { id: 'x1', userId: 'u1', provider: 'anilist', accountId: 'me', token: 'sealed-oauth', data: { lastSyncAt: 'x', accessToken: 'leak', refresh_token: 'leak', apiKey: 'leak', suggested: ['a1'] }, updatedAt: at },
     ],
     tasteProfile: { userId: 'u1', data: { v: 1 }, updatedAt: at },
+    recommendationsSent: [],
+    recommendationsReceived: [],
     shareLinks: [{ id: 'share-token-secret', userId: 'u1', kind: 'tiers', target: 'books', createdAt: at, revokedAt: null }],
     ...over,
   };
@@ -90,5 +92,18 @@ describe('scrubLinkData', () => {
     expect(scrubLinkData({ name: 'x', token: 't', clientSecret: 's', sessionKey: 'k' })).toEqual({ name: 'x' });
     expect(scrubLinkData(null)).toBeNull();
     expect(scrubLinkData(['a'])).toEqual(['a']);
+  });
+});
+
+describe('recommendations in the export', () => {
+  it('exports sent picks with their guess, and received picks without one', () => {
+    const out = shapeFullExport(input({
+      recommendationsSent: [{ to: 'sam', title: 'Dune', note: 'n', guess: 8, response: 'ADDED', fromId: 'x', toId: 'y' }],
+      recommendationsReceived: [{ from: 'sam', title: 'Heat', note: 'm', guess: 9, response: 'PENDING', fromId: 'y', toId: 'x' }],
+    }), at);
+    expect(out.recommendationsSent[0]).toMatchObject({ to: 'sam', guess: 8 });
+    expect(out.recommendationsReceived[0]).toMatchObject({ from: 'sam', note: 'm' });
+    expect(out.recommendationsReceived[0]).not.toHaveProperty('guess');
+    expect(JSON.stringify(out.recommendationsSent)).not.toContain('fromId');
   });
 });

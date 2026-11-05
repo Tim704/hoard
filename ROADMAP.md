@@ -17,6 +17,11 @@
 > The AI features (the critic, 2.8 paste a list, 6.1's verdict, 7.1 recommendations) need
 > `GEMINI_API_KEY`, as before. See README → Configuration for every variable.
 >
+> **Shipped since (5 Nov 2026): friend recommendations** (Stage 1 of
+> `docs/superpowers/specs/2026-11-05-friends-interactions-design.md`). Send a title to a
+> friend with a note and a hidden guess; they Add or Pass; the verdict (their score) comes
+> back. The spec lists what is planned next (Stages 2 and 3), none of it built yet.
+>
 > **Shipped since (29 Oct 2026): switchable layouts and a UI clean-up**
 > (`docs/superpowers/plans/2026-10-29-layout-themes.md`). Settings → Themes picks one of
 > four layouts (Classic, the default and the look above; Minimal; Organised; Fresh), the

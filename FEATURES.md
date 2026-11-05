@@ -416,6 +416,8 @@ https addresses only, with **Send test**) and choose which kinds are pushed:
 - new seasons;
 - sync errors (AniList);
 - lists shared with you;
+- friends: a recommendation sent to you, and the verdict on one you sent (shown as
+  **From friends**; they name only the person and the title);
 - Last.fm "Mark as Listened?" suggestions;
 - backup problems (owner only).
 
@@ -433,6 +435,19 @@ Everything here is off until you turn it on.
 - **Feed** (`/feed`): what opted-in users finished, dropped or put in S tier over the
   last 30 days, with scores. Your own activity appears only if you turn on "Show my
   activity in the feed".
+- **Recommendations** (`/recommendations`): the same opt-in, for both people. From a
+  title's view, **Recommend to a friend** sends it to a friend with an optional note (up to
+  500 characters) and a hidden guess of how they will score it (0 to 10). The friend sees
+  it in their inbox with **Add** (to their list) or **Pass**; a title they already have
+  says "Already on your list". You can withdraw a pick until something has happened to it.
+  It is refused if they have already scored or dropped the title, and points you to
+  Compare instead. The verdict arrives when they score or drop the title: both of you then
+  see your guess next to their score. The notification names only who and which title.
+  Each person's record is kept per direction (sent and received), and both directions are
+  in the full JSON export (a received pick never includes the sender's guess). A nightly
+  `recommendations` job (05:50) catches scores that arrive through imports and sync.
+  Manual entries can't be sent. Turning the compare switch off hides recommendations from
+  both sides, with no notification; they return when it is switched back on.
 - These pages join the navigation once you opt in (the user menu; Organised's
   **Friends** group).
 
@@ -443,7 +458,7 @@ Settings → Data:
 - **Library CSV** (every section, with tags, dates, progress, tier and franchise) and
   **Franchises CSV**. The library CSV can be imported again.
 - **Full JSON export:** everything you own, including diary, sessions, seasons, lists,
-  goals, views and links; never passwords, tokens or token hashes.
+  goals, views, links and recommendations sent and received; never passwords, tokens or token hashes.
 - **Markdown (Obsidian):** a zip with one note per title, `Section/Title (Year).md`, with
   front matter (status, score, tier, dates, tags, franchise, link) and your notes and
   reviews.
@@ -536,6 +551,7 @@ button were removed on the owner's request with this update.
   | lastfm | 05:00 | Last.fm "Mark as Listened?" suggestions |
   | anilist-sync | 05:30 | AniList pull |
   | taste-profile | Sundays 05:45 | taste profiles |
+  | recommendations | 05:50 | verdict notifications for scores from imports and sync |
   | releases | 06:00 | "out today" and new-episode notifications |
   | airing | 06:30 | next airing episode of anime |
   | backup-watch | 09:00 | warns the owner about old backups |

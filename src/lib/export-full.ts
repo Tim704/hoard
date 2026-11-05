@@ -7,6 +7,11 @@
 //  hashes (only name and dates), linked accounts' OAuth tokens and any
 //  token- or secret-like key in their provider data, and share links' ids
 //  (the id IS the public token; only kind, target and dates are exported).
+//
+//  Recommendations are exported in both directions, shaped as "to"/"from" by
+//  username with the title; the user ids are left out. A sent pick carries
+//  your own hidden guess. A received pick never does: the sender's guess is
+//  not yours to see (it appears once you score or drop the title, in the app).
 // ───────────────────────────────────────────────────────────────────────────
 
 import type { Prefs } from './prefs';
@@ -58,6 +63,10 @@ export interface FullExportInput {
   apiTokens: Row[];
   externalLinks: Row[];
   tasteProfile: Row | null;
+  /** Picks you sent: `to` (username), `title`, note, your guess, response. */
+  recommendationsSent: Row[];
+  /** Picks sent to you: `from` (username), `title`, note, response. */
+  recommendationsReceived: Row[];
   shareLinks: Row[];
 }
 
@@ -105,6 +114,8 @@ export function shapeFullExport(input: FullExportInput, now = new Date()) {
     tasteProfile: input.tasteProfile
       ? { data: input.tasteProfile.data ?? null, updatedAt: input.tasteProfile.updatedAt ?? null }
       : null,
+    recommendationsSent: input.recommendationsSent.map((r) => omit(r, 'fromId', 'toId', 'id')),
+    recommendationsReceived: input.recommendationsReceived.map((r) => omit(r, 'fromId', 'toId', 'id', 'guess')),
     shareLinks: input.shareLinks.map((s) => ({
       kind: s.kind ?? null,
       target: s.target ?? null,
