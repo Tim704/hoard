@@ -436,7 +436,7 @@ Everything here is off until you turn it on.
   last 30 days, with scores. Your own activity appears only if you turn on "Show my
   activity in the feed".
 - **Recommendations** (`/recommendations`): the same opt-in, for both people. From a
-  title's view, **Recommend to a friend** sends it to a friend with an optional note (up to
+  title's view, **Send to a friend** sends it to a friend with an optional note (up to
   500 characters) and a hidden guess of how they will score it (0 to 10). The friend sees
   it in their inbox with **Add** (to their list) or **Pass**; a title they already have
   says "Already on your list". You can withdraw a pick until something has happened to it.
