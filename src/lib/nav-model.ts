@@ -26,6 +26,7 @@ export type NavItemId =
   | 'feed'
   | 'compare'
   | 'together'
+  | 'recommendations'
   | 'import'
   | 'settings';
 
@@ -82,6 +83,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { id: 'feed', label: 'Feed', href: '/feed', icon: 'Rss', group: 'friends', gate: 'feed' },
   { id: 'compare', label: 'Compare', href: '/compare', icon: 'GitCompareArrows', group: 'friends', gate: 'compare' },
   { id: 'together', label: 'Watch together', href: '/together', icon: 'Users', group: 'friends', gate: 'compare' },
+  { id: 'recommendations', label: 'Recommendations', href: '/recommendations', icon: 'Send', group: 'friends', gate: 'compare' },
   { id: 'import', label: 'Import', href: '/import', icon: 'Upload', group: 'manage' },
   { id: 'settings', label: 'Settings', href: '/settings', icon: 'Settings', group: 'manage' },
 ];

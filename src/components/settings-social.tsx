@@ -96,7 +96,7 @@ export function SettingsCompare({ initial }: { initial: boolean }) {
           </Link>{' '}
           with you. Compare shows the titles you both have with both scores, a compatibility score, and the titles in
           your S tier they don’t have. Watch together shows the planned titles you both have queued, with their places in
-          each queue. Never your notes, reviews, dates or other statuses.
+          each queue. You can also send each other recommendations. When someone recommends you a title, they see whether you added or passed on it, how far you’ve got, and your score once you’ve scored it. Never your notes, reviews or dates.
         </>
       }
     />

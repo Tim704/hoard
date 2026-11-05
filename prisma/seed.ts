@@ -271,6 +271,22 @@ async function seedFriend(demoId: string) {
       });
     }
   }
+
+  // Recommendations both ways (movies): a PENDING pick for demo on a movie demo
+  // lacks, and a settled one from demo on Alien (both have it, so a verdict
+  // shows). verdictNotifiedAt is set so seeding never fires a notification.
+  const movieId = async (key: string) => (await prisma.movie.findUnique({ where: { externalId: `demo-movie-${key}` } }))?.id;
+  const rec = async (fromId: string, toId: string, key: string, data: { note?: string; guess?: number; response: string }) => {
+    const mediaId = await movieId(key);
+    if (!mediaId) return;
+    const where = { fromId, toId, category: 'movies', mediaId };
+    if (await prisma.recommendation.findFirst({ where })) return;
+    await prisma.recommendation.create({
+      data: { ...where, ...data, respondedAt: data.response === 'PENDING' ? null : new Date(), verdictNotifiedAt: new Date() },
+    });
+  };
+  await rec(friend.id, demoId, 'solaris', { note: 'Slow and strange. Right up your street.', response: 'PENDING' });
+  await rec(demoId, friend.id, 'alien', { guess: 8, response: 'ADDED' });
 }
 
 // ── Demo library ─────────────────────────────────────────────────────────────

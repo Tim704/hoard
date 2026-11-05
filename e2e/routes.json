@@ -72,5 +72,6 @@
   "/compare",
   "/compare/demo2",
   "/compare/no-such-user",
-  "/compare/demo"
+  "/compare/demo",
+  "/recommendations"
 ]

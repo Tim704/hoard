@@ -77,6 +77,7 @@ describe('nav-model', () => {
       'feed',
       'compare',
       'together',
+      'recommendations',
       'import',
       'settings',
     ]);
@@ -94,6 +95,7 @@ describe('nav-model', () => {
       ['feed', 'feed'],
       ['compare', 'compare'],
       ['together', 'compare'],
+      ['recommendations', 'compare'],
     ]);
   });
 
@@ -137,8 +139,9 @@ describe('nav-model', () => {
         expect(none).not.toContain('feed');
         expect(none).not.toContain('compare');
         expect(none).not.toContain('together');
+        expect(none).not.toContain('recommendations');
         const compare = ids(navFor(layout, { social: { compare: true, feed: false } }));
-        expect(compare).toEqual(expect.arrayContaining(['compare', 'together']));
+        expect(compare).toEqual(expect.arrayContaining(['compare', 'together', 'recommendations']));
         expect(compare).not.toContain('feed');
         const feed = ids(navFor(layout, { social: { compare: false, feed: true } }));
         expect(feed).toContain('feed');
@@ -190,6 +193,7 @@ describe('nav-model', () => {
         'feed',
         'compare',
         'together',
+        'recommendations',
         'import',
         'settings',
       ]);
@@ -210,7 +214,7 @@ describe('nav-model', () => {
         ['Plan & track', ['tonight', 'calendar', 'diary']],
         ['Organise', ['lists', 'tags', 'views']],
         ['Insights', ['stats']],
-        ['Friends', ['feed', 'compare', 'together']],
+        ['Friends', ['feed', 'compare', 'together', 'recommendations']],
       ]);
       expect(m.top).toEqual([]);
       expect(menuLinkIds(m)).toEqual(['import', 'settings']);
