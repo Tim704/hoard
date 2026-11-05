@@ -41,7 +41,8 @@ export function RecommendationsClient({ page }: { page: Page }) {
   }
   return (
     <div className="space-y-8">
-      {page.inbox.length > 0 && <Inbox items={page.inbox} />}
+      {/* Always mounted: it keeps a row on screen while its score step is open. */}
+      <Inbox items={page.inbox} />
       {(page.mine.sent > 0 || page.theirs.sent > 0) && (
         <section className="space-y-3" aria-labelledby="rec-record">
           <h2 id="rec-record" className="text-lg font-semibold">
