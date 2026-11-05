@@ -52,7 +52,7 @@ export function RecommendPanel({
       {context.recommendedBy.map((r, i) => (
         <div key={i} className="text-sm">
           <p className="text-muted-foreground">Recommended by {r.from}</p>
-          {r.note && <p className="break-words">“{r.note}”</p>}
+          {r.note && <p className="whitespace-pre-line break-words">“{r.note}”</p>}
         </div>
       ))}
       {context.friends.length > 0 && (
@@ -128,15 +128,19 @@ function SendForm({
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
-        <label htmlFor={`${uid}-friend`} className="text-sm font-medium">
-          Friend
-        </label>
         {single ? (
-          <p id={`${uid}-friend`} className="text-sm">
-            {friends[0].username}
-            {friends[0].alreadySent && <span className="ml-2 text-muted-foreground">Sent</span>}
-          </p>
+          <>
+            <p className="text-sm font-medium">Friend</p>
+            <p className="text-sm">
+              {friends[0].username}
+              {friends[0].alreadySent && <span className="ml-2 text-muted-foreground">Sent</span>}
+            </p>
+          </>
         ) : (
+          <>
+          <label htmlFor={`${uid}-friend`} className="text-sm font-medium">
+            Friend
+          </label>
           <select
             id={`${uid}-friend`}
             value={chosen}
@@ -150,6 +154,7 @@ function SendForm({
               </option>
             ))}
           </select>
+          </>
         )}
       </div>
       <div className="space-y-1.5">

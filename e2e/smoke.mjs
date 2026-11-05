@@ -1518,18 +1518,16 @@ if (failures.length === 0) {
       if (!text.includes(note)) throw new Error('b does not see the note');
       const html = await pb.content();
       if (/guess/i.test(await row.first().innerHTML()) || /guess\\*"?:\s*8\b/.test(html)) throw new Error('b can see the guess before scoring');
-      await row.first().getByRole('button').first().click();
+      // b adds it from the inbox's own row (Done) and scores it in that row's
+      // rating step, which has to stay on screen after the pick leaves the inbox.
+      await row.first().getByRole('button', { name: /^(Read|Done|Finished|Watched|Played|Listened)/ }).first().click();
       await pb.getByText(/^Added /).first().waitFor({ timeout: 15_000 });
-      // Added, it leaves the inbox: b scores it from its title popup.
-      await pb.goto(`${BASE_URL}/compare/demo2`, { waitUntil: 'networkidle' });
-      await pb.locator('main a', { hasText: pick }).first().click();
-      const bd = pb.getByRole('dialog');
-      await bd.getByRole('button', { name: 'Save', exact: true }).waitFor({ timeout: 15_000 });
-      const rating = bd.getByLabel('Rating out of 10');
+      const scoreRow = pb.locator('main li', { hasText: pick }).filter({ hasText: nameA }).first();
+      const rating = scoreRow.getByLabel('Rating out of 10');
+      await rating.waitFor({ timeout: 15_000 });
       await rating.fill('6');
-      await rating.press('Enter');
-      await bd.getByRole('button', { name: 'Save', exact: true }).click();
-      await pb.getByText('Saved.').first().waitFor({ timeout: 15_000 });
+      await scoreRow.getByRole('button', { name: 'Save', exact: true }).click();
+      await scoreRow.getByRole('button', { name: 'Save', exact: true }).waitFor({ state: 'detached', timeout: 15_000 });
 
       // a sees the verdict: b's score and its own guess.
       await pa.goto(`${BASE_URL}/recommendations`, { waitUntil: 'networkidle' });

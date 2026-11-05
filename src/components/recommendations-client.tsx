@@ -64,6 +64,20 @@ function Inbox({ items }: { items: RecView[] }) {
   const titleHrefOf = useTitleHref();
   const { rows, add, saveRating, setRow } = useAddRows();
   const [busy, setBusy] = useState<string | null>(null);
+  // Rows this person has started adding. Adding settles the pick, so the server
+  // drops it from `items` at once; the snapshot keeps it mounted (with its score
+  // step) until the add finishes or the person moves on.
+  const [started, setStarted] = useState<Record<string, RecView>>({});
+
+  const keyOf = (it: RecView) => `${it.slug}:${it.externalId}`;
+  const live = new Set(items.map((it) => it.id));
+  const shown = [
+    ...items,
+    ...Object.values(started).filter((it) => {
+      const phase = rows[keyOf(it)]?.phase;
+      return !live.has(it.id) && (phase === 'saving' || phase === 'rating');
+    }),
+  ].sort((x, y) => y.createdAt.localeCompare(x.createdAt));
 
   async function pass(id: string) {
     setBusy(id);
@@ -73,24 +87,34 @@ function Inbox({ items }: { items: RecView[] }) {
     router.refresh();
   }
 
+  if (shown.length === 0) return null;
+
   return (
     <section className="space-y-3" aria-labelledby="rec-inbox">
       <h2 id="rec-inbox" className="text-lg font-semibold">
         Recommended to you
       </h2>
       <ul className="space-y-3">
-        {items.map((it) => {
-          const key = `${it.slug}:${it.externalId}`;
+        {shown.map((it) => {
+          const key = keyOf(it);
+          const note = it.note && <p className="whitespace-pre-line break-words text-sm">“{it.note}”</p>;
           return (
             <li key={it.id} className="space-y-2 rounded-xl border border-border bg-card p-3">
-              <div className="flex items-start gap-3">
-                <Cover src={it.imageUrl} alt="" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground">from {it.other}</p>
-                  <p className="break-words font-medium">{it.title}</p>
-                  {it.note && <p className="mt-1 break-words text-sm">“{it.note}”</p>}
+              {it.myActivityId ? (
+                <div className="flex items-start gap-3">
+                  <Cover src={it.imageUrl} alt="" />
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="text-xs text-muted-foreground">from {it.other}</p>
+                    <p className="break-words font-medium">{it.title}</p>
+                    {note}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">from {it.other}</p>
+                  {note}
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-2">
                 <div className="min-w-0 flex-1">
                   {it.myActivityId ? (
@@ -106,7 +130,10 @@ function Inbox({ items }: { items: RecView[] }) {
                       result={resultOf(it)}
                       row={rows[key]}
                       note={CATEGORIES[it.slug].singular}
-                      onAdd={(status) => void add(key, it.slug, resultOf(it), status)}
+                      onAdd={(status) => {
+                        setStarted((prev) => ({ ...prev, [it.id]: it }));
+                        void add(key, it.slug, resultOf(it), status);
+                      }}
                       onRate={(rating) => {
                         const r = rows[key];
                         if (r?.phase === 'rating') void saveRating(key, r.activityId, rating);
@@ -115,7 +142,7 @@ function Inbox({ items }: { items: RecView[] }) {
                     />
                   )}
                 </div>
-                <Button variant="outline" size="sm" disabled={busy === it.id} onClick={() => void pass(it.id)}>
+                <Button variant="outline" size="sm" disabled={busy === it.id || rows[key]?.phase === 'saving' || rows[key]?.phase === 'rating'} onClick={() => void pass(it.id)}>
                   Pass
                 </Button>
               </div>
@@ -147,9 +174,9 @@ function RecordBlock({
       <h3 className="font-semibold">{heading}</h3>
       <dl className="grid grid-cols-4 gap-2 text-center">
         {stats.map(([label, n]) => (
-          <div key={label}>
-            <dd className="text-lg font-semibold tabular-nums">{n}</dd>
+          <div key={label} className="flex flex-col-reverse">
             <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="text-lg font-semibold tabular-nums">{n}</dd>
           </div>
         ))}
       </dl>
@@ -184,6 +211,7 @@ function RowList({ heading, items, direction }: { heading: string; items: RecVie
 
 function RecRow({ it, direction }: { it: RecView; direction: 'sent' | 'received' }) {
   const router = useRouter();
+  const titleHrefOf = useTitleHref();
   const [busy, setBusy] = useState(false);
   const sent = direction === 'sent';
 
@@ -201,8 +229,15 @@ function RecRow({ it, direction }: { it: RecView; direction: 'sent' | 'received'
       <div className="min-w-0 flex-1 space-y-1 text-sm">
         <p className="text-xs text-muted-foreground">{sent ? `to ${it.other}` : `from ${it.other}`}</p>
         <p className="break-words font-medium">{it.title}</p>
-        {it.note && <p className="break-words">“{it.note}”</p>}
+        {it.note && <p className="whitespace-pre-line break-words">“{it.note}”</p>}
         <Outcome it={it} sent={sent} />
+        {it.myActivityId && (
+          <p>
+            <Link href={titleHrefOf(it.slug, it.myActivityId)} className="text-muted-foreground underline underline-offset-2">
+              Open it
+            </Link>
+          </p>
+        )}
       </div>
       {it.withdrawable && (
         <Button variant="outline" size="sm" disabled={busy} onClick={() => void withdraw()}>
@@ -217,8 +252,18 @@ function RecRow({ it, direction }: { it: RecView; direction: 'sent' | 'received'
 function Outcome({ it, sent }: { it: RecView; sent: boolean }) {
   const v = it.verdict;
   if (!v) {
-    const line = sent ? it.waiting : it.response === 'PASSED' ? 'You passed' : null;
-    return line ? <p className="text-muted-foreground">{line}</p> : null;
+    const line = sent ? it.waiting : it.response === 'PASSED' ? 'You passed' : it.response === 'ADDED' ? 'Not scored yet' : null;
+    if (!line && !(sent && it.myGuess != null)) return null;
+    return (
+      <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground">
+        {line && <span>{line}</span>}
+        {sent && it.myGuess != null && (
+          <span>
+            Your guess: <Score value={it.myGuess} star={false} />
+          </span>
+        )}
+      </p>
+    );
   }
   // The recipient is you in Received and them in Sent; the sender is the other way round.
   const recipientName = sent ? it.other : 'You';
