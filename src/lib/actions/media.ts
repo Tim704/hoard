@@ -48,6 +48,7 @@ import {
   type ActivityState,
   type Row,
 } from '@/lib/undo';
+import { settleRecommendationsForActivity, settleRecommendationsForTitle } from '@/lib/recommendations-server';
 import { undoStore } from '@/lib/undo-store';
 import type {
   NormalizedResult,
@@ -111,7 +112,7 @@ export async function addToList(
     // episode counts, …) before persisting, so dashboard metrics have data.
     const enriched = await enrichResult(slug, parsed.data as NormalizedResult);
 
-    const { activityId, existing } = await addMediaForUser(user.id, slug, enriched.result, {
+    const { activityId, existing, mediaId } = await addMediaForUser(user.id, slug, enriched.result, {
       status,
       metaFetchedAt: enriched.metaFetchedAt,
       seasons: enriched.seasons,
@@ -120,6 +121,8 @@ export async function addToList(
 
     // 8.2: a new anime / manga goes to AniList (an existing one didn't change).
     if (!existing) queueAniListPush(user.id, activityId, cat.dbCategory);
+    // A pick someone sent for this title is now in the library (never throws).
+    if (!existing) await settleRecommendationsForTitle(user.id, slug, mediaId);
     revalidateCategory(slug);
     revalidatePath('/franchises');
     return { ok: true, activityId, existing };
@@ -283,7 +286,11 @@ export async function updateActivity(
       return diaryPrefs ? applyDiaryForUpdate(tx, activity, diaryChange, diaryPrefs) : { diaryEntryId: undefined };
     });
     // 8.2: after the commit, mirror a status or score change to AniList.
-    if (patch.status !== undefined || patch.rating !== undefined) queueAniListPush(user.id, id, activity.category);
+    if (patch.status !== undefined || patch.rating !== undefined) {
+      queueAniListPush(user.id, id, activity.category);
+      // A new score or status can give a recommendation its verdict (never throws).
+      await settleRecommendationsForActivity(user.id, activity);
+    }
 
     const slug = slugForDbCategory(activity.category as DbCategory);
     if (slug) revalidateCategory(slug);
@@ -422,6 +429,8 @@ export async function restoreActivity(undoToken: string): Promise<ActionResult> 
       await recordEvent(tx, { userId: user.id, activityId: activity.id, kind: 'removed-undone' });
     });
     undoStore.drop(undoToken);
+    // A restored title can carry a score a pick was waiting on (never throws).
+    await settleRecommendationsForTitle(user.id, cat.slug, String(mediaId));
 
     revalidateCategory(cat.slug);
     revalidatePath('/franchises');
@@ -481,6 +490,8 @@ export async function restoreActivityState(
       }
     });
     queueAniListPush(user.id, id, activity.category);
+    // Undo can bring a score or status back (never throws).
+    await settleRecommendationsForActivity(user.id, activity);
 
     const slug = slugForDbCategory(activity.category as DbCategory);
     if (slug) revalidateCategory(slug);

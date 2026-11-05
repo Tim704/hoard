@@ -10,6 +10,7 @@ import { runLastfm } from '@/lib/jobs/lastfm';
 import { runMetadata } from '@/lib/jobs/metadata';
 import { runMigrations } from '@/lib/jobs/migration';
 import { runAiring, runNewSeasons } from '@/lib/jobs/new-seasons';
+import { settleAllRecommendations } from '@/lib/recommendations-server';
 import { runReleases } from '@/lib/jobs/releases';
 import { runSteam } from '@/lib/jobs/steam';
 import { registerJob, startScheduler } from '@/lib/jobs/scheduler';
@@ -50,6 +51,13 @@ registerJob({
   at: JOB_TIMES.lastfm,
   run: async () => {
     await runLastfm();
+  },
+});
+registerJob({
+  name: 'recommendations',
+  at: JOB_TIMES.recommendations,
+  run: async () => {
+    await settleAllRecommendations();
   },
 });
 registerJob({

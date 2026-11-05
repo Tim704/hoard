@@ -343,6 +343,34 @@ describe('settleRecommendationsForActivity', () => {
   });
 });
 
+describe('settleAllRecommendations: scores that never went through a server action', () => {
+  it('notifies for a score written by an import or sync, once', async () => {
+    recs.push(rec());
+    activities.push(theirActivity({ rating: 8 }));
+    expect(await settleAllRecommendations()).toEqual({ checked: 1, notified: 1 });
+    expect(await settleAllRecommendations()).toEqual({ checked: 0, notified: 0 });
+    expect(notifyMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips rows whose people have the switch off, and leaves them for later', async () => {
+    recs.push(rec());
+    activities.push(theirActivity({ rating: 8 }));
+    setOptIn('u2', false);
+    expect(await settleAllRecommendations()).toEqual({ checked: 1, notified: 0 });
+    expect(recs[0].verdictNotifiedAt).toBeNull();
+    setOptIn('u2', true);
+    expect(await settleAllRecommendations()).toEqual({ checked: 1, notified: 1 });
+  });
+
+  it('marks PENDING as ADDED for a title imported after it was sent', async () => {
+    recs.push(rec());
+    activities.push(theirActivity({ createdAt: AFTER }));
+    await settleAllRecommendations();
+    expect(recs[0].response).toBe('ADDED');
+    expect(notifyMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('failures', () => {
   it('never throws when the database fails', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);

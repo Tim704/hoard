@@ -9,6 +9,8 @@ export const JOB_TIMES = {
   steam: '04:30',
   lastfm: '05:00',
   'anilist-sync': '05:30',
+  /** After anilist-sync, so the night's pulled scores are included. */
+  recommendations: '05:50',
   releases: '06:00',
   airing: '06:30',
   'backup-watch': '09:00',

@@ -61,6 +61,8 @@ export interface AddOutcome {
   activityId: string;
   /** True when the user already had this title; it is returned unchanged. */
   existing: boolean;
+  /** The catalogue row's id, for callers that settle things keyed by title. */
+  mediaId: string;
 }
 
 /**
@@ -145,7 +147,7 @@ export async function addMediaForUser(
   if (!outcome.existing && !opts.skipFranchise) {
     await autoGroupAfterAdd(userId, slug, outcome.media);
   }
-  return { activityId: outcome.activityId, existing: outcome.existing };
+  return { activityId: outcome.activityId, existing: outcome.existing, mediaId: outcome.media.id };
 }
 
 /**

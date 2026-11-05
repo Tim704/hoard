@@ -23,6 +23,9 @@ describe('job order', () => {
     expect(JOB_TIMES['taste-profile']).toBe('05:45');
     expect(TASTE_PROFILE_WEEKDAY).toBe(0);
   });
+  it('settles recommendations after the night\'s AniList pull', () => {
+    expect(minutes(JOB_TIMES.recommendations)).toBeGreaterThan(minutes(JOB_TIMES['anilist-sync']));
+  });
   it('runs the account syncs at their spec F3 times', () => {
     expect(JOB_TIMES.steam).toBe('04:30');
     expect(JOB_TIMES.lastfm).toBe('05:00');
