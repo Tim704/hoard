@@ -12,8 +12,9 @@
 import type { Prisma } from '@prisma/client';
 
 import { CATEGORIES, getCategory, type CategorySlug } from '@/lib/categories';
-import { catalogueFields, catalogueKeyOf, fkSelect, loadMedia, mediaKey, titleOf } from '@/lib/data-compare';
+import { catalogueFields, catalogueKeyOf, fkSelect, loadMedia, loadMediaRow, mediaKey, titleOf } from '@/lib/data-compare';
 import { comparableUsernames } from '@/lib/data-together';
+import { isManualId } from '@/lib/manual';
 import { parsePrefs } from '@/lib/prefs';
 import { prisma } from '@/lib/prisma';
 import {
@@ -51,6 +52,8 @@ export interface RecView {
   /** The sender's line while there is no verdict; always null for the recipient. */
   waiting: string | null;
   withdrawable: boolean;
+  /** The guess I made, on rows I sent; always null on rows sent to me. */
+  myGuess: number | null;
 }
 
 export type RecommendationsPage =
@@ -206,6 +209,7 @@ export async function getRecommendationsPage(meId: string): Promise<Recommendati
       },
       waiting: !incoming && !verdict ? waitingLabel(response, recipient, r.slug) : null,
       withdrawable: !incoming && canWithdraw(response, recipient),
+      myGuess: incoming ? null : r.guess,
     };
     if (!incoming) sent.push(view);
     else if (response === 'PENDING' && !verdict) inbox.push(view);
@@ -236,6 +240,9 @@ export async function getRecommendContext(meId: string, activityId: string): Pro
   if (!key) return { friends: [], recommendedBy: [] };
 
   const title = { category: key.cat.slug, mediaId: key.mediaId };
+  const media = await loadMediaRow(key.cat, key.mediaId);
+  // A hand-made entry can't be sent, so offer no friends (the recommender still shows).
+  const manual = !!media && isManualId(String(media.externalId));
   const [usernames, sentRows, receivedRows] = await Promise.all([
     comparableUsernames(me.id),
     prisma.recommendation.findMany({
@@ -250,7 +257,7 @@ export async function getRecommendContext(meId: string, activityId: string): Pro
   ]);
   const alreadySent = new Set(sentRows.map((r) => r.to.username));
   return {
-    friends: usernames.map((username) => ({ username, alreadySent: alreadySent.has(username) })),
+    friends: manual ? [] : usernames.map((username) => ({ username, alreadySent: alreadySent.has(username) })),
     recommendedBy: receivedRows
       .filter((r) => mutuallyOptedIn(me, r.from))
       .map((r) => ({ from: r.from.username, note: r.note })),

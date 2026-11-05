@@ -106,4 +106,17 @@ describe('recommendations in the export', () => {
     expect(out.recommendationsReceived[0]).not.toHaveProperty('guess');
     expect(JSON.stringify(out.recommendationsSent)).not.toContain('fromId');
   });
+
+  it('gives the sender no trace of the recipient’s response or its dates', () => {
+    const out = shapeFullExport(input({
+      recommendationsSent: [{
+        to: 'sam', title: 'Dune', year: 1965, externalId: 'ol:1', category: 'books', note: 'n', guess: 8,
+        createdAt: at, response: 'ADDED', respondedAt: at, verdictNotifiedAt: at, fromId: 'x', toId: 'y', id: 'z',
+      }],
+    }), at);
+    expect(out.recommendationsSent[0]).toEqual({
+      to: 'sam', title: 'Dune', year: 1965, externalId: 'ol:1', category: 'books', note: 'n', guess: 8, createdAt: at,
+    });
+    for (const k of ['response', 'respondedAt', 'verdictNotifiedAt']) expect(out.recommendationsSent[0]).not.toHaveProperty(k);
+  });
 });

@@ -362,6 +362,7 @@ describe('getRecommendationsPage: the three lists and the record', () => {
       verdict: null,
       waiting: null,
       withdrawable: false,
+      myGuess: null,
     });
   });
 
@@ -448,7 +449,35 @@ describe('getRecommendationsPage: gates and gaps', () => {
   });
 });
 
+describe('getRecommendationsPage: my own guess', () => {
+  it('shows a sender their own guess before any verdict', async () => {
+    recs.push(rec('r1', 'u1', 'u2', 'b1', { guess: 6.5 }), rec('r2', 'u1', 'u2', 'b2'));
+    const p = await page();
+    expect(Object.fromEntries(p.sent.map((v) => [v.id, v.myGuess]))).toEqual({ r1: 6.5, r2: null });
+    expect(p.sent[0].verdict).toBeNull();
+  });
+
+  it('keeps myGuess null on rows sent to me, with or without a verdict', async () => {
+    recs.push(rec('r1', 'u2', 'u1', 'b1', { guess: 7.25 }), rec('r2', 'u2', 'u1', 'b2', { guess: 3 }));
+    activities.push(activity('mine', 'u1', 'b2', { rating: 9 }));
+    const p = await page();
+    expect(p.inbox[0].myGuess).toBeNull();
+    expect(p.received[0].myGuess).toBeNull();
+    expect(JSON.stringify(p.inbox)).not.toContain('7.25');
+  });
+});
+
 describe('getRecommendContext', () => {
+  it('offers no friends for a hand-made title but still shows who recommended it', async () => {
+    media.book.push({ id: 'bm', externalId: 'manual:abc', title: 'Mine', imageUrl: null, year: null });
+    activities.push(activity('mine', 'u1', 'bm'));
+    recs.push(rec('r1', 'u2', 'u1', 'bm', { note: 'for you' }));
+    expect(await getRecommendContext('u1', 'mine')).toEqual({
+      friends: [],
+      recommendedBy: [{ from: 'sam', note: 'for you' }],
+    });
+  });
+
   it('lists friends and marks who already has it; shows who recommended it to me', async () => {
     activities.push(activity('mine', 'u1', 'b1'));
     users.push({ id: 'u4', username: 'zed', prefs: { compareOptIn: true } });

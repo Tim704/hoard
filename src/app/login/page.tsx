@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/session';
 import { AuthForm } from '@/components/auth-form';
+import { signupClosed } from '@/lib/auth-rules';
 import { safeNextPath } from '@/lib/safe-next';
 
 export default async function LoginPage({ searchParams }: { searchParams: { next?: string | string[] } }) {
@@ -16,12 +17,14 @@ export default async function LoginPage({ searchParams }: { searchParams: { next
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
       <AuthForm mode="login" next={next} />
-      <p className="text-sm text-muted-foreground">
-        New here?{' '}
-        <Link href={next ? `/register?next=${encodeURIComponent(next)}` : '/register'} className="font-medium text-foreground underline underline-offset-4">
-          Create an account
-        </Link>
-      </p>
+      {!signupClosed() && (
+        <p className="text-sm text-muted-foreground">
+          New here?{' '}
+          <Link href={next ? `/register?next=${encodeURIComponent(next)}` : '/register'} className="font-medium text-foreground underline underline-offset-4">
+            Create an account
+          </Link>
+        </p>
+      )}
     </main>
   );
 }

@@ -63,7 +63,7 @@ export interface FullExportInput {
   apiTokens: Row[];
   externalLinks: Row[];
   tasteProfile: Row | null;
-  /** Picks you sent: `to` (username), `title`, note, your guess, response. */
+  /** Picks you sent, reduced to what you wrote: `to`, title, year, externalId, category, note, guess, createdAt. Never the recipient's response or its dates. */
   recommendationsSent: Row[];
   /** Picks sent to you: `from` (username), `title`, note, response. */
   recommendationsReceived: Row[];
@@ -114,7 +114,16 @@ export function shapeFullExport(input: FullExportInput, now = new Date()) {
     tasteProfile: input.tasteProfile
       ? { data: input.tasteProfile.data ?? null, updatedAt: input.tasteProfile.updatedAt ?? null }
       : null,
-    recommendationsSent: input.recommendationsSent.map((r) => omit(r, 'fromId', 'toId', 'id')),
+    recommendationsSent: input.recommendationsSent.map((r) => ({
+      to: r.to ?? null,
+      title: r.title ?? null,
+      year: r.year ?? null,
+      externalId: r.externalId ?? null,
+      category: r.category ?? null,
+      note: r.note ?? null,
+      guess: r.guess ?? null,
+      createdAt: r.createdAt ?? null,
+    })),
     recommendationsReceived: input.recommendationsReceived.map((r) => omit(r, 'fromId', 'toId', 'id', 'guess')),
     shareLinks: input.shareLinks.map((s) => ({
       kind: s.kind ?? null,
