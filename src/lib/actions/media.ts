@@ -59,6 +59,18 @@ import type { Status } from '@/lib/status';
 import { publicError } from '@/lib/action-error';
 
 /**
+ * Settling runs after the write has committed: whatever it does, the save
+ * already happened, so a failure is logged and never turned into `ok: false`.
+ */
+async function settleSafely(settle: () => Promise<void>): Promise<void> {
+  try {
+    await settle();
+  } catch (err) {
+    console.error('[recommendations] settle failed:', err);
+  }
+}
+
+/**
  * Search the external provider for a category, for a signed-in user within
  * their search budget. The provider layer owns query trimming, fetching and
  * error wrapping.
@@ -122,7 +134,7 @@ export async function addToList(
     // 8.2: a new anime / manga goes to AniList (an existing one didn't change).
     if (!existing) queueAniListPush(user.id, activityId, cat.dbCategory);
     // A pick someone sent for this title is now in the library (never throws).
-    if (!existing) await settleRecommendationsForTitle(user.id, slug, mediaId);
+    if (!existing) await settleSafely(() => settleRecommendationsForTitle(user.id, slug, mediaId));
     revalidateCategory(slug);
     revalidatePath('/franchises');
     return { ok: true, activityId, existing };
@@ -289,7 +301,7 @@ export async function updateActivity(
     if (patch.status !== undefined || patch.rating !== undefined) {
       queueAniListPush(user.id, id, activity.category);
       // A new score or status can give a recommendation its verdict (never throws).
-      await settleRecommendationsForActivity(user.id, activity);
+      await settleSafely(() => settleRecommendationsForActivity(user.id, activity));
     }
 
     const slug = slugForDbCategory(activity.category as DbCategory);
@@ -430,7 +442,7 @@ export async function restoreActivity(undoToken: string): Promise<ActionResult> 
     });
     undoStore.drop(undoToken);
     // A restored title can carry a score a pick was waiting on (never throws).
-    await settleRecommendationsForTitle(user.id, cat.slug, String(mediaId));
+    await settleSafely(() => settleRecommendationsForTitle(user.id, cat.slug, String(mediaId)));
 
     revalidateCategory(cat.slug);
     revalidatePath('/franchises');
@@ -491,7 +503,7 @@ export async function restoreActivityState(
     });
     queueAniListPush(user.id, id, activity.category);
     // Undo can bring a score or status back (never throws).
-    await settleRecommendationsForActivity(user.id, activity);
+    await settleSafely(() => settleRecommendationsForActivity(user.id, activity));
 
     const slug = slugForDbCategory(activity.category as DbCategory);
     if (slug) revalidateCategory(slug);

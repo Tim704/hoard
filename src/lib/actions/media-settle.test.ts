@@ -75,6 +75,16 @@ vi.mock('@/lib/recommendations-server', () => ({
   },
 }));
 
+const HIT = {
+  externalId: 'ol-1',
+  title: 'A Book',
+  imageUrl: null,
+  subtitle: null,
+  description: null,
+  year: 2001,
+  fields: {},
+};
+
 const { addToList, updateActivity } = await import('./media');
 
 beforeEach(() => {
@@ -108,16 +118,25 @@ describe('updateActivity settles recommendations', () => {
 
 });
 
+describe('a failing settle never fails the save', () => {
+  it('updateActivity still returns ok', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    settleForActivity.mockRejectedValueOnce(new Error('boom'));
+    expect(await updateActivity('a1', { rating: 8 })).toMatchObject({ ok: true });
+    spy.mockRestore();
+  });
+
+  it('addToList still returns ok', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    settleForTitle.mockRejectedValueOnce(new Error('boom'));
+    const res = await addToList('books', HIT as any, 'PLANNED');
+    expect(res).toMatchObject({ ok: true, activityId: 'a9' });
+    spy.mockRestore();
+  });
+});
+
 describe('addToList settles recommendations', () => {
-  const hit = {
-    externalId: 'ol-1',
-    title: 'A Book',
-    imageUrl: null,
-    subtitle: null,
-    description: null,
-    year: 2001,
-    fields: {},
-  };
+  const hit = HIT;
 
   it('for a newly added title, by its catalogue id', async () => {
     const res = await addToList('books', hit as any, 'PLANNED');
