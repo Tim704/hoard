@@ -73,6 +73,8 @@ model User {
   refLists         RefList[]
   customLists      CustomList[]
   listMemberships  CustomListMember[]
+  recommendationsSent     Recommendation[] @relation("RecommendationsSent")
+  recommendationsReceived Recommendation[] @relation("RecommendationsReceived")
   goals            Goal[]
   tasteProfile     TasteProfile?
   externalLinks    ExternalLink[]
@@ -700,6 +702,35 @@ model CustomListMember {
 
   @@unique([listId, userId])
   @@index([userId])
+}
+
+// ── Recommendations (friends) ───────────────────────────────────────────────
+//  "Watch this" from one user to another, pointing at the catalogue (`mediaId`
+//  = the media table row id), never copying anyone's activity: no score, tier
+//  or status is stored here. The recipient's verdict is read live from their
+//  library. `guess` is the sender's predicted score and stays hidden from the
+//  recipient until a verdict exists.
+
+model Recommendation {
+  id                String    @id @default(cuid())
+  fromId            String
+  toId              String
+  category          String // section slug, like CustomListItem
+  mediaId           String // row id in that section's media table
+  note              String?
+  guess             Float? // hidden from the recipient until a verdict exists
+  response          String    @default("PENDING") // PENDING|ADDED|PASSED
+  createdAt         DateTime  @default(now())
+  respondedAt       DateTime?
+  verdictNotifiedAt DateTime?
+
+  from User @relation("RecommendationsSent", fields: [fromId], references: [id], onDelete: Cascade)
+  to   User @relation("RecommendationsReceived", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId, category, mediaId])
+  @@index([toId, createdAt])
+  @@index([toId, category, mediaId])
+  @@index([verdictNotifiedAt])
 }
 
 // ── Where to stream (5.1, removed) ───────────────────────────────────────────
