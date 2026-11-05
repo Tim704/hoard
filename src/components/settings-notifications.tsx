@@ -28,6 +28,7 @@ const KIND_LABEL: Record<PushKind, string> = {
   sync: 'Sync errors',
   'list-shared': 'Lists shared with you',
   lastfm: 'Albums Last.fm says you played',
+  friends: 'From friends',
 };
 
 export interface NotifySettings {

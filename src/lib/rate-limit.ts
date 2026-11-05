@@ -177,6 +177,8 @@ export const ACTION_LIMITS = {
   matchImportRows: { perMinute: 600, perDay: 30_000, noun: 'import rows' },
   commitImportRows: { perMinute: 1200, perDay: 60_000, noun: 'import rows' },
   sendTestNotification: { perMinute: 5, perDay: 30, noun: 'test notifications' },
+  /** Each one notifies someone else. */
+  recommend: { perMinute: 10, perDay: 100, noun: 'recommendations' },
 } satisfies Record<string, RateLimits>;
 
 export type RatedAction = keyof typeof ACTION_LIMITS;
