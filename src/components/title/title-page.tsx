@@ -4,7 +4,8 @@
 //  A title's full page (/<section>/title/<id>): everything the short popup
 //  leaves out. The poster on the left (in Fresh one blurred backdrop behind
 //  the header, the only blur inside <main>; Fresh's top bar blurs too) and
-//  the editable basics on the right; Notes | History; Tags · Lists; then
+//  the editable basics on the right; Notes | History; Tags · Lists; Friends (send a title
+//  to a friend, when the Compare switch is on); then
 //  Progress, Seasons, Format, Review, Play sessions and More by.
 //
 //  Status, rating, favourite, notes and franchise save together: a sticky
@@ -47,6 +48,7 @@ import {
   TagsField,
   TitleProgressField,
 } from './title-fields';
+import { RecommendPanel } from './recommend-panel';
 import { HistoryHeading, HistoryList, LogFailed, OwnershipField, ReviewField, Runs, Sessions } from './title-log';
 import { useActivityLog } from './use-activity-log';
 import { useTitleEditor } from './use-title-editor';
@@ -66,7 +68,7 @@ const PANEL =
 /**
  * One block of the page; hidden when what it holds renders nothing. Not a
  * named region: each has an h2 under the page's h1 (Notes, History, Tags,
- * Lists, Progress, Seasons, Format, Play sessions, Review, More by), most of
+ * Lists, Friends, Progress, Seasons, Format, Play sessions, Review, More by), most of
  * them the field's own label wrapped in it (`headingLevel={2}`), so the
  * outline costs no change in looks.
  */
@@ -223,6 +225,9 @@ export function TitlePage({
             <AddToListField key={`lists:${activity.id}`} activity={activity} disabled={busy} />
           </Panel>
         </div>
+        <Panel label="Friends">
+          <RecommendPanel activityId={activity.id} slug={slug} headingLevel={2} />
+        </Panel>
 
         {/* Two columns from md; panels that render nothing are hidden. */}
         <div className="grid items-start gap-6 empty:hidden md:grid-cols-2">

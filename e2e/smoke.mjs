@@ -1445,6 +1445,108 @@ if (failures.length === 0) {
       await setOptIn('#compare', true, 'Others can now compare with you.');
     }
   });
+  // Recommendations end to end with two throwaway accounts (a sent, scored
+  // title can't be sent again, and smoke has no database access): a sends b a
+  // title with a note and a hidden guess; b sees the note but not the guess,
+  // adds and scores it; a then sees the verdict; with either switch off the
+  // item vanishes. Needs demo2's S tier, which the step above leaves opted in.
+  await step('recommend a title to a friend', async () => {
+    const stamp = Date.now();
+    const nameA = `smoke-a-${stamp}`;
+    const nameB = `smoke-b-${stamp}`;
+    const note = `smoke note ${stamp}`;
+    const ctxA = await browser.newContext();
+    const ctxB = await browser.newContext();
+    const pa = await ctxA.newPage();
+    const pb = await ctxB.newPage();
+    const register = async (p, name) => {
+      await p.goto(`${BASE_URL}/register`, { waitUntil: 'networkidle' });
+      await p.fill('#username', name);
+      await p.fill('#password', PASSWORD);
+      await Promise.all([p.waitForURL((url) => url.pathname === '/dashboard', { timeout: 20_000 }), p.click('button[type="submit"]')]);
+    };
+    const compareSwitch = async (p, on) => {
+      await p.goto(`${BASE_URL}/settings?tab=sharing`, { waitUntil: 'networkidle' });
+      const box = p.locator('#compare input[type="checkbox"]');
+      await box.waitFor({ timeout: 15_000 });
+      if ((await box.isChecked()) !== on) {
+        await box.click();
+        await p.getByText(on ? 'Others can now compare with you.' : 'Comparing turned off.').first().waitFor({ timeout: 15_000 });
+      }
+    };
+    // Add the first title left in demo2's S tier as done (no score; it leaves
+    // the list on refresh); returns its title.
+    const addSTier = async (p) => {
+      await p.goto(`${BASE_URL}/compare/demo2`, { waitUntil: 'networkidle' });
+      const row = p.locator('#cmp-s ~ ul [role="option"]').first();
+      await row.waitFor({ timeout: 15_000 });
+      const title = (await row.locator('p.truncate').first().getAttribute('title')) ?? '';
+      await row.getByRole('button').first().click();
+      await p.getByText(/^Added /).first().waitFor({ timeout: 15_000 });
+      return title;
+    };
+    // A pick's row (not the record's Best/Worst lines): it names the other person.
+    const recRow = (p, title, other) => p.locator('main li', { hasText: title }).filter({ hasText: other });
+    try {
+      await register(pa, nameA);
+      await register(pb, nameB);
+      await compareSwitch(pa, true);
+      await compareSwitch(pb, true);
+      const first = await addSTier(pa);
+      const pick = await addSTier(pa);
+      const bFirst = await addSTier(pb);
+      if (bFirst !== first || !pick || pick === first) throw new Error(`S tier order differs: ${first} / ${bFirst} / ${pick}`);
+
+      // a sends the pick from its title popup.
+      await pa.goto(`${BASE_URL}/compare/demo2`, { waitUntil: 'networkidle' });
+      await pa.locator('main a', { hasText: pick }).first().click();
+      const dialog = pa.getByRole('dialog');
+      await dialog.getByRole('button', { name: 'Send to a friend' }).click();
+      const friend = dialog.getByLabel('Friend', { exact: true });
+      if ((await friend.evaluate((el) => el.tagName)) === 'SELECT') await friend.selectOption(nameB);
+      await dialog.getByLabel('Note for your friend').fill(note);
+      await dialog.getByLabel(/Your guess at their score/).fill('8');
+      await dialog.getByRole('button', { name: 'Send', exact: true }).click();
+      await pa.getByText(`Sent to ${nameB}.`).first().waitFor({ timeout: 15_000 });
+      await pa.keyboard.press('Escape');
+
+      // b sees the note but not the guess.
+      await pb.goto(`${BASE_URL}/recommendations`, { waitUntil: 'networkidle' });
+      let row = recRow(pb, pick, nameA);
+      await row.first().waitFor({ timeout: 15_000 });
+      const text = await row.first().innerText();
+      if (!text.includes(note)) throw new Error('b does not see the note');
+      const html = await pb.content();
+      if (/guess/i.test(await row.first().innerHTML()) || /guess\\*"?:\s*8\b/.test(html)) throw new Error('b can see the guess before scoring');
+      await row.first().getByRole('button').first().click();
+      await pb.getByText(/^Added /).first().waitFor({ timeout: 15_000 });
+      // Added, it leaves the inbox: b scores it from its title popup.
+      await pb.goto(`${BASE_URL}/compare/demo2`, { waitUntil: 'networkidle' });
+      await pb.locator('main a', { hasText: pick }).first().click();
+      const bd = pb.getByRole('dialog');
+      await bd.getByRole('button', { name: 'Save', exact: true }).waitFor({ timeout: 15_000 });
+      const rating = bd.getByLabel('Rating out of 10');
+      await rating.fill('6');
+      await rating.press('Enter');
+      await bd.getByRole('button', { name: 'Save', exact: true }).click();
+      await pb.getByText('Saved.').first().waitFor({ timeout: 15_000 });
+
+      // a sees the verdict: b's score and its own guess.
+      await pa.goto(`${BASE_URL}/recommendations`, { waitUntil: 'networkidle' });
+      const seen = await recRow(pa, pick, nameB).first().innerText();
+      if (!/score:\s*\S*6/.test(seen) || !/guess:\s*\S*8/.test(seen)) throw new Error(`a's verdict reads: ${seen.replace(/\s+/g, ' ')}`);
+
+      // b's switch off hides it from a.
+      await compareSwitch(pb, false);
+      await pa.goto(`${BASE_URL}/recommendations`, { waitUntil: 'networkidle' });
+      if ((await recRow(pa, pick, nameB).count()) > 0) throw new Error('a still sees the item after b turned the switch off');
+    } finally {
+      await compareSwitch(pb, false).catch(() => {});
+      await compareSwitch(pa, false).catch(() => {});
+      await ctxA.close();
+      await ctxB.close();
+    }
+  });
   // Signed out, a shared link survives the login (next=…).
   await step('login keeps the shared /add link', async () => {
     const fresh = await browser.newContext();

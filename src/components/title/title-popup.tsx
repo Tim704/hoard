@@ -2,9 +2,10 @@
 
 // ───────────────────────────────────────────────────────────────────────────
 //  The short title popup ("Popup" title view): the poster, title and a meta
-//  line; Status, Rating, Favorite, Progress and Notes; the new-season and
-//  Last.fm notices. Remove · Open full page · Save. Everything else (seasons,
-//  history, tags, lists, franchise, review, sessions, More by) is on the full
+//  line; Status, Rating, Favorite, Progress and Notes; Send to a friend (when
+//  the Compare switch is on); the new-season and Last.fm notices. Remove ·
+//  Open full page · Save. Everything else (seasons, history, tags, lists,
+//  franchise, review, sessions, More by) is on the full
 //  page, which "Open full page" opens with any unsaved edits carried over.
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ import {
   StatusField,
   TitleProgressField,
 } from './title-fields';
+import { RecommendPanel } from './recommend-panel';
 import { useHasSeasons } from './use-has-seasons';
 import { useTitleEditor } from './use-title-editor';
 
@@ -121,6 +123,7 @@ export function TitlePopup({ activity, onClose }: { activity: ActivityWithMedia 
             }}
           />
           <NotesField activity={activity} value={editor.notes} onChange={editor.setNotes} />
+          <RecommendPanel activityId={activity.id} slug={activity.category} />
         </div>
 
         <div className="flex items-center gap-2 pt-2">
