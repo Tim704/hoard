@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { takeLoginRate, takeRegisterRate, usernameProblem } from './auth-rules';
+import { signupClosed, takeLoginRate, takeRegisterRate, usernameProblem } from './auth-rules';
 import { clientIp } from './api-auth';
 
 describe('usernameProblem (new accounts)', () => {
@@ -61,5 +61,13 @@ describe('login and register brakes', () => {
     expect(clientIp(new Headers({ 'cf-connecting-ip': '1.1.1.1', 'x-forwarded-for': '2.2.2.2' }))).toBe('1.1.1.1');
     expect(clientIp(new Headers({ 'x-forwarded-for': '3.3.3.3, 10.0.0.1' }))).toBe('3.3.3.3');
     expect(clientIp(new Headers())).toBe('unknown');
+  });
+});
+
+describe('signupClosed', () => {
+  it('is on only for HOARD_SIGNUP_CLOSED=1', () => {
+    expect(signupClosed({})).toBe(false);
+    expect(signupClosed({ HOARD_SIGNUP_CLOSED: '0' })).toBe(false);
+    expect(signupClosed({ HOARD_SIGNUP_CLOSED: '1' })).toBe(true);
   });
 });

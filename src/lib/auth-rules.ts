@@ -18,6 +18,11 @@ export function usernameProblem(username: string): string | null {
   return null;
 }
 
+/** True when the operator has closed sign-up (HOARD_SIGNUP_CLOSED=1). */
+export function signupClosed(env: Record<string, string | undefined> = process.env): boolean {
+  return env.HOARD_SIGNUP_CLOSED === '1';
+}
+
 /** Sign-in attempts per username+IP pair, and per IP. (No global per-username cap: it would let one address lock an owner out everywhere.) */
 export const LOGIN_LIMITS: RateLimits = { perMinute: 10, perDay: 100 };
 /** New accounts per IP: 5 an hour. */

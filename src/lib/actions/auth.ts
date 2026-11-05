@@ -17,7 +17,7 @@ import { safeNextPath } from '@/lib/safe-next';
 import { createSessionForUser, destroySession } from '@/lib/session';
 import { publicError } from '@/lib/action-error';
 import { clientIp } from '@/lib/api-auth';
-import { takeLoginRate, takeRegisterRate, usernameProblem } from '@/lib/auth-rules';
+import { signupClosed, takeLoginRate, takeRegisterRate, usernameProblem } from '@/lib/auth-rules';
 
 const credentialsSchema = z.object({
   username: z
@@ -47,6 +47,7 @@ export async function registerAction(
   _prev: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
+  if (signupClosed()) return { error: 'Sign-up is closed on this Hoard.' };
   let succeeded = false;
 
   try {

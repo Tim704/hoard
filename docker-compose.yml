@@ -55,6 +55,8 @@ services:
       # Encrypts saved OAuth tokens (32+ characters; optional).
       HOARD_SECRET: ${HOARD_SECRET:-}
       HOARD_PUBLIC_URL: ${HOARD_PUBLIC_URL:-https://hoard.timhufnagel.org}
+      # `1` closes sign-up (register page and action); optional.
+      HOARD_SIGNUP_CLOSED: ${HOARD_SIGNUP_CLOSED:-}
       # Scheduled jobs and day boundaries use this zone (spec G9/G10).
       TZ: ${TZ:-Europe/Berlin}
       NODE_ENV: production

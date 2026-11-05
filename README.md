@@ -339,6 +339,7 @@ the app keeps working.
 | `DATABASE_URL`                                      | required                        | How the app reaches Postgres; must agree with the three above. With `connection_limit`, keep it at 3 or more |
 | `HOARD_PUBLISH`                                     | `3000:3000`                     | Host port binding for the app. Behind a tunnel use a localhost port, e.g. `127.0.0.1:3010:3000`              |
 | `HOARD_PUBLIC_URL`                                  | `https://hoard.timhufnagel.org` | Hoard's outside address: share links, the iCal feed, links in notifications, the AniList OAuth redirect      |
+| `HOARD_SIGNUP_CLOSED`                               | off                             | `1` closes sign-up: the register page shows a notice and the register action refuses                         |
 | `TZ`                                                | `Europe/Berlin`                 | Server time zone: job times, the nightly backup, and day boundaries for users who haven't picked a time zone |
 | `HOARD_SCHEDULER`                                   | on                              | `off` disables the in-process scheduler (local debugging; not passed through compose)                        |
 
