@@ -113,6 +113,8 @@ interface AddResultRowProps {
   multi?: { picked: boolean; disabled: boolean; onToggle: () => void };
   /** A small label under the title (e.g. the section, when it isn't obvious). */
   note?: string;
+  /** Show the whole title: it wraps instead of being cut, with the buttons below it. */
+  fullTitle?: boolean;
   onAdd: (status: 'COMPLETED' | 'PLANNED') => void;
   onRate: (rating: number) => void;
   onSkipRate: () => void;
@@ -127,6 +129,7 @@ export function AddResultRow({
   highlighted = false,
   multi,
   note,
+  fullTitle = false,
   onAdd,
   onRate,
   onSkipRate,
@@ -155,6 +158,7 @@ export function AddResultRow({
       }
       className={cn(
         'flex items-center gap-3 rounded-md border border-border p-2',
+        fullTitle && 'flex-wrap',
         highlighted && 'border-primary bg-accent/50',
         selectable && 'cursor-pointer',
         multi?.picked && 'border-primary/70 bg-primary/5',
@@ -170,7 +174,7 @@ export function AddResultRow({
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium" title={title}>
+        <p className={cn('text-sm font-medium', fullTitle ? 'break-words' : 'truncate')} title={title}>
           {title}
           {result.year != null && (
             <span className="ml-1 font-normal text-muted-foreground">({result.year})</span>
@@ -209,7 +213,7 @@ export function AddResultRow({
           />
         )
       ) : (
-        <div className="flex shrink-0 flex-col gap-1.5 sm:flex-row">
+        <div className={cn('flex shrink-0 gap-1.5', fullTitle ? 'w-full flex-wrap' : 'flex-col sm:flex-row')}>
           <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => onAdd('COMPLETED')}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             <span className="ml-1.5">{labels.done}</span>

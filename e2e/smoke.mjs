@@ -1518,6 +1518,16 @@ if (failures.length === 0) {
       if (!text.includes(note)) throw new Error('b does not see the note');
       const html = await pb.content();
       if (/guess/i.test(await row.first().innerHTML()) || /guess\\*"?:\s*8\b/.test(html)) throw new Error('b can see the guess before scoring');
+      // The row names the title in full, with room to read it, at phone width and
+      // beside the sidebar; nothing is pushed sideways.
+      const inboxTitle = row.first().locator('[role="option"] p').first();
+      for (const width of [375, 768]) {
+        await pb.setViewportSize({ width, height: 812 });
+        const box = await inboxTitle.evaluate((el) => ({ clipped: el.scrollWidth > el.clientWidth, width: el.clientWidth }));
+        if (box.clipped || box.width < 150 || !(await inboxTitle.innerText()).includes(pick)) throw new Error(`the inbox title is cut off at ${width}px (${box.width}px wide)`);
+        if (await pb.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)) throw new Error(`the inbox scrolls sideways at ${width}px`);
+      }
+      await pb.setViewportSize({ width: 1280, height: 900 });
       // b adds it from the inbox's own row (Done) and scores it in that row's
       // rating step, which has to stay on screen after the pick leaves the inbox.
       await row.first().getByRole('button', { name: /^(Read|Done|Finished|Watched|Played|Listened)/ }).first().click();

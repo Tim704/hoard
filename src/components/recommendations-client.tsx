@@ -116,8 +116,8 @@ function Inbox({ items }: { items: RecView[] }) {
                   {note}
                 </div>
               )}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="min-w-0 flex-1">
+              <div className="flex flex-col gap-2">
+                <div className="min-w-0">
                   {it.myActivityId ? (
                     <p className="text-sm text-muted-foreground">
                       Already on your list ·{' '}
@@ -131,6 +131,7 @@ function Inbox({ items }: { items: RecView[] }) {
                       result={resultOf(it)}
                       row={rows[key]}
                       note={CATEGORIES[it.slug].singular}
+                      fullTitle
                       onAdd={(status) => {
                         setStarted((prev) => ({ ...prev, [it.id]: it }));
                         void add(key, it.slug, resultOf(it), status);
@@ -143,7 +144,7 @@ function Inbox({ items }: { items: RecView[] }) {
                     />
                   )}
                 </div>
-                <Button variant="outline" size="sm" disabled={busy === it.id || rows[key]?.phase === 'saving' || rows[key]?.phase === 'rating'} onClick={() => void pass(it.id)}>
+                <Button variant="outline" size="sm" className="self-end" disabled={busy === it.id || rows[key]?.phase === 'saving' || rows[key]?.phase === 'rating'} onClick={() => void pass(it.id)}>
                   Pass
                 </Button>
               </div>
