@@ -673,7 +673,8 @@ if (failures.length === 0) {
           if (themeItems !== (label === 'Fresh' ? 0 : 1)) throw new Error(`${where}: ${themeItems} theme items in the menu`);
           await menu.getByRole('menuitem', { name: /^Notifications/ }).click();
           const sheet = page.getByRole('dialog', { name: 'Notifications' });
-          await sheet.getByRole('button', { name: 'Mark all read' }).waitFor({ timeout: 10_000 });
+          // Mark all read when there is anything to read, else the empty sheet's line.
+          await sheet.getByText(/^(Mark all read|Nothing yet\.)/).first().waitFor({ timeout: 10_000 });
           await page.keyboard.press('Escape');
           await sheet.waitFor({ state: 'hidden', timeout: 10_000 });
           // Closing it hands focus back to the menu's trigger, not <body>
