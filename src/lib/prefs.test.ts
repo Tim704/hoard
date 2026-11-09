@@ -122,6 +122,18 @@ describe('notification settings patch', () => {
   });
 });
 
+describe('hiding one section', () => {
+  it('a toggle from a tab left open changes that section only', () => {
+    const stored = { ...DEFAULT_PREFS, hiddenSections: ['books' as const] };
+    const patch = PrefsPatchSchema.parse({ sectionHidden: { section: 'manga', hidden: true } });
+    expect(applyPrefsPatch(stored, patch).hiddenSections).toEqual(['books', 'manga']);
+    const show = PrefsPatchSchema.parse({ sectionHidden: { section: 'books', hidden: false } });
+    expect(applyPrefsPatch(stored, show).hiddenSections).toEqual([]);
+    expect(applyPrefsPatch(stored, show)).not.toHaveProperty('sectionHidden');
+    expect(PrefsPatchSchema.safeParse({ sectionHidden: { section: 'dashboard', hidden: true } }).success).toBe(false);
+  });
+});
+
 describe('PrefsPatchSchema', () => {
   it('accepts a partial patch and rejects invalid values', () => {
     expect(PrefsPatchSchema.safeParse({ scoreFormat: 'five' }).success).toBe(true);

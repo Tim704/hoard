@@ -191,6 +191,8 @@ export const PrefsPatchSchema = z
     titleLanguage: fields.titleLanguage,
     weekStart: fields.weekStart,
     hiddenSections: fields.hiddenSections,
+    /** Hide or show one section: applied to what is stored, so a tab left open can't put back another. */
+    sectionHidden: z.object({ section: z.enum(HIDEABLE_SECTIONS), hidden: z.boolean() }),
     layout: fields.layout,
     titleView: fields.titleView,
     dashboard: DashboardPatchSchema,
@@ -236,10 +238,14 @@ export function needsRegionDetection(p: Pick<Prefs, 'region' | 'regionDetected'>
  */
 export function applyPrefsPatch(current: Prefs, patch: z.output<typeof PrefsPatchSchema>): Prefs {
   const touchesRegion = 'region' in patch || 'timeZone' in patch;
-  const { notify, ...rest } = patch;
+  const { notify, sectionHidden, ...rest } = patch;
+  const merged = { ...current, ...rest };
+  if (sectionHidden) {
+    const others = merged.hiddenSections.filter((s) => s !== sectionHidden.section);
+    merged.hiddenSections = sectionHidden.hidden ? [...others, sectionHidden.section] : others;
+  }
   return {
-    ...current,
-    ...rest,
+    ...merged,
     // Field by field: a patch carries only what that save changed.
     notify: notify ? { ...current.notify, ...notify } : current.notify,
     ...(touchesRegion ? { regionDetected: true } : {}),

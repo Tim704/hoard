@@ -61,9 +61,10 @@ export function SettingsForm({ initial, timeZones, serverTimeZone }: SettingsFor
   const [prefs, setPrefs] = useState<DisplayPrefs>(initial);
   const [isPending, startTransition] = useTransition();
 
-  function save(patch: PrefsPatch & Partial<DisplayPrefs>, message = 'Saved.') {
+  /** `local` is how the fields change here (the patch itself, unless the patch is an operation). */
+  function save(patch: PrefsPatch, message = 'Saved.', local: Partial<DisplayPrefs> = patch as Partial<DisplayPrefs>) {
     const before = prefs;
-    setPrefs({ ...prefs, ...patch });
+    setPrefs({ ...prefs, ...local });
     startTransition(async () => {
       const res = await settle(updatePrefs(patch));
       if (res.ok) {
@@ -90,10 +91,11 @@ export function SettingsForm({ initial, timeZones, serverTimeZone }: SettingsFor
   }
 
   function toggleSection(s: HideableSection) {
-    const hidden = prefs.hiddenSections.includes(s)
-      ? prefs.hiddenSections.filter((x) => x !== s)
-      : [...prefs.hiddenSections, s];
-    save({ hiddenSections: hidden });
+    // Only this section's change: a tab left open must not put back others.
+    const hide = !prefs.hiddenSections.includes(s);
+    save({ sectionHidden: { section: s, hidden: hide } }, 'Saved.', {
+      hiddenSections: hide ? [...prefs.hiddenSections, s] : prefs.hiddenSections.filter((x) => x !== s),
+    });
   }
 
   // Keep a stored zone selectable even if this runtime lists it under another name.
