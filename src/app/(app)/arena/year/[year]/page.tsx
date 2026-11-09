@@ -43,7 +43,7 @@ export default async function YearArenaPage({ params }: { params: { year: string
               href={`/arena/year/${y}`}
               aria-current={y === year ? 'page' : undefined}
               className={cn(
-                'rounded-md border px-2.5 py-1 text-sm font-medium tabular-nums transition-colors',
+                'rounded-md border px-2.5 py-2.5 text-sm font-medium tabular-nums transition-colors sm:py-1',
                 y === year
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border text-muted-foreground hover:text-foreground',
