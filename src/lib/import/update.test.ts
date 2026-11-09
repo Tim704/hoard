@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { dayToDate } from './fields';
-import { planImportFinish, type FinishNow } from './update';
+import { planImportFinish, planImportUpdate, type FinishNow } from './update';
 
 const today = '2026-10-28';
 const clock = new Date('2026-10-28T20:00:00Z');
@@ -51,5 +51,29 @@ describe('planImportFinish (final review 13)', () => {
     expect(planImportFinish(done, { status: 'RETIRED' }, { source: 'mal' }, today, dayToDate, clock).todayEntry).toBeNull();
     expect(planImportFinish(ongoing, { rating: 3 }, { source: 'mal' }, today, dayToDate, clock)).toMatchObject({ finishedAt: null, todayEntry: null });
     expect(planImportFinish({ ...ongoing, status: 'PLANNED' }, { status: 'CONSUMING' }, { source: 'mal' }, today, dayToDate, clock).todayEntry).toBeNull();
+  });
+});
+
+describe('planImportUpdate: a status that only says "has been played"', () => {
+  const ids = { userId: 'u1', activityId: 'a1' };
+  const now = (status: 'RETIRED' | 'DROPPED' | 'ON_HOLD' | 'PLANNED') => ({
+    status,
+    rating: null,
+    startedAt: null,
+    finishedAt: null,
+    progress: null,
+    tags: [],
+    favorite: false,
+  });
+
+  it('Steam playtime never turns a Retired, Dropped or Paused game back into Playing', () => {
+    for (const s of ['RETIRED', 'DROPPED', 'ON_HOLD'] as const) {
+      expect(planImportUpdate(ids, now(s), { status: 'CONSUMING', playedOnly: true }).patch.status).toBeUndefined();
+    }
+  });
+
+  it('but still moves an unplayed game to Playing, and other sources keep the forward rule', () => {
+    expect(planImportUpdate(ids, now('PLANNED'), { status: 'CONSUMING', playedOnly: true }).patch.status).toBe('CONSUMING');
+    expect(planImportUpdate(ids, now('DROPPED'), { status: 'CONSUMING' }).patch.status).toBe('CONSUMING');
   });
 });

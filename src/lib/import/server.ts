@@ -244,6 +244,8 @@ async function updateExisting(userId: string, activityId: string, row: CommitRow
         progress: row.progress ?? null,
         tags: row.tags ?? [],
         favorite: row.favourite === true,
+        // Steam's status is "has playtime", not "playing now".
+        playedOnly: row.source === 'steam',
       },
     );
     // The row's dated log (or finish day) joins the diary, skipping known days.

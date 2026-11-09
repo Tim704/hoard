@@ -34,7 +34,15 @@ export interface ImportChange {
   progress?: number | null;
   tags?: string[];
   favorite?: boolean;
+  /**
+   * The status only says "has been played" (Steam playtime), not that it is
+   * being played now: it never revives a Retired, Dropped or Paused title.
+   */
+  playedOnly?: boolean;
 }
+
+/** Statuses a title was put down with: "has been played" doesn't move them. */
+const PUT_DOWN: readonly Status[] = ['RETIRED', 'DROPPED', 'ON_HOLD'];
 
 export interface ImportUpdatePlan {
   /** Columns to write (empty = nothing changes). */
@@ -55,7 +63,8 @@ export function planImportUpdate(
   change: ImportChange,
 ): ImportUpdatePlan {
   const patch: Partial<ActivityNow> = {};
-  if (STATUS_RANK[change.status] > STATUS_RANK[now.status]) patch.status = change.status;
+  const putDown = change.playedOnly && PUT_DOWN.includes(now.status);
+  if (!putDown && STATUS_RANK[change.status] > STATUS_RANK[now.status]) patch.status = change.status;
   if (change.rating != null && change.rating !== now.rating) patch.rating = change.rating;
   if (change.startedAt && !sameTime(change.startedAt, now.startedAt)) patch.startedAt = change.startedAt;
   if (change.finishedAt && !sameTime(change.finishedAt, now.finishedAt)) patch.finishedAt = change.finishedAt;
