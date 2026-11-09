@@ -16,6 +16,7 @@ import {
 } from '@/components/stats/stats-charts';
 import { StatsTabs, type StatsTab } from '@/components/stats/stats-tabs';
 import { TasteRefreshButton } from '@/components/stats/taste-refresh';
+import { Button } from '@/components/ui/button';
 import { CATEGORIES, NAV_ORDER } from '@/lib/categories';
 import { getPrefs } from '@/lib/data-prefs';
 import { effectiveTimeZone, type Prefs } from '@/lib/prefs';
@@ -84,9 +85,24 @@ export default async function StatsPage({ searchParams }: { searchParams: Search
 
 function Overview({ data }: { data: StatsOverview }) {
   const { streaks: s } = data;
+  // A new account: one message, not 3,000px of zeros.
+  if (data.sections.every((sec) => sec.total === 0)) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-12 text-center">
+        <p className="font-medium">Stats fill in as you track titles.</p>
+        <p className="text-sm text-muted-foreground">Add what you’re reading, watching or playing, and come back.</p>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/add">Add a title</Link>
+        </Button>
+      </div>
+    );
+  }
+  const tracked = data.sections.filter((sec) => sec.total > 0);
+  const untracked = data.sections.filter((sec) => sec.total === 0);
   return (
     <div className="space-y-6">
-      <section aria-label="Streaks" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {/* Three across at every width: each tile is one number. */}
+      <section aria-label="Streaks" className="grid grid-cols-3 gap-2 sm:gap-3">
         <StatTile
           icon={<Flame className="h-4 w-4 text-orange-500" aria-hidden />}
           label="Current streak"
@@ -112,7 +128,7 @@ function Overview({ data }: { data: StatsOverview }) {
           By section
         </h2>
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {data.sections.map((sec) => {
+          {tracked.map((sec) => {
             const ended = sec.completed + sec.retired + sec.dropped;
             return (
               <li key={sec.slug} className="rounded-xl border border-border bg-card p-4">
@@ -138,6 +154,11 @@ function Overview({ data }: { data: StatsOverview }) {
             );
           })}
         </ul>
+        {untracked.length > 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Nothing tracked yet in {untracked.map((sec) => CATEGORIES[sec.slug].label).join(', ')}.
+          </p>
+        )}
       </section>
 
       <section aria-label="Charts" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -163,13 +184,13 @@ function Overview({ data }: { data: StatsOverview }) {
 
 function StatTile({ icon, label, value, hint }: { icon: React.ReactNode; label: string; value: string; hint: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        {icon}
+    <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground sm:text-sm">
+        <span className="hidden sm:inline">{icon}</span>
         {label}
       </p>
-      <p className="mt-1 text-2xl font-bold">{value}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
+      <p className="mt-1 text-xl font-bold sm:text-2xl">{value}</p>
+      <p className="mt-0.5 hidden text-xs text-muted-foreground sm:block">{hint}</p>
     </div>
   );
 }

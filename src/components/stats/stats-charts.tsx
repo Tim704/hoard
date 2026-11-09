@@ -24,7 +24,9 @@ import { cn } from '@/lib/utils';
 
 /** A section's colour follows the section (navigation order), never its rank. */
 const sectionColor = sectionVar;
-const statusColor = (s: Status): string => VIZ[STATUSES.indexOf(s)] ?? VIZ[0];
+/** Each status its own colour: Dropped takes the unused violet, not a second green. */
+const STATUS_VIZ: Record<Status, number> = { PLANNED: 0, CONSUMING: 1, COMPLETED: 2, ON_HOLD: 3, RETIRED: 4, DROPPED: 6 };
+const statusColor = (s: Status): string => VIZ[STATUS_VIZ[s]] ?? VIZ[0];
 
 const sectionSeries = (slugs: CategorySlug[]): Series[] =>
   slugs.map((slug) => ({ key: slug, label: CATEGORIES[slug].label, color: sectionColor(slug) }));
@@ -187,7 +189,7 @@ export function DropRateChart({ rows }: { rows: DropRateRow[] }) {
   return (
     <ChartCard
       title="Drop rate"
-      subtitle="Dropped ÷ (finished + retired + dropped)"
+      subtitle="Of the titles you ended, the share you dropped"
       empty={shown.length === 0 ? 'Nothing finished or dropped yet.' : null}
       table={
         <DataTable head={['Section', 'Dropped', 'Ended', 'Rate']} rows={shown.map((r) => [CATEGORIES[r.slug].label, r.dropped, r.ended, pct(r)])} />

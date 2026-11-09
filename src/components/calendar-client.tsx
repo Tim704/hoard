@@ -74,6 +74,8 @@ export function CalendarClient(props: Props) {
     [byDay, props.listFrom, props.listTo],
   );
   const pickedItems = picked ? byDay.get(picked) ?? [] : [];
+  // Phones: the month's dates as a list under the grid (the grid only has dots).
+  const monthDays = useMemo(() => [...byDay.entries()].filter(([day]) => day.slice(0, 7) === month).sort(([a], [b]) => a.localeCompare(b)), [byDay, month]);
 
   return (
     <div className="space-y-4">
@@ -103,7 +105,8 @@ export function CalendarClient(props: Props) {
           className="relative tap-area ml-auto inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground underline-offset-2 hover:underline"
         >
           <Rss className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span className="truncate">{props.hasFeed ? 'Calendar feed in Settings' : 'Subscribe in your calendar app'}</span>
+          <span className="truncate sm:hidden">{props.hasFeed ? 'Calendar feed' : 'Subscribe'}</span>
+          <span className="hidden truncate sm:inline">{props.hasFeed ? 'Calendar feed in Settings' : 'Subscribe in your calendar app'}</span>
         </Link>
       </div>
 
@@ -130,9 +133,10 @@ export function CalendarClient(props: Props) {
             </p>
           )}
 
-          <div className="grid grid-cols-7 overflow-hidden rounded-md border border-border text-sm">
+          {/* Hairlines from the gaps: no doubled borders at the edges. */}
+          <div className="grid grid-cols-7 gap-px overflow-hidden rounded-md border border-border bg-border text-sm">
             {weekdays.map((d) => (
-              <div key={d} className="border-b border-border bg-muted/40 px-1 py-1.5 text-center text-xs font-medium text-muted-foreground">
+              <div key={d} className="bg-muted px-1 py-1.5 text-center text-xs font-medium text-muted-foreground">
                 {d}
               </div>
             ))}
@@ -148,9 +152,9 @@ export function CalendarClient(props: Props) {
                   aria-label={`${formatYmd(day)}${dayItems.length ? `, ${dayItems.length} item${dayItems.length === 1 ? '' : 's'}` : ''}`}
                   aria-pressed={picked === day}
                   className={cn(
-                    'flex min-h-14 flex-col gap-1 border-b border-r border-border p-1 text-left align-top transition-colors hover:bg-muted/40 sm:min-h-24',
-                    outside && 'bg-muted/20 text-muted-foreground',
-                    picked === day && 'bg-accent/60',
+                    'flex min-h-14 flex-col gap-1 bg-background p-1 text-left align-top transition-colors hover:bg-muted/40 sm:min-h-24',
+                    outside && 'bg-muted/40 text-muted-foreground',
+                    picked === day && 'bg-accent',
                   )}
                 >
                   <span
@@ -182,16 +186,8 @@ export function CalendarClient(props: Props) {
             })}
           </div>
 
-          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-            {(Object.keys(KIND_LABEL) as CalendarKind[]).map((k) => (
-              <span key={k} className="inline-flex items-center gap-1.5">
-                <span className={cn('h-2 w-2 rounded-full', KIND_DOT[k])} aria-hidden />
-                {KIND_LABEL[k]}
-              </span>
-            ))}
-          </div>
-
-          {picked && (
+          {/* Right under the grid: the day you tapped, or (phones) the month's dates. */}
+          {picked ? (
             <div className="space-y-2">
               <h3 className="text-sm font-semibold">{formatYmd(picked)}</h3>
               {pickedItems.length ? (
@@ -200,7 +196,34 @@ export function CalendarClient(props: Props) {
                 <p className="text-sm text-muted-foreground">Nothing on this day.</p>
               )}
             </div>
+          ) : monthDays.length > 0 ? (
+            <div className="space-y-4 sm:hidden">
+              <p className="text-xs text-muted-foreground">Tap a day to see just that day.</p>
+              {monthDays.map(([day, dayItems]) => (
+                <div key={day} className="space-y-2">
+                  <h3 className={cn('text-sm font-semibold', day === today && 'text-primary')}>{formatYmd(day)}</h3>
+                  {dayItems.map((it) => (
+                    <ItemRow key={it.uid} item={it} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Nothing dated this month. Planned titles with a release date, shows you follow and airing anime appear
+              here.
+            </p>
           )}
+
+          {/* Phones: every row already says what it is. */}
+          <div className="hidden flex-wrap gap-3 text-xs text-muted-foreground sm:flex">
+            {(Object.keys(KIND_LABEL) as CalendarKind[]).map((k) => (
+              <span key={k} className="inline-flex items-center gap-1.5">
+                <span className={cn('h-2 w-2 rounded-full', KIND_DOT[k])} aria-hidden />
+                {KIND_LABEL[k]}
+              </span>
+            ))}
+          </div>
         </section>
       ) : (
         <section className="space-y-5" aria-label="Coming up">

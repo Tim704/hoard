@@ -17,15 +17,16 @@ export function StatsTabs({ active, currentYear }: { active: StatsTab; currentYe
     { key: 'people', label: 'People', href: '/stats?tab=people' },
   ];
   return (
-    <nav aria-label="Stats" className="scrollbar-thin -mx-[var(--page-pad)] mb-6 overflow-x-auto px-[var(--page-pad)] sm:mx-0 sm:px-0">
-      <ul className="flex w-max gap-1 rounded-lg border border-border bg-muted/40 p-1">
+    // Phones: five equal tabs that fit the gutter; from sm, a strip sized to its tabs.
+    <nav aria-label="Stats" className="mb-6">
+      <ul className="grid grid-cols-5 gap-1 rounded-lg border border-border bg-muted/40 p-1 sm:flex sm:w-max">
         {tabs.map((t) => (
           <li key={t.key}>
             <Link
               href={t.href}
               aria-current={t.key === active ? 'page' : undefined}
               className={cn(
-                'block rounded-md px-3 py-2.5 text-sm font-medium transition-colors sm:py-1.5',
+                'block rounded-md px-1 py-2.5 text-center text-sm font-medium transition-colors sm:px-3 sm:py-1.5',
                 t.key === active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
               )}
             >

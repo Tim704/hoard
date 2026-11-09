@@ -9,6 +9,7 @@ import { Check, Loader2, Pencil, Plus, Target, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { settle } from '@/lib/action-result';
+import { toastUndoable } from '@/components/undo-toast';
 import { createGoal, deleteGoal, updateGoalTarget } from '@/lib/actions/stats';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import {
@@ -117,14 +118,21 @@ export function GoalsClient({
     });
   }
 
-  function remove(id: string) {
+  function remove(g: GoalProgress) {
     startTransition(async () => {
-      const res = await settle(deleteGoal(id));
+      const res = await settle(deleteGoal(g.id));
       if (!res.ok) {
         toast.error(res.error ?? 'Could not delete the goal.');
         return;
       }
-      toast.success('Goal deleted.');
+      // Undo makes the same goal again (a delete next to "Change target" is an easy slip).
+      toastUndoable('Goal deleted.', () => {
+        void settle(createGoal({ year, category: g.category, metric: g.metric, target: String(g.target) })).then((r) => {
+          if (r.ok) toast.success('Goal is back.');
+          else toast.error(r.error ?? 'Could not undo that.');
+          router.refresh();
+        });
+      });
       router.refresh();
     });
   }
@@ -201,7 +209,7 @@ export function GoalsClient({
                       size="sm"
                       variant="ghost"
                       className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
-                      onClick={() => remove(g.id)}
+                      onClick={() => remove(g)}
                       disabled={isPending}
                       aria-label={`Delete the goal ${goalTitle(g)}`}
                     >
@@ -259,7 +267,7 @@ export function GoalsClient({
               required
               value={target}
               onChange={(e) => setTarget(e.target.value)}
-              placeholder="50"
+              placeholder="e.g. 50"
               className="h-9 text-base sm:text-sm"
             />
           </label>

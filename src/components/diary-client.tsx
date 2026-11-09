@@ -122,13 +122,13 @@ export function DiaryClient({ entries, library, today }: DiaryClientProps) {
       </div>
 
       {entries.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-16 text-center">
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border px-6 py-16 text-center">
           <NotebookPen className="h-6 w-6 text-muted-foreground" aria-hidden />
           <p className="font-medium">Nothing in the diary yet.</p>
           <p className="text-sm text-muted-foreground">Finish a title and it shows up here, or log a past one.</p>
         </div>
       ) : months.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-border px-6 py-12 text-center text-sm text-muted-foreground">
           Nothing matches your filters.
         </p>
       ) : (
@@ -146,7 +146,7 @@ export function DiaryClient({ entries, library, today }: DiaryClientProps) {
                     </span>
                     <Cover media={e.media} title={titleOf(e.media)} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{titleOf(e.media)}</p>
+                      <p className="line-clamp-2 break-words font-medium sm:line-clamp-none sm:truncate">{titleOf(e.media)}</p>
                       <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                         <span>
                           {doneVerb(e.category)} · {CATEGORIES[e.category].singular}
@@ -164,15 +164,16 @@ export function DiaryClient({ entries, library, today }: DiaryClientProps) {
                         </p>
                       )}
                     </div>
+                    {/* Phones: one 40px Edit (Delete is in its dialog); from sm, both icons. */}
                     <div className="flex shrink-0 gap-1">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label="Edit entry" onClick={() => setEditing(e)}>
+                      <Button type="button" variant="ghost" size="icon" className="h-10 w-10 sm:h-8 sm:w-8" aria-label="Edit entry" onClick={() => setEditing(e)}>
                         <PencilLine className="h-4 w-4" />
                       </Button>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-rose-500"
+                        className="hidden h-8 w-8 text-muted-foreground hover:text-rose-500 sm:inline-flex"
                         aria-label="Delete entry"
                         onClick={() => setDeleting(e)}
                       >
@@ -194,6 +195,11 @@ export function DiaryClient({ entries, library, today }: DiaryClientProps) {
         initial={editing ?? undefined}
         today={today}
         onClose={() => setEditing(null)}
+        onDelete={() => {
+          const e = editing;
+          setEditing(null);
+          if (e) setDeleting(e);
+        }}
         onSave={async (values) => {
           if (!editing) return false;
           const res = await settle(updateDiaryEntry(editing.id, values));
@@ -346,6 +352,7 @@ function EntryDialog({
   today,
   onClose,
   onSave,
+  onDelete,
 }: {
   open: boolean;
   title: string;
@@ -353,6 +360,8 @@ function EntryDialog({
   today: string;
   onClose: () => void;
   onSave: (v: EntryValues) => Promise<boolean>;
+  /** Editing an entry: Delete sits in the footer (it asks first). */
+  onDelete?: () => void;
 }) {
   const [value, setValue] = useState<EntryValues>(
     initial
@@ -368,6 +377,12 @@ function EntryDialog({
         </DialogHeader>
         <EntryFields value={value} onChange={setValue} today={today} idPrefix="edit-entry" />
         <DialogFooter className="gap-2">
+          {onDelete && (
+            <Button type="button" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive sm:mr-auto" onClick={onDelete}>
+              <Trash2 className="h-4 w-4" aria-hidden />
+              Delete
+            </Button>
+          )}
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
