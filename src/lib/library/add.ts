@@ -172,6 +172,14 @@ export async function upsertCatalogueRow(
   const db = tx as any; // sanctioned dynamic model access (seven media tables)
   const where = { externalId: result.externalId };
   let media = await db[cat.prismaModel].findUnique({ where });
+  // An anime/manga stored as `al-<AniList id>` before AniList knew its MAL
+  // id: the same title now comes back under the MAL id. Move that row to the
+  // MAL key rather than create a second one.
+  const anilistId = (slug === 'anime' || slug === 'manga') && typeof result.fields?.anilistId === 'string' ? result.fields.anilistId : null;
+  if (!media && anilistId && /^\d+$/.test(anilistId) && /^\d+$/.test(result.externalId)) {
+    const old = await db[cat.prismaModel].findUnique({ where: { externalId: `al-${anilistId}` } });
+    if (old) media = await db[cat.prismaModel].update({ where: { id: old.id }, data: { externalId: result.externalId } });
+  }
   if (!media) {
     media = await db[cat.prismaModel].upsert({
       where,

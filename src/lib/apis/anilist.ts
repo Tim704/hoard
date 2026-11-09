@@ -292,7 +292,7 @@ export function mapAnime(a: AniListMedia): NormalizedResult {
     subtitle: subtitleParts.length ? subtitleParts.join(' · ') : null,
     year,
     description,
-    // EXACTLY the Anime table columns (+ externalId + title).
+    // The Anime table columns (+ externalId + title), plus anilistId (see below).
     fields: {
       externalId: id,
       title,
@@ -303,6 +303,8 @@ export function mapAnime(a: AniListMedia): NormalizedResult {
       malScore,
       studio,
       ...aniListDetails(a, 'ANIME'),
+      // Not a column (dropped on write): lets an add find a row stored as `al-<id>`.
+      anilistId: String(a.id),
     },
   };
 }
@@ -342,6 +344,8 @@ export function mapManga(m: AniListMedia): NormalizedResult {
       volumes,
       malScore,
       ...aniListDetails(m, 'MANGA'),
+      // Not a column (dropped on write): lets an add find a row stored as `al-<id>`.
+      anilistId: String(m.id),
     },
   };
 }
