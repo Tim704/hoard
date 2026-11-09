@@ -82,6 +82,14 @@ describe('lastOccurrence', () => {
 });
 
 describe('dueJobs', () => {
+  it('after downtime, runs the missed jobs in the order of their times, not the order they were registered', () => {
+    const recs: JobSchedule = { name: 'recommendations', at: '05:50' };
+    const pull: JobSchedule = { name: 'anilist-sync', at: '05:30' };
+    const lastRuns = { recommendations: iso('2026-10-27T04:50:00Z'), 'anilist-sync': iso('2026-10-27T04:30:00Z') };
+    // Down from 03:00 to 07:10 Berlin (06:10 UTC) on Oct 28.
+    expect(dueJobs(iso('2026-10-28T06:10:00Z'), TZ, [recs, pull], lastRuns)).toEqual(['anilist-sync', 'recommendations']);
+  });
+
   it('never lists startup jobs', () => {
     expect(dueJobs(iso('2026-10-28T12:00:00Z'), TZ, [migration], {})).toEqual([]);
   });

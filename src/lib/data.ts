@@ -218,6 +218,8 @@ export interface CategoryStat {
   retired: number;
   dropped: number;
   avgRating: number | null; // over rated rows, rounded to 1 decimal
+  ratedCount: number;
+  ratingSum: number;
   metricValue: number; // headline number
   metricUnit: string; // 'words'|'hours'|'episodes'|'chapters'|'games'|'albums'
   metricVerb: string; // 'read'|'watched'|'beaten'|'heard'

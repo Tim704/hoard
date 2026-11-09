@@ -32,6 +32,17 @@ describe('computeTasteProfile', () => {
     expect(p.top).toEqual([{ slug: 'movies', titles: ['Shown'] }]);
   });
 
+  it('keeps the real lowest-rated genre when more than 20 genres qualify', () => {
+    const rows = Array.from({ length: 22 }, (_, i) =>
+      Array.from({ length: 3 }, () => statTitle({ rating: 10 - i * 0.4, media: { genres: [`G${i}`] } })),
+    ).flat();
+    const p = computeTasteProfile(rows);
+    expect(p.genreScores).toHaveLength(20);
+    expect(p.genreScores[0].genre).toBe('G0');
+    expect(p.genreScores.at(-1)?.genre).toBe('G21');
+    expect(tasteSentences(p).join(' ')).toMatch(/your lowest is G21 \(1\.6\)/);
+  });
+
   it('weights genres by count and score, finished titles only, top 10', () => {
     const rows = [
       statTitle({ rating: 9, media: { genres: ['Sports', 'Drama'] } }),

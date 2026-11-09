@@ -132,15 +132,17 @@ export function dueJobs(
   jobs: readonly JobSchedule[],
   lastRuns: Readonly<Record<string, Date | null | undefined>>,
 ): string[] {
-  const due: string[] = [];
+  const due: { name: string; at: number }[] = [];
   for (const job of jobs) {
     if (job.at === 'startup') continue;
     const occurrence = lastOccurrence(job, now, tz);
     if (!occurrence) continue;
     const last = lastRuns[job.name];
-    if (last && last.getTime() < occurrence.getTime()) due.push(job.name);
+    if (last && last.getTime() < occurrence.getTime()) due.push({ name: job.name, at: occurrence.getTime() });
   }
-  return due;
+  // In the order their slots came round (after downtime, the night's
+  // anilist-sync before recommendations, releases before airing).
+  return due.sort((a, b) => a.at - b.at).map((d) => d.name);
 }
 
 /** Timed jobs with no recorded run yet; the scheduler seeds them with `now`. */

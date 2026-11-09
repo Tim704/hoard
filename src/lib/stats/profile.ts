@@ -107,11 +107,13 @@ export function computeTasteProfile(rows: readonly StatTitle[]): TasteProfile {
     .sort((a, b) => b.weight - a.weight || b.count - a.count || a.genre.localeCompare(b.genre))
     .slice(0, TOP_GENRES)
     .map((g) => ({ genre: g.genre, count: g.count, weight: round2(g.weight) }));
-  const genreScores = all
+  const scored = all
     .filter((g) => g.scores.length >= MIN_FOR_AVERAGE)
     .map((g) => ({ genre: g.genre, avgScore: mean1(g.scores) as number, count: g.scores.length }))
-    .sort((a, b) => b.avgScore - a.avgScore || b.count - a.count || a.genre.localeCompare(b.genre))
-    .slice(0, MAX_GENRE_SCORES);
+    .sort((a, b) => b.avgScore - a.avgScore || b.count - a.count || a.genre.localeCompare(b.genre));
+  // The best ones, and always the lowest last (the "your lowest is" sentence reads it).
+  const genreScores =
+    scored.length > MAX_GENRE_SCORES ? [...scored.slice(0, MAX_GENRE_SCORES - 1), scored[scored.length - 1]] : scored;
 
   // Sections, in navigation order, that have any title.
   const sections = NAV_ORDER.flatMap((slug) => {

@@ -122,6 +122,12 @@ export function averageScore(titles: readonly Pick<StatTitle, 'rating'>[]): numb
   return mean1(titles.filter((t) => t.rating != null).map((t) => t.rating as number));
 }
 
+/** The average over every rated title across sections (each score counts once), one decimal. */
+export function overallAverage(stats: readonly Pick<SectionStat, 'ratedCount' | 'ratingSum'>[]): number | null {
+  const count = stats.reduce((n, s) => n + s.ratedCount, 0);
+  return count === 0 ? null : Math.round((stats.reduce((n, s) => n + s.ratingSum, 0) / count) * 10) / 10;
+}
+
 // ── Section headline numbers (shared with the dashboard) ────────────────────
 
 /** Approximate words on a printed book page, for "words read". */
@@ -144,6 +150,9 @@ export interface SectionStat {
   dropped: number;
   /** Over rated rows, one decimal. */
   avgRating: number | null;
+  /** How many rows are rated, and their scores added up (for an average across sections). */
+  ratedCount: number;
+  ratingSum: number;
   /** The section's headline number (words read, hours watched, …). */
   metricValue: number;
   metricUnit: string;
@@ -212,6 +221,8 @@ export function sectionStat(slug: CategorySlug, rows: readonly SectionStatRow[])
     retired: count('RETIRED'),
     dropped: count('DROPPED'),
     avgRating: averageScore(rows),
+    ratedCount: rows.filter((r) => r.rating != null).length,
+    ratingSum: rows.reduce((sum, r) => sum + (r.rating ?? 0), 0),
     metricValue,
     ...metricMetaFor(slug),
   };

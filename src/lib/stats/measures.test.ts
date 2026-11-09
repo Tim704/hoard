@@ -9,6 +9,7 @@ import {
   hoursOf,
   minutesOf,
   pagesOf,
+  overallAverage,
   sectionStat,
   WORDS_PER_PAGE,
 } from './measures';
@@ -96,6 +97,16 @@ describe('sectionStat (shared with the dashboard)', () => {
     const s = sectionStat('books', rows);
     expect(s).toMatchObject({ total: 4, completed: 2, dropped: 1, planned: 1, avgRating: 5.5, metricUnit: 'words' });
     expect(s.metricValue).toBe(100 * WORDS_PER_PAGE);
+  });
+
+  it('carries the rated count and sum, so an overall average weighs every score once', () => {
+    const many = Array.from({ length: 100 }, () => ({ status: 'COMPLETED' as const, rating: 8, media: {} }));
+    const movies = sectionStat('movies', many);
+    const music = sectionStat('music', [{ status: 'COMPLETED' as const, rating: 2, media: {} }]);
+    expect(movies).toMatchObject({ ratedCount: 100, ratingSum: 800 });
+    // The mean of the two section means would be 5.0.
+    expect(overallAverage([movies, music])).toBe(7.9);
+    expect(overallAverage([sectionStat('books', [])])).toBeNull();
   });
 
   it('movies report hours, games the number beaten', () => {

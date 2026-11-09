@@ -36,6 +36,7 @@ import type { ComingUpItem } from '@/lib/data-tonight';
 import { formatYmd } from '@/lib/release';
 import type { Status } from '@/lib/status';
 import type { GoalProgress } from '@/lib/stats/goals';
+import { overallAverage } from '@/lib/stats/measures';
 import { isTierEligible } from '@/lib/tiers';
 import { displayTitle } from '@/lib/title';
 import type { ActivityWithMedia } from '@/lib/types';
@@ -142,11 +143,8 @@ export function OverviewCard({ stats, defaultOrder }: { stats: CategoryStat[]; d
   const totalItems = stats.reduce((sum, s) => sum + s.total, 0);
   const totalCompleted = stats.reduce((sum, s) => sum + s.completed, 0);
   const activeDomains = stats.filter((s) => s.total > 0).length;
-  const rated = stats.filter((s) => s.avgRating != null);
-  const avg =
-    rated.length === 0
-      ? null
-      : rated.reduce((sum, s) => sum + (s.avgRating ?? 0), 0) / rated.length;
+  // Every score counts once (not the mean of each section's mean).
+  const avg = overallAverage(stats);
 
   const cells: { icon: LucideIcon; value: React.ReactNode; label: string }[] = [
     { icon: Library, value: totalItems.toLocaleString(), label: 'tracked' },
