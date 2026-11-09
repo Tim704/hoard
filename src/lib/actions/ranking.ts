@@ -2,12 +2,13 @@
 
 // ───────────────────────────────────────────────────────────────────────────
 //  Tier list server actions — the user's hand-placed S–F tiers per category.
-//  The client sends the complete placement (ids per tier, best first) plus the
-//  ids it shows in the Unranked tray. Positions inside each tier are rewritten
-//  as 1000, 2000, … (only rows that actually change are written), and only ids
-//  the client explicitly shows in the tray are taken out of their tier — so a
-//  stale tab never clears items it does not know about. Items hidden from the
-//  tier list (not COMPLETED/RETIRED/DROPPED) are never touched.
+//  The board sends one move at a time (`moveTier`: this title, into this tier,
+//  between these neighbours), applied to what is stored now, so a tab left
+//  open while another device changed the tiers moves only the title it moved.
+//  Accepting suggestions plans a whole placement on the server from fresh
+//  data. Positions inside a tier are 1000, 2000, … (only rows that change are
+//  written). Items hidden from the tier list (not COMPLETED/RETIRED/DROPPED)
+//  are never touched.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { prisma } from '@/lib/prisma';
@@ -24,9 +25,12 @@ import {
   moveItem,
   tierIndex,
   TIERS,
+  parseTierMove,
   parseTierSave,
+  planTierMove,
   planTierSave,
   type Tier,
+  type TierMove,
   type TierPlacement,
   type TierPosition,
 } from '@/lib/tiers';
@@ -34,28 +38,35 @@ import type { ActionResult } from '@/lib/types';
 import { publicError } from '@/lib/action-error';
 
 /**
- * Persist the tier placement for a category. Ids that do not belong to the
- * user, the category, or the tier list (wrong status) are ignored.
+ * One move on a section's tier list (see `planTierMove`). Ids that do not
+ * belong to the user, the category, or the tier list (wrong status) are ignored.
  */
-export async function saveTiers(
-  slug: CategorySlug,
-  placement: TierPlacement,
-  trayIds: string[],
-): Promise<ActionResult> {
-  return persistTiers(slug, placement, trayIds);
+export async function moveTier(slug: CategorySlug, move: TierMove): Promise<ActionResult> {
+  const parsed = parseTierMove(move);
+  if (!parsed) return { ok: false, error: 'Invalid tier list.' };
+  return writeTierPlan(slug, (current) => planTierMove(parsed, current));
 }
 
-/** saveTiers' body; `via` tags the tier events (e.g. accepted suggestions). */
+/** A whole placement planned on the server; `via` tags the tier events (e.g. accepted suggestions). */
 async function persistTiers(
   slug: CategorySlug,
   placement: TierPlacement,
   trayIds: string[],
   via?: string,
 ): Promise<ActionResult> {
-  const cat = getCategory(slug);
-  if (!cat) return { ok: false, error: 'Unknown category.' };
   const input = parseTierSave(placement, trayIds);
   if (!input) return { ok: false, error: 'Invalid tier list.' };
+  return writeTierPlan(slug, (current) => planTierSave(input.placement, input.trayIds, current), via);
+}
+
+/** Load the stored tiers, plan the writes with `plan`, and write them with their events. */
+async function writeTierPlan(
+  slug: CategorySlug,
+  plan: (current: Map<string, TierPosition>) => ReturnType<typeof planTierSave>,
+  via?: string,
+): Promise<ActionResult> {
+  const cat = getCategory(slug);
+  if (!cat) return { ok: false, error: 'Unknown category.' };
 
   try {
     const user = await requireUser();
@@ -68,7 +79,7 @@ async function persistTiers(
         .filter((o) => isTierEligible(o.status))
         .map((o) => [o.id, { tier: o.tier as Tier | null, rankOrder: o.rankOrder }]),
     );
-    const { placed, clearIds } = planTierSave(input.placement, input.trayIds, current);
+    const { placed, clearIds } = plan(current);
 
     if (placed.length > 0 || clearIds.length > 0) {
       // A `tier` event for every row whose tier changes (not for reorders).

@@ -146,6 +146,60 @@ const isStringArray = (v: unknown): v is string[] =>
  * Validate an untrusted tier-save payload (server action input): every tier key
  * present with an array of string ids, and `trayIds` an array of strings.
  */
+/**
+ * One move on the board: `id` into tier `to` (null = back to the tray), between
+ * the neighbours the client showed around it (`after` above, `before` below).
+ */
+export interface TierMove {
+  id: string;
+  to: Tier | null;
+  before: string | null;
+  after: string | null;
+}
+
+/**
+ * Plan the writes for one move against what is stored NOW, not against the
+ * client's whole board: a tab left open while another device changed the
+ * tiers moves the one title it moved and leaves everything else alone. The
+ * title goes before its lower neighbour if that is still in the tier, else
+ * after its upper one, else to the end; only the target tier is renumbered.
+ */
+export function planTierMove(
+  move: TierMove,
+  current: Map<string, TierPosition>,
+): { placed: { id: string; tier: Tier; rankOrder: number }[]; clearIds: string[] } {
+  const now = current.get(move.id);
+  if (!now) return { placed: [], clearIds: [] };
+  if (move.to === null) return { placed: [], clearIds: now.tier === null ? [] : [move.id] };
+  const tier = move.to;
+  const order = [...current.entries()]
+    .filter(([id, p]) => p.tier === tier && id !== move.id)
+    .sort(([ia, a], [ib, b]) => (a.rankOrder ?? Infinity) - (b.rankOrder ?? Infinity) || ia.localeCompare(ib))
+    .map(([id]) => id);
+  const below = move.before ? order.indexOf(move.before) : -1;
+  const above = move.after ? order.indexOf(move.after) : -1;
+  const at = below !== -1 ? below : above !== -1 ? above + 1 : order.length;
+  order.splice(at, 0, move.id);
+  const placed = order
+    .map((id, i) => ({ id, tier, rankOrder: (i + 1) * RANK_STEP }))
+    .filter((p) => {
+      const was = current.get(p.id);
+      return was?.tier !== p.tier || was?.rankOrder !== p.rankOrder;
+    });
+  return { placed, clearIds: [] };
+}
+
+/** A move as sent by a client, or null when it isn't one. */
+export function parseTierMove(raw: unknown): TierMove | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const m = raw as Record<string, unknown>;
+  const optId = (v: unknown) => v === null || (typeof v === 'string' && v.length > 0 && v.length <= 64);
+  if (typeof m.id !== 'string' || !m.id || m.id.length > 64) return null;
+  if (m.to !== null && !(TIERS as readonly unknown[]).includes(m.to)) return null;
+  if (!optId(m.before ?? null) || !optId(m.after ?? null)) return null;
+  return { id: m.id, to: (m.to as Tier | null) ?? null, before: (m.before as string | null) ?? null, after: (m.after as string | null) ?? null };
+}
+
 export function parseTierSave(
   placement: unknown,
   trayIds: unknown,
@@ -244,7 +298,7 @@ export function resolveDrop<T extends RankableItem>(
   return { container, index: itemsOf(board, container).findIndex((a) => a.id === overId) };
 }
 
-/** The placement `saveTiers` persists: tier ids in board order (tray excluded). */
+/** A board's placement: tier ids in board order (tray excluded). */
 export function boardPlacement<T extends RankableItem>(board: TierBoardData<T>): TierPlacement {
   return Object.fromEntries(
     TIERS.map((t) => [t, board.tiers[t].map((a) => a.id)]),

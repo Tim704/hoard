@@ -27,7 +27,7 @@ import { ChevronDown, ChevronUp, GripVertical, ImageOff, Sparkles, Star, Wand2 }
 import { ScoreThese } from '@/components/score-these';
 import { Button } from '@/components/ui/button';
 import { settle } from '@/lib/action-result';
-import { acceptSuggestedTiers, saveTiers } from '@/lib/actions/ranking';
+import { acceptSuggestedTiers, moveTier } from '@/lib/actions/ranking';
 import type { CategorySlug } from '@/lib/categories';
 import { mediaSubtitle } from '@/lib/media-meta';
 import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
@@ -43,7 +43,7 @@ import {
   type Tier,
   type TierBoardData,
   type TierContainer,
-  type TierPlacement,
+  type TierMove,
 } from '@/lib/tiers';
 import { unpackUnscored, type UnscoredEntry } from '@/lib/unscored';
 import type { ActionResult, ActivityWithMedia } from '@/lib/types';
@@ -69,7 +69,8 @@ export interface BoardItemView {
 /** The board for any item type (activities, TV seasons, …). */
 export interface ItemTierBoardProps<T extends RankableItem> {
   initial: TierBoardData<T>;
-  save: (placement: TierPlacement, trayIds: string[]) => Promise<ActionResult>;
+  /** Store one move (the board never sends its whole placement: see `planTierMove`). */
+  save: (move: TierMove) => Promise<ActionResult>;
   acceptAll: () => Promise<ActionResult>;
   view: (item: T) => BoardItemView;
   /** Shown when nothing is on the board. */
@@ -93,7 +94,7 @@ const samePlacement = <T extends RankableItem>(a: TierBoardData<T>, b: TierBoard
 
 /**
  * A section's tier list: its finished titles on the generic board, saved
- * through `saveTiers`. The tray's "Score these" button opens the scoring
+ * through `moveTier`. The tray's "Score these" button opens the scoring
  * dialog in place (its only entry point).
  */
 export function TierBoard({ slug, initial, unscored: packed }: TierBoardProps) {
@@ -104,7 +105,7 @@ export function TierBoard({ slug, initial, unscored: packed }: TierBoardProps) {
     <>
       <ItemTierBoard<ActivityWithMedia>
         initial={initial}
-        save={(placement, trayIds) => saveTiers(slug, placement, trayIds)}
+        save={(move) => moveTier(slug, move)}
         acceptAll={() => acceptSuggestedTiers(slug)}
         view={(a) => ({
           title: titleOf(a.media),
@@ -148,11 +149,22 @@ export function ItemTierBoard<T extends RankableItem>({
   // A stable id: dnd-kit's own counter differs between server and client (hydration warning).
   const dndId = useId();
 
-  function persist(next: TierBoardData<T>, prev: TierBoardData<T>) {
+  function persist(next: TierBoardData<T>, prev: TierBoardData<T>, id: string) {
     setBoard(next);
     if (samePlacement(next, prev)) return; // tray-only shuffles are not stored
+    // Only this move goes to the server, with the neighbours it now sits between.
+    const container = findContainer(next, id);
+    if (!container) return;
+    const list = container === 'tray' ? [] : next.tiers[container];
+    const at = list.findIndex((a) => a.id === id);
+    const move: TierMove = {
+      id,
+      to: container === 'tray' ? null : container,
+      before: list[at + 1]?.id ?? null,
+      after: at > 0 ? list[at - 1].id : null,
+    };
     startTransition(async () => {
-      const res = await settle(save(boardPlacement(next), next.tray.map((a) => a.id)));
+      const res = await settle(save(move));
       if (!res.ok) {
         setBoard(prev);
         toast.error(res.error ?? 'Could not save the tier list.');
@@ -162,7 +174,7 @@ export function ItemTierBoard<T extends RankableItem>({
   }
 
   const move = (id: string, to: TierContainer, index?: number) =>
-    persist(moveItem(board, id, to, index), board);
+    persist(moveItem(board, id, to, index), board, id);
 
   function handleDragOver({ active, over }: DragOverEvent) {
     if (!over) return;
@@ -188,7 +200,7 @@ export function ItemTierBoard<T extends RankableItem>({
     if (drop && drop.container === from && over.id !== active.id) {
       next = moveItem(board, String(active.id), drop.container, drop.index);
     }
-    persist(next, start);
+    persist(next, start, String(active.id));
   }
 
   function handleDragCancel() {

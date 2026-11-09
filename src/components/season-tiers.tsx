@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import {
   acceptSeasonSuggestions,
   nextSeasonMatchup,
-  saveSeasonTiers,
+  moveSeasonTier,
   submitSeasonMatchup,
 } from '@/lib/actions/seasons';
 import { formatYmd, isYmd } from '@/lib/release';
@@ -40,7 +40,7 @@ export function SeasonTierBoard({
   return (
     <ItemTierBoard<SeasonItem>
       initial={initial}
-      save={(placement, trayIds) => saveSeasonTiers(activityId, placement, trayIds)}
+      save={(move) => moveSeasonTier(activityId, move)}
       acceptAll={() => acceptSeasonSuggestions(activityId)}
       view={(s) => ({ title: s.title, subtitle: seasonSubtitle(s), imageUrl: s.imageUrl })}
       emptyText="No seasons to tier yet — log some episodes in the show's Seasons section first."

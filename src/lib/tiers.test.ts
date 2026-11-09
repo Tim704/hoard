@@ -8,12 +8,15 @@ import {
   isTierEligible,
   moveItem,
   parseTierSave,
+  parseTierMove,
+  planTierMove,
   planTierSave,
   resolveDrop,
   suggestTier,
   tierIndex,
   withinTierPairs,
   type Tier,
+  type TierPosition,
 } from './tiers';
 import { makeActivity as make } from './test-fixtures';
 
@@ -245,5 +248,52 @@ describe('tier rules', () => {
       expect(resolveDrop(board, 'd')).toEqual({ container: 'tray', index: 1 });
       expect(resolveDrop(board, 'nope')).toBeNull();
     });
+  });
+});
+
+describe('planTierMove: one move, applied to what is stored now', () => {
+  const pos = (tier: Tier | null, rankOrder: number | null): TierPosition => ({ tier, rankOrder });
+  const cur = (o: Record<string, TierPosition>) => new Map(Object.entries(o));
+
+  it('a tab left open since yesterday moves only the title it moved (the stale-tab bug)', () => {
+    // Stored now (after the phone moved x to B and placed z in A): x B, y S, z A.
+    const now = cur({ x: pos('B', 1000), y: pos('S', 1000), z: pos('A', 1000) });
+    // The old tab still shows x in S and z in the tray, and nudges y to the end of S.
+    const plan = planTierMove({ id: 'y', to: 'S', before: null, after: 'x' }, now);
+    expect(plan.clearIds).toEqual([]);
+    expect(plan.placed.map((p) => p.id)).toEqual([]); // y is already S's only title
+  });
+
+  it('puts the title before its new neighbour, renumbering only that tier', () => {
+    const now = cur({ a: pos('S', 1000), b: pos('S', 2000), c: pos('S', 3000), x: pos('A', 1000) });
+    const plan = planTierMove({ id: 'x', to: 'S', before: 'b', after: 'a' }, now);
+    expect(plan.placed).toEqual([
+      { id: 'x', tier: 'S', rankOrder: 2000 },
+      { id: 'b', tier: 'S', rankOrder: 3000 },
+      { id: 'c', tier: 'S', rankOrder: 4000 },
+    ]);
+    expect(plan.clearIds).toEqual([]);
+  });
+
+  it('falls back to the neighbour above, then to the end, when a neighbour has moved elsewhere', () => {
+    const now = cur({ a: pos('S', 1000), c: pos('S', 2000), x: pos(null, null), b: pos('B', 1000) });
+    expect(planTierMove({ id: 'x', to: 'S', before: 'b', after: 'a' }, now).placed[0]).toEqual({ id: 'x', tier: 'S', rankOrder: 2000 });
+    expect(planTierMove({ id: 'x', to: 'S', before: 'gone', after: 'gone2' }, now).placed).toEqual([{ id: 'x', tier: 'S', rankOrder: 3000 }]);
+  });
+
+  it('back to the tray clears only that title; unknown or hidden ids change nothing', () => {
+    const now = cur({ a: pos('S', 1000), b: pos('S', 2000) });
+    expect(planTierMove({ id: 'a', to: null, before: null, after: null }, now)).toEqual({ placed: [], clearIds: ['a'] });
+    expect(planTierMove({ id: 'nope', to: 'S', before: null, after: null }, now)).toEqual({ placed: [], clearIds: [] });
+  });
+});
+
+describe('parseTierMove', () => {
+  it('accepts a move and refuses anything else', () => {
+    expect(parseTierMove({ id: 'x', to: 'S', before: 'y', after: null })).toEqual({ id: 'x', to: 'S', before: 'y', after: null });
+    expect(parseTierMove({ id: 'x', to: null, before: null, after: null })).toEqual({ id: 'x', to: null, before: null, after: null });
+    expect(parseTierMove({ id: 'x', to: 'Z', before: null, after: null })).toBeNull();
+    expect(parseTierMove({ id: 5, to: 'S' })).toBeNull();
+    expect(parseTierMove(null)).toBeNull();
   });
 });

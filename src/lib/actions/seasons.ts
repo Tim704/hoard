@@ -40,9 +40,11 @@ import {
 } from '@/lib/seasons';
 import {
   acceptSuggestions,
+  parseTierMove,
   parseTierSave,
+  planTierMove,
   planTierSave,
-  type TierPlacement,
+  type TierMove,
   type TierPosition,
 } from '@/lib/tiers';
 import type { ActionResult } from '@/lib/types';
@@ -217,11 +219,20 @@ async function persistSeasonTiers(
 ): Promise<ActionResult> {
   const input = parseTierSave(placement, trayIds);
   if (!input) return { ok: false, error: 'Invalid tier list.' };
+  return writeSeasonPlan(userId, activityId, (current) => planTierSave(input.placement, input.trayIds, current));
+}
+
+/** Load the stored season tiers, plan the writes with `plan`, and write them. */
+async function writeSeasonPlan(
+  userId: string,
+  activityId: string,
+  plan: (current: Map<string, TierPosition>) => ReturnType<typeof planTierSave>,
+): Promise<ActionResult> {
   const items = await seasonItemsForUser(userId, activityId);
   const current = new Map<string, TierPosition>(
     items.filter(isSeasonRankable).map((s) => [s.id, { tier: s.tier, rankOrder: s.rankOrder }]),
   );
-  const { placed, clearIds } = planTierSave(input.placement, input.trayIds, current);
+  const { placed, clearIds } = plan(current);
   if (placed.length > 0 || clearIds.length > 0) {
     await prisma.$transaction([
       prisma.seasonActivity.updateMany({
@@ -237,16 +248,14 @@ async function persistSeasonTiers(
   return { ok: true };
 }
 
-/** Persist the season board (same contract as `saveTiers`). */
-export async function saveSeasonTiers(
-  activityId: string,
-  placement: TierPlacement,
-  trayIds: string[],
-): Promise<ActionResult> {
+/** One move on a show's season board (same contract as `moveTier`). */
+export async function moveSeasonTier(activityId: string, move: TierMove): Promise<ActionResult> {
   try {
+    const parsed = parseTierMove(move);
+    if (!parsed) return { ok: false, error: 'Invalid tier list.' };
     const user = await requireUser();
     if (!(await ownTvActivity(user.id, activityId))) return { ok: false, error: 'Not found.' };
-    return await persistSeasonTiers(user.id, activityId, placement, trayIds);
+    return await writeSeasonPlan(user.id, activityId, (current) => planTierMove(parsed, current));
   } catch (err) {
     return fail(err, 'Failed to save tiers.');
   }
