@@ -114,7 +114,8 @@ export function FranchisesClient({ franchises }: { franchises: FranchiseWithMemb
         </div>
       </header>
 
-      <div className="inline-flex rounded-md border border-border bg-muted/40 p-0.5">
+      {/* Tabs only once there is something to switch between. */}
+      <div className={cn('inline-flex rounded-md border border-border bg-muted/40 p-0.5', franchises.length === 0 && 'hidden')}>
         {(
           [
             { id: 'all', label: 'All franchises', Icon: Layers },

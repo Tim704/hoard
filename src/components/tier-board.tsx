@@ -231,7 +231,8 @@ export function ItemTierBoard<T extends RankableItem>({
     );
   }
 
-  const hasSuggestions = board.tray.some((a) => suggestTier(a.rating) !== null);
+  const suggestedCount = board.tray.filter((a) => suggestTier(a.rating) !== null).length;
+  const hasSuggestions = suggestedCount > 0;
   const rowProps = { disabled: isPending, onMove: move, view };
 
   return (
@@ -246,7 +247,7 @@ export function ItemTierBoard<T extends RankableItem>({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="space-y-8">
+      <div className="flex flex-col gap-8">
         <section className="space-y-2">
           {TIERS.map((tier) => (
             <TierRow key={tier} tier={tier} items={board.tiers[tier]} {...rowProps} />
@@ -256,8 +257,9 @@ export function ItemTierBoard<T extends RankableItem>({
           </p>
         </section>
 
-        <section className="space-y-3">
-          {/* One row that never wraps: Accept all is an icon on phones. */}
+        {/* Phones: new titles to place come first, not under all six tiers. */}
+        <section className={cn('space-y-3', board.tray.length > 0 && 'order-first sm:order-none')}>
+          {/* One row that never wraps (Accept all is its own line on phones). */}
           <div className="flex items-center justify-between gap-2">
             <h2 id="tray-heading" className="min-w-0 truncate text-base font-semibold text-muted-foreground">
               Unranked · {board.tray.length}
@@ -272,7 +274,7 @@ export function ItemTierBoard<T extends RankableItem>({
                   disabled={isPending}
                   aria-label="Accept all suggestions"
                   title="Accept all suggestions"
-                  className="w-9 px-0 sm:w-auto sm:px-3"
+                  className="hidden sm:inline-flex"
                 >
                   <Wand2 className="h-4 w-4 sm:mr-2" aria-hidden />
                   <span className="hidden sm:inline">Accept all suggestions</span>
@@ -280,6 +282,12 @@ export function ItemTierBoard<T extends RankableItem>({
               )}
             </div>
           </div>
+          {hasSuggestions && (
+            <Button variant="outline" onClick={acceptAll} disabled={isPending} className="w-full sm:hidden">
+              <Wand2 className="h-4 w-4" aria-hidden />
+              Place {suggestedCount} in their suggested tiers
+            </Button>
+          )}
           <Container id="tray" items={board.tray} labelledBy="tray-heading" {...rowProps}>
             {board.tray.length === 0 && (
               <li className="py-3 text-center text-sm text-muted-foreground">
@@ -365,7 +373,8 @@ function Container<T extends RankableItem>({
         ref={setNodeRef}
         aria-labelledby={labelledBy}
         className={cn(
-          'flex min-h-[4.5rem] min-w-0 flex-1 flex-col gap-2 rounded-md transition-colors',
+          // Phones: an empty tier is a slim drop target, not a 72px box.
+          'flex min-h-12 min-w-0 flex-1 flex-col gap-2 rounded-md transition-colors sm:min-h-[4.5rem]',
           id === 'tray' && 'rounded-lg border border-dashed border-border p-2',
           isOver && 'bg-muted/60',
           className,
@@ -421,7 +430,8 @@ function BoardItem<T extends RankableItem>({
         isDragging && 'relative z-10 border-primary/60 shadow-xl shadow-black/40',
       )}
     >
-      <div className="flex min-w-0 flex-1 basis-48 items-center gap-2">
+      {/* Phones: always the title's line, then the controls' line. */}
+      <div className="flex min-w-0 flex-1 basis-full items-center gap-2 sm:basis-48">
         <button
           type="button"
           ref={setActivatorNodeRef}

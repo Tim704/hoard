@@ -5,6 +5,10 @@ import { LAYOUT_IDS } from './src/lib/layouts';
 
 const config: Config = {
   darkMode: ['class'],
+  // hover: styles only where there is a real hover: on phones a tap otherwise
+  // leaves a control looking hovered (a toggle you just switched off still
+  // looks on).
+  future: { hoverOnlyWhenSupported: true },
   content: [
     './src/pages/**/*.{ts,tsx}',
     './src/components/**/*.{ts,tsx}',

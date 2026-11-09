@@ -81,7 +81,7 @@ function SharedTiers({ view }: { view: TiersShareView }) {
                 {tier}
               </div>
               {items.length === 0 ? (
-                <p className="flex min-h-[4.5rem] items-center px-3 text-sm text-muted-foreground">—</p>
+                <p className="flex min-h-10 items-center px-3 text-sm text-muted-foreground sm:min-h-[4.5rem]">—</p>
               ) : (
                 <ol className="flex min-w-0 flex-1 flex-wrap gap-2 p-2">
                   {items.map((item, i) => (
@@ -102,7 +102,7 @@ function SharedTiers({ view }: { view: TiersShareView }) {
                           </div>
                         )}
                       </div>
-                      <p className="mt-1 line-clamp-2 text-xs leading-tight">{item.title}</p>
+                      <p className="mt-1 line-clamp-2 text-xs leading-tight [overflow-wrap:anywhere]">{item.title}</p>
                     </li>
                   ))}
                 </ol>
@@ -222,7 +222,7 @@ function CoverRow({ title, items, numbered }: { title: string; items: SharedItem
               )}
               {numbered && <span className="absolute left-1 top-1 rounded bg-background/85 px-1 text-xs font-bold">{i + 1}</span>}
             </div>
-            <p className="mt-1 line-clamp-2 text-xs leading-tight">{item.title}</p>
+            <p className="mt-1 line-clamp-2 text-xs leading-tight [overflow-wrap:anywhere]">{item.title}</p>
           </li>
         ))}
       </ol>

@@ -105,9 +105,20 @@ export function CustomListClient({ list }: Props) {
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <section aria-labelledby="list-items" className="space-y-3">
-          <h2 id="list-items" className="text-lg font-semibold">
-            Titles <span className="text-sm font-normal text-muted-foreground">· {items.length}</span>
-          </h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 id="list-items" className="text-lg font-semibold">
+              Titles <span className="text-sm font-normal text-muted-foreground">· {items.length}</span>
+            </h2>
+            {/* Below lg the search comes after every title: a way straight there. */}
+            {canEdit && (
+              <Button asChild variant="outline" size="sm" className="lg:hidden">
+                <a href="#list-search">
+                  <Plus className="h-4 w-4" aria-hidden />
+                  Add titles
+                </a>
+              </Button>
+            )}
+          </div>
           {items.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
               {canEdit
@@ -115,7 +126,7 @@ export function CustomListClient({ list }: Props) {
                 : 'Nothing here yet.'}
             </p>
           ) : canEdit ? (
-            <SortableRankList items={rows} onReorder={(r) => void reorder(r)} onRemove={(id) => void remove(id)} disabled={pending} />
+            <SortableRankList items={rows} removeLabel="Remove from list" onReorder={(r) => void reorder(r)} onRemove={(id) => void remove(id)} disabled={pending} />
           ) : (
             <ol className="flex flex-col gap-2">
               {rows.map((r, i) => (
@@ -367,7 +378,7 @@ function ListSearch({ listId }: { listId: string }) {
 
   return (
     <section aria-labelledby="list-search" className="space-y-3">
-      <h2 id="list-search" className="text-lg font-semibold">
+      <h2 id="list-search" className="scroll-mt-bar text-lg font-semibold">
         Add titles
       </h2>
       <p className="text-xs text-muted-foreground">Adding to the list doesn&apos;t add anything to your library.</p>

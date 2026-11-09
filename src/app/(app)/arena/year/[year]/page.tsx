@@ -36,7 +36,8 @@ export default async function YearArenaPage({ params }: { params: { year: string
         <p className="mt-1 text-sm text-muted-foreground">
           Everything you finished in {year}, from every section, head to head.
         </p>
-        <nav aria-label="Year" className="mt-4 flex flex-wrap gap-1.5">
+        {/* Only a choice when there is more than one year. */}
+        <nav aria-label="Year" className={cn('mt-4 flex flex-wrap gap-1.5', years.length < 2 && 'hidden')}>
           {years.map((y) => (
             <Link
               key={y}
@@ -59,12 +60,15 @@ export default async function YearArenaPage({ params }: { params: { year: string
         <section>
           <YearArena key={year} year={year} initial={data.matchup} />
         </section>
-        <section>
-          <h2 className="mb-3 text-lg font-semibold">
-            Ranking <span className="text-sm font-normal text-muted-foreground">· {data.ranking.length}</span>
-          </h2>
-          <RankingList items={data.ranking} />
-        </section>
+        {/* No ranking yet: the duel box above already says why (not enough finishes). */}
+        {data.ranking.length > 0 && (
+          <section>
+            <h2 className="mb-3 text-lg font-semibold">
+              Ranking <span className="text-sm font-normal text-muted-foreground">· {data.ranking.length}</span>
+            </h2>
+            <RankingList items={data.ranking} />
+          </section>
+        )}
       </div>
     </div>
   );

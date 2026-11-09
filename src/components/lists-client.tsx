@@ -35,9 +35,9 @@ interface ListsClientProps {
 }
 
 const TABS = [
-  { id: 'mine', label: 'My lists', icon: ClipboardList, href: '/lists' },
-  { id: 'shared', label: 'Shared with me', icon: Users, href: '/lists?tab=shared' },
-  { id: 'ref', label: 'Reference lists', icon: Trophy, href: '/lists?tab=ref' },
+  { id: 'mine', label: 'My lists', short: 'My lists', icon: ClipboardList, href: '/lists' },
+  { id: 'shared', label: 'Shared with me', short: 'Shared', icon: Users, href: '/lists?tab=shared' },
+  { id: 'ref', label: 'Reference lists', short: 'Reference', icon: Trophy, href: '/lists?tab=ref' },
 ] as const;
 
 /** `/lists`: custom lists (4.11) and reference lists (4.8). */
@@ -51,19 +51,21 @@ export function ListsClient({ tab, mine, shared, refLists, builtins, aiConfigure
         </p>
       </header>
 
-      <nav aria-label="Lists" className="flex max-w-full overflow-x-auto rounded-md border border-border bg-muted/40 p-0.5 sm:inline-flex">
-        {TABS.map(({ id, label, icon: Icon, href }) => (
+      {/* Phones: three equal tabs with short names (no hidden third tab in a sideways scroll). */}
+      <nav aria-label="Lists" className="grid grid-cols-3 rounded-md border border-border bg-muted/40 p-0.5 sm:inline-flex">
+        {TABS.map(({ id, label, short, icon: Icon, href }) => (
           <Link
             key={id}
             href={href}
             aria-current={tab === id ? 'page' : undefined}
             className={cn(
-              'relative tap-area inline-flex shrink-0 items-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors',
+              'relative tap-area inline-flex items-center justify-center gap-2 rounded px-2 py-2.5 text-sm font-medium transition-colors sm:shrink-0 sm:px-3 sm:py-1.5',
               tab === id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            <Icon className="h-4 w-4" aria-hidden />
-            {label}
+            <Icon className="hidden h-4 w-4 sm:block" aria-hidden />
+            <span className="sm:hidden">{short}</span>
+            <span className="hidden sm:inline">{label}</span>
           </Link>
         ))}
       </nav>
@@ -252,7 +254,8 @@ function RefTab({ lists, builtins, aiConfigured }: { lists: RefListSummary[]; bu
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Start from a classic</h2>
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {builtins.map((b) => (
+          {/* Only the classics this Hoard can build; the others are named once, below. */}
+          {builtins.filter((b) => b.configured || b.listId).map((b) => (
             <li key={b.source} className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
               <div>
                 <p className="font-medium">{b.name}</p>
@@ -281,6 +284,16 @@ function RefTab({ lists, builtins, aiConfigured }: { lists: RefListSummary[]; bu
             </li>
           ))}
         </ul>
+        {builtins.some((b) => !b.configured && !b.listId) && (
+          <p className="text-xs text-muted-foreground">
+            Also available once they are set up on this Hoard:{' '}
+            {builtins
+              .filter((b) => !b.configured && !b.listId)
+              .map((b) => b.name)
+              .join(', ')}
+            .
+          </p>
+        )}
       </section>
 
       <PasteForm aiConfigured={aiConfigured} />
@@ -449,18 +462,22 @@ function PasteForm({ aiConfigured }: { aiConfigured: boolean }) {
         )}
         {/* Stacked on phones, one row that never wraps from sm. */}
         <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <label className={cn('inline-flex min-w-0 items-center gap-2 text-sm', !aiConfigured && 'text-muted-foreground')}>
-            <input
-              type="checkbox"
-              checked={useAi}
-              disabled={!aiConfigured || busy}
-              onChange={(e) => setUseAi(e.target.checked)}
-              className="h-4 w-4 accent-primary"
-            />
-            <Sparkles className="h-4 w-4" aria-hidden />
-            Let the AI pick out the titles
-            {!aiConfigured && <span className="text-xs">(not configured on this server)</span>}
-          </label>
+          {/* No AI on this Hoard: no checkbox that can't be ticked. */}
+          {aiConfigured ? (
+            <label className="inline-flex min-w-0 items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={useAi}
+                disabled={busy}
+                onChange={(e) => setUseAi(e.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              <Sparkles className="h-4 w-4" aria-hidden />
+              Let the AI pick out the titles
+            </label>
+          ) : (
+            <span />
+          )}
           <Button type="submit" className="shrink-0" disabled={busy || !name.trim() || !text.trim() || (useAi && tooLong)}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
             {progress ?? 'Create list'}

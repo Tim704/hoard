@@ -54,11 +54,7 @@ const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
  * Controls still under 40px to tap whose fix belongs to a later wave of the
  * phone pass (matched against "tag "name""). Remove a line when its wave lands.
  */
-const PHONE_LATER = [
-  // Wave 6: rows you can reorder (Up next, custom lists, franchise ranking) get a phone layout.
-  /^button(@#\S+)? "(Drag|Move|Remove) .+" \d+×\d+$/,
-  /^button(@#\S+)? "(Read|Watched|Played|Listened|Beaten|Watch|Play|Listen): .+" \d+×\d+$/,
-];
+const PHONE_LATER = [];
 /** Stats → Taste with custom periods: their date fields once spilled at 375. */
 const CUSTOM_PERIODS = routes.find((r) => r.startsWith('/stats?') && r.includes('preset=custom'));
 
@@ -799,36 +795,39 @@ if (failures.length === 0) {
           if (width !== 375) continue;
           // Rows that used to wrap or spill (the custom periods' date
           // fields): nothing scrolls sideways on a phone, the tier list
-          // tray's header stays on one line, and Up next's reorder arrows
-          // are at least 24px each yet stack within the 64px poster, the
-          // row on one line.
+          // tray's header stays on one line, and every Up next row has its
+          // 44px ⋮ menu (Reorder swaps it for side-by-side arrows, below).
           for (const path of ['/dashboard', '/books/arena', '/books/arena?tab=queue', '/diary', '/settings?tab=system', CUSTOM_PERIODS]) {
             await page.goto(`${BASE_URL}${path}`, { waitUntil: 'networkidle' });
             const r = await page.evaluate(() => {
               const tray = document.getElementById('tray-heading')?.parentElement;
               const items = tray ? [...tray.children].map((el) => el.getBoundingClientRect()) : [];
-              const ups = [...document.querySelectorAll('main button[aria-label^="Move "][aria-label$=" up"]')];
-              const rows = ups.map((up) => {
-                const col = up.parentElement;
-                const kids = [...col.parentElement.children].filter((c) => c.getClientRects().length > 0);
-                const mid = (c) => Math.round(c.getBoundingClientRect().top + c.getBoundingClientRect().height / 2);
-                return {
-                  small: [...col.children].some((b) => b.getBoundingClientRect().width < 24 || b.getBoundingClientRect().height < 24),
-                  tall: col.getBoundingClientRect().height > 64,
-                  lines: new Set(kids.map(mid)).size,
-                };
-              });
+              const menus = [...document.querySelectorAll('main button[aria-label^="Actions for "]')].filter((b) => b.getClientRects().length > 0);
               return {
                 trayRows: items.length ? (Math.max(...items.map((b) => b.top)) < Math.min(...items.map((b) => b.bottom)) ? 1 : 2) : 0,
-                arrows: rows.length,
-                badArrows: rows.filter((x) => x.small || x.tall || x.lines !== 1).length,
+                arrows: menus.length,
+                badArrows: menus.filter((b) => b.getBoundingClientRect().width < 40 || b.getBoundingClientRect().height < 40).length,
               };
             });
             const overflow = await sideways();
             if (overflow > 0) throw new Error(`${label} ${path} at 375: the page scrolls sideways by ${overflow}px`);
             if (path === '/books/arena' && r.trayRows !== 1) throw new Error(`${label} at 375: the tier tray header wraps`);
             if (path === '/books/arena?tab=queue' && (r.arrows === 0 || r.badArrows > 0)) {
-              throw new Error(`${label} at 375: ${r.badArrows} of ${r.arrows} Up next rows have small, too tall or wrapping arrows`);
+              throw new Error(`${label} at 375: ${r.badArrows} of ${r.arrows} Up next rows have a small or missing ⋮ menu`);
+            }
+            if (path === '/books/arena?tab=queue') {
+              await page.getByRole('button', { name: 'Reorder', exact: true }).click();
+              const pairs = await page.evaluate(() =>
+                [...document.querySelectorAll('main button[aria-label^="Move "][aria-label$=" up"]')]
+                  .filter((b) => b.getClientRects().length > 0)
+                  .map((up) => {
+                    const down = up.nextElementSibling;
+                    const a = up.getBoundingClientRect();
+                    const b = down.getBoundingClientRect();
+                    return a.width >= 40 && a.height >= 40 && b.width >= 40 && Math.abs(a.top - b.top) < 2;
+                  }),
+              );
+              if (pairs.length === 0 || pairs.includes(false)) throw new Error(`${label} at 375: Reorder's arrows aren't 44px side by side`);
             }
           }
         }

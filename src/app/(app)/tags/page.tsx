@@ -36,57 +36,9 @@ export default async function TagsPage({ searchParams }: { searchParams: { tag?:
         </p>
       </header>
 
-      {tags.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-16 text-center">
-          <Tag className="h-8 w-8 text-muted-foreground" aria-hidden />
-          <p className="text-sm font-medium">No tags yet</p>
-          <p className="max-w-xs text-sm text-muted-foreground">
-            Open any title and type a tag under “Tags”, such as “comfort” or “reread”.
-          </p>
-        </div>
-      ) : (
-        <ul className="grid gap-2 sm:grid-cols-2">
-          {tags.map((t) => {
-            const on = isSelected(t.tag);
-            const next = on ? selected.filter((s) => tagKey(s) !== tagKey(t.tag)) : [...selected, t.tag];
-            return (
-              <li
-                key={t.tag}
-                className={cn(
-                  'flex flex-col gap-2 rounded-lg border border-border bg-card p-3',
-                  on && 'border-primary/60 bg-accent/40',
-                )}
-              >
-                <Link
-                  href={tagHref(next)}
-                  aria-current={on ? 'true' : undefined}
-                  className="flex min-h-10 items-center justify-between gap-2 font-medium hover:underline sm:min-h-0"
-                >
-                  <span className="inline-flex min-w-0 items-center gap-1.5">
-                    {on ? <X className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <Tag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />}
-                    <span className="truncate">{t.tag}</span>
-                  </span>
-                  <span className="shrink-0 text-sm tabular-nums text-muted-foreground">{t.count}</span>
-                </Link>
-                <div className="flex flex-wrap gap-1.5">
-                  {NAV_ORDER.filter((slug) => t.bySection[slug]).map((slug) => (
-                    <Link
-                      key={slug}
-                      href={`/${slug}?tag=${encodeURIComponent(t.tag)}`}
-                      className="rounded-full border border-border px-2.5 py-3 text-xs text-muted-foreground hover:text-foreground sm:px-2 sm:py-0.5"
-                    >
-                      {CATEGORIES[slug].label} · {t.bySection[slug]}
-                    </Link>
-                  ))}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
+      {/* The titles you asked for come first, above the tag list. */}
       {selected.length > 0 && (
-        <section className="space-y-3">
+        <section id="tagged" className="scroll-mt-bar space-y-3">
           <h2 className="text-lg font-semibold">
             Tagged {selected.map((s) => `“${s}”`).join(' and ')} · {tagged.length}
           </h2>
@@ -127,6 +79,56 @@ export default async function TagsPage({ searchParams }: { searchParams: { tag?:
           )}
         </section>
       )}
+
+      {tags.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-16 text-center">
+          <Tag className="h-8 w-8 text-muted-foreground" aria-hidden />
+          <p className="text-sm font-medium">No tags yet</p>
+          <p className="max-w-xs text-sm text-muted-foreground">
+            Open any title and type a tag under “Tags”, such as “comfort” or “reread”.
+          </p>
+        </div>
+      ) : (
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {tags.map((t) => {
+            const on = isSelected(t.tag);
+            const next = on ? selected.filter((s) => tagKey(s) !== tagKey(t.tag)) : [...selected, t.tag];
+            return (
+              <li
+                key={t.tag}
+                className={cn(
+                  'flex flex-col gap-2 rounded-lg border border-border bg-card p-3',
+                  on && 'border-primary/60 bg-accent/40',
+                )}
+              >
+                <Link
+                  href={tagHref(next)}
+                  aria-current={on ? 'true' : undefined}
+                  className="flex min-h-10 items-center justify-between gap-2 font-medium hover:underline sm:min-h-0"
+                >
+                  <span className="inline-flex min-w-0 items-center gap-1.5">
+                    {on ? <X className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <Tag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />}
+                    <span className="truncate">{t.tag}</span>
+                  </span>
+                  <span className="shrink-0 text-sm tabular-nums text-muted-foreground">{t.count}</span>
+                </Link>
+                <div className="flex flex-wrap gap-1.5">
+                  {NAV_ORDER.filter((slug) => t.bySection[slug]).map((slug) => (
+                    <Link
+                      key={slug}
+                      href={`/${slug}?tag=${encodeURIComponent(t.tag)}`}
+                      className="relative tap-area rounded-full border border-border px-2.5 py-2 text-xs text-muted-foreground hover:text-foreground sm:px-2 sm:py-0.5"
+                    >
+                      {CATEGORIES[slug].label} · {t.bySection[slug]}
+                    </Link>
+                  ))}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
     </div>
   );
 }

@@ -44,10 +44,16 @@ export default async function RankPage({ params, searchParams }: RankPageProps) 
           <ArrowLeft className="h-4 w-4" aria-hidden />
           Back to {config.label}
         </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight">Tier your {config.label.toLowerCase()}</h1>
+        {/* Each tab says what it is (the section's "Up next order" lands on Up next). */}
+        <h1 className="mt-2 text-2xl font-bold tracking-tight">
+          {tab === 'queue' ? 'Up next' : tab === 'arena' ? 'Arena' : `Tier your ${config.label.toLowerCase()}`}
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Place every finished {config.singular.toLowerCase()} in a tier from S to F. The
-          Arena helps order a tier when you can&apos;t decide.
+          {tab === 'queue'
+            ? `${config.label} you plan to get to, in the order you'll get to them.`
+            : tab === 'arena'
+              ? 'Pick the better of two to settle the order inside a tier.'
+              : `Place every finished ${config.singular.toLowerCase()} in a tier from S to F. The Arena helps order a tier when you can't decide.`}
         </p>
 
         <div className="mt-4 inline-flex rounded-md border border-border bg-muted/40 p-0.5">
@@ -88,8 +94,11 @@ type Slug = Parameters<typeof getMatchup>[0];
 async function TiersTab({ slug, label }: { slug: Slug; label: string }) {
   const { board, unscored } = await getTierPage(slug);
   return (
-    <div className="max-w-3xl space-y-4">
-      <TierShare slug={slug} label={label} board={board} />
+    // Phones: the board first, Download and Share under it.
+    <div className="flex max-w-3xl flex-col gap-4">
+      <div className="order-last sm:order-none">
+        <TierShare slug={slug} label={label} board={board} />
+      </div>
       <TierBoard slug={slug} initial={board} unscored={unscored} />
     </div>
   );
@@ -129,6 +138,9 @@ async function ArenaTab({ slug, mode }: { slug: Slug; mode: 'order' | 'challenge
             ))}
           </div>
         </div>
+        <p className="text-center text-sm text-muted-foreground">
+          {mode === 'challenge' ? 'Test the border between two tiers.' : 'Settle the order inside each tier.'}
+        </p>
         {/* Keyed by mode: switching starts a fresh session (and challenge history). */}
         <Arena key={mode} slug={slug} initial={initial} mode={mode} />
       </section>

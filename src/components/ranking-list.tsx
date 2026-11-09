@@ -74,7 +74,8 @@ export function RankingList({ items }: RankingListProps) {
               </span>
             )}
 
-            <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+            {/* The Arena score: jargon on a phone, where it would take the title's room. */}
+            <span title="Arena score" className="hidden w-14 shrink-0 text-right text-xs tabular-nums text-muted-foreground sm:inline">
               {Math.round(activity.elo)}
             </span>
           </li>

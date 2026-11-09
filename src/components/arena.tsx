@@ -216,7 +216,8 @@ export function DuelCard({ activity, disabled, onClick }: DuelCardProps) {
         'disabled:cursor-not-allowed disabled:opacity-60',
       )}
     >
-      <div className="relative aspect-[2/3] w-full bg-muted">
+      {/* Shorter on phones, so both cards and their titles fit the first screen. */}
+      <div className="relative aspect-[3/4] w-full bg-muted sm:aspect-[2/3]">
         {media.imageUrl ? (
           <Image
             src={media.imageUrl}

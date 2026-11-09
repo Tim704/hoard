@@ -112,6 +112,10 @@ function NumberField({
   );
 }
 
+
+/** A picked toggle: a look hover can't fake (the outline button's hover is bg-accent). */
+const ON = 'border-primary bg-primary/10 text-foreground hover:bg-primary/15';
+
 export function ViewsClient({
   views,
   selected,
@@ -203,7 +207,7 @@ export function ViewsClient({
             <Link
               href="/views"
               className={cn(
-                'rounded-full border border-border px-2.5 py-3 text-xs hover:bg-accent sm:py-0.5',
+                'relative tap-area rounded-full border border-border px-2.5 py-2 text-xs hover:bg-accent sm:py-0.5',
                 !selected && 'bg-accent text-accent-foreground',
               )}
             >
@@ -216,11 +220,12 @@ export function ViewsClient({
                 href={`/views?view=${encodeURIComponent(v.id)}`}
                 aria-current={selected?.id === v.id ? 'page' : undefined}
                 className={cn(
-                  'max-w-[16rem] truncate rounded-full border border-border px-2.5 py-3 text-xs hover:bg-accent sm:py-0.5',
-                  selected?.id === v.id && 'bg-accent text-accent-foreground',
+                  // The name truncates inside, so the link itself can carry the tap area.
+                  'relative tap-area inline-flex max-w-[16rem] rounded-full border border-border px-2.5 py-2 text-xs hover:bg-accent sm:py-0.5',
+                  selected?.id === v.id && ON,
                 )}
               >
-                {v.name}
+                <span className="truncate">{v.name}</span>
               </Link>
             ))}
           </nav>
@@ -240,7 +245,7 @@ export function ViewsClient({
                 variant="outline"
                 aria-pressed={query.sections.includes(s)}
                 onClick={() => set({ sections: toggle(query.sections, s) })}
-                className={cn('h-8', query.sections.includes(s) && 'bg-accent text-accent-foreground')}
+                className={cn('h-8', query.sections.includes(s) && ON)}
               >
                 {CATEGORIES[s].label}
               </Button>
@@ -259,7 +264,7 @@ export function ViewsClient({
                 variant="outline"
                 aria-pressed={query.statuses.includes(s)}
                 onClick={() => set({ statuses: toggle(query.statuses, s) })}
-                className={cn('h-8', query.statuses.includes(s) && 'bg-accent text-accent-foreground')}
+                className={cn('h-8', query.statuses.includes(s) && ON)}
               >
                 {statusText(s)}
               </Button>
