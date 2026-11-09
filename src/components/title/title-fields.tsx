@@ -108,14 +108,7 @@ export function MediaExtras({ media, playtimeMinutes }: { media: MediaItem; play
   const runtime = num(media, 'runtime');
   if (runtime != null) rows.push(<ExtraRow key="runtime" label="Runtime" value={`${runtime} min`} />);
 
-  const episodes = num(media, 'episodes');
-  if (episodes != null) rows.push(<ExtraRow key="episodes" label="Episodes" value={String(episodes)} />);
-
-  const episodeCount = num(media, 'episodeCount');
-  if (episodeCount != null) rows.push(<ExtraRow key="episodeCount" label="Episodes" value={String(episodeCount)} />);
-
-  const seasonCount = num(media, 'seasonCount');
-  if (seasonCount != null) rows.push(<ExtraRow key="seasonCount" label="Seasons" value={String(seasonCount)} />);
+  // Episodes and seasons are already in the line under the title (mediaSubtitle).
 
   const chapters = num(media, 'chapters');
   if (chapters != null) rows.push(<ExtraRow key="chapters" label="Chapters" value={String(chapters)} />);
