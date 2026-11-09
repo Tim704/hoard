@@ -25,10 +25,14 @@ function OptInCard({
   initial,
   onMessage,
   offMessage,
+  details,
 }: {
   id: string;
   title: string;
+  /** One line under the title. */
   description: React.ReactNode;
+  /** The full story (what others see), folded under the switch. */
+  details: React.ReactNode;
   label: string;
   field: 'compareOptIn' | 'feedOptIn';
   initial: boolean;
@@ -57,7 +61,8 @@ function OptInCard({
         <CardTitle className="text-base">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
+        {/* The switch first; the details are one tap away. */}
         <label className="flex cursor-pointer items-center gap-3 text-sm">
           <input
             type="checkbox"
@@ -69,6 +74,10 @@ function OptInCard({
           <Users className="h-4 w-4 text-muted-foreground" aria-hidden />
           {label}
         </label>
+        <details className="text-sm text-muted-foreground">
+          <summary className="relative tap-area cursor-pointer text-foreground">What others see</summary>
+          <p className="mt-2">{details}</p>
+        </details>
       </CardContent>
     </Card>
   );
@@ -84,9 +93,10 @@ export function SettingsCompare({ initial }: { initial: boolean }) {
       label="Let other users of this Hoard compare with me"
       onMessage="Others can now compare with you."
       offMessage="Comparing turned off."
-      description={
+      description="Off by default. Compare, Watch together and recommendations, with users who also turned it on."
+      details={
         <>
-          Off by default. When on, other users of this Hoard who also turned it on see your username and can open{' '}
+          Other users of this Hoard who also turned it on see your username and can open{' '}
           <Link href="/compare" className="underline underline-offset-2">
             Compare
           </Link>{' '}
@@ -113,9 +123,10 @@ export function SettingsFeed({ initial }: { initial: boolean }) {
       label="Show my activity in the feed"
       onMessage="Your activity now shows in the feed."
       offMessage="Your activity is out of the feed."
-      description={
+      description="Off by default. What you finish, drop or put in S tier, in everyone's Feed."
+      details={
         <>
-          Off by default. When on, everyone on this Hoard sees in the{' '}
+          Everyone on this Hoard sees in the{' '}
           <Link href="/feed" className="underline underline-offset-2">
             Feed
           </Link>{' '}

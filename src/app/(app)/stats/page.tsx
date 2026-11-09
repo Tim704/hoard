@@ -269,7 +269,8 @@ function TasteProfilePanel({ stored, prefs }: { stored: StoredTasteProfile | nul
   const top = p?.top ?? [];
   return (
     <section aria-labelledby="taste-profile-heading" className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-start justify-between gap-3">
+      {/* Phones: Refresh under the text, not squeezing it to four lines. */}
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
         <div className="min-w-0 flex-1">
           <h2 id="taste-profile-heading" className="font-semibold">
             Your taste profile

@@ -35,14 +35,16 @@ import {
 import type { PublicLink } from '@/lib/external-links';
 import { settingsHref } from '@/lib/settings-nav';
 
+/** `owner`: the server's owner sees how to set a missing service up; others just that it isn't. */
 export interface AccountsProps {
-  steam: { configured: boolean; link: PublicLink | null };
-  lastfm: { configured: boolean; link: PublicLink | null };
+  steam: { configured: boolean; link: PublicLink | null; owner: boolean };
+  lastfm: { configured: boolean; link: PublicLink | null; owner: boolean };
   anilist: {
     username: string | null;
     link: PublicLink | null;
     pushConfigured: boolean;
     redirectUri: string;
+    owner: boolean;
   };
 }
 
@@ -152,7 +154,7 @@ function AccountForm({
 
 // ── Steam ──────────────────────────────────────────────────────────────────
 
-function SteamSection({ configured, link: initial }: AccountsProps['steam']) {
+function SteamSection({ configured, link: initial, owner }: AccountsProps['steam']) {
   const [link, setLink] = useState(initial);
   const [pending, start] = useTransition();
 
@@ -187,7 +189,9 @@ function SteamSection({ configured, link: initial }: AccountsProps['steam']) {
         game&apos;s playtime current every night.
       </p>
       {!configured ? (
-        <Missing>Steam isn&apos;t configured on this server. Ask the owner to add a Steam Web API key (STEAM_API_KEY).</Missing>
+        <Missing>
+          Steam isn&apos;t set up on this Hoard yet.{owner && ' Add a Steam Web API key as STEAM_API_KEY on the server.'}
+        </Missing>
       ) : link ? (
         <div className="space-y-2">
           <p className="text-sm">
@@ -232,7 +236,7 @@ function SteamSection({ configured, link: initial }: AccountsProps['steam']) {
 
 // ── Last.fm ────────────────────────────────────────────────────────────────
 
-function LastfmSection({ configured, link: initial }: AccountsProps['lastfm']) {
+function LastfmSection({ configured, link: initial, owner }: AccountsProps['lastfm']) {
   const [link, setLink] = useState(initial);
   const [pending, start] = useTransition();
 
@@ -272,7 +276,9 @@ function LastfmSection({ configured, link: initial }: AccountsProps['lastfm']) {
         album&apos;s tracks, Hoard suggests &quot;Mark as Listened?&quot;. It never changes anything by itself.
       </p>
       {!configured ? (
-        <Missing>Last.fm isn&apos;t configured on this server. Ask the owner to add LASTFM_API_KEY.</Missing>
+        <Missing>
+          Last.fm isn&apos;t set up on this Hoard yet.{owner && ' Add a Last.fm API key as LASTFM_API_KEY on the server.'}
+        </Missing>
       ) : link ? (
         <div className="space-y-2">
           <p className="text-sm">
@@ -300,7 +306,7 @@ function LastfmSection({ configured, link: initial }: AccountsProps['lastfm']) {
 
 // ── AniList ────────────────────────────────────────────────────────────────
 
-function AniListSection({ username: initialName, link: initial, pushConfigured, redirectUri }: AccountsProps['anilist']) {
+function AniListSection({ username: initialName, link: initial, pushConfigured, redirectUri, owner }: AccountsProps['anilist']) {
   const [name, setName] = useState(initialName);
   const [link, setLink] = useState(initial);
   const [pending, start] = useTransition();
@@ -375,13 +381,18 @@ function AniListSection({ username: initialName, link: initial, pushConfigured, 
       )}
       {!pushConfigured && (
         <div className="space-y-1 rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-          <p className="font-medium text-foreground">Sending your changes to AniList isn&apos;t set up on this server.</p>
-          <p>
-            The owner can turn it on: at anilist.co → Settings → Developer, create an API client with the redirect URL{' '}
-            <code className="break-all rounded bg-muted px-1 py-0.5">{redirectUri}</code>, then add its id and secret as
-            ANILIST_CLIENT_ID and ANILIST_CLIENT_SECRET, plus a random HOARD_SECRET of at least 32 characters (it
-            encrypts the saved connection).
-          </p>
+          <p className="font-medium text-foreground">Sending your changes to AniList isn&apos;t set up on this Hoard yet.</p>
+          {owner && (
+            <details>
+              <summary className="relative tap-area cursor-pointer">How to turn it on</summary>
+              <p className="mt-1">
+                At anilist.co → Settings → Developer, create an API client with the redirect URL{' '}
+                <code className="break-all rounded bg-muted px-1 py-0.5">{redirectUri}</code>, then add its id and secret
+                as ANILIST_CLIENT_ID and ANILIST_CLIENT_SECRET, plus a random HOARD_SECRET of at least 32 characters (it
+                encrypts the saved connection).
+              </p>
+            </details>
+          )}
         </div>
       )}
     </section>

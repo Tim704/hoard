@@ -58,7 +58,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
           serverTimeZone={serverTimeZone()}
         />
       )}
-      {tab === 'accounts' && <AccountsTab userId={user.id} prefs={prefs} />}
+      {tab === 'accounts' && <AccountsTab userId={user.id} prefs={prefs} owner={isOwner} />}
       {tab === 'notifications' && <SettingsNotifications initial={prefs.notify} />}
       {tab === 'sharing' && <SharingTab userId={user.id} prefs={prefs} />}
       {tab === 'data' && <DataTab userId={user.id} prefs={prefs} />}
@@ -67,7 +67,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
   );
 }
 
-async function AccountsTab({ userId, prefs }: { userId: string; prefs: Prefs }) {
+async function AccountsTab({ userId, prefs, owner }: { userId: string; prefs: Prefs; owner: boolean }) {
   const [steamLink, lastfmLink, anilistLink] = await Promise.all([
     getLink(userId, 'steam'),
     getLink(userId, 'lastfm'),
@@ -75,13 +75,14 @@ async function AccountsTab({ userId, prefs }: { userId: string; prefs: Prefs }) 
   ]);
   return (
     <SettingsAccounts
-      steam={{ configured: steamConfigured(), link: publicLink(steamLink) }}
-      lastfm={{ configured: lastfmConfigured(), link: publicLink(lastfmLink) }}
+      steam={{ configured: steamConfigured(), link: publicLink(steamLink), owner }}
+      lastfm={{ configured: lastfmConfigured(), link: publicLink(lastfmLink), owner }}
       anilist={{
         username: prefs.anilistUser,
         link: publicLink(anilistLink),
         pushConfigured: aniListPushConfigured(),
         redirectUri: `${publicBaseUrl()}/api/oauth/anilist`,
+        owner,
       }}
     />
   );

@@ -643,14 +643,13 @@ if (failures.length === 0) {
                 .filter((t) => /search|notification|bell/i.test(t) && !/account menu/i.test(t)),
               current,
               tabRows: new Set(tabs.map((li) => Math.round(li.getBoundingClientRect().top))).size,
+              phoneSearch: controls.filter((el) => el.getAttribute('aria-label') === 'Find in my hoard').length,
             };
           });
           const overflow = await sideways();
           if (overflow > 0) throw new Error(`${where}: the page scrolls sideways by ${overflow}px`);
-          const phoneSearch = chrome.stray.filter((t) => /find in my hoard/i.test(t));
-          const stray = chrome.stray.filter((t) => !/find in my hoard/i.test(t));
-          if (stray.length) throw new Error(`${where}: search or bell in the chrome: ${stray.join(' | ')}`);
-          if ((width === 375) !== (phoneSearch.length === 1)) throw new Error(`${where}: ${phoneSearch.length} phone search buttons`);
+          if (chrome.stray.length) throw new Error(`${where}: search or bell in the chrome: ${chrome.stray.join(' | ')}`);
+          if ((width === 375) !== (chrome.phoneSearch === 1)) throw new Error(`${where}: ${chrome.phoneSearch} phone search buttons`);
           if (label === 'Fresh' && chrome.tabRows !== 1) throw new Error(`${where}: the tabs wrap onto ${chrome.tabRows} rows`);
           if (width === 375 && label !== 'Fresh') {
             // Phones: the sections are in the drawer.
