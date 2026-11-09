@@ -140,6 +140,8 @@ export function ViewsClient({
   const [renaming, setRenaming] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Phones: a saved view opens on its titles (the builder folded); a new view on the builder.
+  const [filtersOpen, setFiltersOpen] = useState(!selected);
 
   // The fields hold what's typed (a year is "1" on its way to "1999"); the
   // filters use the validated query.
@@ -232,8 +234,26 @@ export function ViewsClient({
         )}
       </header>
 
+      {library.length === 0 ? (
+        // Nothing to filter yet: no builder, just the way in.
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border px-6 py-16 text-center text-sm text-muted-foreground">
+          <p>Your library is empty. Add some titles, then filter them here.</p>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/add">Add a title</Link>
+          </Button>
+        </div>
+      ) : (
+        <>
+      {/* Phones: the builder folds behind this row on a saved view. */}
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-3 sm:hidden">
+        <p className="text-sm font-medium">Filters</p>
+        <Button type="button" variant="outline" size="sm" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((o) => !o)}>
+          {filtersOpen ? 'Done' : 'Edit'}
+        </Button>
+      </div>
+
       {/* The builder */}
-      <section aria-label="Filters" className="space-y-3 rounded-lg border border-border bg-card p-3 sm:p-4">
+      <section aria-label="Filters" className={cn('space-y-3 rounded-lg border border-border bg-card p-3 sm:block sm:p-4', !filtersOpen && 'hidden')}>
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">Sections</p>
           <div className="flex flex-wrap gap-1.5">
@@ -417,11 +437,7 @@ export function ViewsClient({
         </p>
         <ViewToggle value={layout} onChange={setLayout} modes={['grid', 'list']} />
       </div>
-      {library.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
-          Your library is empty. Add some titles first.
-        </div>
-      ) : results.length === 0 ? (
+      {results.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
           <Filter className="h-6 w-6" aria-hidden />
           Nothing matches these filters.
@@ -430,6 +446,8 @@ export function ViewsClient({
         <MediaTable units={toDisplayUnits(results, false)} onSelect={openTitle} hrefFor={hrefFor} expanded={NO_EXPANDED} onToggleGroup={() => {}} />
       ) : (
         <MediaGrid units={toDisplayUnits(results, false)} onSelect={openTitle} hrefFor={hrefFor} expanded={NO_EXPANDED} onToggleGroup={() => {}} />
+      )}
+        </>
       )}
 
       <ActivityDetailDialog activity={opened} onClose={() => setOpenId(null)} />

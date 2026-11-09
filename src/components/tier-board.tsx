@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, useTransition } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -28,7 +29,7 @@ import { ScoreThese } from '@/components/score-these';
 import { Button } from '@/components/ui/button';
 import { settle } from '@/lib/action-result';
 import { acceptSuggestedTiers, moveTier } from '@/lib/actions/ranking';
-import type { CategorySlug } from '@/lib/categories';
+import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import { mediaSubtitle } from '@/lib/media-meta';
 import { useDisplayTitle, useScoreFormat } from '@/components/prefs-provider';
 import {
@@ -75,6 +76,8 @@ export interface ItemTierBoardProps<T extends RankableItem> {
   view: (item: T) => BoardItemView;
   /** Shown when nothing is on the board. */
   emptyText: string;
+  /** The next step from an empty board (the section, to finish something). */
+  emptyLink?: { href: string; label: string };
   /** "Score these · n" button next to the tray heading (activities only). */
   scoreThese?: { count: number; onOpen: () => void } | null;
 }
@@ -113,6 +116,7 @@ export function TierBoard({ slug, initial, unscored: packed }: TierBoardProps) {
           imageUrl: a.media.imageUrl,
         })}
         emptyText="Nothing to tier yet — finish something first."
+        emptyLink={{ href: `/${slug}`, label: `Go to ${CATEGORIES[slug].label}` }}
         scoreThese={unscored.length > 0 ? { count: unscored.length, onOpen: () => setScoring(true) } : null}
       />
       <ScoreThese slug={slug} items={unscored} open={scoring} onOpenChange={setScoring} />
@@ -131,6 +135,7 @@ export function ItemTierBoard<T extends RankableItem>({
   acceptAll: accept,
   view,
   emptyText,
+  emptyLink,
   scoreThese,
 }: ItemTierBoardProps<T>) {
   const router = useRouter();
@@ -227,6 +232,11 @@ export function ItemTierBoard<T extends RankableItem>({
       <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
         <p>{emptyText}</p>
         {scoreThese && <ScoreTheseButton {...scoreThese} />}
+        {emptyLink && (
+          <Button asChild variant="outline" size="sm">
+            <Link href={emptyLink.href}>{emptyLink.label}</Link>
+          </Button>
+        )}
       </div>
     );
   }

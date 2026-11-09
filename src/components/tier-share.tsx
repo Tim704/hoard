@@ -90,7 +90,8 @@ export function TierShare({ slug, label, board }: TierShareProps) {
           {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Download className="mr-2 h-4 w-4" aria-hidden />}
           Download PNG
         </Button>
-        <Button variant="outline" size="sm" onClick={share} disabled={isPending}>
+        {/* Nothing placed yet: nothing to share either. */}
+        <Button variant="outline" size="sm" onClick={share} disabled={isPending || placed === 0}>
           {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Link2 className="mr-2 h-4 w-4" aria-hidden />}
           Share link
         </Button>
