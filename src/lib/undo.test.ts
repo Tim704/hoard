@@ -212,6 +212,15 @@ describe('status-change undo', () => {
     ]);
   });
 
+  it('a TV Watch again carries its season counts for Undo, never as a column', () => {
+    const seasons = [{ id: 's1', watchedEpisodes: 10, episodesWatched: [] }];
+    expect(ActivityStateSchema.safeParse({ status: 'COMPLETED', seasons }).success).toBe(true);
+    expect(ActivityStateSchema.safeParse({ seasons: [{ id: 's1', watchedEpisodes: -1, episodesWatched: [] }] }).success).toBe(false);
+    const { data, seasons: back } = planStateRestore(ids, current, { status: 'COMPLETED', progress: 24, seasons });
+    expect(data).not.toHaveProperty('seasons');
+    expect(back).toEqual(seasons);
+  });
+
   it('converts finishedAt and keeps a stored tier the restored status hides', () => {
     const { data, events } = planStateRestore(ids, { ...current, tier: 'A' }, {
       status: 'CONSUMING',

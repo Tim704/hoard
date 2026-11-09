@@ -475,7 +475,7 @@ export async function restoreActivityState(
       return { ok: false, error: 'Not found.' };
     }
 
-    const { data, events } = planStateRestore(
+    const { data, events, seasons } = planStateRestore(
       { userId: user.id, activityId: id },
       stateOf(activity),
       parsed.data,
@@ -486,6 +486,13 @@ export async function restoreActivityState(
     const diaryPrefs = wanted.diaryEntryId || wanted.rating !== undefined ? await getPrefs(user.id) : null;
     await prisma.$transaction(async (tx) => {
       await tx.userMediaActivity.update({ where: { id }, data: data as any });
+      // Undoing a TV Watch again: the seasons get their counts back (only this title's rows).
+      for (const s of seasons ?? []) {
+        await tx.seasonActivity.updateMany({
+          where: { id: s.id, userId: user.id, activityId: id },
+          data: { watchedEpisodes: s.watchedEpisodes, episodesWatched: s.episodesWatched },
+        });
+      }
       await recordEvents(tx, events);
       if (diaryPrefs) {
         await undoDiaryForRestore(

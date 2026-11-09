@@ -106,6 +106,8 @@ export interface ActivityState {
   seenSeasonCount: number | null;
   /** The diary entry the change being undone wrote (deleted on Undo). Not a column. */
   diaryEntryId?: string;
+  /** A TV Watch again: each season's counts before it started over (put back on Undo). Not a column. */
+  seasons?: { id: string; watchedEpisodes: number; episodesWatched: number[] }[];
 }
 
 /** The state a client may ask to restore: only these fields, each optional. */
@@ -121,6 +123,17 @@ export const ActivityStateSchema = z
     rewatching: z.boolean(),
     seenSeasonCount: z.number().int().min(0).max(10_000).nullable(),
     diaryEntryId: z.string().min(1).max(64),
+    seasons: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1).max(64),
+            watchedEpisodes: z.number().int().min(0).max(10_000),
+            episodesWatched: z.array(z.number().int().min(1).max(10_000)).max(10_000),
+          })
+          .strict(),
+      )
+      .max(500),
   })
   .partial()
   .strict();
@@ -163,8 +176,8 @@ export function planStateRestore(
   ids: { userId: string; activityId: string },
   current: ActivityState,
   wanted: ActivityStatePatch,
-): { data: Row; events: EventInput[] } {
-  const { diaryEntryId: _diaryEntryId, ...columns } = wanted;
+): { data: Row; events: EventInput[]; seasons?: ActivityStatePatch['seasons'] } {
+  const { diaryEntryId: _diaryEntryId, seasons, ...columns } = wanted;
   const data: Row = { ...columns };
   // Same one-decimal rounding as updateActivity (the schema already bounds 0–10).
   if (typeof wanted.rating === 'number') data.rating = normalizeRating(wanted.rating);
@@ -199,5 +212,5 @@ export function planStateRestore(
       meta: { undo: true },
     });
   }
-  return { data, events };
+  return { data, events, ...(seasons ? { seasons } : {}) };
 }

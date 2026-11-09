@@ -225,3 +225,18 @@ export function pickSeasonMatchup<T extends SeasonItem>(
   if (a.tier === null || a.tier !== b.tier) rating = Math.floor(a.rating ?? 0);
   return { rating, a, b };
 }
+
+/**
+ * Watch again on a show tracked by seasons: every season with episodes
+ * watched starts over at 0 (scores and tiers stay), so the new run's +1s
+ * count from 0. `before` is what they had, for the Undo.
+ */
+export function rewatchSeasons<T extends { id: string; watchedEpisodes: number; episodesWatched: number[] }>(
+  rows: T[],
+): { resetIds: string[]; before: { id: string; watchedEpisodes: number; episodesWatched: number[] }[] } {
+  const watched = rows.filter((r) => r.watchedEpisodes > 0 || r.episodesWatched.length > 0);
+  return {
+    resetIds: watched.map((r) => r.id),
+    before: watched.map((r) => ({ id: r.id, watchedEpisodes: r.watchedEpisodes, episodesWatched: [...r.episodesWatched] })),
+  };
+}

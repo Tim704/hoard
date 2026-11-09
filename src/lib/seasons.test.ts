@@ -16,6 +16,7 @@ import {
   seasonProgress,
   watchedOf,
   type SeasonItem,
+  rewatchSeasons,
 } from './seasons';
 import {
   acceptSuggestions,
@@ -258,5 +259,23 @@ describe('season matchups', () => {
     expect(pickSeasonMatchup([season({ id: 'a', rating: 7 }), season({ id: 'b', rating: 8 })])).toBeNull();
     // Unwatched, unscored seasons never duel.
     expect(pickSeasonMatchup([season({ id: 'a', watchedEpisodes: 0 }), season({ id: 'b', watchedEpisodes: 0 })])).toBeNull();
+  });
+});
+
+describe('rewatchSeasons', () => {
+  it('a show watched again starts every season from 0, and keeps what it had for Undo', () => {
+    const rows = [
+      { id: 's1', watchedEpisodes: 10, episodesWatched: [] },
+      { id: 's2', watchedEpisodes: 0, episodesWatched: [] },
+      { id: 's3', watchedEpisodes: 2, episodesWatched: [1, 2] },
+    ];
+    expect(rewatchSeasons(rows)).toEqual({
+      resetIds: ['s1', 's3'],
+      before: [
+        { id: 's1', watchedEpisodes: 10, episodesWatched: [] },
+        { id: 's3', watchedEpisodes: 2, episodesWatched: [1, 2] },
+      ],
+    });
+    expect(rewatchSeasons([{ id: 's2', watchedEpisodes: 0, episodesWatched: [] }])).toEqual({ resetIds: [], before: [] });
   });
 });

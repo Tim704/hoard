@@ -13,6 +13,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import { prisma } from '@/lib/prisma';
+import { rewatchSeasons } from '@/lib/seasons';
 import { CATEGORY_LIST, type CategorySlug } from '@/lib/categories';
 import { getPrefs } from '@/lib/data-prefs';
 import { isDiaryStatus, latestEntry, todayIn } from '@/lib/diary';
@@ -121,8 +122,19 @@ export async function startRewatch(activityId: string): Promise<ActionResult & {
       { ...ids, kind: 'status', from: a.status, to: 'CONSUMING' },
       { ...ids, kind: 'rewatch', from: a.status, to: 'CONSUMING' },
     ];
-    const resetProgress = a.progress != null && a.progress !== 0;
-    if (resetProgress) events.push({ ...ids, kind: 'progress', from: String(a.progress), to: '0' });
+    // A show tracked by seasons starts every season over too (scores and tiers
+    // stay), or the next season +1 would add the old run's episodes back.
+    const seasons =
+      a.category === 'TV'
+        ? rewatchSeasons(
+            await prisma.seasonActivity.findMany({
+              where: { userId: user.id, activityId: a.id },
+              select: { id: true, watchedEpisodes: true, episodesWatched: true },
+            }),
+          )
+        : { resetIds: [], before: [] };
+    const resetProgress = (a.progress != null && a.progress !== 0) || seasons.resetIds.length > 0;
+    if (resetProgress) events.push({ ...ids, kind: 'progress', from: String(a.progress ?? 0), to: '0' });
     // 5.5: starting a show again acknowledges its current seasons.
     const seen = recordsSeenSeasons(a.category, a.status as Status, 'CONSUMING')
       ? { seenSeasonCount: await seenSeasonCountNow(a.tvShowId, await userToday(user.id)) }
@@ -132,11 +144,15 @@ export async function startRewatch(activityId: string): Promise<ActionResult & {
         where: { id: a.id },
         data: { status: 'CONSUMING', rewatching: true, ...seen, ...(resetProgress ? { progress: 0 } : {}) },
       }),
+      prisma.seasonActivity.updateMany({
+        where: { userId: user.id, activityId: a.id, id: { in: seasons.resetIds } },
+        data: { watchedEpisodes: 0, episodesWatched: [] },
+      }),
       recordEvents(prisma, events),
     ]);
     queueAniListPush(user.id, a.id, a.category); // 8.2: REPEATING on AniList
     refresh(a.category);
-    return { ok: true, previous: stateOf(a) };
+    return { ok: true, previous: { ...stateOf(a), ...(seasons.before.length ? { seasons: seasons.before } : {}) } };
   } catch (err) {
     return fail(err, 'Could not start again.');
   }
