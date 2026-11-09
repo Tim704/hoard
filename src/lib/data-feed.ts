@@ -8,7 +8,7 @@
 //      kind, its time and (finishes and drops) the score, nothing else.
 // ───────────────────────────────────────────────────────────────────────────
 
-import { CATEGORY_LIST, type CategorySlug } from '@/lib/categories';
+import { CATEGORIES, CATEGORY_LIST, type CategorySlug } from '@/lib/categories';
 import { Prisma } from '@prisma/client';
 
 import {
@@ -49,8 +49,10 @@ export interface FeedItem {
   title: string;
   imageUrl: string | null;
   year: number | null;
-  /** 0–10 score for finishes (the run's) and drops (the title's), else null. */
+  /** 0–10 score for finishes (the run's) and drops (the title's), else null (or sealed). */
   rating: number | null;
+  /** Their pick for you that you haven't scored: the score waits for yours. */
+  sealed: boolean;
   rewatch: boolean;
   at: string; // ISO
 }
@@ -155,6 +157,10 @@ export async function getFeedPage(
   });
   const byId = new Map(activities.map((a) => [a.id, a as unknown as Record<string, unknown>]));
 
+  // A friend's score on a title they recommended to me stays hidden until I
+  // score it myself (as on the Recommendations page and Compare).
+  const sealed = await sealedForMe(meId, activities as unknown as Record<string, unknown>[]);
+
   const items: FeedItem[] = [];
   for (const e of page.entries) {
     const a = byId.get(e.activityId);
@@ -172,10 +178,48 @@ export async function getFeedPage(
       title: displayTitle(m as never, myPrefs.titleLanguage),
       imageUrl: typeof m.imageUrl === 'string' ? m.imageUrl : null,
       year: typeof m.year === 'number' ? m.year : null,
-      rating: e.kind === 'finish' ? e.rating : e.kind === 'drop' ? current : null,
+      rating: sealed.has(e.activityId) ? null : e.kind === 'finish' ? e.rating : e.kind === 'drop' ? current : null,
+      sealed: sealed.has(e.activityId),
       rewatch: e.rewatch,
       at: e.at.toISOString(),
     });
   }
   return { items, next: page.next };
+}
+
+/** Others' activity ids whose title they recommended to me and I haven't scored. */
+async function sealedForMe(meId: string, activities: Record<string, unknown>[]): Promise<Set<string>> {
+  const theirs = activities.filter((a) => a.userId !== meId);
+  if (theirs.length === 0) return new Set();
+  const keyOf = (a: Record<string, unknown>) => {
+    const cat = CATEGORY_LIST.find((c) => c.dbCategory === a.category);
+    const m = cat ? (a[cat.prismaModel] as Record<string, unknown> | null) : null;
+    return cat && m && typeof m.id === 'string' ? { slug: cat.slug, mediaId: m.id } : null;
+  };
+  const recs = await prisma.recommendation.findMany({
+    where: { toId: meId, fromId: { in: [...new Set(theirs.map((a) => a.userId as string))] } },
+    select: { fromId: true, category: true, mediaId: true },
+  });
+  if (recs.length === 0) return new Set();
+  const recKeys = new Set(recs.map((r) => `${r.fromId}|${r.category}:${r.mediaId}`));
+  const candidates = theirs.flatMap((a) => {
+    const k = keyOf(a);
+    return k && recKeys.has(`${a.userId}|${k.slug}:${k.mediaId}`) ? [{ id: a.id as string, ...k }] : [];
+  });
+  if (candidates.length === 0) return new Set();
+  const mine = await prisma.userMediaActivity.findMany({
+    where: {
+      userId: meId,
+      OR: candidates.map((c) => ({ category: CATEGORIES[c.slug].dbCategory, [CATEGORIES[c.slug].fkField]: c.mediaId })),
+    },
+    select: { rating: true, category: true, ...Object.fromEntries(CATEGORY_LIST.map((c) => [c.fkField, true])) },
+  });
+  const scored = new Set(
+    mine.flatMap((r) => {
+      const row = r as unknown as Record<string, unknown>;
+      const cat = CATEGORY_LIST.find((c) => c.dbCategory === row.category);
+      return cat && row.rating != null ? [`${cat.slug}:${row[cat.fkField] as string}`] : [];
+    }),
+  );
+  return new Set(candidates.filter((c) => !scored.has(`${c.slug}:${c.mediaId}`)).map((c) => c.id));
 }

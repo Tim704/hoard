@@ -31,7 +31,13 @@ export interface CompareTitle {
 
 export interface SharedView extends CompareTitle {
   myRating: number | null;
+  /** Null when unscored, or `sealed`. */
   theirRating: number | null;
+  /**
+   * They recommended it to you and you haven't scored it: their score stays
+   * hidden until you have your own (as on the Recommendations page).
+   */
+  sealed: boolean;
   /** The viewer's OWN activity (to open its details). */
   myActivityId: string;
 }
@@ -160,7 +166,7 @@ export async function compareLibraries(meId: string, otherUsername: string): Pro
   );
   if (!gate || !other) return { ok: false, reason: 'unavailable' };
 
-  const [mineRows, theirRows] = await Promise.all([
+  const [mineRows, theirRows, recommendedToMe] = await Promise.all([
     prisma.userMediaActivity.findMany({
       where: { userId: me.id },
       select: { id: true, category: true, status: true, rating: true, tier: true, ...fkSelect },
@@ -170,7 +176,13 @@ export async function compareLibraries(meId: string, otherUsername: string): Pro
       where: { userId: other.id },
       select: { category: true, status: true, rating: true, tier: true, ...fkSelect },
     }),
+    // Their picks for me: their score on these stays sealed until I score them.
+    prisma.recommendation.findMany({
+      where: { fromId: other.id, toId: me.id },
+      select: { category: true, mediaId: true },
+    }),
   ]);
+  const sealedKeys = new Set(recommendedToMe.map((r) => `${r.category}:${r.mediaId}`));
   const mine = toEntries(mineRows as Record<string, unknown>[]);
   const theirs = toEntries(theirRows as Record<string, unknown>[]);
   const myIds = new Map(mine.map((e) => [mediaKey(e.slug, e.mediaId), e.id!]));
@@ -182,7 +194,14 @@ export async function compareLibraries(meId: string, otherUsername: string): Pro
     const m = media.get(mediaKey(s.slug, s.mediaId));
     const myActivityId = myIds.get(mediaKey(s.slug, s.mediaId));
     if (!m || !myActivityId) continue;
-    sharedViews.push({ ...titleOf(s.slug, m, myPrefs), myRating: s.myRating, theirRating: s.theirRating, myActivityId });
+    const sealed = s.myRating == null && s.theirRating != null && sealedKeys.has(mediaKey(s.slug, s.mediaId));
+    sharedViews.push({
+      ...titleOf(s.slug, m, myPrefs),
+      myRating: s.myRating,
+      theirRating: sealed ? null : s.theirRating,
+      sealed,
+      myActivityId,
+    });
   }
   sharedViews.sort(
     (a, b) =>
@@ -195,7 +214,8 @@ export async function compareLibraries(meId: string, otherUsername: string): Pro
     const m = media.get(mediaKey(d.slug, d.mediaId));
     const myActivityId = myIds.get(mediaKey(d.slug, d.mediaId));
     if (!m || !myActivityId) continue;
-    disagreements.push({ ...titleOf(d.slug, m, myPrefs), myRating: d.myRating, theirRating: d.theirRating, myActivityId, gap: d.gap });
+    // Both scored, so nothing is sealed here.
+    disagreements.push({ ...titleOf(d.slug, m, myPrefs), myRating: d.myRating, theirRating: d.theirRating, sealed: false, myActivityId, gap: d.gap });
   }
 
   const theirS: MissingView[] = [];

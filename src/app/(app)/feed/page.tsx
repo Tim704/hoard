@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Ban, CheckCircle2, Crown, Rss } from 'lucide-react';
+import { Ban, CheckCircle2, Crown, Lock, Rss } from 'lucide-react';
 
 import { Cover } from '@/components/compare-parts';
 import { Score } from '@/components/prefs-provider';
@@ -133,6 +133,13 @@ function FeedRow({ item, now }: { item: FeedItem; now: Date }) {
           </time>
         </p>
       </div>
+      {item.sealed && (
+        // Their pick for you: their score waits for yours.
+        <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground" title="Score it to see theirs">
+          <Lock className="h-3.5 w-3.5" aria-hidden />
+          <span className="sr-only">Score hidden until you score it</span>
+        </span>
+      )}
       {item.kind !== 's-tier' && item.rating !== null && (
         <span className="shrink-0 text-sm tabular-nums">
           <span className="text-xs text-muted-foreground">scored </span>

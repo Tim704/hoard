@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, GitCompareArrows } from 'lucide-react';
+import { ArrowLeft, GitCompareArrows, Lock } from 'lucide-react';
 
 import { CompareOffNotice, CompareUnavailable, Cover } from '@/components/compare-parts';
 import { CompareSTier } from '@/components/compare-s-tier';
@@ -160,9 +160,17 @@ function SharedRow({ item, them }: { item: SharedView; them: string }) {
           <span className="font-semibold" aria-label="Your score">
             <Score value={item.myRating} />
           </span>
-          <span className="font-semibold" aria-label={`${them}’s score`}>
-            <Score value={item.theirRating} />
-          </span>
+          {item.sealed ? (
+            // Their pick for you: their score waits for yours.
+            <span className="inline-flex items-center justify-end gap-1 text-muted-foreground" title="Score it to see theirs">
+              <Lock className="h-3.5 w-3.5" aria-hidden />
+              <span className="sr-only">{`${them}’s score is hidden until you score it`}</span>
+            </span>
+          ) : (
+            <span className="font-semibold" aria-label={`${them}’s score`}>
+              <Score value={item.theirRating} />
+            </span>
+          )}
         </div>
       </TitleLink>
     </li>
