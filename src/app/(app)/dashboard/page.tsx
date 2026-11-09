@@ -30,7 +30,7 @@ export default async function DashboardPage() {
   const needs = dataNeeds(tiles);
   const [allStats, allConsuming, favourites, comingUp, goals] = await Promise.all([
     needs.stats ? getDashboardStats() : null,
-    needs.nowConsuming ? getNowConsuming() : null,
+    needs.nowConsuming ? getNowConsuming(prefs.hiddenSections) : null,
     needs.favourites ? getFavourites() : null,
     needs.comingUp ? getComingUp(5) : null,
     // This year's goals (6.3) in the user's time zone; the tile hides without any.
@@ -54,7 +54,8 @@ export default async function DashboardPage() {
           allConsuming && (
             <NowConsumingCard
               key={id}
-              items={allConsuming.filter((a) => !hidden.has(a.category))}
+              items={allConsuming.items}
+              total={allConsuming.total}
               titleLanguage={prefs.titleLanguage}
             />
           )

@@ -422,27 +422,38 @@ export async function getRanking(slug: CategorySlug): Promise<ActivityWithMedia[
 }
 
 /**
- * Everything the current user is actively consuming, across all domains,
- * most recently touched first. Powers the dashboard's "Now consuming" tile.
+ * What the current user is actively consuming, across the sections they show,
+ * most recently touched first, and how many there are in all. Powers the
+ * dashboard's "Now consuming" tile (hidden sections are left out in the query,
+ * so they can't crowd out the rest).
  */
-export async function getNowConsuming(limit = 12): Promise<ActivityWithMedia[]> {
+export async function getNowConsuming(
+  hiddenSections: readonly string[] = [],
+  limit = 5,
+): Promise<{ items: ActivityWithMedia[]; total: number }> {
   const user = await getCurrentUser();
-  if (!user) return [];
+  if (!user) return { items: [], total: 0 };
 
+  const shown = CATEGORY_LIST.filter((c) => !hiddenSections.includes(c.slug)).map((c) => c.dbCategory);
+  const where = { userId: user.id, status: 'CONSUMING', category: { in: shown } } as const;
   const include = Object.fromEntries(CATEGORY_LIST.map((c) => [c.prismaModel, true]));
-  const rows = await prisma.userMediaActivity.findMany({
-    where: { userId: user.id, status: 'CONSUMING' },
-    include: include as any,
-    orderBy: { updatedAt: 'desc' },
-    take: limit,
-  });
+  const [rows, total] = await Promise.all([
+    prisma.userMediaActivity.findMany({
+      where: where as any,
+      include: include as any,
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+    }),
+    prisma.userMediaActivity.count({ where: where as any }),
+  ]);
 
-  return rows
+  const items = rows
     .map((row) => {
       const cat = CATEGORY_LIST.find((c) => c.dbCategory === row.category);
       return cat ? flattenActivity(row, cat) : null;
     })
     .filter((a): a is ActivityWithMedia => a !== null);
+  return { items, total };
 }
 
 /** Every title the current user starred, across all domains (unordered). */

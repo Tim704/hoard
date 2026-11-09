@@ -187,13 +187,16 @@ export function OverviewCard({ stats, defaultOrder }: { stats: CategoryStat[]; d
 
 export function NowConsumingCard({
   items,
+  total,
   titleLanguage,
 }: {
   items: ActivityWithMedia[];
+  /** Everything in progress (the "+N" counts the rest of these). */
+  total: number;
   titleLanguage: TitleLanguage;
 }) {
   const shown = items.slice(0, 5);
-  const extra = items.length - shown.length;
+  const extra = Math.max(0, total - shown.length);
 
   return (
     <Card className={cn('h-full', TILE)}>
