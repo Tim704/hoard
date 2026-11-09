@@ -109,11 +109,14 @@ export function TitlePage({
   const fresh = useLayout().id === 'fresh';
   const slug = activity.category;
   const sectionHref = `/${slug}`;
+  const { log, failed, reload } = useActivityLog(activity.id);
   const editor = useTitleEditor(activity, {
     keepDrafts: true,
+    // A save can finish a run (a new diary entry): History, Runs and the
+    // Review field must follow, or a review typed next goes to the old run.
+    onSaved: () => void reload(),
     onRemoved: () => router.replace(sectionHref),
   });
-  const { log, failed, reload } = useActivityLog(activity.id);
   // A TV show with seasons: its progress is their sum (read-only here).
   const [seasonTracked, setSeasonTracked] = useState(false);
 
