@@ -61,6 +61,18 @@ export interface SyncChange {
   progress?: number;
 }
 
+/**
+ * AniList stores a pushed score in the user's own format (10 point, 5 star,
+ * 3 smiley…), so 8.7 comes back as 9 or 4★ (8.0). That echo of our own
+ * push isn't a change made on AniList: keep the precise local score.
+ */
+export function isPushEcho(local: number | null, remote: number): boolean {
+  if (local == null) return false;
+  const tenPoint = Math.round(local);
+  const fiveStar = Math.round(local / 2) * 2;
+  return remote === tenPoint || remote === fiveStar;
+}
+
 /** The events that count as a change AniList also tracks (not a queue drag, a duel or a tag). */
 export const TRACKED_EVENT_KINDS = ['added', 'status', 'score', 'progress', 'rewatch', 'import'] as const;
 
@@ -86,7 +98,9 @@ export function resolveConflict(local: LocalState, remote: ImportRow, remoteAt: 
     // the same status: pulling one back must not overwrite the other.
     const same = toAniListStatus(remote.status) === toAniListStatus(local.status);
     if (!same && STATUS_RANK[remote.status] > STATUS_RANK[local.status]) change.status = remote.status;
-    if (remote.rating != null && remote.rating !== local.rating) change.rating = remote.rating;
+    if (remote.rating != null && remote.rating !== local.rating && !isPushEcho(local.rating, remote.rating)) {
+      change.rating = remote.rating;
+    }
     if (remote.progress != null && remote.progress !== local.progress) change.progress = remote.progress;
   } else {
     if (local.rating == null && remote.rating != null) change.rating = remote.rating;

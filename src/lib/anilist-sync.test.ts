@@ -61,6 +61,14 @@ describe('resolveConflict (most recent change wins)', () => {
     expect(resolveConflict(local, remote({ status: 'COMPLETED' }), after)).toEqual({});
   });
 
+  it('does not take back its own pushed score rounded to the AniList format (8.7 → 9 or 4★)', () => {
+    const local = { status: 'COMPLETED' as const, rating: 8.7, progress: 28, updatedAt: T };
+    expect(resolveConflict(local, remote({ rating: 9, progress: 28 }), after)).toEqual({});
+    expect(resolveConflict(local, remote({ rating: 8, progress: 28 }), after)).toEqual({});
+    // A real change on AniList still comes through.
+    expect(resolveConflict(local, remote({ rating: 6, progress: 28 }), after)).toEqual({ rating: 6 });
+  });
+
   it('keeps Hoard when Hoard changed it last, filling only blanks', () => {
     const local = { status: 'CONSUMING' as const, rating: 7, progress: null, updatedAt: T };
     expect(resolveConflict(local, remote(), before)).toEqual({ progress: 28 });
