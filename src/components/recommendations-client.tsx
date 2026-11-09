@@ -131,6 +131,14 @@ function Inbox({
     router.refresh();
   }
 
+  // Once an add has started, the pick is answered: no Pass.
+  const passButton = (it: RecView) =>
+    rows[it.id] ? null : (
+      <Button variant="outline" size="sm" className="relative z-10" disabled={busy === it.id} onClick={() => void pass(it)}>
+        Pass
+      </Button>
+    );
+
   if (shown.length === 0) return null;
 
   return (
@@ -144,49 +152,41 @@ function Inbox({
           const owned = it.myActivityId;
           return (
             <li key={it.id} className="relative space-y-2 rounded-xl border border-border bg-card p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 space-y-1">
-                  <p className="text-xs text-muted-foreground">
-                    From {it.other} · {it.when}
-                  </p>
-                  {it.note && <p className="whitespace-pre-line break-words text-sm">“{it.note}”</p>}
-                </div>
-                {/* Once an add has started, the pick is answered: no Pass. */}
-                {!row && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="relative z-10 shrink-0"
-                    disabled={busy === it.id}
-                    onClick={() => void pass(it)}
-                  >
-                    Pass
-                  </Button>
-                )}
+              <div className="min-w-0 space-y-1">
+                <p className="text-xs text-muted-foreground">
+                  From {it.other} · {it.when}
+                </p>
+                {it.note && <p className="whitespace-pre-line break-words text-sm">“{it.note}”</p>}
               </div>
               {owned ? (
-                <div className="flex items-center gap-3">
-                  <Cover src={it.imageUrl} alt="" />
-                  <div className="min-w-0 flex-1 space-y-0.5">
-                    {/* The whole card opens the title; buttons sit above the link. */}
-                    <Link
-                      href={titleHrefOf(it.slug, owned)}
-                      className="break-words font-medium after:absolute after:inset-0 after:rounded-xl after:content-['']"
-                    >
-                      {it.title}
-                    </Link>
-                    <p className="text-sm text-muted-foreground">Already on your list. Score it to give your verdict.</p>
+                <>
+                  <div className="flex items-center gap-3">
+                    <Cover src={it.imageUrl} alt="" />
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      {/* The whole card opens the title; buttons sit above the link. */}
+                      <Link
+                        href={titleHrefOf(it.slug, owned)}
+                        className="break-words font-medium after:absolute after:inset-0 after:rounded-xl after:content-['']"
+                      >
+                        {it.title}
+                      </Link>
+                      <p className="text-sm text-muted-foreground">Already on your list. Score it to give your verdict.</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                </div>
+                  <div className="flex justify-end">{passButton(it)}</div>
+                </>
               ) : (
                 <AddResultRow
                   asOption={false}
+                  bare
                   slug={it.slug}
                   result={resultOf(it)}
                   row={row}
                   note={CATEGORIES[it.slug].singular}
                   fullTitle
+                  // All three answers in one row: Watched, Want, Pass.
+                  extraAction={passButton(it)}
                   onAdd={(status) => {
                     onStart(it);
                     void add(it.id, it.slug, resultOf(it), status);
@@ -318,10 +318,16 @@ function RecRow({ it, direction }: { it: RecView; direction: 'sent' | 'received'
             <p className="break-words font-medium">{it.title}</p>
           )}
           {it.note && <p className="whitespace-pre-line break-words">“{it.note}”</p>}
-          {it.verdict ? <VerdictStrip it={it} sent={sent} /> : <Waiting it={it} sent={sent} />}
+          {!it.verdict && <Waiting it={it} sent={sent} />}
         </div>
         {href && <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />}
       </div>
+      {/* The payoff gets the row's full width (under the text, aligned with it). */}
+      {it.verdict && (
+        <div className="pl-14">
+          <VerdictStrip it={it} sent={sent} />
+        </div>
+      )}
       {(it.withdrawable || canUnpass) && (
         <div className="relative z-10 flex flex-wrap items-center gap-2 pl-14">
           {canUnpass && (
@@ -365,7 +371,7 @@ function Waiting({ it, sent }: { it: RecView; sent: boolean }) {
       {it.waiting && <span>{it.waiting}</span>}
       {guess != null && (
         <span>
-          Your guess: <Score value={guess} />
+          You guessed they’d give it <Score value={guess} />
         </span>
       )}
     </p>
@@ -379,14 +385,17 @@ function VerdictStrip({ it, sent }: { it: RecView; sent: boolean }) {
   // The recipient is them in Sent and you in Received; the sender the other way round.
   const recipient = sent ? 'Their' : 'Your';
   const sender = sent ? 'Your' : 'Their';
-  const cells: { label: string; value: number | null }[] = [
+  // `short` on phones, where three cells share ~280px.
+  const them = (who: 'Their' | 'Your') => (who === 'Their' ? 'Them' : 'You');
+  const cells: { label: string; short: string; value: number | null }[] = [
     {
       label: v.kind === 'dropped' ? (sent ? 'They dropped it' : 'You dropped it') : `${recipient} score`,
+      short: v.kind === 'dropped' ? 'Dropped' : them(recipient),
       value: v.recipientScore,
     },
   ];
-  if (v.guess != null) cells.push({ label: `${sender} guess`, value: v.guess });
-  if (v.senderScore != null) cells.push({ label: `${sender} score`, value: v.senderScore });
+  if (v.guess != null) cells.push({ label: `${sender} guess`, short: 'Guess', value: v.guess });
+  if (v.senderScore != null) cells.push({ label: `${sender} score`, short: them(sender), value: v.senderScore });
   const miss = v.guess != null && v.recipientScore != null ? Math.round(Math.abs(v.guess - v.recipientScore) * 10) / 10 : null;
 
   return (
@@ -394,7 +403,10 @@ function VerdictStrip({ it, sent }: { it: RecView; sent: boolean }) {
       <dl className="grid auto-cols-fr grid-flow-col gap-1.5">
         {cells.map((c) => (
           <div key={c.label} className="rounded-md bg-muted/60 px-2 py-1.5 text-center">
-            <dt className="text-xs text-muted-foreground">{c.label}</dt>
+            <dt className="text-xs text-muted-foreground">
+              <span className="sm:hidden">{c.short}</span>
+              <span className="hidden sm:inline">{c.label}</span>
+            </dt>
             <dd className="text-base font-semibold tabular-nums">{c.value != null ? <Score value={c.value} /> : '–'}</dd>
           </div>
         ))}

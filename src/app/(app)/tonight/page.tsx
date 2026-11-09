@@ -18,7 +18,7 @@ export default async function TonightPage() {
           What tonight?
         </h1>
         <p className="text-sm text-muted-foreground">
-          Three picks from your Up next queues, top of the queue first. Only titles that are already out.
+          Up to three picks from your Up next queues, top of the queue first. Only titles that are already out.
         </p>
       </header>
       <TonightClient queues={queues} sections={sections} />

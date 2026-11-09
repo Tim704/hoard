@@ -117,6 +117,10 @@ interface AddResultRowProps {
   fullTitle?: boolean;
   /** An option of a listbox (search results). False where the row stands alone in a list. */
   asOption?: boolean;
+  /** No box of its own (it sits inside a card that has one). */
+  bare?: boolean;
+  /** One more answer beside Done / Want (the Recommendations inbox's Pass). */
+  extraAction?: React.ReactNode;
   onAdd: (status: 'COMPLETED' | 'PLANNED') => void;
   onRate: (rating: number) => void;
   onSkipRate: () => void;
@@ -133,6 +137,8 @@ export function AddResultRow({
   note,
   fullTitle = false,
   asOption = true,
+  bare = false,
+  extraAction,
   onAdd,
   onRate,
   onSkipRate,
@@ -160,7 +166,8 @@ export function AddResultRow({
           : undefined
       }
       className={cn(
-        'flex gap-3 rounded-md border border-border p-2',
+        'flex gap-3',
+        !bare && 'rounded-md border border-border p-2',
         // Phones: the title gets the row's width (two lines) and the buttons go under it.
         fullTitle ? 'flex-wrap items-start' : 'flex-wrap items-start sm:flex-nowrap sm:items-center',
         highlighted && 'border-primary bg-accent/50',
@@ -231,6 +238,7 @@ export function AddResultRow({
             <Plus className="h-4 w-4" />
             <span className="ml-1.5">{labels.want}</span>
           </Button>
+          {extraAction && <div className="ml-auto sm:ml-0">{extraAction}</div>}
         </div>
       )}
     </div>
