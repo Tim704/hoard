@@ -14,12 +14,28 @@ import {
   parseDraft,
   parseValues,
   pruneDraft,
+  savePatch,
   valuesKey,
   valuesOf,
   type TitleValues,
 } from './title-draft';
 
 const base: TitleValues = { status: 'CONSUMING', rating: 7, favorite: false, notes: 'ok', franchiseId: NO_FRANCHISE };
+
+describe('savePatch', () => {
+  const base = { status: 'CONSUMING' as const, rating: null, favorite: false, notes: '', franchiseId: NO_FRANCHISE };
+
+  it('sends only the fields edited here, so a tab left open doesn’t put back what another device changed', () => {
+    expect(savePatch({ ...base, notes: 'great' }, base)).toEqual({ notes: 'great' });
+    expect(savePatch({ ...base, rating: 8, favorite: true }, base)).toEqual({ rating: 8, favorite: true });
+    expect(savePatch(base, base)).toEqual({});
+  });
+
+  it('always sends a status given outright (Mark as finished), and never the franchise', () => {
+    expect(savePatch(base, base, 'COMPLETED')).toEqual({ status: 'COMPLETED' });
+    expect(savePatch({ ...base, franchiseId: 'f1' }, base)).toEqual({});
+  });
+});
 
 describe('valuesOf', () => {
   it('reads what Save writes, null notes as empty and no franchise as NO_FRANCHISE', () => {

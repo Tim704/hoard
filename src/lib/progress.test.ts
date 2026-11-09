@@ -5,6 +5,7 @@ import {
   progressShownByDefault,
   progressText,
   progressTotal,
+  takesServerProgress,
   tracksProgress,
   validProgress,
 } from './progress';
@@ -14,6 +15,18 @@ const withMedia = (category: Parameters<typeof makeActivity>[0]['category'], ext
   const a = makeActivity({ id: 'x', category });
   return { ...a, media: { ...a.media, ...extra } };
 };
+
+describe('takesServerProgress', () => {
+  it('takes a value changed elsewhere (Read again, Undo, another device)', () => {
+    expect(takesServerProgress(0, 300, false)).toBe(true);
+    expect(takesServerProgress(null, 12, false)).toBe(true);
+  });
+
+  it('ignores the echo of its own save and waits while +1 taps are being gathered', () => {
+    expect(takesServerProgress(301, 301, false)).toBe(false);
+    expect(takesServerProgress(0, 300, true)).toBe(false);
+  });
+});
 
 describe('progressTotal', () => {
   it('reads the count for each tracked medium', () => {

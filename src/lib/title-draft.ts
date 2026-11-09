@@ -52,6 +52,23 @@ export function changedFields(local: TitleValues, base: TitleValues): (keyof Tit
   return TITLE_VALUE_KEYS.filter((k) => local[k] !== base[k]);
 }
 
+/** What Save sends to updateActivity: the franchise goes through its own action. */
+export type SavePatch = Partial<Pick<TitleValues, 'status' | 'rating' | 'favorite' | 'notes'>>;
+
+/**
+ * Only the fields edited here (and a status given outright, as "Mark as
+ * finished" does). Sending every field would let a tab left open on another
+ * device put back the status or score it last saw.
+ */
+export function savePatch(local: TitleValues, base: TitleValues, statusOverride?: Status): SavePatch {
+  const patch: SavePatch = {};
+  for (const k of ['status', 'rating', 'favorite', 'notes'] as const) {
+    if (local[k] !== base[k]) (patch as Record<string, unknown>)[k] = local[k];
+  }
+  if (statusOverride) patch.status = statusOverride;
+  return patch;
+}
+
 export function isDirty(local: TitleValues, base: TitleValues): boolean {
   return changedFields(local, base).length > 0;
 }

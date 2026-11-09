@@ -17,6 +17,7 @@ import {
   progressText,
   progressTotal,
   progressUnit,
+  takesServerProgress,
   tracksProgress,
 } from '@/lib/progress';
 import { FINISHED_STATUSES, statusLabel } from '@/lib/status';
@@ -95,6 +96,17 @@ export function ProgressField({ activity, disabled, onMarkFinished, readOnlyHint
     }
     return persist(latest.current);
   }
+
+  // A value saved elsewhere (Read again, an Undo, another device) replaces
+  // what the box shows, so the next +1 counts from it.
+  useEffect(() => {
+    const server = activity.progress;
+    if (!takesServerProgress(server, saved.current, timer.current !== null)) return;
+    saved.current = server;
+    latest.current = server;
+    setValue(server);
+    setDraft(server?.toString() ?? '');
+  }, [activity.progress]);
 
   // Closing the dialog mid-batch still saves the last +1.
   useEffect(

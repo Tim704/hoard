@@ -29,6 +29,7 @@ import {
   applyDraft,
   changedFields,
   followServer,
+  savePatch,
   valuesKey,
   valuesOf,
   type TitleValues,
@@ -139,16 +140,11 @@ export function useTitleEditor(activity: ActivityWithMedia | null, options: Titl
     if (!activity) return;
     const before = latest.current;
     const values: TitleValues = statusOverride ? { ...before.local, status: statusOverride } : before.local;
+    // Only what was edited here: a tab left open must not put back what another device changed.
+    const patch = savePatch(before.local, before.base, statusOverride);
     setSaving(true);
     try {
-      const res = await settle(
-        updateActivity(activity.id, {
-          status: values.status,
-          rating: values.rating,
-          favorite: values.favorite,
-          notes: values.notes,
-        }),
-      );
+      const res = Object.keys(patch).length > 0 ? await settle(updateActivity(activity.id, patch)) : { ok: true as const };
       if (!res.ok) {
         toast.error(res.error ?? 'Could not save changes.');
         return;
@@ -182,11 +178,11 @@ export function useTitleEditor(activity: ActivityWithMedia | null, options: Titl
       commit({ ...now, local: statusOverride ? { ...now.local, status: statusOverride } : now.local, base: saved });
 
       const refresh = () => router.refresh();
-      if (values.status !== activity.status) {
+      if (patch.status !== undefined && patch.status !== before.base.status) {
         toastStatusChange(
-          `Marked “${titleOf(activity.media)}” as ${statusLabel(values.status, activity.category)}.`,
+          `Marked “${titleOf(activity.media)}” as ${statusLabel(patch.status, activity.category)}.`,
           activity.id,
-          res.previous,
+          'previous' in res ? res.previous : undefined,
           refresh,
         );
       } else if (!franchiseFailed) {

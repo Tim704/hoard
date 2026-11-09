@@ -88,3 +88,12 @@ export function parseProgressInput(text: string): number | null | undefined {
   if (!/^\d+$/.test(t)) return undefined;
   return validProgress(Number(t)) ?? undefined;
 }
+
+/**
+ * The progress box follows a value saved elsewhere (Read again, an Undo,
+ * another device) unless it is the echo of its own last save or +1 taps are
+ * still being gathered.
+ */
+export function takesServerProgress(server: number | null, lastSaved: number | null, gathering: boolean): boolean {
+  return !gathering && server !== lastSaved;
+}
