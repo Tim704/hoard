@@ -2,6 +2,7 @@ import { Send } from 'lucide-react';
 
 import { CompareOffNotice } from '@/components/compare-parts';
 import { RecommendationsClient } from '@/components/recommendations-client';
+import { SendTitleButton } from '@/components/send-title-dialog';
 import { getRecommendationsPage } from '@/lib/data-recommendations';
 import { requireUser } from '@/lib/session';
 
@@ -16,10 +17,14 @@ export default async function RecommendationsPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-[var(--page-pad)] py-4 sm:py-6">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Send className="h-6 w-6 text-violet-500" aria-hidden />
-          Recommendations
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            <Send className="h-6 w-6 text-violet-500" aria-hidden />
+            Recommendations
+          </h1>
+          {/* Send from here too, not only from a title's view. */}
+          {page.ok && page.friends > 0 && <SendTitleButton />}
+        </div>
         <p className="text-sm text-muted-foreground">Titles you pass along to each other, and how they landed.</p>
       </header>
 

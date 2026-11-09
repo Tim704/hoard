@@ -28,11 +28,14 @@ export function RecommendPanel({
   activityId,
   headingLevel,
   initial,
+  startOpen = false,
 }: {
   activityId: string;
   headingLevel?: HeadingLevel;
   /** The context, already loaded on the server (the full page). */
   initial?: RecommendContext | null;
+  /** Open the send form at once (the Recommendations page's "Send a title"). */
+  startOpen?: boolean;
 }) {
   const [loaded, setLoaded] = useState<{ id: string; context: RecommendContext } | null>(
     initial ? { id: activityId, context: initial } : null,
@@ -50,6 +53,9 @@ export function RecommendPanel({
   }, [activityId, preloaded]);
 
   const context = loaded && loaded.id === activityId ? loaded.context : null;
+  if (startOpen && context && context.friends.length === 0) {
+    return <p className="text-sm text-muted-foreground">This one can’t be sent (a hand-made entry stays yours).</p>;
+  }
   if (!context || (context.friends.length === 0 && context.recommendedBy.length === 0)) return null;
 
   // Only ever touch this title's state: a send can finish after the popup moved on.
@@ -81,7 +87,7 @@ export function RecommendPanel({
         </div>
       ))}
       {context.friends.length > 0 && (
-        <SendForm key={activityId} activityId={activityId} friends={context.friends} onSent={markSent} />
+        <SendForm key={activityId} activityId={activityId} friends={context.friends} onSent={markSent} startOpen={startOpen} />
       )}
     </div>
   );
@@ -98,14 +104,16 @@ function SendForm({
   activityId,
   friends,
   onSent,
+  startOpen = false,
 }: {
   activityId: string;
   friends: Friend[];
   onSent: (username: string) => void;
+  startOpen?: boolean;
 }) {
   const uid = useId();
   const formRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen);
   const [username, setUsername] = useState('');
   const [note, setNote] = useState('');
   const [guess, setGuess] = useState('');
