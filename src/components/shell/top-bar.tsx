@@ -89,55 +89,65 @@ export function TopBar({ variant, links }: { variant: 'links' | 'tabs'; links: N
   }
 
   return (
-    <header data-shell="" className="sticky top-0 z-40 flex h-[var(--topbar-h)] flex-wrap content-start items-center border-b border-white/10 bg-background/60 pt-[env(safe-area-inset-top)] shadow-[0_1px_0_0_rgb(255_255_255/0.03),0_8px_30px_-12px_rgb(0_0_0/0.6)] backdrop-blur-xl backdrop-saturate-150 md:flex-nowrap md:gap-6 md:px-[var(--page-pad)]">
-      {/* In the DOM (and the tab order): brand, tabs, avatar. Phones move the
-          avatar up beside the brand with `order`, and the tabs to a line of
-          their own. */}
-      <Link
-        href="/dashboard"
-        className="order-1 flex h-14 shrink-0 items-center gap-2 rounded-md px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:order-none md:h-auto md:px-0"
-      >
-        <Boxes className="h-5 w-5 text-primary" />
-        <span className="font-display text-base font-semibold tracking-[0.2em]">HOARD</span>
-      </Link>
-      <nav aria-label="Main" className="order-3 w-full min-w-0 md:order-none md:w-auto md:flex-1 md:self-stretch">
-        <ul
-          ref={strip}
-          // data-fade is set by STRIP_SCRIPT before hydration.
-          suppressHydrationWarning
-          className="edge-fade scrollbar-none flex h-11 items-center gap-2 overflow-x-auto px-4 md:h-full md:gap-1 md:px-0"
+    <>
+      {/* Phones: the brand row scrolls away and the chips stay (top -3.5rem,
+          the brand row); --topbar-h is then only the chip row. In the home-
+          screen app the page runs under the status bar: the scrim keeps the
+          bar's glass there once the brand row has gone. */}
+      <header data-shell="" className="sticky top-[-3.5rem] z-40 flex h-[calc(6.3125rem+env(safe-area-inset-top,0px))] flex-wrap content-start items-center border-b border-white/10 bg-background/60 pt-[env(safe-area-inset-top)] shadow-[0_1px_0_0_rgb(255_255_255/0.03),0_8px_30px_-12px_rgb(0_0_0/0.6)] backdrop-blur-xl backdrop-saturate-150 md:top-0 md:h-[var(--topbar-h)] md:flex-nowrap md:gap-6 md:px-[var(--page-pad)]">
+        {/* In the DOM (and the tab order): brand, tabs, avatar. Phones move the
+            avatar up beside the brand with `order`, and the tabs to a line of
+            their own. */}
+        <Link
+          href="/dashboard"
+          className="order-1 flex h-14 shrink-0 items-center gap-2 rounded-md px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:order-none md:h-auto md:px-0"
         >
-          {links.map((link) => {
-            const active = isNavLinkActive(link, pathname, view);
-            return (
-              <li key={link.id} className="shrink-0 md:h-full">
-                <Link
-                  href={link.href}
-                  aria-current={active ? 'page' : undefined}
-                  className={cn(
-                    'relative flex items-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
-                    // Phones: chips, 40px tall for a fingertip (in the 44px strip).
-                    'h-10 rounded-full border px-3.5',
-                    // md+: tabs with an underline for the current one.
-                    'md:h-full md:rounded-md md:border-0 md:px-3 md:py-0',
-                    "md:after:absolute md:after:inset-x-3 md:after:bottom-0 md:after:h-0.5 md:after:rounded-full md:after:content-['']",
-                    active
-                      ? 'border-primary bg-primary font-medium text-primary-foreground md:bg-transparent md:text-foreground md:after:bg-primary'
-                      : 'border-white/10 bg-white/5 text-muted-foreground hover:text-foreground md:bg-transparent',
-                  )}
-                >
-                  {link.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-        <script dangerouslySetInnerHTML={{ __html: STRIP_SCRIPT }} />
-      </nav>
-      <div className="order-2 ml-auto flex h-14 items-center gap-1 pr-4 md:order-none md:h-auto md:pr-0">
-        <PhoneSearchButton className="md:hidden" />
-        <UserMenu trigger="avatar" side="bottom" align="end" />
-      </div>
-    </header>
+          <Boxes className="h-5 w-5 text-primary" />
+          <span className="font-display text-base font-semibold tracking-[0.2em]">HOARD</span>
+        </Link>
+        <nav aria-label="Main" className="order-3 w-full min-w-0 md:order-none md:w-auto md:flex-1 md:self-stretch">
+          <ul
+            ref={strip}
+            // data-fade is set by STRIP_SCRIPT before hydration.
+            suppressHydrationWarning
+            className="edge-fade scrollbar-none flex h-11 items-center gap-2 overflow-x-auto px-4 md:h-full md:gap-1 md:px-0"
+          >
+            {links.map((link) => {
+              const active = isNavLinkActive(link, pathname, view);
+              return (
+                <li key={link.id} className="shrink-0 md:h-full">
+                  <Link
+                    href={link.href}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'relative flex items-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                      // Phones: chips, 40px tall for a fingertip (in the 44px strip).
+                      'h-10 rounded-full border px-3.5',
+                      // md+: tabs with an underline for the current one.
+                      'md:h-full md:rounded-md md:border-0 md:px-3 md:py-0',
+                      "md:after:absolute md:after:inset-x-3 md:after:bottom-0 md:after:h-0.5 md:after:rounded-full md:after:content-['']",
+                      active
+                        ? 'border-primary bg-primary font-medium text-primary-foreground md:bg-transparent md:text-foreground md:after:bg-primary'
+                        : 'border-white/10 bg-white/5 text-muted-foreground hover:text-foreground md:bg-transparent',
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <script dangerouslySetInnerHTML={{ __html: STRIP_SCRIPT }} />
+        </nav>
+        <div className="order-2 ml-auto flex h-14 items-center gap-1 pr-4 md:order-none md:h-auto md:pr-0">
+          <PhoneSearchButton className="md:hidden" />
+          <UserMenu trigger="avatar" side="bottom" align="end" />
+        </div>
+      </header>
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 z-40 h-[env(safe-area-inset-top,0px)] bg-background/60 backdrop-blur-xl md:hidden"
+      />
+    </>
   );
 }

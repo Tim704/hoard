@@ -62,9 +62,16 @@ const FIELD_NAMES: Record<keyof TitleValues, string> = {
   franchiseId: 'Franchise',
 };
 
-/** Full-bleed bands on phones (the content as wide as the popup's), cards from sm. */
+/**
+ * Full-bleed bands on phones (the content as wide as the popup's), cards from
+ * sm. The bands touch, one rule between each (their wrapper, PANELS, bleeds
+ * and draws the last rule), instead of two hairlines around a strip of page.
+ */
 const PANEL =
-  '-mx-[var(--page-pad)] min-w-0 space-y-4 border-x-0 border-y border-border bg-card px-[var(--page-pad)] py-4 sm:mx-0 sm:rounded-lg sm:border-x sm:p-5';
+  'min-w-0 space-y-4 border-t border-border bg-card px-[var(--page-pad)] py-4 sm:rounded-lg sm:border sm:p-5';
+/** The panels' wrapper, and the gap between panels (none on phones). */
+const PANELS = '-mx-[var(--page-pad)] border-b border-border sm:mx-0 sm:space-y-6 sm:border-b-0';
+const PANEL_GAP = 'gap-0 sm:gap-6';
 
 /**
  * One block of the page; hidden when what it holds renders nothing. Not a
@@ -212,103 +219,105 @@ export function TitlePage({
           </div>
         </header>
 
-        {/* What you came to update comes first: progress, seasons, format. Two
-            columns from md; panels that render nothing are hidden. */}
-        <div className="grid items-start gap-6 empty:hidden md:grid-cols-2">
-          {tracksProgress(slug) && (
-            <Panel label="Progress" className={cn(slug === 'tv' && 'md:col-span-2')}>
-              <TitleProgressField
-                activity={activity}
-                disabled={busy}
-                seasonTracked={seasonTracked}
-                onMarkFinished={() => {
-                  editor.setStatus('COMPLETED');
-                  void editor.save('COMPLETED');
-                }}
-                headingLevel={2}
-              />
-            </Panel>
-          )}
-
-          {slug === 'tv' && (
-            <Panel label="Seasons" className="scroll-mt-bar md:col-span-2" id="seasons">
-              <SeasonsField activity={activity} disabled={busy} onLoaded={setSeasonTracked} headingLevel={2} />
-            </Panel>
-          )}
-
-          {hasOwnership && (
-            <Panel label={slug === 'games' ? 'Owned on' : 'Format'}>
-              <OwnershipField key={`own:${activity.id}`} activity={activity} disabled={busy} headingLevel={2} />
-            </Panel>
-          )}
-
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <Panel label="Notes">
-            <NotesField activity={activity} value={editor.notes} onChange={editor.setNotes} rows={6} headingLevel={2} />
-            <MentionedInField activity={activity} />
-          </Panel>
-          <Panel label="History">
-            <HistoryHeading as="h2" />
-            {failed && <LogFailed />}
-            {log && (
-              <>
-                <Runs activity={activity} log={log} disabled={busy} onDone={logChanged} />
-                <HistoryList activity={activity} log={log} showHeading={false} />
-                {log.events.length === 0 && log.diary.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No history yet.</p>
-                )}
-              </>
+        <div className={PANELS}>
+          {/* What you came to update comes first: progress, seasons, format. Two
+              columns from md; panels that render nothing are hidden. */}
+          <div className={cn('grid items-start empty:hidden md:grid-cols-2', PANEL_GAP)}>
+            {tracksProgress(slug) && (
+              <Panel label="Progress" className={cn(slug === 'tv' && 'md:col-span-2')}>
+                <TitleProgressField
+                  activity={activity}
+                  disabled={busy}
+                  seasonTracked={seasonTracked}
+                  onMarkFinished={() => {
+                    editor.setStatus('COMPLETED');
+                    void editor.save('COMPLETED');
+                  }}
+                  headingLevel={2}
+                />
+              </Panel>
             )}
-            {!log && !failed && <p className="text-sm text-muted-foreground">Loading the history…</p>}
-          </Panel>
-        </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <Panel label="Tags">
-            <TagsField key={`tags:${activity.id}`} activity={activity} disabled={busy} headingLevel={2} />
-          </Panel>
-          <Panel label="Lists">
-            <PanelTitle icon={ListPlus}>Lists</PanelTitle>
-            <AddToListField key={`lists:${activity.id}`} activity={activity} disabled={busy} />
-          </Panel>
-        </div>
-        <Panel label="Friends">
-          <RecommendPanel activityId={activity.id} headingLevel={2} initial={recommendContext} />
-        </Panel>
+            {slug === 'tv' && (
+              <Panel label="Seasons" className="scroll-mt-bar md:col-span-2" id="seasons">
+                <SeasonsField activity={activity} disabled={busy} onLoaded={setSeasonTracked} headingLevel={2} />
+              </Panel>
+            )}
 
-        {/* Two columns from md; panels that render nothing are hidden. */}
-        <div className="grid items-start gap-6 empty:hidden md:grid-cols-2">
-          {slug === 'games' && log && (
-            <Sessions
-              activityId={activity.id}
-              log={log}
-              onChanged={logChanged}
-              className={cn(PANEL, 'rounded-none')}
-              headingLevel={2}
-            />
-          )}
+            {hasOwnership && (
+              <Panel label={slug === 'games' ? 'Owned on' : 'Format'}>
+                <OwnershipField key={`own:${activity.id}`} activity={activity} disabled={busy} headingLevel={2} />
+              </Panel>
+            )}
 
-          {log && log.diary.length > 0 && (
-            <Panel label="Review">
-              <ReviewField
-                key={log.diary[0].id}
+          </div>
+
+          <div className={cn('grid md:grid-cols-2', PANEL_GAP)}>
+            <Panel label="Notes">
+              <NotesField activity={activity} value={editor.notes} onChange={editor.setNotes} rows={6} headingLevel={2} />
+              <MentionedInField activity={activity} />
+            </Panel>
+            <Panel label="History">
+              <HistoryHeading as="h2" />
+              {failed && <LogFailed />}
+              {log && (
+                <>
+                  <Runs activity={activity} log={log} disabled={busy} onDone={logChanged} />
+                  <HistoryList activity={activity} log={log} showHeading={false} />
+                  {log.events.length === 0 && log.diary.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No history yet.</p>
+                  )}
+                </>
+              )}
+              {!log && !failed && <p className="text-sm text-muted-foreground">Loading the history…</p>}
+            </Panel>
+          </div>
+
+          <div className={cn('grid md:grid-cols-2', PANEL_GAP)}>
+            <Panel label="Tags">
+              <TagsField key={`tags:${activity.id}`} activity={activity} disabled={busy} headingLevel={2} />
+            </Panel>
+            <Panel label="Lists">
+              <PanelTitle icon={ListPlus}>Lists</PanelTitle>
+              <AddToListField key={`lists:${activity.id}`} activity={activity} disabled={busy} />
+            </Panel>
+          </div>
+          <Panel label="Friends">
+            <RecommendPanel activityId={activity.id} headingLevel={2} initial={recommendContext} />
+          </Panel>
+
+          {/* Two columns from md; panels that render nothing are hidden. */}
+          <div className={cn('grid items-start empty:hidden md:grid-cols-2', PANEL_GAP)}>
+            {slug === 'games' && log && (
+              <Sessions
                 activityId={activity.id}
-                category={slug}
-                initial={log.diary[0].review ?? ''}
-                onSaved={logChanged}
+                log={log}
+                onChanged={logChanged}
+                className={cn(PANEL, 'rounded-none')}
                 headingLevel={2}
               />
-            </Panel>
-          )}
+            )}
+
+            {log && log.diary.length > 0 && (
+              <Panel label="Review">
+                <ReviewField
+                  key={log.diary[0].id}
+                  activityId={activity.id}
+                  category={slug}
+                  initial={log.diary[0].review ?? ''}
+                  onSaved={logChanged}
+                  headingLevel={2}
+                />
+              </Panel>
+            )}
+          </div>
+
+          <Panel label="More by the same people">
+            <MoreByField activity={activity} headingLevel={2} />
+          </Panel>
         </div>
 
-        <Panel label="More by the same people">
-          <MoreByField activity={activity} headingLevel={2} />
-        </Panel>
-
-        <div className="flex justify-start border-t border-border pt-6">
+        <div className="flex justify-start sm:border-t sm:border-border sm:pt-6">
           <Button type="button" variant="destructive" onClick={() => void editor.remove()} disabled={busy}>
             {editor.removing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" aria-hidden />}
             Remove

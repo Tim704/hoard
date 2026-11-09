@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, ArrowLeft, ClipboardPaste, Download, FileUp, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ChevronDown, ClipboardPaste, Download, FileUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AiPaste } from '@/components/import/ai-paste';
@@ -30,6 +30,7 @@ import { parseStoryGraph } from '@/lib/import/sources/storygraph';
 import { traktUserFromInput, validTraktUser } from '@/lib/import/sources/trakt';
 import { MAX_IMPORT_FILE_BYTES, MAX_IMPORT_ROWS, type ImportRow, type ImportSource } from '@/lib/import/types';
 import { settingsHref } from '@/lib/settings-nav';
+import { cn } from '@/lib/utils';
 
 interface SourceInfo {
   id: ImportSource;
@@ -218,6 +219,8 @@ export function ImportClient({ steamConfigured, steamLinked, autoStart, tmdbConf
   const [finished, setFinished] = useState(false);
   const [csv, setCsv] = useState<PendingCsv | null>(null);
   const [pasting, setPasting] = useState(false);
+  // Phones list the sources as rows: the one open shows its steps and button.
+  const [openSource, setOpenSource] = useState<ImportSource | null>(null);
 
   function start(result: ParseResult, sourceName: string) {
     for (const w of result.warnings) toast.warning(w);
@@ -357,70 +360,92 @@ export function ImportClient({ steamConfigured, steamLinked, autoStart, tmdbConf
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {SOURCES.map((s) => (
-        <Card key={s.id} className="flex flex-col">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">{s.name}</CardTitle>
-            <CardDescription>{s.what}</CardDescription>
-          </CardHeader>
-          <CardContent className="mt-auto space-y-3">
-            <ul className="list-disc space-y-1 pl-4 text-sm text-muted-foreground">
-              {s.how.map((h) => (
-                <li key={h}>{h}</li>
-              ))}
-            </ul>
-            {s.id === 'letterboxd' && !tmdbConfigured && (
-              <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                TMDB isn&apos;t set up on this Hoard yet, so films can&apos;t be matched.
-              </p>
-            )}
-            {s.id === 'trakt' && !traktConfigured && (
-              <NotConfigured>Trakt isn&apos;t set up on this Hoard yet.</NotConfigured>
-            )}
-            {s.id === 'steam' && !steamConfigured && (
-              <NotConfigured>Steam isn&apos;t set up on this Hoard yet.</NotConfigured>
-            )}
-            {s.id === 'ai' && !aiConfigured && (
-              <NotConfigured>The AI reader isn&apos;t set up on this Hoard yet.</NotConfigured>
-            )}
-            {s.input === 'file' || s.input === 'mapped-csv' ? (
-              <FilePick source={s} busy={busy === s.id} disabled={busy !== null} onFiles={(f) => void onFiles(s, f)} />
-            ) : s.input === 'paste' ? (
-              <Button type="button" variant="outline" size="sm" disabled={busy !== null || !aiConfigured} onClick={() => setPasting(true)}>
-                <ClipboardPaste className="mr-2 h-4 w-4" aria-hidden />
-                Paste a list
-              </Button>
-            ) : s.input === 'account' ? (
-              steamLinked || !steamConfigured ? (
-                <Button type="button" variant="outline" size="sm" disabled={busy !== null || !steamConfigured} onClick={() => void onSteam()}>
-                  {busy === 'steam' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Download className="mr-2 h-4 w-4" aria-hidden />}
-                  Fetch my Steam games
+    // Phones: a row per source (name and what it brings), opening in place,
+    // so ten sources fit on about a screen. Cards with everything from md.
+    <div className="grid gap-2 md:grid-cols-2 md:gap-4">
+      {SOURCES.map((s) => {
+        const open = openSource === s.id;
+        return (
+          <Card key={s.id} className="flex flex-col">
+            <h2 className="md:hidden">
+              <button
+                type="button"
+                aria-expanded={open}
+                aria-controls={`import-${s.id}`}
+                onClick={() => setOpenSource(open ? null : s.id)}
+                className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold">{s.name}</span>
+                  <span className="block text-sm text-muted-foreground">{s.what}</span>
+                </span>
+                <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} aria-hidden />
+              </button>
+            </h2>
+            <CardHeader className="hidden pb-3 md:flex">
+              <CardTitle className="text-base">
+                <h2>{s.name}</h2>
+              </CardTitle>
+              <CardDescription>{s.what}</CardDescription>
+            </CardHeader>
+            <CardContent id={`import-${s.id}`} className={cn('mt-auto space-y-3 px-4 pb-4 md:block md:px-6 md:pb-6', open ? 'block' : 'hidden')}>
+              <ul className="list-disc space-y-1 pl-4 text-sm text-muted-foreground">
+                {s.how.map((h) => (
+                  <li key={h}>{h}</li>
+                ))}
+              </ul>
+              {s.id === 'letterboxd' && !tmdbConfigured && (
+                <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                  TMDB isn&apos;t set up on this Hoard yet, so films can&apos;t be matched.
+                </p>
+              )}
+              {s.id === 'trakt' && !traktConfigured && (
+                <NotConfigured>Trakt isn&apos;t set up on this Hoard yet.</NotConfigured>
+              )}
+              {s.id === 'steam' && !steamConfigured && (
+                <NotConfigured>Steam isn&apos;t set up on this Hoard yet.</NotConfigured>
+              )}
+              {s.id === 'ai' && !aiConfigured && (
+                <NotConfigured>The AI reader isn&apos;t set up on this Hoard yet.</NotConfigured>
+              )}
+              {s.input === 'file' || s.input === 'mapped-csv' ? (
+                <FilePick source={s} busy={busy === s.id} disabled={busy !== null} onFiles={(f) => void onFiles(s, f)} />
+              ) : s.input === 'paste' ? (
+                <Button type="button" variant="outline" size="sm" disabled={busy !== null || !aiConfigured} onClick={() => setPasting(true)}>
+                  <ClipboardPaste className="mr-2 h-4 w-4" aria-hidden />
+                  Paste a list
                 </Button>
+              ) : s.input === 'account' ? (
+                steamLinked || !steamConfigured ? (
+                  <Button type="button" variant="outline" size="sm" disabled={busy !== null || !steamConfigured} onClick={() => void onSteam()}>
+                    {busy === 'steam' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Download className="mr-2 h-4 w-4" aria-hidden />}
+                    Fetch my Steam games
+                  </Button>
+                ) : (
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={settingsHref('accounts')}>Link Steam in Settings</Link>
+                  </Button>
+                )
+              ) : s.id === 'trakt' ? (
+                <UsernameForm
+                  label="Trakt username"
+                  busy={busy === 'trakt'}
+                  disabled={busy !== null || !traktConfigured}
+                  onSubmit={(u) => void onTrakt(u)}
+                />
               ) : (
-                <Button asChild variant="outline" size="sm">
-                  <Link href={settingsHref('accounts')}>Link Steam in Settings</Link>
-                </Button>
-              )
-            ) : s.id === 'trakt' ? (
-              <UsernameForm
-                label="Trakt username"
-                busy={busy === 'trakt'}
-                disabled={busy !== null || !traktConfigured}
-                onSubmit={(u) => void onTrakt(u)}
-              />
-            ) : (
-              <UsernameForm
-                label="AniList username"
-                busy={busy === 'anilist'}
-                disabled={busy !== null}
-                onSubmit={(u) => void onAniList(u)}
-              />
-            )}
-          </CardContent>
-        </Card>
-      ))}
+                <UsernameForm
+                  label="AniList username"
+                  busy={busy === 'anilist'}
+                  disabled={busy !== null}
+                  onSubmit={(u) => void onAniList(u)}
+                />
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

@@ -688,7 +688,25 @@ if (failures.length === 0) {
           const after = await sideways();
           if (after > 0) throw new Error(`${where}: the page scrolls sideways by ${after}px after the menu`);
         }
-        if (label === 'Fresh') await checkFreshStrip();
+        if (label === 'Fresh') {
+          await checkFreshStrip();
+          // Phones: the brand row scrolls away, the tab chips stay at the top.
+          await page.setViewportSize({ width: 375, height: 812 });
+          await page.goto(`${BASE_URL}/settings?tab=general`, { waitUntil: 'networkidle' });
+          await page.evaluate(() => window.scrollTo(0, 400));
+          const f = await page.evaluate(() => {
+            const bar = document.querySelector('header[data-shell]');
+            return {
+              scrolled: window.scrollY,
+              chips: bar.querySelector('nav[aria-label="Main"]').getBoundingClientRect().top,
+              bottom: bar.getBoundingClientRect().bottom,
+            };
+          });
+          if (f.scrolled < 100) throw new Error(`Fresh at 375: Settings didn't scroll (${f.scrolled}px)`);
+          if (Math.abs(f.chips) > 1 || Math.abs(f.bottom - 45) > 1) {
+            throw new Error(`Fresh at 375: scrolled, the chips sit at ${f.chips}px and the bar ends at ${f.bottom}px (want 0 and 45)`);
+          }
+        }
         if (label === 'Minimal' || label === 'Fresh') {
           await page.setViewportSize({ width: 1280, height: 600 });
           await page.goto(`${BASE_URL}/settings?tab=general`, { waitUntil: 'networkidle' });

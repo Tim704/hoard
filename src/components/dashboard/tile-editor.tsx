@@ -267,7 +267,17 @@ export function TileEditor({
         </SortableContext>
       </DndContext>
 
-      <div className="flex shrink-0 flex-nowrap items-center gap-2">
+      {/* Inline (Settings), the list runs past a phone's screen: with unsaved
+          changes the buttons stick to its bottom, so Save is always in reach. */}
+      <div
+        data-tile-actions=""
+        className={cn(
+          'flex shrink-0 flex-nowrap items-center gap-2',
+          !onClose &&
+            dirty &&
+            'sticky bottom-0 z-10 border-t border-border bg-card pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3',
+        )}
+      >
         <Button type="button" variant="ghost" className="mr-auto px-3" onClick={onReset} disabled={saving}>
           Reset to default
         </Button>

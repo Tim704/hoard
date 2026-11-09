@@ -280,12 +280,14 @@
        phones (sidebar layouts): MobileBar, one 57px line;
        Minimal from md:          the top bar with Dashboard, 56px;
        Fresh:                    two lines on phones (brand + avatar, then
-                                 the tab chips), one 64px line from md. */
+                                 the tab chips), one 64px line from md.
+                                 The brand line scrolls away on phones, so
+                                 what stays is the chip line (44px + border). */
   :root {
     --topbar-h: calc(3.5625rem + env(safe-area-inset-top, 0px));
   }
   :root[data-layout='fresh'] {
-    --topbar-h: calc(6.3125rem + env(safe-area-inset-top, 0px));
+    --topbar-h: calc(2.8125rem + env(safe-area-inset-top, 0px));
   }
   @media (min-width: 768px) {
     :root {

@@ -27,6 +27,7 @@ import {
 
 import { useIsomorphicLayoutEffect } from '@/hooks/use-isomorphic-layout-effect';
 import { SETTINGS_TAB_LABELS, settingsHref, settingsRedirect, type SettingsTab } from '@/lib/settings-nav';
+import { STRIP_SCRIPT, syncStrip } from '@/lib/tab-strip';
 import { cn } from '@/lib/utils';
 
 const TAB_ICONS: Record<SettingsTab, LucideIcon> = {
@@ -53,17 +54,28 @@ export function SettingsShell({
   const [requested, setRequested] = useState<SettingsTab | null>(null);
   // The clicked tab, while its cards load; then the one the server rendered.
   const shown = isPending && requested ? requested : active;
-  const shownLink = useRef<HTMLAnchorElement>(null);
+  const strip = useRef<HTMLUListElement>(null);
   useSettingsHashShim(active, tabs);
 
-  // Below lg the strip may be scrolled: keep the open tab in view. Before
-  // paint, so it doesn't jump once the page has hydrated.
+  // Below lg the strip may scroll sideways: keep the open tab in view (before
+  // paint, so it doesn't jump once the page has hydrated), and fade the edges
+  // that have more tabs past them, as Fresh's top bar does (lib/tab-strip.ts).
   useIsomorphicLayoutEffect(() => {
-    const link = shownLink.current;
-    const strip = link?.closest('ul');
-    if (!link || !strip || strip.scrollWidth <= strip.clientWidth) return;
-    strip.scrollLeft = link.offsetLeft - (strip.clientWidth - link.offsetWidth) / 2;
+    if (strip.current) syncStrip(strip.current, true);
   }, [shown]);
+  useEffect(() => {
+    const ul = strip.current;
+    if (!ul) return;
+    const update = () => syncStrip(ul, false);
+    update();
+    ul.addEventListener('scroll', update, { passive: true });
+    const resize = new ResizeObserver(update);
+    resize.observe(ul);
+    return () => {
+      ul.removeEventListener('scroll', update);
+      resize.disconnect();
+    };
+  }, []);
 
   function open(e: React.MouseEvent<HTMLAnchorElement>, tab: SettingsTab) {
     // New tab / window and the open tab itself: the link's own behaviour.
@@ -87,14 +99,18 @@ export function SettingsShell({
           aria-label="Settings"
           className="-mx-[var(--page-pad)] mb-5 border-b border-border lg:sticky lg:top-[calc(var(--topbar-h)+1.5rem)] lg:mx-0 lg:mb-0 lg:w-48 lg:shrink-0 lg:border-0"
         >
-          <ul className="scrollbar-none relative flex gap-1 overflow-x-auto px-[var(--page-pad)] pb-2 lg:flex-col lg:overflow-visible lg:p-0">
+          <ul
+            ref={strip}
+            // data-fade is set by STRIP_SCRIPT before hydration.
+            suppressHydrationWarning
+            className="edge-fade scrollbar-none relative flex gap-1 overflow-x-auto px-[var(--page-pad)] pb-2 lg:flex-col lg:overflow-visible lg:p-0 lg:[-webkit-mask-image:none] lg:[mask-image:none]"
+          >
             {tabs.map((tab) => {
               const Icon = TAB_ICONS[tab];
               const on = tab === shown;
               return (
                 <li key={tab} className="shrink-0">
                   <Link
-                    ref={on ? shownLink : undefined}
                     href={settingsHref(tab)}
                     onClick={(e) => open(e, tab)}
                     aria-current={on ? 'page' : undefined}
@@ -113,6 +129,7 @@ export function SettingsShell({
               );
             })}
           </ul>
+          <script dangerouslySetInnerHTML={{ __html: STRIP_SCRIPT }} />
         </nav>
         {/* While another tab loads, the old cards fade a little (after a
             beat, so a quick switch doesn't flicker). */}

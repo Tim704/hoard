@@ -258,6 +258,39 @@ export function NowConsumingCard({
  * A headed section rather than a card: below another tile it keeps its extra
  * space (24px, 32px from sm, with the grid's 16px gap).
  */
+/** One section's favourite posters, four across, each opening its title. */
+function FavouritePosters({ items, titleLanguage }: { items: ShowcaseSection['items']; titleLanguage: TitleLanguage }) {
+  return (
+    <ol className="grid grid-cols-4 gap-2">
+      {items.map((a) => {
+        const title = displayTitle(a.media, titleLanguage);
+        return (
+          <li key={a.id} className="min-w-0">
+            <TitleLink
+              slug={a.category}
+              id={a.id}
+              title={title}
+              aria-label={title}
+              className="relative block aspect-[2/3] overflow-hidden rounded-md bg-muted ring-1 ring-border transition hover:ring-primary/60"
+            >
+              {a.media.imageUrl ? (
+                <Image src={a.media.imageUrl} alt={title} fill sizes="80px" className="object-cover" />
+              ) : (
+                <span data-small-text-ok className="flex h-full w-full items-center justify-center overflow-hidden p-1 text-center text-[10px] leading-tight text-muted-foreground [overflow-wrap:anywhere]">
+                  {title}
+                </span>
+              )}
+              {a.tier && isTierEligible(a.status) && (
+                <span className="absolute left-1 top-1 rounded bg-background/85 px-1 text-xs font-bold">{a.tier}</span>
+              )}
+            </TitleLink>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export function FavouritesRow({
   sections,
   titleLanguage,
@@ -274,7 +307,23 @@ export function FavouritesRow({
         <Heart className="h-5 w-5 fill-rose-500/30 text-rose-500" aria-hidden />
         Favorites
       </h2>
-      <div className={cn('grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3', TILE_GAP)}>
+      {/* Phones: one card, a row of posters per section (a card each would
+          spend a screen on a few posters). A card per section from sm. */}
+      <Card className={cn(TILE, 'sm:hidden')}>
+        <CardContent className={cn('space-y-4 pt-4', TILE_BODY, 'organised:pt-4')}>
+          {sections.map(({ slug, items }) => (
+            <div key={slug} className="space-y-2">
+              <h3 className="text-sm font-semibold">
+                <Link href={`/${slug}`} className="relative tap-area hover:underline">
+                  {CATEGORIES[slug].label}
+                </Link>
+              </h3>
+              <FavouritePosters items={items} titleLanguage={titleLanguage} />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+      <div className={cn('hidden gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-3', TILE_GAP)}>
         {sections.map(({ slug, items }) => (
           <Card key={slug} className={TILE}>
             <CardHeader className={cn('pb-3', TILE_HEAD)}>
@@ -285,35 +334,7 @@ export function FavouritesRow({
               </CardTitle>
             </CardHeader>
             <CardContent className={TILE_BODY}>
-              <ol className="grid grid-cols-4 gap-2">
-                {items.map((a) => {
-                  const title = displayTitle(a.media, titleLanguage);
-                  return (
-                    <li key={a.id} className="min-w-0">
-                      <TitleLink
-                        slug={a.category}
-                        id={a.id}
-                        title={title}
-                        aria-label={title}
-                        className="relative block aspect-[2/3] overflow-hidden rounded-md bg-muted ring-1 ring-border transition hover:ring-primary/60"
-                      >
-                        {a.media.imageUrl ? (
-                          <Image src={a.media.imageUrl} alt={title} fill sizes="80px" className="object-cover" />
-                        ) : (
-                          <span data-small-text-ok className="flex h-full w-full items-center justify-center overflow-hidden p-1 text-center text-[10px] leading-tight text-muted-foreground [overflow-wrap:anywhere]">
-                            {title}
-                          </span>
-                        )}
-                        {a.tier && isTierEligible(a.status) && (
-                          <span className="absolute left-1 top-1 rounded bg-background/85 px-1 text-xs font-bold">
-                            {a.tier}
-                          </span>
-                        )}
-                      </TitleLink>
-                    </li>
-                  );
-                })}
-              </ol>
+              <FavouritePosters items={items} titleLanguage={titleLanguage} />
             </CardContent>
           </Card>
         ))}

@@ -174,10 +174,14 @@ export function Arena({ slug, initial, mode = 'order' }: ArenaProps) {
             winner ends up on top.
           </p>
         ) : (
-          <p className="mt-1 inline-flex items-center gap-1 text-sm text-muted-foreground">
-            <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden />
-            Both scored {rating === 10 ? score(10) : `${score(rating)}–${score(rating == null ? null : rating + 0.9)}`}
-          </p>
+          // No tier holds two titles to order yet: a pair from the scores.
+          <div className="mt-1 space-y-0.5 text-sm text-muted-foreground">
+            <p className="inline-flex items-center gap-1">
+              <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden />
+              Both scored {rating === 10 ? score(10) : `${score(rating)}–${score(rating == null ? null : rating + 0.9)}`}
+            </p>
+            <p>No tier has two titles to order yet, so this pair comes from your scores.</p>
+          </div>
         )}
       </div>
 
