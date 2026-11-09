@@ -32,6 +32,7 @@ import {
 import type { ActionResult } from '@/lib/types';
 import { publicError } from '@/lib/action-error';
 import { takeActionRate } from '@/lib/rate-limit';
+import { planFranchiseRanking } from '@/lib/franchise/rank';
 
 /** Refresh every page that shows franchise data. */
 function revalidateAll() {
@@ -273,25 +274,27 @@ export async function deleteFranchise(id: string): Promise<ActionResult> {
   }
 }
 
-/** Persist the full franchise ranking (best first); others become unranked. */
-export async function saveFranchiseRanking(orderedIds: string[]): Promise<ActionResult> {
+/**
+ * Persist the franchise ranking (best first). Only `removedIds` leave it:
+ * franchises ranked elsewhere that this client didn't show stay ranked, after
+ * the ones it sent (see `planFranchiseRanking`).
+ */
+export async function saveFranchiseRanking(orderedIds: string[], removedIds: string[] = []): Promise<ActionResult> {
   try {
     const user = await requireUser();
+    if (!Array.isArray(orderedIds) || !Array.isArray(removedIds)) return { ok: false, error: 'Invalid ranking.' };
     const owned = await prisma.franchise.findMany({
       where: { userId: user.id },
-      select: { id: true },
+      select: { id: true, rankOrder: true },
     });
-    const ownedIds = new Set(owned.map((o) => o.id));
-    const ids = [...new Set(orderedIds)].filter((id) => ownedIds.has(id));
-    await prisma.$transaction([
-      prisma.franchise.updateMany({
-        where: { userId: user.id, id: { notIn: ids } },
-        data: { rankOrder: null },
-      }),
-      ...ids.map((id, i) =>
-        prisma.franchise.update({ where: { id }, data: { rankOrder: (i + 1) * 1000 } }),
-      ),
-    ]);
+    const plan = planFranchiseRanking(
+      orderedIds.filter((id) => typeof id === 'string'),
+      removedIds.filter((id) => typeof id === 'string'),
+      owned,
+    );
+    await prisma.$transaction(
+      plan.map(({ id, rankOrder }) => prisma.franchise.update({ where: { id }, data: { rankOrder } })),
+    );
     revalidatePath('/franchises');
     return { ok: true };
   } catch (err) {

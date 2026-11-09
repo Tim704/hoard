@@ -57,10 +57,10 @@ export function FranchisesClient({ franchises }: { franchises: FranchiseWithMemb
     .filter((f) => !ranked.some((r) => r.id === f.id))
     .sort((a, b) => (b.rating ?? memberAverage(b.members) ?? -1) - (a.rating ?? memberAverage(a.members) ?? -1));
 
-  function persist(next: FranchiseWithMembers[]) {
+  function persist(next: FranchiseWithMembers[], removedId?: string) {
     setRanked(next);
     startTransition(async () => {
-      const res = await settle(saveFranchiseRanking(next.map((f) => f.id)));
+      const res = await settle(saveFranchiseRanking(next.map((f) => f.id), removedId ? [removedId] : []));
       if (!res.ok) {
         toast.error(res.error ?? 'Could not save the ranking.');
         router.refresh();
@@ -210,7 +210,7 @@ export function FranchisesClient({ franchises }: { franchises: FranchiseWithMemb
                 onReorder={(rows) =>
                   persist(rows.map((r) => byId.get(r.id)).filter((f): f is FranchiseWithMembers => !!f))
                 }
-                onRemove={(id) => persist(ranked.filter((f) => f.id !== id))}
+                onRemove={(id) => persist(ranked.filter((f) => f.id !== id), id)}
               />
             )}
           </section>

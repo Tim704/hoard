@@ -8,8 +8,9 @@
 //  link is what joins a TMDB movie to an AniList anime group.
 //
 //  Rules: no single-title franchises are created; titles the user placed or
-//  removed by hand (`franchiseLocked`) are never moved; existing groups are
-//  reused, never deleted.
+//  removed by hand (`franchiseLocked`) are never moved, and they link only to
+//  their own franchise (not by key or name), so they never pull other titles
+//  after them; existing groups are reused, never deleted.
 // ───────────────────────────────────────────────────────────────────────────
 
 import { prisma } from '@/lib/prisma';
@@ -89,6 +90,13 @@ export async function syncUserFranchises(userId: string): Promise<number> {
   };
   for (const n of nodes) {
     ds.find(n.id);
+    // A title placed by hand anchors only itself: it joins the titles already
+    // in its franchise, but never links (by key or name) to the group it was
+    // taken out of, which would drag that whole group in after it.
+    if (n.locked) {
+      if (n.franchiseId) link(`f:${n.franchiseId}`, n.id);
+      continue;
+    }
     if (n.media.franchiseKey) link(`k:${n.media.franchiseKey}`, n.id);
     if (n.franchiseId) link(`f:${n.franchiseId}`, n.id);
     const t = normalizeTitle(n.media.title);
