@@ -185,7 +185,7 @@ export function RefListClient({ list }: { list: RefListView }) {
                     onClick={() => void removeItem(it)}
                     aria-label={`Remove ${it.title} from this list`}
                     title="Remove from list"
-                    className="shrink-0 rounded p-1 text-muted-foreground hover:text-rose-500 disabled:opacity-30"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-rose-500 disabled:opacity-30 sm:h-auto sm:w-auto sm:p-1"
                   >
                     <X className="h-4 w-4" aria-hidden />
                   </button>

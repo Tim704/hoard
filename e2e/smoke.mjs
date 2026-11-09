@@ -617,11 +617,13 @@ if (failures.length === 0) {
       await p.close();
     }
   };
-  // The shell in every layout, at desktop and phone width: no search button
-  // and no bell in the chrome, the layout's navigation marks the open
-  // section, the user menu has Settings and Log out and opens
-  // Notifications, nothing scrolls sideways; with a sticky top bar, Settings'
-  // side list sticks below it. Classic is restored afterwards.
+  // The shell in every layout, at desktop and phone width: no bell in the
+  // chrome, and a search button (Find in my hoard) on phones only; the
+  // layout's navigation marks the open section (on phones the drawer, which
+  // also lists the pages the menu holds on a desktop, such as Stats), the
+  // user menu has Settings, Log out, Add a title and Find in my hoard and
+  // opens Notifications, nothing scrolls sideways; with a sticky top bar,
+  // Settings' side list sticks below it. Classic is restored afterwards.
   await step('navigation in every layout', async () => {
     try {
       for (const label of ['Classic', 'Minimal', 'Organised', 'Fresh']) {
@@ -645,7 +647,10 @@ if (failures.length === 0) {
           });
           const overflow = await sideways();
           if (overflow > 0) throw new Error(`${where}: the page scrolls sideways by ${overflow}px`);
-          if (chrome.stray.length) throw new Error(`${where}: search or bell in the chrome: ${chrome.stray.join(' | ')}`);
+          const phoneSearch = chrome.stray.filter((t) => /find in my hoard/i.test(t));
+          const stray = chrome.stray.filter((t) => !/find in my hoard/i.test(t));
+          if (stray.length) throw new Error(`${where}: search or bell in the chrome: ${stray.join(' | ')}`);
+          if ((width === 375) !== (phoneSearch.length === 1)) throw new Error(`${where}: ${phoneSearch.length} phone search buttons`);
           if (label === 'Fresh' && chrome.tabRows !== 1) throw new Error(`${where}: the tabs wrap onto ${chrome.tabRows} rows`);
           if (width === 375 && label !== 'Fresh') {
             // Phones: the sections are in the drawer.
@@ -654,13 +659,14 @@ if (failures.length === 0) {
             const books = drawer.getByRole('link', { name: 'Books', exact: true });
             await books.waitFor({ timeout: 10_000 });
             if ((await books.getAttribute('aria-current')) !== 'page') throw new Error(`${where}: Books is not current in the drawer`);
+            await drawer.getByRole('link', { name: 'Stats', exact: true }).waitFor({ timeout: 10_000 });
             await page.keyboard.press('Escape');
             await drawer.waitFor({ state: 'hidden', timeout: 10_000 });
           } else if (!chrome.current.includes('Books')) {
             throw new Error(`${where}: the navigation doesn't mark Books (current: ${chrome.current.join(', ') || 'none'})`);
           }
           const menu = await openUserMenu();
-          for (const name of ['Settings', 'Log out', 'Search', 'Command palette']) {
+          for (const name of ['Settings', 'Log out', 'Add a title', 'Find in my hoard']) {
             await menu.getByRole('menuitem', { name, exact: true }).waitFor({ timeout: 10_000 });
           }
           const themeItems = await menu.getByRole('menuitem', { name: /^(Dark|Light) mode$/ }).count();
@@ -1011,7 +1017,7 @@ if (failures.length === 0) {
       await page.goto(`${BASE_URL}/tv?open=demo-activity-tv-expanse`, { waitUntil: 'networkidle' });
       const dialog = page.getByRole('dialog', { name: 'The Expanse', exact: true });
       await dialog.waitFor({ timeout: 15_000 });
-      await dialog.getByText('Tracked by seasons').waitFor({ timeout: 10_000 });
+      await dialog.getByRole('link', { name: /Log episodes/ }).waitFor({ timeout: 10_000 });
       for (const label of ['Status', 'Rating', 'Favorite', 'Progress', 'Notes']) {
         await dialog.getByText(label, { exact: true }).first().waitFor({ timeout: 10_000 });
       }
@@ -1568,7 +1574,7 @@ if (failures.length === 0) {
       await p.goto(`${BASE_URL}/compare/demo2`, { waitUntil: 'networkidle' });
       const row = p.locator('#cmp-s ~ ul [data-external-id]').first();
       await row.waitFor({ timeout: 15_000 });
-      const title = (await row.locator('p.truncate').first().getAttribute('title')) ?? '';
+      const title = (await row.locator('p[title]').first().getAttribute('title')) ?? '';
       await row.getByRole('button').first().click();
       await p.getByText(/^Added /).first().waitFor({ timeout: 15_000 });
       return title;
