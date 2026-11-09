@@ -9,8 +9,9 @@ import { ArrowLeft, Loader2, RefreshCw, Trash2, X } from 'lucide-react';
 import { AddResultRow, useAddRows } from '@/components/add-row';
 import { fillBuiltin, RefProgressBar } from '@/components/lists-client';
 import { Button } from '@/components/ui/button';
+import { toastUndoable } from '@/components/undo-toast';
 import { settle } from '@/lib/action-result';
-import { deleteRefList, removeRefListItem } from '@/lib/actions/reflists';
+import { deleteRefList, removeRefListItem, restoreRefListItem } from '@/lib/actions/reflists';
 import { CATEGORIES } from '@/lib/categories';
 import type { RefItemView, RefListView } from '@/lib/data-reflists';
 import { formatYmd } from '@/lib/release';
@@ -56,8 +57,21 @@ export function RefListClient({ list }: { list: RefListView }) {
     setBusy('Removing…');
     try {
       const res = await settle(removeRefListItem(list.id, it.id));
-      if (!res.ok) toast.error(res.error ?? 'Could not remove that title.');
-      else router.refresh();
+      if (!res.ok) {
+        toast.error(res.error ?? 'Could not remove that title.');
+        return;
+      }
+      const restore = res.restore;
+      if (restore) {
+        toastUndoable(`Removed “${it.title}” from the list.`, () => {
+          void settle(restoreRefListItem(list.id, restore)).then((r) => {
+            if (r.ok) toast.success(`“${it.title}” is back.`);
+            else toast.error(r.error ?? 'Could not undo that.');
+            router.refresh();
+          });
+        });
+      }
+      router.refresh();
     } finally {
       setBusy(null);
     }

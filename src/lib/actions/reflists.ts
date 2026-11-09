@@ -245,18 +245,73 @@ export async function addPastedRefItems(
 }
 
 /** Take one title off one of your pasted lists (built-ins come back on refresh). */
-export async function removeRefListItem(listId: unknown, itemId: unknown): Promise<ActionResult> {
+/** A removed pasted-list row, handed back so Undo can put it back where it was. */
+export interface RemovedRefItem {
+  category: string;
+  externalId: string;
+  title: string;
+  year: number | null;
+  imageUrl: string | null;
+  position: number;
+}
+
+export async function removeRefListItem(
+  listId: unknown,
+  itemId: unknown,
+): Promise<ActionResult & { restore?: RemovedRefItem }> {
   if (typeof itemId !== 'string' || itemId.length > 64) return { ok: false, error: 'Not found.' };
   try {
     const user = await requireUser();
     const list = await ownList(user.id, listId);
     if (!list) return NOT_FOUND;
     if (list.source !== CUSTOM_SOURCE) return { ok: false, error: 'Titles can only be removed from your own pasted lists.' };
+    const row = await prisma.refListItem.findFirst({ where: { id: itemId, listId: list.id } });
     await prisma.refListItem.deleteMany({ where: { id: itemId, listId: list.id } });
     revalidate(list.id);
-    return { ok: true };
+    if (!row) return { ok: true };
+    const { category, externalId, title, year, imageUrl, position } = row;
+    return { ok: true, restore: { category, externalId, title, year, imageUrl, position } };
   } catch {
     return { ok: false, error: 'Could not remove that title.' };
+  }
+}
+
+const RemovedRefItemSchema = z.object({
+  category: z.string().refine(isCategorySlug),
+  externalId: z.string().min(1).max(128),
+  title: z.string().trim().min(1).max(PASTE_MAX_TITLE),
+  year: z.number().int().min(0).max(9999).nullable(),
+  imageUrl: z
+    .string()
+    .max(2048)
+    .regex(/^https?:\/\//)
+    .nullable(),
+  position: z.number().int().min(0).max(1_000_000),
+});
+
+/** Undo a remove from your pasted list: the row back at its old position (once). */
+export async function restoreRefListItem(listId: unknown, removed: unknown): Promise<ActionResult> {
+  const parsed = RemovedRefItemSchema.safeParse(removed);
+  if (!parsed.success) return { ok: false, error: 'Could not undo that.' };
+  const r = parsed.data;
+  try {
+    const user = await requireUser();
+    const list = await ownList(user.id, listId);
+    if (!list || list.source !== CUSTOM_SOURCE) return NOT_FOUND;
+    const key = { listId: list.id, externalId: r.externalId };
+    if (await prisma.refListItem.findUnique({ where: { listId_externalId: key } })) return { ok: true };
+    if ((await prisma.refListItem.count({ where: { listId: list.id } })) >= PASTE_MAX_LINES) {
+      return { ok: false, error: `A pasted list holds at most ${PASTE_MAX_LINES} titles.` };
+    }
+    try {
+      await prisma.refListItem.create({ data: { ...key, ...r } });
+    } catch (err) {
+      if ((err as { code?: string })?.code !== 'P2002') throw err;
+    }
+    revalidate(list.id);
+    return { ok: true };
+  } catch (err) {
+    return fail(err, 'Could not undo that.');
   }
 }
 

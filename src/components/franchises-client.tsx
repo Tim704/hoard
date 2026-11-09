@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -12,6 +12,7 @@ import { nextInFranchise } from '@/lib/franchise/order';
 import { GroupRating, groupCover, memberAverage } from '@/components/franchise-group';
 import { SortableRankList, type RankRow } from '@/components/sortable-rank-list';
 import { Button } from '@/components/ui/button';
+import { toastUndoable } from '@/components/undo-toast';
 import { usePersistentState } from '@/hooks/use-persistent-state';
 import { settle } from '@/lib/action-result';
 import { detectFranchisesStep, saveFranchiseRanking } from '@/lib/actions/franchise';
@@ -53,6 +54,9 @@ export function FranchisesClient({ franchises }: { franchises: FranchiseWithMemb
   // Ranking state (optimistic).
   const [ranked, setRanked] = useState(() => franchises.filter((f) => f.rankOrder != null));
   useEffect(() => setRanked(franchises.filter((f) => f.rankOrder != null)), [franchises]);
+  // The ranking as it is now, for an Undo that runs after later changes.
+  const rankedNow = useRef(ranked);
+  rankedNow.current = ranked;
   const unranked = franchises
     .filter((f) => !ranked.some((r) => r.id === f.id))
     .sort((a, b) => (b.rating ?? memberAverage(b.members) ?? -1) - (a.rating ?? memberAverage(a.members) ?? -1));
@@ -68,6 +72,20 @@ export function FranchisesClient({ franchises }: { franchises: FranchiseWithMemb
     });
   }
   const byId = new Map(franchises.map((f) => [f.id, f]));
+
+  /** Take one out of the ranking, with Undo putting it back at its place. */
+  function unrank(id: string) {
+    const at = ranked.findIndex((f) => f.id === id);
+    const removed = ranked[at];
+    if (!removed) return;
+    persist(ranked.filter((f) => f.id !== id), id);
+    toastUndoable(`Took “${removed.name}” out of the ranking.`, () => {
+      const now = rankedNow.current;
+      if (now.some((f) => f.id === id)) return;
+      const i = Math.min(at, now.length);
+      persist([...now.slice(0, i), removed, ...now.slice(i)]);
+    });
+  }
 
   async function detect() {
     setDetecting(true);
@@ -211,7 +229,7 @@ export function FranchisesClient({ franchises }: { franchises: FranchiseWithMemb
                 onReorder={(rows) =>
                   persist(rows.map((r) => byId.get(r.id)).filter((f): f is FranchiseWithMembers => !!f))
                 }
-                onRemove={(id) => persist(ranked.filter((f) => f.id !== id), id)}
+                onRemove={unrank}
               />
             )}
           </section>
