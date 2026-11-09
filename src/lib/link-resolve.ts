@@ -114,8 +114,10 @@ export async function resolveMediaLink(url: string, deps: LinkDeps): Promise<Lin
     case 'letterboxd': {
       const { query, year } = letterboxdQuery(parsed.id);
       return attempt('TMDB', async () => {
-        // A slug year is a hint: retry without it if nothing matched.
+        // A slug year is a hint. If nothing matched, the number may be part of
+        // the title (blade-runner-2049): search the whole slug, then without it.
         let hits = await deps.movies(query, year);
+        if (hits.length === 0 && year) hits = await deps.movies(`${query} ${year}`);
         if (hits.length === 0 && year) hits = await deps.movies(query);
         return { slug: 'movies', result: hits[0] ?? null };
       });

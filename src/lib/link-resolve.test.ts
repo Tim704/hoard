@@ -40,10 +40,20 @@ describe('resolveMediaLink', () => {
   });
 
   it('searches TMDB by a Letterboxd slug, retrying without the slug year', async () => {
-    const movies = vi.fn(async (q: string, y?: number) => (y ? [] : [hit(q)]));
+    const movies = vi.fn(async (q: string, y?: number) => (y || /\d/.test(q) ? [] : [hit(q)]));
     const res = await resolveMediaLink('https://letterboxd.com/film/dune-2021/', deps({ movies }));
-    expect(movies.mock.calls).toEqual([['dune', 2021], ['dune']]);
+    expect(movies.mock.calls).toEqual([['dune', 2021], ['dune 2021'], ['dune']]);
     expect(res).toMatchObject({ slug: 'movies', result: { externalId: 'dune' } });
+  });
+
+  it('a number that is part of the title (Blade Runner 2049) is tried as title words before dropping it', async () => {
+    const movies = vi.fn(async (q: string, y?: number) => {
+      if (q === 'blade runner 2049' && !y) return [hit('335984', 'Blade Runner 2049')];
+      if (q === 'blade runner' && !y) return [hit('78', 'Blade Runner')];
+      return [];
+    });
+    const res = await resolveMediaLink('https://letterboxd.com/film/blade-runner-2049/', deps({ movies }));
+    expect(res).toMatchObject({ slug: 'movies', result: { externalId: '335984' } });
   });
 
   it('reads the ISBN from a Goodreads page, else searches the slug title', async () => {
