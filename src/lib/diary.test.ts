@@ -63,6 +63,21 @@ describe('isFinishTransition', () => {
 describe('planFinish', () => {
   const today = '2026-10-28';
 
+  it('scores an unscored finish written last night (watched at 23:59, scored at 00:01)', () => {
+    const now = new Date('2026-10-28T00:01:00Z');
+    const lastNight = { id: 'e1', date: '2026-10-27', rating: null, createdAt: new Date('2026-10-27T23:59:00Z') };
+    const plan = planFinish({ status: 'COMPLETED', rating: null, rewatching: false }, { rating: 8 }, today, lastNight, now);
+    expect(plan.rescore).toEqual({ id: 'e1', rating: 8 });
+  });
+
+  it('leaves an old finish alone: a score changed weeks later, or an entry that already has one', () => {
+    const now = new Date('2026-10-28T12:00:00Z');
+    const old = { id: 'e1', date: '2026-09-01', rating: null, createdAt: new Date('2026-09-01T20:00:00Z') };
+    expect(planFinish({ status: 'COMPLETED', rating: null, rewatching: false }, { rating: 8 }, today, old, now).rescore).toBeUndefined();
+    const scored = { id: 'e2', date: '2026-10-27', rating: 6, createdAt: new Date('2026-10-27T23:00:00Z') };
+    expect(planFinish({ status: 'COMPLETED', rating: 6, rewatching: false }, { rating: 8 }, today, scored, now).rescore).toBeUndefined();
+  });
+
   it('creates an entry with the current score and clears a rewatch', () => {
     expect(planFinish({ status: 'CONSUMING', rating: 7, rewatching: true }, { status: 'COMPLETED' }, today, null)).toEqual({
       create: { date: today, rating: 7, rewatch: true },

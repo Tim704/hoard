@@ -75,7 +75,11 @@ export interface LatestEntry {
   id: string;
   date: string;
   rating: number | null;
+  createdAt?: Date;
 }
+
+/** An unscored finish written this recently still takes the first score (23:59 → 00:01). */
+const FIRST_SCORE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export interface FinishPlan {
   create?: { date: string; rating: number | null; rewatch: boolean };
@@ -91,6 +95,7 @@ export function planFinish(
   after: FinishAfter,
   today: string,
   latest: LatestEntry | null,
+  now: Date = new Date(),
 ): FinishPlan {
   const rating = after.rating !== undefined ? after.rating : before.rating;
   const clearRewatching = before.rewatching && entersFinished(before.status, after.status);
@@ -98,10 +103,17 @@ export function planFinish(
     return { create: { date: today, rating, rewatch: before.rewatching }, clearRewatching };
   }
   const status = after.status ?? before.status;
+  // Today's entry follows the score; so does a finish written in the last day
+  // that has no score yet (finished at 23:59, scored at 00:01).
+  const fresh =
+    latest != null &&
+    latest.rating == null &&
+    latest.createdAt != null &&
+    now.getTime() - latest.createdAt.getTime() < FIRST_SCORE_WINDOW_MS;
   if (
     after.rating !== undefined &&
     latest &&
-    latest.date === today &&
+    (latest.date === today || fresh) &&
     isDiaryStatus(status) &&
     scoreValue(latest.rating) !== scoreValue(after.rating)
   ) {
@@ -266,7 +278,7 @@ export function latestEntry(tx: Tx, activityId: string) {
   return tx.diaryEntry.findFirst({
     where: { activityId },
     orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-    select: { id: true, date: true, rating: true, review: true },
+    select: { id: true, date: true, rating: true, review: true, createdAt: true },
   });
 }
 
@@ -285,7 +297,7 @@ export async function applyDiaryForUpdate(
   const finishing = isFinishTransition(before.status, after.status);
   // Only a score change on a finished title can touch an existing entry.
   const latest = !finishing && after.rating !== undefined ? await latestEntry(tx, before.id) : null;
-  const plan = planFinish(before, after, today, latest);
+  const plan = planFinish(before, after, today, latest, now);
   let diaryEntryId: string | undefined;
   if (plan.create) {
     // onFinished also clears `rewatching`.
@@ -331,6 +343,7 @@ export async function undoDiaryForRestore(
     { rating: restored.rating },
     todayIn(effectiveTimeZone(prefs), now),
     latest,
+    now,
   );
   if (plan.rescore) {
     await tx.diaryEntry.update({ where: { id: plan.rescore.id }, data: { rating: plan.rescore.rating } });
