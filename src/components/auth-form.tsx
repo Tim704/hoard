@@ -72,7 +72,13 @@ export function AuthForm({ mode, next }: AuthFormProps) {
               spellCheck={false}
               required
               minLength={3}
+              aria-describedby={mode === 'register' ? 'username-hint' : undefined}
             />
+            {mode === 'register' && (
+              <p id="username-hint" className="text-xs text-muted-foreground">
+                3–32 letters, numbers, dots, dashes or underscores.
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
@@ -83,7 +89,13 @@ export function AuthForm({ mode, next }: AuthFormProps) {
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               required
               minLength={8}
+              aria-describedby={mode === 'register' ? 'password-hint' : undefined}
             />
+            {mode === 'register' && (
+              <p id="password-hint" className="text-xs text-muted-foreground">
+                At least 8 characters.
+              </p>
+            )}
           </div>
 
           {state.error ? (

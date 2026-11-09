@@ -59,7 +59,8 @@ const DialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      'flex flex-col space-y-1.5 text-center sm:text-left',
+      // Left-aligned everywhere: phone sheets read like the rest of the app.
+      'flex flex-col space-y-1.5 text-left',
       className,
     )}
     {...props}

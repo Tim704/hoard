@@ -212,10 +212,12 @@ export function NowConsumingCard({
         ) : (
           <div className="flex items-start gap-2">
             {shown.map((a) => (
-              <Link
+              <TitleLink
                 key={a.id}
-                href={`/${a.category}`}
+                slug={a.category}
+                id={a.id}
                 title={`${displayTitle(a.media, titleLanguage)} · ${CATEGORIES[a.category].singular}`}
+                aria-label={displayTitle(a.media, titleLanguage)}
                 className="relative aspect-[2/3] w-[18%] shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border transition hover:ring-primary/60"
               >
                 {a.media.imageUrl ? (
@@ -231,7 +233,7 @@ export function NowConsumingCard({
                     <ImageOff className="h-4 w-4" aria-hidden />
                   </span>
                 )}
-              </Link>
+              </TitleLink>
             ))}
             {extra > 0 && (
               <span className="self-center text-xs font-medium text-muted-foreground">
@@ -283,9 +285,11 @@ export function FavouritesRow({
                   const title = displayTitle(a.media, titleLanguage);
                   return (
                     <li key={a.id} className="min-w-0">
-                      <Link
-                        href={`/${slug}`}
+                      <TitleLink
+                        slug={a.category}
+                        id={a.id}
                         title={title}
+                        aria-label={title}
                         className="relative block aspect-[2/3] overflow-hidden rounded-md bg-muted ring-1 ring-border transition hover:ring-primary/60"
                       >
                         {a.media.imageUrl ? (
@@ -300,7 +304,7 @@ export function FavouritesRow({
                             {a.tier}
                           </span>
                         )}
-                      </Link>
+                      </TitleLink>
                     </li>
                   );
                 })}

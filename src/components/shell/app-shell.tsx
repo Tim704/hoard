@@ -26,7 +26,17 @@ import { useFocusReturn } from '@/hooks/use-focus-return';
 import { logoutAction } from '@/lib/actions/auth';
 import type { NotificationSummary } from '@/lib/data-notifications';
 import type { SavedViewSummary } from '@/lib/data-views';
-import { navFor, type NavGroup } from '@/lib/nav-model';
+import { NAV_GROUP_LABELS, navFor, type MenuSection, type NavGroup, type NavGroupId } from '@/lib/nav-model';
+
+/** The drawer group a user-menu section's pages go in on a phone. */
+const MENU_GROUP: Record<MenuSection['id'], NavGroupId | null> = {
+  find: null,
+  library: 'library',
+  track: 'plan',
+  organise: 'organise',
+  friends: 'friends',
+  account: 'manage',
+};
 import { SIDEBAR_COOKIE } from '@/lib/ui-prefs';
 
 export interface SocialNav {
@@ -113,11 +123,19 @@ export function AppShell({
     [username, notes.unread, nav.menu, rememberFocus],
   );
 
-  // The phone drawer also lists the top bar's links (Minimal's Dashboard).
-  const drawerGroups: NavGroup[] = useMemo(
-    () => (nav.top.length ? [{ id: 'top', label: null, links: nav.top }, ...nav.primary] : nav.primary),
-    [nav],
-  );
+  // The phone drawer lists every page: the top bar's links (Minimal's
+  // Dashboard), the sidebar's, then the pages the user menu holds on a
+  // desktop (Tonight, Stats, Lists, Friends, Import…) as labelled groups, so
+  // the avatar menu on a phone keeps only account things.
+  const drawerGroups: NavGroup[] = useMemo(() => {
+    const base = nav.top.length ? [{ id: 'top' as const, label: null, links: nav.top }, ...nav.primary] : nav.primary;
+    const fromMenu = nav.menu.flatMap((section): NavGroup[] => {
+      const links = section.entries.flatMap((e) => (e.kind === 'link' && e.link.id !== 'settings' ? [e.link] : []));
+      const id = MENU_GROUP[section.id];
+      return links.length && id ? [{ id, label: NAV_GROUP_LABELS[id], links }] : [];
+    });
+    return [...base, ...fromMenu];
+  }, [nav]);
 
   // Fixed positions: each slot is either its element or null, so <main>
   // (and the page in it) is never remounted when the chrome changes.

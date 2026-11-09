@@ -161,7 +161,8 @@ export function AddResultRow({
       }
       className={cn(
         'flex gap-3 rounded-md border border-border p-2',
-        fullTitle ? 'flex-wrap items-start' : 'items-center',
+        // Phones: the title gets the row's width (two lines) and the buttons go under it.
+        fullTitle ? 'flex-wrap items-start' : 'flex-wrap items-start sm:flex-nowrap sm:items-center',
         highlighted && 'border-primary bg-accent/50',
         selectable && 'cursor-pointer',
         multi?.picked && 'border-primary/70 bg-primary/5',
@@ -177,7 +178,10 @@ export function AddResultRow({
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className={cn('text-sm font-medium', fullTitle ? 'break-words' : 'truncate')} title={title}>
+        <p
+          className={cn('text-sm font-medium', fullTitle ? 'break-words' : 'line-clamp-2 break-words sm:line-clamp-none sm:truncate')}
+          title={title}
+        >
           {title}
           {result.year != null && (
             <span className="ml-1 font-normal text-muted-foreground">({result.year})</span>
@@ -199,7 +203,8 @@ export function AddResultRow({
       ) : row?.phase === 'want' ? (
         <ConfirmedLabel>In Up next</ConfirmedLabel>
       ) : row?.phase === 'existing' || (inLibrary && !row) ? (
-        <span className="shrink-0 text-xs text-muted-foreground">
+        // Under the title on phones (beside it from sm), so it never squeezes the title.
+        <span className="w-full shrink-0 pl-14 text-xs text-muted-foreground sm:w-auto sm:pl-0">
           {inLibrary ? libraryBadge(inLibrary, slug, scoreFormat) : 'In library'}
         </span>
       ) : row?.phase === 'rating' ? null : multi ? (
@@ -216,8 +221,9 @@ export function AddResultRow({
           />
         )
       ) : (
-        <div className={cn('flex shrink-0 gap-1.5', fullTitle ? 'w-full flex-wrap' : 'flex-col sm:flex-row')}>
-          <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => onAdd('COMPLETED')}>
+        <div className={cn('flex w-full shrink-0 flex-wrap gap-1.5', !fullTitle && 'sm:w-auto sm:flex-nowrap')}>
+          {/* Outline, like Want: a filled "✓ Watched" read as already ticked. */}
+          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => onAdd('COMPLETED')}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             <span className="ml-1.5">{labels.done}</span>
           </Button>

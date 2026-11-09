@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowUpToLine, Check, CornerDownLeft, FileText, ImageOff, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { iconFor } from '@/components/icons';
 import { useDisplayTitle, usePrefs } from '@/components/prefs-provider';
 import { useTitleHref } from '@/components/title/title-link';
 import { toastStatusChange } from '@/components/undo-toast';
@@ -48,7 +49,7 @@ const cachedFor = (userId: string) => (cache && cache.userId === userId ? cache.
 
 type Item =
   | { kind: 'title'; entry: LibraryIndexEntry }
-  | { kind: 'page'; label: string; href: string }
+  | { kind: 'page'; label: string; href: string; icon?: string }
   | { kind: 'search'; query: string };
 
 const MAX_TITLES = 30;
@@ -106,15 +107,15 @@ export function CommandPalette({
   // Every page the navigation has (src/lib/nav-model.ts), each section's
   // tier list, Add by link and the Settings tabs.
   const pages = useMemo(() => {
-    const list: Array<{ label: string; href: string }> = [];
+    const list: Array<{ label: string; href: string; icon?: string }> = [];
     for (const link of paletteLinks({ hidden: hiddenSections, social })) {
-      if (link.id === 'settings') list.push({ label: 'Add by link', href: '/add' });
-      list.push({ label: link.label, href: link.href });
-      if (isCategorySlug(link.id)) list.push({ label: `${CATEGORIES[link.id].label} · Tiers`, href: `/${link.id}/arena` });
+      if (link.id === 'settings') list.push({ label: 'Add by link', href: '/add', icon: 'Link2' });
+      list.push({ label: link.label, href: link.href, icon: link.icon });
+      if (isCategorySlug(link.id)) list.push({ label: `${CATEGORIES[link.id].label} · Tiers`, href: `/${link.id}/arena`, icon: 'Trophy' });
     }
     // Found by name only ("themes", "accounts"…). System is left out: it is the owner's alone.
     for (const tab of SETTINGS_TABS) {
-      if (tab !== 'system') list.push({ label: `Settings · ${SETTINGS_TAB_LABELS[tab]}`, href: settingsHref(tab) });
+      if (tab !== 'system') list.push({ label: `Settings · ${SETTINGS_TAB_LABELS[tab]}`, href: settingsHref(tab), icon: 'Settings' });
     }
     return list;
   }, [hiddenSections, social]);
@@ -264,7 +265,8 @@ export function CommandPalette({
             const active = i === highlight;
             const base = cn(
               'flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm',
-              active ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50',
+              // Hover only where there is one: a tap must not leave a second row looking picked.
+              active ? 'bg-accent text-accent-foreground' : '[@media(hover:hover)]:hover:bg-accent/50',
             );
             if (item.kind === 'title') {
               const e = item.entry;
@@ -294,8 +296,9 @@ export function CommandPalette({
                       {CATEGORIES[e.category].label} · {statusLabel(e.status, e.category)}
                     </p>
                   </div>
-                  {active && (
-                    <div className="flex shrink-0 gap-1">
+                  {/* On touch screens every row shows its actions (there is no highlight to move). */}
+                  {(
+                    <div className={cn('shrink-0 gap-1', active ? 'flex' : 'hidden [@media(pointer:coarse)]:flex')}>
                       {e.status !== 'COMPLETED' && (
                         <PaletteAction
                           label={`Mark as ${statusLabel('COMPLETED', e.category)}`}
@@ -326,9 +329,9 @@ export function CommandPalette({
                   onMouseMove={() => setHighlight(i)}
                   onClick={() => activate(item)}
                 >
-                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <PageIcon name={item.icon} />
                   <span className="truncate">{item.label}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">Page</span>
+                  <span className="ml-auto hidden text-xs text-muted-foreground sm:inline">Page</span>
                 </div>
               );
             }
@@ -395,4 +398,10 @@ function PaletteAction({
       <span className="hidden sm:inline">{label}</span>
     </button>
   );
+}
+
+/** A page row's icon: the navigation's own, so the list isn't fourteen identical documents. */
+function PageIcon({ name }: { name?: string }) {
+  const Icon = name ? iconFor(name) : FileText;
+  return <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />;
 }

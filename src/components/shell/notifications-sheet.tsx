@@ -91,7 +91,11 @@ export function NotificationList({
   onNavigate?: () => void;
 }) {
   if (items.length === 0) {
-    return <p className="px-3 py-10 text-center text-sm text-muted-foreground">No notifications yet.</p>;
+    return (
+      <p className="px-3 py-10 text-center text-sm text-muted-foreground">
+        Nothing yet. Release reminders, new seasons and recommendations from friends show up here.
+      </p>
+    );
   }
   return (
     <ul className="space-y-0.5">
@@ -169,17 +173,19 @@ export function NotificationsSheet({
         <SheetHeader className="space-y-0 border-b border-border px-4 pb-3 pr-12 pt-[max(0.75rem,env(safe-area-inset-top))] text-left">
           <div className="flex min-w-0 items-center justify-between gap-2">
             <SheetTitle className="truncate text-base">Notifications</SheetTitle>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 shrink-0 px-2 text-xs"
-              disabled={notes.unread === 0}
-              onClick={notes.markAll}
-            >
-              <CheckCheck className="mr-1 h-3.5 w-3.5" aria-hidden />
-              Mark all read
-            </Button>
+            {notes.items.length > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 shrink-0 px-2 text-xs"
+                disabled={notes.unread === 0}
+                onClick={notes.markAll}
+              >
+                <CheckCheck className="mr-1 h-3.5 w-3.5" aria-hidden />
+                Mark all read
+              </Button>
+            )}
           </div>
           <SheetDescription className="sr-only">
             {notes.unread ? `${notes.unread} unread` : 'Nothing unread'}

@@ -81,13 +81,21 @@ export function UserMenu({
   side = 'bottom',
   align = 'end',
   className,
+  pagesInDrawer = false,
 }: {
   trigger?: TriggerStyle;
   side?: 'top' | 'right' | 'bottom' | 'left';
   align?: 'start' | 'center' | 'end';
   className?: string;
+  /** The phone bar's menu: its pages are in the drawer, so it keeps actions and Settings. */
+  pagesInDrawer?: boolean;
 }) {
-  const { username, unread, menu, openNotifications, logout } = useContext(AccountContext);
+  const { username, unread, menu: fullMenu, openNotifications, logout } = useContext(AccountContext);
+  const menu = pagesInDrawer
+    ? fullMenu
+        .map((s) => ({ ...s, entries: s.entries.filter((e) => e.kind === 'action' || e.link.id === 'settings') }))
+        .filter((s) => s.entries.length > 0)
+    : fullMenu;
   const { openSearch, openPalette } = useGlobalSearch();
   const theme = useThemeToggle();
   const pathname = usePathname();
@@ -178,7 +186,7 @@ export function UserMenu({
         return (
           <DropdownMenuItem key="search" aria-keyshortcuts="/" onSelect={later(() => openSearch(''))}>
             <Search aria-hidden className="text-muted-foreground" />
-            Search
+            Add a title
             <DropdownMenuShortcut aria-hidden className="hidden sm:inline">
               /
             </DropdownMenuShortcut>
@@ -276,7 +284,7 @@ function MenuLink({ link, pathname, view }: { link: NavLink; pathname: string; v
 }
 
 /**
- * "Command palette", with its shortcut: ⌘K on Apple platforms, Ctrl K
+ * "Find in my hoard" (the command palette), with its shortcut: ⌘K on Apple platforms, Ctrl K
  * elsewhere. Only rendered while the menu is open, so on the client.
  */
 function PaletteItem({ onSelect }: { onSelect: () => void }) {
@@ -284,7 +292,7 @@ function PaletteItem({ onSelect }: { onSelect: () => void }) {
   return (
     <DropdownMenuItem aria-keyshortcuts={apple ? 'Meta+K' : 'Control+K'} onSelect={onSelect}>
       <Command aria-hidden className="text-muted-foreground" />
-      Command palette
+      Find in my hoard
       <DropdownMenuShortcut aria-hidden className="hidden sm:inline">
         {apple ? '⌘K' : 'Ctrl K'}
       </DropdownMenuShortcut>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Boxes } from 'lucide-react';
 
+import { PhoneSearchButton } from '@/components/shell/mobile-bar';
 import { UserMenu } from '@/components/shell/user-menu';
 import { useIsomorphicLayoutEffect } from '@/hooks/use-isomorphic-layout-effect';
 import { isNavLinkActive, type NavLink } from '@/lib/nav-model';
@@ -133,7 +134,8 @@ export function TopBar({ variant, links }: { variant: 'links' | 'tabs'; links: N
         </ul>
         <script dangerouslySetInnerHTML={{ __html: STRIP_SCRIPT }} />
       </nav>
-      <div className="order-2 ml-auto flex h-14 items-center pr-4 md:order-none md:h-auto md:pr-0">
+      <div className="order-2 ml-auto flex h-14 items-center gap-1 pr-4 md:order-none md:h-auto md:pr-0">
+        <PhoneSearchButton className="md:hidden" />
         <UserMenu trigger="avatar" side="bottom" align="end" />
       </div>
     </header>

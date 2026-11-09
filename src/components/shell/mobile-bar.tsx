@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Boxes, Menu } from 'lucide-react';
+import { Boxes, Menu, Search } from 'lucide-react';
 
+import { useGlobalSearch } from '@/components/global-search';
 import { NavList } from '@/components/shell/nav-list';
 import { UserMenu } from '@/components/shell/user-menu';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import type { NavGroup } from '@/lib/nav-model';
+import { cn } from '@/lib/utils';
 
 /**
  * The phone chrome of the sidebar layouts: a slim sticky top bar (hamburger,
@@ -67,9 +69,30 @@ export function MobileBar({ groups }: { groups: NavGroup[] }) {
         <span className="text-base font-bold tracking-widest">HOARD</span>
       </Link>
 
-      <div className="ml-auto flex items-center pr-1.5">
-        <UserMenu trigger="avatar" side="bottom" align="end" />
+      <div className="ml-auto flex items-center gap-1 pr-1.5">
+        <PhoneSearchButton />
+        <UserMenu trigger="avatar" side="bottom" align="end" pagesInDrawer />
       </div>
     </header>
+  );
+}
+
+/**
+ * The phone's search: finds titles and pages in your hoard (the palette),
+ * whose last row searches every provider to add something new.
+ */
+export function PhoneSearchButton({ className }: { className?: string }) {
+  const { openPalette } = useGlobalSearch();
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label="Find in my hoard"
+      onClick={openPalette}
+      className={cn('text-muted-foreground hover:text-foreground', className)}
+    >
+      <Search className="h-5 w-5" />
+    </Button>
   );
 }
