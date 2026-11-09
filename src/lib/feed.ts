@@ -246,6 +246,32 @@ export function buildFeed(
 }
 
 /** An opaque cursor ("<ms base36>-<skip base36>"); anything malformed reads as "first page". */
+/** The order a merged row names its moments in ("watched and put in S tier"). */
+const KIND_ORDER: readonly FeedKind[] = ['finish', 'drop', 's-tier'];
+
+/**
+ * Neighbouring feed items about the same title on the same day (its owner's
+ * day), such as a finish and the S-tier placement that followed, become one
+ * row with both `kinds`. The score comes from the finish or drop (an S-tier
+ * item has none). Two of the same kind (two runs) stay apart.
+ */
+export function mergeMoments<
+  T extends { kind: FeedKind; activityId: string; day: string; rating: number | null; rewatch: boolean },
+>(items: readonly T[]): (T & { kinds: FeedKind[] })[] {
+  const out: (T & { kinds: FeedKind[] })[] = [];
+  for (const item of items) {
+    const last = out[out.length - 1];
+    if (last && last.activityId === item.activityId && last.day === item.day && !last.kinds.includes(item.kind)) {
+      last.kinds = KIND_ORDER.filter((k) => k === item.kind || last.kinds.includes(k));
+      if (last.rating === null && item.kind !== 's-tier') last.rating = item.rating;
+      if (item.kind === 'finish') last.rewatch = item.rewatch;
+      continue;
+    }
+    out.push({ ...item, kinds: [item.kind] });
+  }
+  return out;
+}
+
 export function encodeCursor(c: FeedCursor): string {
   return `${c.at.getTime().toString(36)}-${c.skip.toString(36)}`;
 }

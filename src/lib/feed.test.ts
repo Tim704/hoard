@@ -8,6 +8,7 @@ import {
   encodeCursor,
   eventKind,
   latestHorizon,
+  mergeMoments,
   relativeTime,
   sourceHorizon,
   wasUndone,
@@ -235,5 +236,33 @@ describe('cursor and relative time', () => {
     expect(relativeTime(hoursAgo(5), NOW)).toBe('5 h ago');
     expect(relativeTime(hoursAgo(30), NOW)).toBe('yesterday');
     expect(relativeTime(hoursAgo(24 * 4), NOW)).toBe('4 days ago');
+  });
+});
+
+describe('mergeMoments', () => {
+  const item = (kind: 'finish' | 'drop' | 's-tier', activityId: string, day: string, rating: number | null = null) => ({
+    kind,
+    activityId,
+    day,
+    rating,
+    rewatch: false,
+  });
+
+  it('makes one row of a finish and an S-tier placement of the same title on the same day', () => {
+    const rows = mergeMoments([item('s-tier', 'a1', '2026-10-28'), item('finish', 'a1', '2026-10-28', 9.5)]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ kinds: ['finish', 's-tier'], rating: 9.5 });
+  });
+
+  it('keeps them apart on different days, for different titles, or when they are not neighbours', () => {
+    expect(mergeMoments([item('s-tier', 'a1', '2026-10-28'), item('finish', 'a1', '2026-10-27', 9)])).toHaveLength(2);
+    expect(mergeMoments([item('s-tier', 'a1', '2026-10-28'), item('finish', 'a2', '2026-10-28', 9)])).toHaveLength(2);
+    expect(
+      mergeMoments([item('s-tier', 'a1', '2026-10-28'), item('finish', 'a2', '2026-10-28'), item('finish', 'a1', '2026-10-28')]),
+    ).toHaveLength(3);
+  });
+
+  it('keeps two finishes of the same title apart (two runs)', () => {
+    expect(mergeMoments([item('finish', 'a1', '2026-10-28', 8), item('finish', 'a1', '2026-10-28', 7)])).toHaveLength(2);
   });
 });

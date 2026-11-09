@@ -55,6 +55,9 @@ export interface FeedItem {
   sealed: boolean;
   /** The viewer's own activity for this title, when they have it (the row opens it). */
   myActivityId: string | null;
+  /** The owner's activity, and the day it happened in their time zone (mergeMoments). */
+  activityId: string;
+  day: string;
   rewatch: boolean;
   at: string; // ISO
 }
@@ -184,6 +187,8 @@ export async function getFeedPage(
       rating: sealed.has(e.activityId) ? null : e.kind === 'finish' ? e.rating : e.kind === 'drop' ? current : null,
       sealed: sealed.has(e.activityId),
       myActivityId: e.userId === meId ? e.activityId : (mine.get(e.activityId) ?? null),
+      activityId: e.activityId,
+      day: todayYmd(owner.timeZone, e.at),
       rewatch: e.rewatch,
       at: e.at.toISOString(),
     });

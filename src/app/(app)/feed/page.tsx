@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { CATEGORIES } from '@/lib/categories';
 import { getFeedPage, type FeedItem } from '@/lib/data-feed';
 import { getPrefs } from '@/lib/data-prefs';
-import { decodeCursor, encodeCursor, FEED_DAYS, relativeTime } from '@/lib/feed';
+import { decodeCursor, encodeCursor, FEED_DAYS, mergeMoments, relativeTime, type FeedKind } from '@/lib/feed';
 import { requireUser } from '@/lib/session';
 import { doneVerb } from '@/lib/status';
 import { settingsHref } from '@/lib/settings-nav';
@@ -68,7 +68,8 @@ export default async function FeedPage({ searchParams }: { searchParams: { curso
         </p>
       ) : (
         <ol className="space-y-2">
-          {items.map((item, i) => (
+          {/* A finish and its S-tier placement the same day: one row. */}
+          {mergeMoments(items).map((item, i) => (
             <FeedRow key={i} item={item} now={now} />
           ))}
         </ol>
@@ -102,25 +103,31 @@ const KIND = {
   's-tier': { icon: Crown, className: 'text-amber-500' },
 } as const;
 
-function verb(item: FeedItem): string {
-  if (item.kind === 's-tier') return 'put in S tier';
-  if (item.kind === 'drop') return 'dropped';
+type FeedRowItem = FeedItem & { kinds: FeedKind[] };
+
+function verb(kind: FeedKind, item: FeedItem): string {
+  if (kind === 's-tier') return 'put in S tier';
+  if (kind === 'drop') return 'dropped';
   // The per-medium past tense ("watched", "read", "played"), as a verb before the title.
   const done = item.slug === 'music' ? 'listened to' : doneVerb(item.slug).toLowerCase();
   return done;
 }
 
-function FeedRow({ item, now }: { item: FeedItem; now: Date }) {
-  const { icon: Icon, className } = KIND[item.kind];
+function FeedRow({ item, now }: { item: FeedRowItem; now: Date }) {
   const at = new Date(item.at);
+  const scored = item.kinds.some((k) => k !== 's-tier');
   return (
     <li className="relative flex items-center gap-3 rounded-lg border border-border bg-card p-2 pr-3">
       <Cover src={item.imageUrl} alt={item.title} />
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Icon className={`h-3.5 w-3.5 shrink-0 ${className}`} aria-hidden />
+          {item.kinds.map((k) => {
+            const { icon: Icon, className } = KIND[k];
+            return <Icon key={k} className={`h-3.5 w-3.5 shrink-0 ${className}`} aria-hidden />;
+          })}
           <span className="truncate">
-            <span className="font-medium text-foreground">{item.isMe ? 'You' : item.username}</span> {verb(item)}
+            <span className="font-medium text-foreground">{item.isMe ? 'You' : item.username}</span>{' '}
+            {item.kinds.map((k) => verb(k, item)).join(' and ')}
           </span>
         </p>
         {item.myActivityId ? (
@@ -136,7 +143,7 @@ function FeedRow({ item, now }: { item: FeedItem; now: Date }) {
           <p className="line-clamp-2 break-words font-medium sm:line-clamp-none sm:truncate">{item.title}</p>
         )}
         <p className="text-xs text-muted-foreground">
-          {[CATEGORIES[item.slug].singular, item.year, item.kind === 'finish' && item.rewatch ? 'again' : null]
+          {[CATEGORIES[item.slug].singular, item.year, item.kinds.includes('finish') && item.rewatch ? 'again' : null]
             .filter(Boolean)
             .join(' · ')}{' '}
           ·{' '}
@@ -152,7 +159,7 @@ function FeedRow({ item, now }: { item: FeedItem; now: Date }) {
           <span className="sr-only">Score hidden until you score it</span>
         </span>
       )}
-      {item.kind !== 's-tier' && item.rating !== null && (
+      {scored && item.rating !== null && (
         <span className="shrink-0 text-sm tabular-nums">
           <span className="text-xs text-muted-foreground">scored </span>
           <span className="font-semibold">
