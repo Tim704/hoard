@@ -95,7 +95,8 @@ export function AnimeSeasonClient({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {/* Sticky: a season is a long list, and changing it shouldn't mean scrolling back up. */}
+      <div className="sticky top-[var(--topbar-h)] z-10 -mx-[var(--page-pad)] grid grid-cols-2 gap-2 bg-background/95 px-[var(--page-pad)] py-2 backdrop-blur sm:grid-cols-4">
         <Select value={season} onValueChange={(v) => setSeason(v as AnimeSeason)}>
           <SelectTrigger aria-label="Season">
             <SelectValue />
@@ -173,7 +174,7 @@ export function AnimeSeasonClient({
         </p>
       ) : (
         more && (
-          <Button variant="outline" onClick={() => void load(page + 1)}>
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => void load(page + 1)}>
             More
           </Button>
         )

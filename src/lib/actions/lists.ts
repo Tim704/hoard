@@ -191,18 +191,67 @@ export async function addResultToList(
   }
 }
 
-export async function removeListItem(listId: unknown, itemId: unknown): Promise<ActionResult> {
+/** What a removed list item was, for Undo (`restoreListItem`). */
+export interface RemovedListItem {
+  category: string;
+  mediaId: string;
+  position: number;
+}
+
+export async function removeListItem(
+  listId: unknown,
+  itemId: unknown,
+): Promise<ActionResult & { restore?: RemovedListItem }> {
   if (!isId(itemId)) return { ok: false, error: 'Not found.' };
   try {
     const user = await requireUser();
     const list = await loadList(listId);
     if (!canEditList(list, user.id)) return NOT_FOUND;
+    const item = await prisma.customListItem.findFirst({
+      where: { id: itemId, listId: list!.id },
+      select: { category: true, mediaId: true, position: true },
+    });
     await prisma.customListItem.deleteMany({ where: { id: itemId, listId: list!.id } });
+    await touch(list!.id);
+    revalidateList(list!.id);
+    return item ? { ok: true, restore: { category: item.category, mediaId: item.mediaId, position: item.position } } : { ok: true };
+  } catch (err) {
+    return fail(err, 'Could not remove that title.');
+  }
+}
+
+/** Undo a remove: the title goes back at its old position (nothing if it's already there). */
+export async function restoreListItem(listId: unknown, removed: unknown): Promise<ActionResult> {
+  const r = removed as Partial<RemovedListItem> | null;
+  if (
+    !r ||
+    typeof r.category !== 'string' ||
+    !isCategorySlug(r.category) ||
+    !isId(r.mediaId) ||
+    typeof r.position !== 'number' ||
+    !Number.isFinite(r.position)
+  ) {
+    return { ok: false, error: 'Could not undo that.' };
+  }
+  try {
+    const user = await requireUser();
+    const list = await loadList(listId);
+    if (!canEditList(list, user.id)) return NOT_FOUND;
+    const key = { listId: list!.id, category: r.category, mediaId: r.mediaId };
+    if (await prisma.customListItem.findUnique({ where: { listId_category_mediaId: key } })) return { ok: true };
+    if ((await prisma.customListItem.count({ where: { listId: list!.id } })) >= LIST_ITEMS_MAX) {
+      return { ok: false, error: `A list holds at most ${LIST_ITEMS_MAX} titles.` };
+    }
+    try {
+      await prisma.customListItem.create({ data: { ...key, addedById: user.id, position: r.position } });
+    } catch (err) {
+      if ((err as { code?: string })?.code !== 'P2002') throw err;
+    }
     await touch(list!.id);
     revalidateList(list!.id);
     return { ok: true };
   } catch (err) {
-    return fail(err, 'Could not remove that title.');
+    return fail(err, 'Could not undo that.');
   }
 }
 

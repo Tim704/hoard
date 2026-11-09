@@ -27,12 +27,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { toastUndoable } from '@/components/undo-toast';
 import { settle } from '@/lib/action-result';
 import {
   addResultToList,
   deleteList,
   inviteToList,
   removeListItem,
+  restoreListItem,
   leaveList,
   removeListMember,
   reorderListItems,
@@ -96,7 +98,21 @@ export function CustomListClient({ list }: Props) {
     if (!res.ok) {
       setItems(prev);
       toast.error(res.error ?? 'Could not remove that title.');
-    } else router.refresh();
+      return;
+    }
+    // Undo puts it back where it was (a remove in a ⋮ menu is still an easy slip).
+    const title = rows.find((r) => r.id === id)?.title ?? 'that title';
+    const restore = res.restore;
+    if (restore) {
+      toastUndoable(`Removed “${title}” from the list.`, () => {
+        void settle(restoreListItem(list.id, restore)).then((r) => {
+          if (r.ok) toast.success(`“${title}” is back.`);
+          else toast.error(r.error ?? 'Could not undo that.');
+          router.refresh();
+        });
+      });
+    }
+    router.refresh();
   }
 
   return (

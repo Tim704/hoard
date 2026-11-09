@@ -5,6 +5,7 @@ import { Crown, ImageOff, Layers, Swords } from 'lucide-react';
 
 import { Score } from '@/components/prefs-provider';
 import { FinishedPerMonthChart } from '@/components/stats/stats-charts';
+import { RecommendAcrossButton } from '@/components/recommend-across';
 import { StatsTabs } from '@/components/stats/stats-tabs';
 import { AiVerdict, YearShare, type YearCard } from '@/components/stats/year-share';
 import { CATEGORIES } from '@/lib/categories';
@@ -58,11 +59,17 @@ export default async function YearInReviewPage({ params }: { params: { year: str
 
   return (
     <div className="mx-auto max-w-6xl px-[var(--page-pad)] py-6 sm:py-10">
-      <header className="mb-4">
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{year} in review</h1>
-        <p className="mt-1 text-muted-foreground">Everything you finished in {year}, from your diary.</p>
+      {/* The same header as the other Stats tabs, so the tab bar doesn't jump. */}
+      <header className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Stats</h1>
+          <p className="mt-1 text-muted-foreground">What your hoard says about you.</p>
+        </div>
+        <RecommendAcrossButton className="shrink-0" />
       </header>
       <StatsTabs active="year" currentYear={cy} />
+      <h2 className="mb-1 text-xl font-semibold">{year} in review</h2>
+      <p className="mb-3 text-sm text-muted-foreground">Everything you finished in {year}, from your diary.</p>
 
       <nav aria-label="Year" className="mb-6 flex flex-wrap gap-1.5">
         {years.map((y) => (
