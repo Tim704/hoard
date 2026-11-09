@@ -171,6 +171,7 @@ screen** before anything is saved.
   set or All) and optional episode ticks, and the show's progress is their sum.
 - **Rewatches:** "Watch again" (Read again, Play again, Listen again) starts a new run
   without touching the tier list. The details show "Watched 3× · last 12 Mar 2026".
+  For a TV show it also starts the seasons' watched counts again; Undo puts them back.
 - **The diary** (`/diary`): every finish (Completed or Retired, not Dropped) is a dated
   entry with its score, a rewatch flag and an optional review. Entries are grouped by
   month, filterable by section and year, and can be edited, deleted or added for a past
@@ -284,7 +285,8 @@ movies and the manga become one group.
   it is added; **Detect franchises** regroups everything. Grouping never makes a group of
   one, never moves a title you placed by hand and never deletes a group.
 - **The Franchises page:** a cover grid with breakdowns ("3 anime, 1 manga"), and a
-  Ranking tab to drag your top franchises into order.
+  Ranking tab to drag your top franchises into order. Taking one out of the ranking has
+  an Undo.
 - **Managing one:** its own score and notes; rename, remove titles, merge or delete the
   group (the titles stay). Unscored franchises show their titles' average, labelled "avg".
 - **Watch order:** release order (by release date) or your own drag order, with "Next
@@ -295,10 +297,12 @@ movies and the manga become one group.
 
 - **Custom lists** (`/lists`): your own lists of titles from any section, in drag order.
   Invite other users of this Hoard by username as viewer or editor; they see the list
-  only, never your library. A list can also get a public read-only share link.
+  only, never your library. A list can also get a public read-only share link. Removing a
+  title has an Undo that puts it back at its place.
 - **Reference lists** (`/lists` → Reference lists): built-in checklists (TMDB top 250
   movies, TMDB top 100 TV, AniList top 100 anime and manga, IGDB top 100 games) or your
   own pasted list, each with how many you've done and planned, add buttons and a Refresh.
+  Removing a title from a pasted list has an Undo.
 - **Tags** (`/tags`): every tag with its count per section; clicking one lists the
   tagged titles across sections. Up to 20 tags per title.
 - **Saved views** (`/views`): filter your whole library by sections, statuses, tags,
@@ -431,13 +435,17 @@ Everything here is off until you turn it on.
 - **Compare** (`/compare/<username>`): needs Settings → "Compare with other users" on
   both sides. Shows the titles you both have, your biggest disagreements, a compatibility
   score (needs 5 titles you have both scored) and their S-tier titles you haven't got.
+  Their score on a title they recommended to you stays hidden (a lock) until you score it.
 - **Watch together** (`/together`): same opt-in. The planned titles you share, ranked by
   your combined queue positions.
 - **Feed** (`/feed`): what opted-in users finished, dropped or put in S tier over the
   last 30 days, with scores. Your own activity appears only if you turn on "Show my
-  activity in the feed".
+  activity in the feed". A finish and an S-tier placement of the same title on the same
+  day are one row. A row opens your own copy of the title when you have it. A friend's
+  score on a title they recommended to you stays hidden until you score it.
 - **Recommendations** (`/recommendations`): the same opt-in, for both people. From a
-  title's view, **Send to a friend** (or **Send to <name>** with one friend) sends it with
+  title's view, or **Send a title** on the Recommendations page (pick from your library),
+  **Send to a friend** (or **Send to <name>** with one friend) sends it with
   an optional note (up to 500 characters) and a hidden guess of how they will score it
   (0 to 10). If they have already scored or dropped the title, the form says so instead
   of offering Send. The friend sees it in their inbox with **Add** (to their list) or

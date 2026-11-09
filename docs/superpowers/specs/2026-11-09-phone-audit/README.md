@@ -24,9 +24,11 @@ Check the keyboard on a real iPhone (see "Try on your phone").
 
 | Status | Bugs |
 |---|---|
-| **Fixed, with a test that failed before** | <ul><li>Arena crash on a dropped connection, and a false "wins the round" (ranking #3)</li><li>A tab left open undid changes made elsewhere: title Save (library #2), tier list (ranking #1), franchise ranking (ranking #7), notification URLs (social #1), hidden sections</li><li>Read again kept the old progress (library #1)</li><li>The AniList pull was fooled by Up next drags (library #3)</li><li>A franchise placed by hand dragged its group along (ranking #2)</li><li>Steam revived put-down games (library #7)</li><li>Letterboxd "Blade Runner 2049" (library #6)</li><li>The review went to the wrong run (library #9)</li><li>A score at 00:01 missed the 23:59 finish (library #10)</li><li>The average rating (ranking #4)</li><li>The Now consuming count (ranking #5)</li><li>The lowest genre (ranking #6)</li><li>Job order after downtime (social #2)</li></ul> |
-| **Left for later, with a reason** | <ul><li>Library #4 (an anime added before AniList knew its MAL id is duplicated later): needs the AniList id stored on the catalogue row (a schema change); rare.</li><li>Library #5 (AniList push rounding): can't happen until push keys are set on the server.</li><li>Library #8 (a TV rewatch vs season counts): needs a decision on what a rewatch tracks per season.</li></ul> |
-| **Tim's call** | Social #3: Compare and Feed show a friend's score for a title they recommended to you before you've scored it. The design puts this "seal" in Stage 2. |
+| **Fixed, with a test that failed before** | <ul><li>An anime added before AniList knew its MAL id was duplicated later (library #4): the `al-` row now moves to the MAL id</li><li>AniList push rounding read back as a conflict (library #5)</li><li>A TV rewatch kept the old season counts (library #8): Watch again starts the seasons again, and Undo restores them</li><li>Compare and Feed showed a friend's score on a title they recommended to you before you'd scored it (social #3): now hidden behind a lock until you score it</li><li>Arena crash on a dropped connection, and a false "wins the round" (ranking #3)</li><li>A tab left open undid changes made elsewhere: title Save (library #2), tier list (ranking #1), franchise ranking (ranking #7), notification URLs (social #1), hidden sections</li><li>Read again kept the old progress (library #1)</li><li>The AniList pull was fooled by Up next drags (library #3)</li><li>A franchise placed by hand dragged its group along (ranking #2)</li><li>Steam revived put-down games (library #7)</li><li>Letterboxd "Blade Runner 2049" (library #6)</li><li>The review went to the wrong run (library #9)</li><li>A score at 00:01 missed the 23:59 finish (library #10)</li><li>The average rating (ranking #4)</li><li>The Now consuming count (ranking #5)</li><li>The lowest genre (ranking #6)</li><li>Job order after downtime (social #2)</li></ul> |
+
+All 20 are fixed. Rulings made along the way: a TV rewatch starts every season's count at 0
+(the old counts come back on Undo); library #4 is fixed without a schema change, by moving
+the `al-` row to the MAL id when AniList reports both.
 
 ## Phone UI: 108 findings (3 Broken, 48 Confusing, 57 Rough)
 
@@ -44,26 +46,18 @@ All three Broken findings and most Confusing ones are done:
 | Plan and insights | <ul><li>Tonight shows its picks first</li><li>Calendar month list on phones</li><li>Diary rows with one Edit</li><li>Stats: an empty state, three tiles across, no zero sections, distinct colours, tabs that fit, Undo on goal delete</li></ul> |
 | Friends and settings | <ul><li>Recommendations: one answer row, full-width verdict</li><li>Compare: compatibility in words, two-line titles</li><li>Watch together: one friend as text</li><li>Share links ask before Revoke</li><li>Notification chips show on and off</li></ul> |
 
-Not done yet (Rough, or bigger than a fix):
-- **Ranking and organising (ui-B):**
-  - collapse the Views builder on phones (10.2);
-  - Undo for list removes (0.2, 8.2).
-- **Shell and library (ui-A):**
-  - let Fresh's brand row scroll away (S7);
-  - one Favourites card on phones (D8);
-  - Import sources as collapsible rows (I1);
-  - single rules between title-page panels (T2).
-- **Planning, insights, friends and settings (ui-C):**
-  - send a recommendation from the Recommendations page (R2, a new feature);
-  - sticky Anime season filters (A3);
-  - the Stats year header (S5);
-  - the Taste header (S9);
-  - Compare's long shared list (CP2);
-  - tappable Feed rows (F1), and merging duplicate Feed rows (F2);
-  - a sticky Save in the dashboard tile editor (ST2);
-  - the Sharing prose (ST5);
-  - server notes shown to non-owners in Accounts (ST6);
-  - the Settings tab strip fade (ST7).
+The rest, done in a second pass:
+
+| Area | What changed |
+|---|---|
+| Shell and library | <ul><li>Fresh's brand row scrolls away on phones; the chips stay (S7)</li><li>One Favourites card on phones (D8)</li><li>Import sources as rows that open in place (I1)</li><li>Title-page panels touch, one rule between them (T2)</li></ul> |
+| Ranking and organising | <ul><li>The Views builder folds behind Edit on phones (10.2)</li><li>Undo after removing a title from a custom or pasted list, or unranking a franchise (0.2, 8.2)</li><li>The Arena says why a pair comes from your scores (3.2)</li></ul> |
+| Planning and insights | <ul><li>Sticky Anime season filters (A3)</li><li>The Stats year page keeps the Stats header (S5)</li><li>The Taste header stacks on phones (S9)</li></ul> |
+| Friends | <ul><li>**Send a title** on the Recommendations page (R2)</li><li>Compare: the shared list folds, and each disagreement shows its size (CP2)</li><li>Feed rows open your copy (F1), and a finish plus its S-tier placement is one row (F2)</li></ul> |
+| Settings | <ul><li>The dashboard tiles' Save sticks to the bottom while there are changes (ST2)</li><li>Sharing says what others see in a fold (ST5)</li><li>Server setup notes only for the owner (ST6)</li><li>The tab strip fades where more tabs are (ST7)</li></ul> |
+
+Left as they are, on purpose: Classic's cards keep no badges (the smoke test pins that design),
+and the tile editor's arrows were already 40px to tap (ST3).
 
 ## Try on your phone
 
@@ -72,3 +66,5 @@ Not done yet (Rough, or bigger than a fix):
 3. Up next: ⋮ on a row, then Reorder.
 4. Recommendations: Watched / Want / Pass in one row; Pass, then Undo.
 5. A TV show's popup: "Log episodes →".
+6. Recommendations → **Send a title**: search, pick, send.
+7. Fresh layout: scroll a page; the brand row goes, the chips stay.
