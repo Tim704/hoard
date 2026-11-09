@@ -24,6 +24,8 @@ import {
   resolveConflict,
   SAVE_ENTRY_MUTATION,
   type PulledEntry,
+  lastTrackedChange,
+  TRACKED_EVENT_KINDS,
 } from '@/lib/anilist-sync';
 import { getLink, recordSync } from '@/lib/external-links';
 import { readAniListLists } from '@/lib/import/anilist-fetch';
@@ -84,6 +86,18 @@ export async function pullAniListForUser(userId: string, username: string): Prom
         })
       ).map((a) => [a.id, a]),
     );
+    // The last change AniList also tracks, per title (see lastTrackedChange).
+    const lastTracked = new Map(
+      owned.length === 0
+        ? []
+        : (
+            await prisma.activityEvent.groupBy({
+              by: ['activityId'],
+              where: { userId, activityId: { in: owned }, kind: { in: [...TRACKED_EVENT_KINDS] } },
+              _max: { at: true },
+            })
+          ).map((g) => [g.activityId, g._max.at]),
+    );
 
     for (let j = 0; j < part.length; j++) {
       const { row, updatedAt } = part[j];
@@ -98,7 +112,12 @@ export async function pullAniListForUser(userId: string, username: string): Prom
       let commit: CommitRow;
       if (local) {
         const change = resolveConflict(
-          { status: local.status as Status, rating: local.rating, progress: local.progress, updatedAt: local.updatedAt },
+          {
+            status: local.status as Status,
+            rating: local.rating,
+            progress: local.progress,
+            updatedAt: lastTrackedChange(local.updatedAt, lastTracked.get(local.id) ?? null),
+          },
           row,
           updatedAt,
         );

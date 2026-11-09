@@ -9,6 +9,7 @@ import {
   catalogueKeys,
   pulledEntries,
   pushVariables,
+  lastTrackedChange,
   resolveConflict,
   toAniListStatus,
 } from './anilist-sync';
@@ -28,6 +29,21 @@ const remote = (over: Partial<ImportRow> = {}): ImportRow => ({
 const T = new Date('2026-10-20T12:00:00Z');
 const before = T.getTime() - 60_000;
 const after = T.getTime() + 60_000;
+
+describe('lastTrackedChange', () => {
+  it('times a title by its last status, score or progress change, not by an Up next drag or a duel', () => {
+    const lastStatus = new Date('2026-10-20T19:00:00Z');
+    const queueDrag = new Date('2026-10-20T20:00:00Z'); // bumped updatedAt
+    expect(lastTrackedChange(queueDrag, lastStatus)).toEqual(lastStatus);
+    // AniList finished it at 19:30: newer than the last real change, so the pull applies it.
+    const local = { status: 'PLANNED' as const, rating: null, progress: null, updatedAt: lastTrackedChange(queueDrag, lastStatus) };
+    expect(resolveConflict(local, remote(), new Date('2026-10-20T19:30:00Z').getTime())).toMatchObject({ status: 'COMPLETED' });
+  });
+
+  it('falls back to updatedAt for a title with no recorded changes (from before events were kept)', () => {
+    expect(lastTrackedChange(T, null)).toEqual(T);
+  });
+});
 
 describe('resolveConflict (most recent change wins)', () => {
   it('takes AniList status (forward only), score and progress when AniList is newer', () => {

@@ -61,6 +61,19 @@ export interface SyncChange {
   progress?: number;
 }
 
+/** The events that count as a change AniList also tracks (not a queue drag, a duel or a tag). */
+export const TRACKED_EVENT_KINDS = ['added', 'status', 'score', 'progress', 'rewatch', 'import'] as const;
+
+/**
+ * When Hoard last changed what AniList also tracks: the newest such event,
+ * else (a title from before events were kept) the row's updatedAt. updatedAt
+ * alone moves on every write (an Up next drag rewrites every Planned row, a
+ * duel, a regroup), which would make every AniList change look older.
+ */
+export function lastTrackedChange(updatedAt: Date, lastEventAt: Date | null): Date {
+  return lastEventAt ?? updatedAt;
+}
+
 /**
  * What a pulled entry changes on the local activity (empty = nothing).
  * `remoteAt` null (unknown) counts as older than Hoard.
