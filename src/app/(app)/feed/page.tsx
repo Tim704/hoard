@@ -120,12 +120,13 @@ function FeedRow({ item, now }: { item: FeedRowItem; now: Date }) {
     <li className="relative flex items-center gap-3 rounded-lg border border-border bg-card p-2 pr-3">
       <Cover src={item.imageUrl} alt={item.title} />
       <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
           {item.kinds.map((k) => {
             const { icon: Icon, className } = KIND[k];
-            return <Icon key={k} className={`h-3.5 w-3.5 shrink-0 ${className}`} aria-hidden />;
+            return <Icon key={k} className={`mt-px h-3.5 w-3.5 shrink-0 ${className}`} aria-hidden />;
           })}
-          <span className="truncate">
+          {/* Wraps rather than cutting "watched and put in S tier" short. */}
+          <span className="min-w-0 break-words">
             <span className="font-medium text-foreground">{item.isMe ? 'You' : item.username}</span>{' '}
             {item.kinds.map((k) => verb(k, item)).join(' and ')}
           </span>

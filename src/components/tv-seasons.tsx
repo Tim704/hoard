@@ -212,8 +212,10 @@ function SeasonLine({
 
   return (
     <li className="space-y-2 p-2">
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
+      {/* Phones: the season's name and dates on a line of their own, the
+          controls below (beside them, the name was cut to "Sea…"). */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:flex-nowrap">
+        <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
           <label htmlFor={inputId} className="block truncate text-sm font-medium">
             {row.name}
           </label>
@@ -272,7 +274,7 @@ function SeasonLine({
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-label={`${open ? 'Hide' : 'Show'} episodes and score of ${row.name}`}
-          className="relative tap-area flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="relative tap-area ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground sm:ml-0"
         >
           {open ? <ChevronUp className="h-4 w-4" aria-hidden /> : <ChevronDown className="h-4 w-4" aria-hidden />}
         </button>
