@@ -102,7 +102,7 @@ function SharedTiers({ view }: { view: TiersShareView }) {
                           </div>
                         )}
                       </div>
-                      <p className="mt-1 line-clamp-2 text-[11px] leading-tight sm:text-xs">{item.title}</p>
+                      <p className="mt-1 line-clamp-2 text-xs leading-tight">{item.title}</p>
                     </li>
                   ))}
                 </ol>
@@ -220,7 +220,7 @@ function CoverRow({ title, items, numbered }: { title: string; items: SharedItem
                   <ImageOff className="h-4 w-4 text-muted-foreground" aria-hidden />
                 </div>
               )}
-              {numbered && <span className="absolute left-1 top-1 rounded bg-background/85 px-1 text-[10px] font-bold">{i + 1}</span>}
+              {numbered && <span className="absolute left-1 top-1 rounded bg-background/85 px-1 text-xs font-bold">{i + 1}</span>}
             </div>
             <p className="mt-1 line-clamp-2 text-xs leading-tight">{item.title}</p>
           </li>

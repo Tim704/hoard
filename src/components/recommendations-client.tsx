@@ -181,6 +181,7 @@ function Inbox({
                 </div>
               ) : (
                 <AddResultRow
+                  asOption={false}
                   slug={it.slug}
                   result={resultOf(it)}
                   row={row}

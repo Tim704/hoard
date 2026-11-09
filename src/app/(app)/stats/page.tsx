@@ -338,7 +338,7 @@ function GenreDriftTable({ drift }: { drift: TastePage['drift'] }) {
                   {r.scores.map((v, i) => (
                     <td key={i} className={cn('px-2 py-1.5 text-right tabular-nums', v == null && 'text-muted-foreground')}>
                       {v == null ? '—' : <Score value={v} />}
-                      {v != null && <span className="ml-1 text-[10px] text-muted-foreground">({r.counts[i]})</span>}
+                      {v != null && <span className="ml-1 text-xs text-muted-foreground">({r.counts[i]})</span>}
                     </td>
                   ))}
                 </tr>

@@ -100,7 +100,7 @@ export function CalendarClient(props: Props) {
         </div>
         <Link
           href={settingsHref('sharing', 'calendar')}
-          className="ml-auto inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground underline-offset-2 hover:underline"
+          className="relative tap-area ml-auto inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground underline-offset-2 hover:underline"
         >
           <Rss className="h-3.5 w-3.5 shrink-0" aria-hidden />
           <span className="truncate">{props.hasFeed ? 'Calendar feed in Settings' : 'Subscribe in your calendar app'}</span>
@@ -169,12 +169,12 @@ export function CalendarClient(props: Props) {
                   </span>
                   <span className="hidden w-full min-w-0 space-y-0.5 sm:block">
                     {dayItems.slice(0, 3).map((it) => (
-                      <span key={it.uid} className={cn('block truncate rounded border px-1 text-[11px] leading-tight', KIND_STYLE[it.kind])}>
+                      <span key={it.uid} className={cn('block truncate rounded border px-1 text-xs leading-tight', KIND_STYLE[it.kind])}>
                         {it.title}
                       </span>
                     ))}
                     {dayItems.length > 3 && (
-                      <span className="block text-[11px] text-muted-foreground">+{dayItems.length - 3} more</span>
+                      <span className="block text-xs text-muted-foreground">+{dayItems.length - 3} more</span>
                     )}
                   </span>
                 </button>

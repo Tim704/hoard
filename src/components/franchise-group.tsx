@@ -239,7 +239,7 @@ function OneBadgeStack({ franchise, members, expanded, onToggle, inStatusSection
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-1 p-2">
           <h3 className="line-clamp-2 text-[13px] font-semibold leading-tight">{franchise.name}</h3>
-          <span className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+          <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
             <Layers className="h-3 w-3 shrink-0" aria-hidden />
             <span className="truncate">
               {members.length} titles

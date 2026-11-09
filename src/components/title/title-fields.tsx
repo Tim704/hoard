@@ -275,7 +275,7 @@ export function ManualEditor({
         idPrefix={`manual-edit-${activity.id}`}
       />
       {error && (
-        <p className="text-sm text-rose-500" role="alert">
+        <p className="text-sm text-rose-700 dark:text-rose-400" role="alert">
           {error}
         </p>
       )}
@@ -338,7 +338,7 @@ export function StatusField({
     <div className="space-y-1.5">
       <label className="text-sm font-medium">Status</label>
       <Select value={value} onValueChange={(v) => onChange(v as Status)}>
-        <SelectTrigger>
+        <SelectTrigger aria-label="Status">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -417,7 +417,7 @@ export function FranchiseField({
         Franchise
       </label>
       <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger>
+        <SelectTrigger aria-label="Franchise">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

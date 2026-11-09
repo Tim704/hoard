@@ -23,7 +23,7 @@ import {
 import { HOURS_NOTE } from '@/lib/stats/measures';
 import { cn } from '@/lib/utils';
 
-const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-2 text-base sm:text-sm';
+const selectClass = 'h-10 w-full rounded-md border border-input bg-background px-2 text-base sm:text-sm';
 
 /** What a goal measures, in words ("Books · titles finished"). */
 export function goalTitle(g: Pick<GoalProgress, 'category' | 'metric'>): string {
@@ -139,7 +139,7 @@ export function GoalsClient({
               href={`/stats?tab=goals&year=${y}`}
               aria-current={y === year ? 'page' : undefined}
               className={cn(
-                'rounded-md border px-2.5 py-1 text-sm font-medium tabular-nums transition-colors',
+                'rounded-md border px-2.5 py-2.5 text-sm font-medium tabular-nums transition-colors sm:py-1',
                 y === year ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:text-foreground',
               )}
             >

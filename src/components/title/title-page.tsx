@@ -132,7 +132,7 @@ export function TitlePage({
       <div className="mx-auto w-full max-w-5xl flex-1 space-y-6 px-[var(--page-pad)] py-4 sm:py-6">
         <Link
           href={sectionHref}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
+          className="relative tap-area inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
           {sectionLabel}

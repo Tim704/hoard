@@ -26,6 +26,7 @@ export function CompareSTier({ items }: { items: MissingView[] }) {
         return (
           <li key={key}>
             <AddResultRow
+              asOption={false}
               slug={it.slug}
               result={resultOf(it)}
               row={rows[key]}

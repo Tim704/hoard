@@ -25,7 +25,7 @@ export function StatsTabs({ active, currentYear }: { active: StatsTab; currentYe
               href={t.href}
               aria-current={t.key === active ? 'page' : undefined}
               className={cn(
-                'block rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                'block rounded-md px-3 py-2.5 text-sm font-medium transition-colors sm:py-1.5',
                 t.key === active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
               )}
             >

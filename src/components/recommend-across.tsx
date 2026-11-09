@@ -67,7 +67,7 @@ export function RecommendAcrossButton({ className, header = false }: { className
               Thinking about what you&rsquo;d love next…
             </p>
           ) : error ? (
-            <p className="py-4 text-sm text-rose-500 dark:text-rose-400">{error}</p>
+            <p className="py-4 text-sm text-rose-700 dark:text-rose-400">{error}</p>
           ) : (
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {items.map((r) => (

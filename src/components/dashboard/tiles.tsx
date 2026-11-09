@@ -64,7 +64,7 @@ export function GoalsCard({ year, goals }: { year: number; goals: GoalProgress[]
     <Card className={cn('col-span-full', TILE)}>
       <CardHeader className={cn('flex flex-row items-center justify-between space-y-0 pb-3', TILE_HEAD)}>
         <CardTitle className={cn('text-base font-semibold', TILE_TITLE)}>
-          <Link href={`/stats?tab=goals&year=${year}`} className="hover:underline">
+          <Link href={`/stats?tab=goals&year=${year}`} className="relative tap-area hover:underline">
             Goals for {year}
           </Link>
         </CardTitle>
@@ -271,7 +271,7 @@ export function FavouritesRow({
           <Card key={slug} className={TILE}>
             <CardHeader className={cn('pb-3', TILE_HEAD)}>
               <CardTitle className={cn('text-sm font-semibold', TILE_TITLE)}>
-                <Link href={`/${slug}`} className="hover:underline">
+                <Link href={`/${slug}`} className="relative tap-area hover:underline">
                   {CATEGORIES[slug].label}
                 </Link>
               </CardTitle>
@@ -290,12 +290,12 @@ export function FavouritesRow({
                         {a.media.imageUrl ? (
                           <Image src={a.media.imageUrl} alt={title} fill sizes="80px" className="object-cover" />
                         ) : (
-                          <span className="flex h-full w-full items-center justify-center overflow-hidden p-1 text-center text-[10px] leading-tight text-muted-foreground [overflow-wrap:anywhere]">
+                          <span data-small-text-ok className="flex h-full w-full items-center justify-center overflow-hidden p-1 text-center text-[10px] leading-tight text-muted-foreground [overflow-wrap:anywhere]">
                             {title}
                           </span>
                         )}
                         {a.tier && isTierEligible(a.status) && (
-                          <span className="absolute left-1 top-1 rounded bg-background/85 px-1 text-[10px] font-bold">
+                          <span className="absolute left-1 top-1 rounded bg-background/85 px-1 text-xs font-bold">
                             {a.tier}
                           </span>
                         )}

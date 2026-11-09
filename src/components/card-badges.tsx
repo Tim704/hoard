@@ -22,7 +22,7 @@ export function CountdownBadge({ activity, className }: { activity: ActivityWith
   return (
     <span
       className={cn(
-        'inline-flex w-fit items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300',
+        'inline-flex w-fit items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-300',
         className,
       )}
       title="Release countdown"
@@ -54,7 +54,7 @@ export function CardBadgePill({ badge, className }: { badge: CardBadge; classNam
       data-card-badge={badge.kind}
       title={badge.title}
       className={cn(
-        'inline-flex w-fit max-w-full items-center gap-1 rounded-full border px-1.5 py-px text-[10.5px] font-medium leading-4',
+        'inline-flex w-fit max-w-full items-center gap-1 rounded-full border px-1.5 py-px text-xs font-medium leading-4',
         tone,
         className,
       )}

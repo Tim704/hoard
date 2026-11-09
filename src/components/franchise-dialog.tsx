@@ -304,7 +304,7 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span>{CATEGORIES[m.category].singular}</span>
                         {m.media.year != null && <span>· {m.media.year}</span>}
-                        <StatusBadge status={m.status} slug={m.category} className="px-1.5 py-0 text-[11px]" />
+                        <StatusBadge status={m.status} slug={m.category} className="px-1.5 py-0 text-xs" />
                       </div>
                     </div>
                     <RatingControl value={m.rating} />
@@ -347,7 +347,7 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
                 <label className="text-sm font-medium">Merge into another franchise</label>
                 <div className="flex gap-2">
                   <Select value={mergeTarget} onValueChange={setMergeTarget}>
-                    <SelectTrigger className="flex-1">
+                    <SelectTrigger className="flex-1" aria-label="Merge into another franchise">
                       <SelectValue placeholder="Pick a franchise…" />
                     </SelectTrigger>
                     <SelectContent>
@@ -389,7 +389,7 @@ export function FranchiseDialog({ franchise, all, onClose }: FranchiseDialogProp
               </Button>
             </div>
           ) : (
-            <Button variant="ghost" className="text-rose-500" onClick={() => setConfirmDelete(true)}>
+            <Button variant="ghost" className="text-rose-700 dark:text-rose-400" onClick={() => setConfirmDelete(true)}>
               <Trash2 className="mr-1.5 h-4 w-4" />
               Delete group
             </Button>

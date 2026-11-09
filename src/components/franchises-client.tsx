@@ -127,7 +127,7 @@ export function FranchisesClient({ franchises }: { franchises: FranchiseWithMemb
             onClick={() => setTab(id)}
             aria-pressed={tab === id}
             className={cn(
-              'inline-flex items-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors',
+              'relative tap-area inline-flex items-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors',
               tab === id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
             )}
           >

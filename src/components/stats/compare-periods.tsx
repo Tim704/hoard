@@ -36,7 +36,7 @@ export function ComparePeriods({ compare }: { compare: TastePage['compare'] }) {
             }
             aria-current={compare.preset === p.key ? 'true' : undefined}
             className={cn(
-              'rounded-md border px-2.5 py-1 text-sm transition-colors',
+              'rounded-md border px-2.5 py-2.5 text-sm transition-colors sm:py-1',
               compare.preset === p.key
                 ? 'border-primary bg-primary text-primary-foreground'
                 : 'border-border text-muted-foreground hover:text-foreground',

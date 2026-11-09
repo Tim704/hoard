@@ -25,7 +25,7 @@ export default async function SeasonTiersPage({ params }: SeasonPageProps) {
         <TitleLink
           slug="tv"
           id={data.activityId}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
+          className="relative tap-area inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
           Back to {data.show.title}

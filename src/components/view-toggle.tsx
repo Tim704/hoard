@@ -22,7 +22,7 @@ interface ViewToggleProps {
 
 /** Button sizes; the control adds 6px (1px border, 2px padding, each side). */
 const BUTTON_SIZE = {
-  default: 'h-9 w-9 md:h-8 md:w-8',
+  default: 'relative tap-area h-9 w-9 md:h-8 md:w-8',
   toolbar: 'h-[34px] w-[34px]',
   'toolbar-md': 'h-[34px] w-[34px] md:h-[30px] md:w-[30px]',
 };

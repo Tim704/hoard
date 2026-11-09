@@ -23,12 +23,13 @@ export function AddRowList({
   label: string;
 }) {
   return (
-    <div role="listbox" aria-label={label} className="space-y-2">
+    <div role="group" aria-label={label} className="space-y-2">
       {items.map(({ slug, result, note }) => {
         const key = addRowKey(slug, result.externalId);
         return (
           <AddResultRow
             key={key}
+            asOption={false}
             slug={slug}
             result={result}
             note={note}

@@ -64,7 +64,7 @@ export function TogetherClient({ users, sections }: { users: string[]; sections:
                   aria-pressed={on}
                   onClick={() => setChosen((c) => (on ? c.filter((x) => x !== s) : [...c, s]))}
                   className={cn(
-                    'rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    'relative tap-area rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     on ? 'border-primary/40 bg-accent text-accent-foreground' : 'border-border text-muted-foreground hover:text-foreground',
                   )}
                 >

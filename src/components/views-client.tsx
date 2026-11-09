@@ -203,7 +203,7 @@ export function ViewsClient({
             <Link
               href="/views"
               className={cn(
-                'rounded-full border border-border px-2.5 py-0.5 text-xs hover:bg-accent',
+                'rounded-full border border-border px-2.5 py-3 text-xs hover:bg-accent sm:py-0.5',
                 !selected && 'bg-accent text-accent-foreground',
               )}
             >
@@ -216,7 +216,7 @@ export function ViewsClient({
                 href={`/views?view=${encodeURIComponent(v.id)}`}
                 aria-current={selected?.id === v.id ? 'page' : undefined}
                 className={cn(
-                  'max-w-[16rem] truncate rounded-full border border-border px-2.5 py-0.5 text-xs hover:bg-accent',
+                  'max-w-[16rem] truncate rounded-full border border-border px-2.5 py-3 text-xs hover:bg-accent sm:py-0.5',
                   selected?.id === v.id && 'bg-accent text-accent-foreground',
                 )}
               >

@@ -90,7 +90,7 @@ async function restore(previous: DashboardPatch, router: Router) {
 }
 
 /** The rows' controls: 36px, the smallest touch target here. */
-const CONTROL = 'h-9 w-9 shrink-0';
+const CONTROL = 'relative tap-area h-9 w-9 shrink-0';
 
 export function TileEditor({
   saved,

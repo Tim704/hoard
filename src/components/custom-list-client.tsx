@@ -188,7 +188,7 @@ function ListHeader({ list }: { list: CustomListView }) {
 
   return (
     <div className="space-y-3">
-      <Link href="/lists" className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground">
+      <Link href="/lists" className="relative tap-area inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground">
         <ArrowLeft className="h-4 w-4" aria-hidden />
         Lists
       </Link>
@@ -284,7 +284,7 @@ function ListHeader({ list }: { list: CustomListView }) {
               </Button>
             </>
           ) : (
-            <Button variant="ghost" size="sm" className="text-rose-500" onClick={() => setConfirmDelete(true)}>
+            <Button variant="ghost" size="sm" className="text-rose-700 dark:text-rose-400" onClick={() => setConfirmDelete(true)}>
               <Trash2 className="mr-2 h-4 w-4" aria-hidden />
               Delete
             </Button>

@@ -60,7 +60,7 @@ export default async function TagsPage({ searchParams }: { searchParams: { tag?:
                 <Link
                   href={tagHref(next)}
                   aria-current={on ? 'true' : undefined}
-                  className="flex items-center justify-between gap-2 font-medium hover:underline"
+                  className="flex min-h-10 items-center justify-between gap-2 font-medium hover:underline sm:min-h-0"
                 >
                   <span className="inline-flex min-w-0 items-center gap-1.5">
                     {on ? <X className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <Tag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />}
@@ -73,7 +73,7 @@ export default async function TagsPage({ searchParams }: { searchParams: { tag?:
                     <Link
                       key={slug}
                       href={`/${slug}?tag=${encodeURIComponent(t.tag)}`}
-                      className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                      className="rounded-full border border-border px-2.5 py-3 text-xs text-muted-foreground hover:text-foreground sm:px-2 sm:py-0.5"
                     >
                       {CATEGORIES[slug].label} · {t.bySection[slug]}
                     </Link>

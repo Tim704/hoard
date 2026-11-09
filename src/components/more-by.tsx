@@ -52,7 +52,7 @@ export function MoreBySection({ activityId, headingLevel }: { activityId: string
           type="button"
           onClick={() => void toggle()}
           aria-expanded={open}
-          className="flex w-full items-center gap-1.5 text-left text-sm font-medium"
+          className="relative tap-area flex w-full items-center gap-1.5 text-left text-sm font-medium"
         >
           <Users className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
           More by the same people

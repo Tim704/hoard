@@ -58,7 +58,7 @@ export function ListsClient({ tab, mine, shared, refLists, builtins, aiConfigure
             href={href}
             aria-current={tab === id ? 'page' : undefined}
             className={cn(
-              'inline-flex shrink-0 items-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors',
+              'relative tap-area inline-flex shrink-0 items-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors',
               tab === id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
             )}
           >

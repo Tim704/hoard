@@ -97,13 +97,13 @@ export const STATUS_ORDER: Record<Status, number> = {
  */
 export const STATUS_BADGE_CLASS: Record<Status, string> = {
   CONSUMING:
-    'border-emerald-500/60 bg-emerald-500/25 text-emerald-700 dark:text-emerald-200',
-  PLANNED: 'border-sky-500/50 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+    'border-emerald-500/60 bg-emerald-500/25 text-emerald-800 dark:text-emerald-200',
+  PLANNED: 'border-sky-500/50 bg-sky-500/10 text-sky-800 dark:text-sky-300',
   COMPLETED:
-    'border-violet-500/50 bg-violet-500/20 text-violet-700 dark:text-violet-300',
-  ON_HOLD: 'border-amber-500/50 bg-amber-500/20 text-amber-700 dark:text-amber-300',
-  RETIRED: 'border-slate-500/50 bg-slate-500/15 text-slate-700 dark:text-slate-300',
-  DROPPED: 'border-rose-500/50 bg-rose-500/20 text-rose-700 dark:text-rose-300',
+    'border-violet-500/50 bg-violet-500/20 text-violet-800 dark:text-violet-300',
+  ON_HOLD: 'border-amber-500/50 bg-amber-500/20 text-amber-800 dark:text-amber-300',
+  RETIRED: 'border-slate-500/50 bg-slate-500/15 text-slate-800 dark:text-slate-300',
+  DROPPED: 'border-rose-500/50 bg-rose-500/20 text-rose-800 dark:text-rose-300',
 };
 
 /** One icon per status, so states differ by shape as well as by tint. */

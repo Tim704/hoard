@@ -53,7 +53,7 @@ export function FiltersPopover({ slug, state, ownedChoices, sectionTags, style }
     <span
       aria-hidden
       className={cn(
-        'inline-flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold leading-none text-primary-foreground',
+        'inline-flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold leading-none text-primary-foreground',
         style === 'icons' && 'absolute -right-1.5 -top-1.5 ring-2 ring-background',
       )}
     >

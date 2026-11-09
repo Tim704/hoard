@@ -167,7 +167,7 @@ export function UserMenu({
             <Bell aria-hidden className="text-muted-foreground" />
             Notifications
             {unread > 0 && (
-              <span className="ml-auto rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-4 text-primary-foreground">
+              <span className="ml-auto rounded-full bg-primary px-1.5 text-xs font-semibold leading-4 text-primary-foreground">
                 {unread > 99 ? '99+' : unread}
                 <span className="sr-only"> unread</span>
               </span>

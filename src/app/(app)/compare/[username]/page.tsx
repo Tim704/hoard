@@ -37,7 +37,7 @@ export default async function CompareUserPage({ params }: { params: { username: 
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-[var(--page-pad)] py-4 sm:py-6">
       <header className="space-y-2">
-        <Link href="/compare" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/compare" className="relative tap-area inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" aria-hidden />
           Compare
         </Link>
@@ -152,8 +152,8 @@ function SharedRow({ item, them }: { item: SharedView; them: string }) {
           </p>
         </div>
         <div className="grid shrink-0 grid-cols-2 gap-x-3 text-right text-sm tabular-nums">
-          <span className="text-[11px] text-muted-foreground">You</span>
-          <span className="max-w-[5rem] truncate text-[11px] text-muted-foreground">{them}</span>
+          <span className="text-xs text-muted-foreground">You</span>
+          <span className="max-w-[5rem] truncate text-xs text-muted-foreground">{them}</span>
           <span className="font-semibold" aria-label="Your score">
             <Score value={item.myRating} />
           </span>

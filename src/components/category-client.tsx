@@ -175,7 +175,7 @@ export function CategoryClient({
           {slug === 'anime' && (
             <>
               {' · '}
-              <Link href="/anime/season" className="underline underline-offset-2 hover:text-foreground">
+              <Link href="/anime/season" className="relative tap-area underline underline-offset-2 hover:text-foreground">
                 Browse this season
               </Link>
             </>

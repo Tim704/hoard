@@ -39,7 +39,7 @@ export default async function RankPage({ params, searchParams }: RankPageProps) 
       <div className="mb-6">
         <Link
           href={`/${slug}`}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
+          className="relative tap-area inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
           Back to {config.label}
@@ -57,7 +57,7 @@ export default async function RankPage({ params, searchParams }: RankPageProps) 
               href={href}
               aria-current={tab === id ? 'page' : undefined}
               className={cn(
-                'inline-flex items-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors',
+                'relative tap-area inline-flex items-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors',
                 tab === id
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground',
@@ -120,7 +120,7 @@ async function ArenaTab({ slug, mode }: { slug: Slug; mode: 'order' | 'challenge
                 href={m.href}
                 aria-current={mode === m.id ? 'page' : undefined}
                 className={cn(
-                  'rounded px-3 py-1.5 text-sm font-medium transition-colors',
+                  'relative tap-area rounded px-3 py-1.5 text-sm font-medium transition-colors',
                   mode === m.id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
                 )}
               >

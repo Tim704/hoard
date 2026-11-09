@@ -158,7 +158,7 @@ function SortableRow({ item, rank, isFirst, isLast, disabled, onUp, onDown, onRe
         <p className="truncate font-medium leading-snug">{item.title}</p>
         {item.subtitle && <p className="truncate text-xs text-muted-foreground">{item.subtitle}</p>}
         {item.chip && (
-          <p className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+          <p className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
             <Layers className="h-3 w-3 shrink-0" aria-hidden />
             <span className="truncate">{item.chip}</span>
           </p>

@@ -15,7 +15,10 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { chromium } from 'playwright-core';
+
+import { PHONE_CHECKS } from './phone-checks.mjs';
 
 const BASE_URL = (process.env.BASE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 const USER = process.env.SMOKE_USER ?? 'demo';
@@ -45,6 +48,17 @@ const pagePattern = (route) => {
 };
 /** One route per distinct page (the first listed), for the phone sweep. */
 const phoneRoutes = routes.filter((r, i) => routes.findIndex((o) => pagePattern(o) === pagePattern(r)) === i);
+/** axe-core's browser bundle, injected for the accessibility sweep. */
+const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
+/**
+ * Controls still under 40px to tap whose fix belongs to a later wave of the
+ * phone pass (matched against "tag "name""). Remove a line when its wave lands.
+ */
+const PHONE_LATER = [
+  // Wave 6: rows you can reorder (Up next, custom lists, franchise ranking) get a phone layout.
+  /^button(@#\S+)? "(Drag|Move|Remove) .+" \d+×\d+$/,
+  /^button(@#\S+)? "(Read|Watched|Played|Listened|Beaten|Watch|Play|Listen): .+" \d+×\d+$/,
+];
 /** Stats → Taste with custom periods: their date fields once spilled at 375. */
 const CUSTOM_PERIODS = routes.find((r) => r.startsWith('/stats?') && r.includes('preset=custom'));
 
@@ -858,6 +872,77 @@ if (failures.length === 0) {
     }
     if (spilled.length) throw new Error(`at 375 these scroll sideways: ${spilled.join('; ')}`);
   });
+  // The same pages as a phone sees them (touch, so tap areas count), in every
+  // layout: text boxes at 16px (smaller makes iPhones zoom in), controls at
+  // least 40px to tap, no text under 12px, and nothing sideways at 360 px.
+  // PHONE_LATER lists controls whose fix belongs to a later wave of the
+  // phone pass; each line names it, and the list only ever shrinks.
+  await step('every page on a phone: text boxes, tap targets, text size', async () => {
+    const phone = await browser.newContext({
+      storageState: await context.storageState(),
+      viewport: { width: 375, height: 812 },
+      isMobile: true,
+      hasTouch: true,
+    });
+    await phone.route(
+      (url) => !sameOrigin(url.href),
+      (route) =>
+        route.request().resourceType() === 'image'
+          ? route.fulfill({ status: 200, contentType: 'image/gif', body: PIXEL })
+          : route.continue(),
+    );
+    const p = await phone.newPage();
+    p.on('pageerror', (err) => problems.push(`page error (phone): ${err.message}`));
+    const found = [];
+    try {
+      for (const label of ['Classic', 'Minimal', 'Organised', 'Fresh']) {
+        await pickLayout(label);
+        for (const route of phoneRoutes) {
+          await p.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle', timeout: 45_000 });
+          const c = await p.evaluate(PHONE_CHECKS);
+          for (const z of c.zoomy) found.push(`${label} ${route}: text box under 16px: ${z}`);
+          for (const t of c.tiny) found.push(`${label} ${route}: text under 12px: ${t}`);
+          for (const t of c.small) if (!PHONE_LATER.some((re) => re.test(t))) found.push(`${label} ${route}: under 40px to tap: ${t}`);
+        }
+      }
+      await pickLayout('Classic');
+      await p.setViewportSize({ width: 360, height: 760 });
+      for (const route of phoneRoutes) {
+        await p.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle', timeout: 45_000 });
+        const overflow = await sideways(p);
+        if (overflow > 1) found.push(`Classic ${route}: scrolls sideways at 360 px by ${overflow}px`);
+      }
+    } finally {
+      await phone.close();
+      await pickLayout('Classic');
+    }
+    if (found.length) throw new Error(`${found.length} phone problems:\n      ${found.slice(0, 40).join('\n      ')}`);
+  });
+  // Accessibility on every page, light and dark (Classic): axe-core's
+  // serious and critical WCAG A/AA problems (contrast, names, roles).
+  await step('every page passes axe, light and dark', async () => {
+    const found = [];
+    for (const scheme of ['light', 'dark']) {
+      const ctx = await browser.newContext({ storageState: await context.storageState(), viewport: { width: 375, height: 812 }, colorScheme: scheme });
+      const p = await ctx.newPage();
+      try {
+        for (const route of phoneRoutes) {
+          await p.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle', timeout: 45_000 });
+          await p.addScriptTag({ path: AXE_PATH });
+          const bad = await p.evaluate(async () => {
+            const r = await window.axe.run(document, { runOnly: ['wcag2a', 'wcag2aa'], resultTypes: ['violations'] });
+            return r.violations
+              .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+              .map((v) => `${v.id} ×${v.nodes.length} (${v.nodes[0].target.join(' ')})`);
+          });
+          for (const b of bad) found.push(`${scheme} ${route}: ${b}`);
+        }
+      } finally {
+        await ctx.close();
+      }
+    }
+    if (found.length) throw new Error(`${found.length} accessibility problems:\n      ${found.slice(0, 40).join('\n      ')}`);
+  });
   // A title page's outline: one h1, then an h2 for every panel (Notes,
   // History, Tags, Lists, Progress, Seasons, Format, Play sessions, Review,
   // More by), and no level skipped anywhere in <main>.
@@ -1478,7 +1563,7 @@ if (failures.length === 0) {
     // the list on refresh); returns its title.
     const addSTier = async (p) => {
       await p.goto(`${BASE_URL}/compare/demo2`, { waitUntil: 'networkidle' });
-      const row = p.locator('#cmp-s ~ ul [role="option"]').first();
+      const row = p.locator('#cmp-s ~ ul [data-external-id]').first();
       await row.waitFor({ timeout: 15_000 });
       const title = (await row.locator('p.truncate').first().getAttribute('title')) ?? '';
       await row.getByRole('button').first().click();
@@ -1520,7 +1605,7 @@ if (failures.length === 0) {
       if (/guess/i.test(await row.first().innerHTML()) || /guess\\*"?:\s*8\b/i.test(html)) throw new Error('b can see the guess before scoring');
       // The row names the title in full, with room to read it, at phone width and
       // beside the sidebar; nothing is pushed sideways.
-      const inboxTitle = row.first().locator('[role="option"] p').first();
+      const inboxTitle = row.first().locator('[data-external-id] p').first();
       for (const width of [375, 768]) {
         await pb.setViewportSize({ width, height: 812 });
         const box = await inboxTitle.evaluate((el) => ({ clipped: el.scrollWidth > el.clientWidth, width: el.clientWidth }));

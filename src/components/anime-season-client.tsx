@@ -149,7 +149,7 @@ export function AnimeSeasonClient({
       </div>
 
       {error && (
-        <p className="text-sm text-rose-500" role="alert">
+        <p className="text-sm text-rose-700 dark:text-rose-400" role="alert">
           {error}
         </p>
       )}

@@ -27,7 +27,7 @@ export default async function YearArenaPage({ params }: { params: { year: string
       <div className="mb-6">
         <Link
           href="/diary"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
+          className="relative tap-area inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
           Back to the diary

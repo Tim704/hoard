@@ -115,6 +115,8 @@ interface AddResultRowProps {
   note?: string;
   /** Show the whole title: it wraps instead of being cut, with the buttons below it. */
   fullTitle?: boolean;
+  /** An option of a listbox (search results). False where the row stands alone in a list. */
+  asOption?: boolean;
   onAdd: (status: 'COMPLETED' | 'PLANNED') => void;
   onRate: (rating: number) => void;
   onSkipRate: () => void;
@@ -130,6 +132,7 @@ export function AddResultRow({
   multi,
   note,
   fullTitle = false,
+  asOption = true,
   onAdd,
   onRate,
   onSkipRate,
@@ -145,8 +148,8 @@ export function AddResultRow({
   return (
     <div
       id={id}
-      role="option"
-      aria-selected={multi ? multi.picked : highlighted}
+      role={asOption ? 'option' : undefined}
+      aria-selected={asOption ? (multi ? multi.picked : highlighted) : undefined}
       data-external-id={result.externalId}
       onClick={
         selectable

@@ -143,7 +143,7 @@ export function TvSeasons({
         {rows.length > 0 && (
           <Link
             href={`/tv/seasons/${encodeURIComponent(activityId)}`}
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            className="relative tap-area inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
           >
             <Rows3 className="h-3.5 w-3.5" aria-hidden />
             Season tiers
@@ -270,7 +270,7 @@ function SeasonLine({
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-label={`${open ? 'Hide' : 'Show'} episodes and score of ${row.name}`}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="relative tap-area flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           {open ? <ChevronUp className="h-4 w-4" aria-hidden /> : <ChevronDown className="h-4 w-4" aria-hidden />}
         </button>

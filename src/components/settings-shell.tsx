@@ -100,7 +100,7 @@ export function SettingsShell({
                     aria-current={on ? 'page' : undefined}
                     className={cn(
                       // ring-inset: the strip scrolls, so it clips anything outside a tab.
-                      'flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                      'flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2.5 text-sm lg:py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                       on
                         ? 'bg-accent font-medium text-accent-foreground'
                         : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',

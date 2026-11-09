@@ -47,10 +47,9 @@
     --viz-grid: #e4e4e7;
     --viz-axis: #c3c2b7;
 
-    /* A score's number and star (Tailwind `text-rating`): amber-600 here,
-       amber-300 in dark; Minimal and Organised darken it to amber-700 so it
-       reads at 4.5:1 on their light surfaces. */
-    --rating: #d97706;
+    /* A score's number and star (Tailwind `text-rating`): amber-700, so a
+       12px score reads at 4.5:1 on the light surfaces; amber-300 in dark. */
+    --rating: #b45309;
   }
 
   .dark {
@@ -305,6 +304,16 @@
   * {
     @apply border-border;
   }
+  /* Phones: text boxes at 16px, or Safari on iPhone zooms the page in when
+     one is tapped (and leaves it zoomed). From sm up they keep their size. */
+  @media (max-width: 639.98px) {
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']),
+    textarea,
+    select {
+      /* Over any text-xs/text-sm utility on the field itself. */
+      font-size: 16px !important;
+    }
+  }
   body {
     @apply bg-background text-foreground;
     font-feature-settings:
@@ -403,17 +412,17 @@
     --fade-end: 32px;
   }
   /* A control drawn smaller than a fingertip (a close ×, a 24px row, a 32px
-     avatar): on touch screens an invisible ::after grows its hit area to at
-     least 36px each way, centred on it, without changing how it looks. The
-     control must be positioned (relative or absolute). */
+     avatar, a 36px button): on touch screens an invisible ::after grows its
+     hit area to at least 40px each way, centred on it, without changing how
+     it looks. The control must be positioned (relative or absolute). */
   @media (pointer: coarse) {
     .tap-area::after {
       content: '';
       position: absolute;
       left: 50%;
       top: 50%;
-      width: max(100%, 2.25rem);
-      height: max(100%, 2.25rem);
+      width: max(100%, 2.5rem);
+      height: max(100%, 2.5rem);
       transform: translate(-50%, -50%);
     }
   }

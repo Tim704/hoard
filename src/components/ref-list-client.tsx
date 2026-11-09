@@ -83,7 +83,7 @@ export function RefListClient({ list }: { list: RefListView }) {
       <div>
         <Link
           href="/lists?tab=ref"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
+          className="relative tap-area inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
           Reference lists
@@ -109,7 +109,7 @@ export function RefListClient({ list }: { list: RefListView }) {
               aria-pressed={filter === id}
               onClick={() => setFilter(id)}
               className={cn(
-                'rounded px-3 py-1 text-sm font-medium transition-colors',
+                'relative tap-area rounded px-3 py-1 text-sm font-medium transition-colors',
                 filter === id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -138,7 +138,7 @@ export function RefListClient({ list }: { list: RefListView }) {
               </Button>
             </>
           ) : (
-            <Button variant="ghost" size="sm" className="text-rose-500" onClick={() => setConfirmDelete(true)}>
+            <Button variant="ghost" size="sm" className="text-rose-700 dark:text-rose-400" onClick={() => setConfirmDelete(true)}>
               <Trash2 className="mr-2 h-4 w-4" aria-hidden />
               Delete
             </Button>
@@ -165,6 +165,7 @@ export function RefListClient({ list }: { list: RefListView }) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <AddResultRow
+                    asOption={false}
                     slug={list.category}
                     result={resultOf(it)}
                     row={rows[key]}

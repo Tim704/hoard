@@ -199,10 +199,10 @@ function Covers({ items, numbered }: { items: { key: string; title: string; imag
               </div>
             )}
             {numbered && (
-              <span className="absolute left-1 top-1 rounded bg-background/85 px-1 text-[10px] font-bold">{i + 1}</span>
+              <span className="absolute left-1 top-1 rounded bg-background/85 px-1 text-xs font-bold">{i + 1}</span>
             )}
           </div>
-          <p className="mt-1 line-clamp-2 text-[11px] leading-tight sm:text-xs">{it.title}</p>
+          <p className="mt-1 line-clamp-2 text-xs leading-tight">{it.title}</p>
         </li>
       ))}
     </ol>

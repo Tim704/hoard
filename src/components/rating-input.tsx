@@ -91,7 +91,7 @@ export function RatingInput({
           type="button"
           variant="outline"
           size="icon"
-          className="h-9 w-9"
+          className="relative tap-area h-9 w-9"
           aria-label="Decrease rating by 0.1"
           onClick={() => onChange(nudgeRating(value, -0.1))}
         >
@@ -121,7 +121,7 @@ export function RatingInput({
           type="button"
           variant="outline"
           size="icon"
-          className="h-9 w-9"
+          className="relative tap-area h-9 w-9"
           aria-label="Increase rating by 0.1"
           onClick={() => onChange(nudgeRating(value, 0.1))}
         >

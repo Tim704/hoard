@@ -189,7 +189,7 @@ export function SettingsForm({ initial, timeZones, serverTimeZone }: SettingsFor
                   disabled={isPending}
                   onClick={() => toggleSection(s)}
                   className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
+                    'relative tap-area inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
                     isHidden
                       ? 'border-dashed border-border text-muted-foreground line-through'
                       : 'border-primary/40 bg-accent text-accent-foreground',
@@ -239,7 +239,7 @@ function Segmented<T extends string | number>({
               disabled={disabled}
               onClick={() => !active && onChange(o.value)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
+                'relative tap-area inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
                 active
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border text-muted-foreground hover:bg-accent/50 hover:text-foreground',

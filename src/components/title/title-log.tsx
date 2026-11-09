@@ -179,7 +179,7 @@ export function OwnershipField({
           void save({ format: next }, () => setFormat(prev));
         }}
       >
-        <SelectTrigger>
+        <SelectTrigger aria-label="Format">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -433,7 +433,7 @@ export function Sessions({
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        <div className="grid grid-cols-7 gap-0.5 text-center text-[11px]">
+        <div className="grid grid-cols-7 gap-0.5 text-center text-xs">
           {dayNames.map((d) => (
             <span key={d} className="text-muted-foreground">
               {d}
