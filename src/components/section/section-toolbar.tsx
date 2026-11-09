@@ -222,7 +222,8 @@ export function SectionToolbar({
             {/* Inset like the view's radio items, so the icons line up. */}
             <DropdownMenuItem asChild inset className={fold.tiers.menu}>
               <Link href={tiersHref}>
-                <TiersIcon className="mr-2 h-4 w-4" aria-hidden />
+                {/* The item's own gap spaces it; always the trophy here (Rows3 is also List view). */}
+                <Trophy className="h-4 w-4" aria-hidden />
                 Tiers
               </Link>
             </DropdownMenuItem>
@@ -232,7 +233,7 @@ export function SectionToolbar({
               </DropdownMenuLabel>
               {ROAST_ACTIONS.map(({ mode, label, Icon }) => (
                 <DropdownMenuItem key={mode} inset onSelect={() => later(() => critic.run(mode))}>
-                  <Icon className="mr-2 h-4 w-4" aria-hidden />
+                  <Icon className="h-4 w-4" aria-hidden />
                   {label}
                 </DropdownMenuItem>
               ))}

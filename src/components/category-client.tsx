@@ -9,6 +9,7 @@ import { MediaCompact } from '@/components/media-compact';
 import { MediaGrid } from '@/components/media-grid';
 import { MediaTable } from '@/components/media-table';
 import { useDisplayTitle, usePrefs } from '@/components/prefs-provider';
+import { SearchDialog } from '@/components/search-dialog';
 import { StatusSection } from '@/components/status-section';
 import { usePersistentState } from '@/hooks/use-persistent-state';
 import { SectionToolbar } from '@/components/section/section-toolbar';
@@ -170,8 +171,23 @@ export function CategoryClient({
           {config.label}
         </h1>
         <p className="text-sm text-muted-foreground">{config.blurb}</p>
-        <p className="truncate text-xs text-muted-foreground">
+        {/* Not truncated on phones: a clip would cut the links' tap areas. */}
+        <p className="text-xs text-muted-foreground sm:truncate">
           {activities.length} {activities.length === 1 ? 'item' : 'items'}
+          {/* Phones fold Tiers into ⋯: say here where the tier list and Up next are. */}
+          <span className="sm:hidden">
+            {' · '}
+            <Link href={`/${slug}/arena`} className="relative tap-area underline underline-offset-2 hover:text-foreground">
+              Tiers
+            </Link>
+            {' · '}
+            <Link
+              href={`/${slug}/arena?tab=queue`}
+              className="relative tap-area underline underline-offset-2 hover:text-foreground"
+            >
+              Up next
+            </Link>
+          </span>
           {slug === 'anime' && (
             <>
               {' · '}
@@ -198,11 +214,12 @@ export function CategoryClient({
 
       {/* Body */}
       {activities.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border py-20 text-center">
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border px-4 py-16 text-center sm:py-20">
           <p className="text-lg font-medium">Your {config.label.toLowerCase()} hoard is empty.</p>
           <p className="text-sm text-muted-foreground">
-            Use “Add {config.singular}” to search {config.source} and start tracking.
+            Search {config.source} to add your first {config.singular.toLowerCase()}.
           </p>
+          <SearchDialog slug={slug} singular={config.singular} library={library} />
         </div>
       ) : visible.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
@@ -223,7 +240,7 @@ export function CategoryClient({
                 onToggle={() => toggleSection(status)}
                 action={
                   status === 'PLANNED'
-                    ? { href: `/${slug}/arena?tab=queue`, label: 'Reorder' }
+                    ? { href: `/${slug}/arena?tab=queue`, label: 'Up next order' }
                     : undefined
                 }
               >

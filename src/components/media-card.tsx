@@ -99,7 +99,7 @@ function Poster({
 }
 
 /** Classic: the card as it was before layouts (no activity badges). */
-function PlainCard({ activity, onClick, href }: MediaCardProps) {
+function PlainCard({ activity, onClick, href, inStatusSection }: MediaCardProps) {
   const { media, status } = activity;
   const title = useDisplayTitle()(media);
   const Icon = STATUS_ICON[status];
@@ -131,10 +131,13 @@ function PlainCard({ activity, onClick, href }: MediaCardProps) {
           {title}
         </h3>
         {media.year != null && <p className="text-xs text-muted-foreground">{media.year}</p>}
-        <div className="mt-auto flex flex-col gap-1.5 pt-1">
-          <StatusBadge status={status} slug={activity.category} />
-          {activity.rating != null && <RatingControl value={activity.rating} />}
-        </div>
+        {/* Under a status heading the pill would say it a third time (heading, poster chip). */}
+        {(!inStatusSection || activity.rating != null) && (
+          <div className="mt-auto flex flex-col gap-1.5 pt-1">
+            {!inStatusSection && <StatusBadge status={status} slug={activity.category} />}
+            {activity.rating != null && <RatingControl value={activity.rating} />}
+          </div>
+        )}
       </div>
     </CardAction>
   );
