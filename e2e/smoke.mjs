@@ -1250,8 +1250,8 @@ if (failures.length === 0) {
     const card = page.locator('#accounts');
     await card.waitFor({ timeout: 15_000 });
     for (const [name, missing] of [
-      ['Steam', /Steam isn.t configured|Linked to|Steam profile/],
-      ['Last.fm', /Last\.fm isn.t configured|Linked to|Last\.fm username/],
+      ['Steam', /Steam isn.t (configured|set up)|Linked to|Steam profile/],
+      ['Last.fm', /Last\.fm isn.t (configured|set up)|Linked to|Last\.fm username/],
       ['AniList', /AniList username|Pulling from/],
     ]) {
       const section = card.locator('section', { has: page.getByRole('heading', { name, exact: true }) });
