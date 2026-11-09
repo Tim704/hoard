@@ -8,7 +8,7 @@ import { Shuffle, Trophy } from 'lucide-react';
 import { DuelCard } from '@/components/arena';
 import { useDisplayTitle } from '@/components/prefs-provider';
 import { Button } from '@/components/ui/button';
-import { settle } from '@/lib/action-result';
+import { settle, UNREACHABLE } from '@/lib/action-result';
 import { nextYearMatchup, submitYearDuel } from '@/lib/actions/year-arena';
 import type { ActivityWithMedia, Matchup } from '@/lib/types';
 
@@ -48,7 +48,12 @@ export function YearArena({ year, initial }: { year: number; initial: Matchup | 
   }
 
   function shuffle() {
-    startTransition(async () => setMatchup(await nextYearMatchup(year)));
+    startTransition(async () => {
+      // An error page answers `undefined` and a dropped connection rejects: keep the pair.
+      const next = await nextYearMatchup(year).catch(() => undefined);
+      if (next === undefined) toast.error(UNREACHABLE);
+      else setMatchup(next);
+    });
   }
 
   const { a, b } = matchup;

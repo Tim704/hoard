@@ -28,10 +28,16 @@ import { displayTitle } from '@/lib/title';
 import { recordEvent } from '@/lib/events';
 import type { Matchup } from '@/lib/types';
 
+/** What every Arena action answers: the next pair (null when there's none), or why nothing was saved. */
+export type ArenaResult<T extends object = object> = ({ ok: true; next: Matchup | null } & T) | { ok: false; error: string };
+
+/** A duel the server turned down: a title was removed (another tab) or isn't yours. */
+const NOT_SAVED = { ok: false, error: 'That duel wasn’t saved: one of the titles has changed.' } as const;
+
 /** Fetch the next matchup for a category (requires auth). */
-export async function nextMatchup(slug: CategorySlug): Promise<Matchup | null> {
+export async function nextMatchup(slug: CategorySlug): Promise<ArenaResult> {
   await requireUser();
-  return getMatchup(slug);
+  return { ok: true, next: await getMatchup(slug) };
 }
 
 /**
@@ -43,17 +49,16 @@ export async function submitMatchup(
   slug: CategorySlug,
   winnerActivityId: string,
   loserActivityId: string,
-): Promise<Matchup | null> {
+): Promise<ArenaResult> {
   const user = await requireUser();
   const ok = await recordDuel(user.id, winnerActivityId, loserActivityId);
-  if (!ok) return null;
+  if (!ok) return NOT_SAVED;
   revalidateCategory(slug);
-  return getMatchup(slug);
+  return { ok: true, next: await getMatchup(slug) };
 }
 
 /** What a "Challenge tiers" duel hands back (4.4). */
 export interface ChallengeOutcome {
-  next: Matchup | null;
   /** The session's lower-title wins per pairing, to send with the next duel. */
   history: ChallengeHistory;
   /** Set when the lower title has beaten the same upper title twice. */
@@ -73,11 +78,11 @@ export async function submitChallenge(
   winnerActivityId: string,
   loserActivityId: string,
   history: unknown,
-): Promise<ChallengeOutcome> {
+): Promise<ArenaResult<ChallengeOutcome>> {
   const user = await requireUser();
   const past = parseChallengeHistory(history);
   const cat = getCategory(slug);
-  if (!cat) return { next: null, history: past, suggestion: null };
+  if (!cat) return NOT_SAVED;
 
   // Which of the two is the lower title, judged by the stored board.
   const board = buildTierBoard(await getCategoryActivities(slug));
@@ -87,7 +92,7 @@ export async function submitChallenge(
       (p.upper.id === loserActivityId && p.lower.id === winnerActivityId),
   );
   const ok = await recordDuel(user.id, winnerActivityId, loserActivityId);
-  if (!ok) return { next: null, history: past, suggestion: null };
+  if (!ok) return NOT_SAVED;
   revalidateCategory(slug);
 
   let nextHistory = past;
@@ -104,13 +109,13 @@ export async function submitChallenge(
       };
     }
   }
-  return { next: await getChallengeMatchup(slug), history: nextHistory, suggestion };
+  return { ok: true, next: await getChallengeMatchup(slug), history: nextHistory, suggestion };
 }
 
 /** The next "Challenge tiers" matchup (requires auth). */
-export async function nextChallenge(slug: CategorySlug): Promise<Matchup | null> {
+export async function nextChallenge(slug: CategorySlug): Promise<ArenaResult> {
   await requireUser();
-  return getChallengeMatchup(slug);
+  return { ok: true, next: await getChallengeMatchup(slug) };
 }
 
 /**

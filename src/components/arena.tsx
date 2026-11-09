@@ -10,7 +10,7 @@ import type { CategorySlug } from '@/lib/categories';
 import type { ActivityWithMedia, Matchup } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { settle } from '@/lib/action-result';
+import { settle, UNREACHABLE } from '@/lib/action-result';
 import { nextChallenge, nextMatchup, submitChallenge, submitMatchup, type ChallengeOutcome } from '@/lib/actions/arena';
 import { promoteFromChallenge } from '@/lib/actions/ranking';
 import type { ChallengeHistory } from '@/lib/arena-pick';
@@ -70,7 +70,7 @@ export function Arena({ slug, initial, mode = 'order' }: ArenaProps) {
       if (res.ok) {
         toast.success(`Moved “${s.title}” up to ${s.toTier}.`);
         setSuggestion(null);
-        setMatchup(await nextChallenge(slug));
+        await freshPair();
         router.refresh();
       } else {
         toast.error(res.error ?? 'Could not move that title.');
@@ -107,17 +107,43 @@ export function Arena({ slug, initial, mode = 'order' }: ArenaProps) {
     );
   }
 
+  /**
+   * Swap in a new pair. When Hoard can't be reached the current pair stays
+   * (with a message), so a dropped connection never empties the Arena.
+   */
+  async function freshPair(): Promise<boolean> {
+    const res = await settle(challenge ? nextChallenge(slug) : nextMatchup(slug));
+    if (!res.ok) {
+      toast.error(res.error);
+      return false;
+    }
+    setMatchup(res.next ?? null);
+    return true;
+  }
+
+  /** Nothing was saved: say so, and keep the pair (or, if a title changed, fetch a new one). */
+  async function notSaved(error: string) {
+    toast.error(error);
+    if (error !== UNREACHABLE) await freshPair();
+    router.refresh();
+  }
+
   /** Record a winner, then swap in whatever the server hands back. */
   function choose(winner: ActivityWithMedia, loser: ActivityWithMedia) {
     startTransition(async () => {
+      let next: Matchup | null;
       if (challenge) {
-        const out = await submitChallenge(slug, winner.id, loser.id, history);
-        setHistory(out.history);
-        if (out.suggestion) setSuggestion(out.suggestion);
-        setMatchup(out.next);
+        const res = await settle(submitChallenge(slug, winner.id, loser.id, history));
+        if (!res.ok) return notSaved(res.error);
+        setHistory(res.history);
+        if (res.suggestion) setSuggestion(res.suggestion);
+        next = res.next;
       } else {
-        setMatchup(await submitMatchup(slug, winner.id, loser.id));
+        const res = await settle(submitMatchup(slug, winner.id, loser.id));
+        if (!res.ok) return notSaved(res.error);
+        next = res.next;
       }
+      setMatchup(next);
       toast.success(`"${titleOf(winner.media)}" wins the round.`);
       router.refresh();
     });
@@ -126,8 +152,7 @@ export function Arena({ slug, initial, mode = 'order' }: ArenaProps) {
   /** Skip this pairing without scoring it. */
   function shuffle() {
     startTransition(async () => {
-      setMatchup(await (challenge ? nextChallenge(slug) : nextMatchup(slug)));
-      router.refresh();
+      if (await freshPair()) router.refresh();
     });
   }
 

@@ -8,7 +8,7 @@ import { Check, Copy, Download, Link2, Loader2, Sparkles } from 'lucide-react';
 import { copy, settled } from '@/components/tier-share';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { settle } from '@/lib/action-result';
+import { settle, UNREACHABLE } from '@/lib/action-result';
 import { createShareLink } from '@/lib/actions/share';
 import { yearVerdict } from '@/lib/actions/stats';
 import { proxiedImageUrl } from '@/lib/img-proxy';
@@ -129,7 +129,12 @@ export function AiVerdict({ year }: { year: number }) {
   function run() {
     setError(null);
     startTransition(async () => {
-      const res = await yearVerdict(year);
+      // An error page answers `undefined` and a dropped connection rejects.
+      const res = await yearVerdict(year).catch(() => undefined);
+      if (!res) {
+        setError(UNREACHABLE);
+        return;
+      }
       setText(res.text || null);
       setError(res.error ?? null);
     });
