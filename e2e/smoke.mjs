@@ -1593,6 +1593,7 @@ if (failures.length === 0) {
 
       // a sends the pick from its title popup.
       await pa.goto(`${BASE_URL}/compare/demo2`, { waitUntil: 'networkidle' });
+      await pa.locator('#cmp-shared').click(); // "Titles you both have" is folded
       await pa.locator('main a', { hasText: pick }).first().click();
       const dialog = pa.getByRole('dialog');
       await dialog.getByRole('button', { name: 'Send to a friend' }).click();
@@ -1646,6 +1647,7 @@ if (failures.length === 0) {
 
       // A second pick: b passes, then takes the pass back with Undo; a then takes the pick back.
       await pa.goto(`${BASE_URL}/compare/demo2`, { waitUntil: 'networkidle' });
+      await pa.locator('#cmp-shared').click(); // "Titles you both have" is folded
       await pa.locator('main a', { hasText: first }).first().click();
       const dialog2 = pa.getByRole('dialog');
       await dialog2.getByRole('button', { name: 'Send to a friend' }).click();

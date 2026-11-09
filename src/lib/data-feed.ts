@@ -53,6 +53,8 @@ export interface FeedItem {
   rating: number | null;
   /** Their pick for you that you haven't scored: the score waits for yours. */
   sealed: boolean;
+  /** The viewer's own activity for this title, when they have it (the row opens it). */
+  myActivityId: string | null;
   rewatch: boolean;
   at: string; // ISO
 }
@@ -160,6 +162,7 @@ export async function getFeedPage(
   // A friend's score on a title they recommended to me stays hidden until I
   // score it myself (as on the Recommendations page and Compare).
   const sealed = await sealedForMe(meId, activities as unknown as Record<string, unknown>[]);
+  const mine = await myActivitiesFor(meId, activities as unknown as Record<string, unknown>[]);
 
   const items: FeedItem[] = [];
   for (const e of page.entries) {
@@ -180,6 +183,7 @@ export async function getFeedPage(
       year: typeof m.year === 'number' ? m.year : null,
       rating: sealed.has(e.activityId) ? null : e.kind === 'finish' ? e.rating : e.kind === 'drop' ? current : null,
       sealed: sealed.has(e.activityId),
+      myActivityId: e.userId === meId ? e.activityId : (mine.get(e.activityId) ?? null),
       rewatch: e.rewatch,
       at: e.at.toISOString(),
     });
@@ -222,4 +226,32 @@ async function sealedForMe(meId: string, activities: Record<string, unknown>[]):
     }),
   );
   return new Set(candidates.filter((c) => !scored.has(`${c.slug}:${c.mediaId}`)).map((c) => c.id));
+}
+
+/** For each of others' activities: my own activity for the same title (feed activity id → mine). */
+async function myActivitiesFor(meId: string, activities: Record<string, unknown>[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const keyed = activities.flatMap((a) => {
+    if (a.userId === meId) return [];
+    const cat = CATEGORY_LIST.find((c) => c.dbCategory === a.category);
+    const m = cat ? (a[cat.prismaModel] as Record<string, unknown> | null) : null;
+    return cat && m && typeof m.id === 'string' ? [{ id: a.id as string, cat, mediaId: m.id }] : [];
+  });
+  if (keyed.length === 0) return out;
+  const rows = await prisma.userMediaActivity.findMany({
+    where: { userId: meId, OR: keyed.map((k) => ({ category: k.cat.dbCategory, [k.cat.fkField]: k.mediaId })) },
+    select: { id: true, category: true, ...Object.fromEntries(CATEGORY_LIST.map((c) => [c.fkField, true])) },
+  });
+  const byKey = new Map(
+    rows.flatMap((r) => {
+      const row = r as unknown as Record<string, unknown>;
+      const cat = CATEGORY_LIST.find((c) => c.dbCategory === row.category);
+      return cat ? [[`${cat.slug}:${row[cat.fkField] as string}`, row.id as string] as const] : [];
+    }),
+  );
+  for (const k of keyed) {
+    const id = byKey.get(`${k.cat.slug}:${k.mediaId}`);
+    if (id) out.set(k.id, id);
+  }
+  return out;
 }

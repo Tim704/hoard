@@ -86,7 +86,7 @@ export default async function CompareUserPage({ params }: { params: { username: 
             ) : (
               <ol className="space-y-2">
                 {view.disagreements.map((d) => (
-                  <SharedRow key={`${d.slug}:${d.myActivityId}`} item={d} them={view.them} />
+                  <SharedRow key={`${d.slug}:${d.myActivityId}`} item={d} them={view.them} gap={d.gap} />
                 ))}
               </ol>
             )}
@@ -103,10 +103,14 @@ export default async function CompareUserPage({ params }: { params: { username: 
             )}
           </section>
 
-          <section aria-labelledby="cmp-shared" className="space-y-3">
-            <h2 id="cmp-shared" className="text-lg font-semibold">
-              Titles you both have <span className="font-normal text-muted-foreground">({view.sharedTotal})</span>
-            </h2>
+          {/* Folded: it can run to hundreds of rows, and repeats the disagreements. */}
+          <details aria-labelledby="cmp-shared" className="group space-y-3">
+            <summary className="relative tap-area cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+              <h2 id="cmp-shared" className="inline text-lg font-semibold">
+                Titles you both have <span className="font-normal text-muted-foreground">({view.sharedTotal})</span>
+              </h2>
+              <span className="ml-2 text-sm text-muted-foreground group-open:hidden">Show</span>
+            </summary>
             {view.shared.length === 0 ? (
               <Empty>No titles in common yet.</Empty>
             ) : (
@@ -123,7 +127,7 @@ export default async function CompareUserPage({ params }: { params: { username: 
                 )}
               </>
             )}
-          </section>
+          </details>
         </>
       )}
     </div>
@@ -139,7 +143,7 @@ function Empty({ children }: { children: React.ReactNode }) {
 }
 
 /** One shared title: cover, title, section · year, and both scores side by side. */
-function SharedRow({ item, them }: { item: SharedView; them: string }) {
+function SharedRow({ item, them, gap }: { item: SharedView; them: string; gap?: number }) {
   return (
     <li>
       <TitleLink
@@ -169,6 +173,12 @@ function SharedRow({ item, them }: { item: SharedView; them: string }) {
           ) : (
             <span className="font-semibold" aria-label={`${them}’s score`}>
               <Score value={item.theirRating} />
+            </span>
+          )}
+          {gap != null && (
+            // The size of the disagreement, so you don't do the subtraction.
+            <span className="col-span-2 mt-0.5 justify-self-end rounded-full bg-muted px-1.5 text-xs text-muted-foreground">
+              ±<Score value={gap} star={false} />
             </span>
           )}
         </div>

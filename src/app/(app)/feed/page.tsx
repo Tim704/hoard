@@ -3,6 +3,7 @@ import { Ban, CheckCircle2, Crown, Lock, Rss } from 'lucide-react';
 
 import { Cover } from '@/components/compare-parts';
 import { Score } from '@/components/prefs-provider';
+import { TitleLink } from '@/components/title/title-link';
 import { Button } from '@/components/ui/button';
 import { CATEGORIES } from '@/lib/categories';
 import { getFeedPage, type FeedItem } from '@/lib/data-feed';
@@ -113,7 +114,7 @@ function FeedRow({ item, now }: { item: FeedItem; now: Date }) {
   const { icon: Icon, className } = KIND[item.kind];
   const at = new Date(item.at);
   return (
-    <li className="flex items-center gap-3 rounded-lg border border-border bg-card p-2 pr-3">
+    <li className="relative flex items-center gap-3 rounded-lg border border-border bg-card p-2 pr-3">
       <Cover src={item.imageUrl} alt={item.title} />
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -122,7 +123,18 @@ function FeedRow({ item, now }: { item: FeedItem; now: Date }) {
             <span className="font-medium text-foreground">{item.isMe ? 'You' : item.username}</span> {verb(item)}
           </span>
         </p>
-        <p className="line-clamp-2 break-words font-medium sm:line-clamp-none sm:truncate">{item.title}</p>
+        {item.myActivityId ? (
+          // You have it too: the whole row opens your copy.
+          <TitleLink
+            slug={item.slug}
+            id={item.myActivityId}
+            className="line-clamp-2 break-words font-medium after:absolute after:inset-0 after:rounded-lg after:content-[''] sm:line-clamp-none sm:truncate"
+          >
+            {item.title}
+          </TitleLink>
+        ) : (
+          <p className="line-clamp-2 break-words font-medium sm:line-clamp-none sm:truncate">{item.title}</p>
+        )}
         <p className="text-xs text-muted-foreground">
           {[CATEGORIES[item.slug].singular, item.year, item.kind === 'finish' && item.rewatch ? 'again' : null]
             .filter(Boolean)
