@@ -85,9 +85,10 @@ export function GoalsCard({ year, goals }: { year: number; goals: GoalProgress[]
 }
 
 /** "Coming up" (5.9): the next five Planned releases with a known day. */
-export function ComingUpCard({ items }: { items: ComingUpItem[] }) {
+export function ComingUpCard({ items, defaultOrder = false }: { items: ComingUpItem[]; defaultOrder?: boolean }) {
   return (
-    <Card className={cn('col-span-full', TILE)}>
+    // Default order: on phones it comes right after Now consuming.
+    <Card className={cn('col-span-full', TILE, defaultOrder && 'order-[-1] sm:order-none')}>
       <CardHeader className={cn('flex flex-row items-center justify-between space-y-0 pb-3', TILE_HEAD)}>
         <CardTitle className={cn('text-base font-semibold', TILE_TITLE)}>Coming up</CardTitle>
         <CalendarClock className="h-5 w-5 text-sky-500" aria-hidden />
@@ -149,17 +150,18 @@ export function OverviewCard({ stats, defaultOrder }: { stats: CategoryStat[]; d
   const cells: { icon: LucideIcon; value: React.ReactNode; label: string }[] = [
     { icon: Library, value: totalItems.toLocaleString(), label: 'tracked' },
     { icon: CheckCircle2, value: totalCompleted.toLocaleString(), label: 'completed' },
-    { icon: Layers, value: `${activeDomains}/${stats.length}`, label: 'domains' },
+    { icon: Layers, value: `${activeDomains}/${stats.length}`, label: 'sections' },
     { icon: Star, value: <Score value={avg} star={false} />, label: 'avg rating' },
   ];
 
   return (
     <Card
       className={cn(
-        'h-full border-primary/30 bg-gradient-to-br from-muted/60 to-card sm:col-span-2 lg:col-span-1',
+        'col-span-2 h-full border-primary/30 bg-gradient-to-br from-muted/60 to-card lg:col-span-1',
         // Its own accent stays: a stronger fill in Minimal, the amber edge in Fresh.
         'minimal:border-transparent minimal:bg-secondary minimal:bg-none minimal:shadow-none organised:shadow-none fresh:rounded-xl fresh:shadow-lg fresh:shadow-black/40',
-        defaultOrder && 'sm:order-first lg:order-none',
+        // Default order: first (phones: then Now consuming and Coming up, before the sections).
+        defaultOrder && 'order-[-3] lg:order-none',
       )}
     >
       <CardHeader className={cn('flex flex-row items-center justify-between space-y-0 pb-3', TILE_HEAD)}>
@@ -189,17 +191,20 @@ export function NowConsumingCard({
   items,
   total,
   titleLanguage,
+  defaultOrder = false,
 }: {
   items: ActivityWithMedia[];
   /** Everything in progress (the "+N" counts the rest of these). */
   total: number;
   titleLanguage: TitleLanguage;
+  /** Default order: on phones it comes right after Your hoard. */
+  defaultOrder?: boolean;
 }) {
   const shown = items.slice(0, 5);
   const extra = Math.max(0, total - shown.length);
 
   return (
-    <Card className={cn('h-full', TILE)}>
+    <Card className={cn('col-span-2 h-full sm:col-span-1', TILE, defaultOrder && 'order-[-2] sm:order-none')}>
       <CardHeader className={cn('flex flex-row items-center justify-between space-y-0 pb-3', TILE_HEAD)}>
         <CardTitle className={cn('text-base font-semibold', TILE_TITLE)}>Now consuming</CardTitle>
         <Play className="h-5 w-5 fill-emerald-500/30 text-emerald-500" />
@@ -342,20 +347,21 @@ export function CategoryCard({ stat }: { stat: CategoryStat }) {
           'minimal:group-hover:bg-secondary fresh:group-hover:border-primary/40',
         )}
       >
-        <CardHeader className={cn('flex flex-row items-center justify-between space-y-0 pb-3', TILE_HEAD)}>
+        {/* Phones: two tiles a row, so tighter padding and a smaller headline. */}
+        <CardHeader className={cn('flex flex-row items-center justify-between space-y-0 p-4 pb-2 sm:p-6 sm:pb-3', TILE_HEAD)}>
           <CardTitle className={cn('text-base font-semibold', TILE_TITLE)}>{stat.label}</CardTitle>
           <Icon className="h-5 w-5 text-muted-foreground" />
         </CardHeader>
-        <CardContent className={cn('[container-type:inline-size]', TILE_BODY)}>
+        <CardContent className={cn('px-4 pb-4 [container-type:inline-size] sm:px-6 sm:pb-6', TILE_BODY)}>
           {/* BIG headline metric */}
           {empty ? (
-            <p className={cn('text-2xl font-bold tracking-tight text-muted-foreground', METRIC)}>
+            <p className={cn('text-base font-semibold text-muted-foreground sm:text-2xl sm:font-bold sm:tracking-tight', METRIC)}>
               Nothing yet
             </p>
           ) : (
-            <p className={cn('text-2xl font-bold tracking-tight', METRIC)}>
+            <p className={cn('text-xl font-bold tracking-tight sm:text-2xl', METRIC)}>
               <span className="tabular-nums">{stat.metricValue.toLocaleString()}</span>{' '}
-              <span className="text-lg font-semibold text-muted-foreground">
+              <span className="block text-sm font-semibold text-muted-foreground sm:inline sm:text-lg">
                 {stat.metricUnit} {stat.metricVerb}
               </span>
             </p>
@@ -364,7 +370,7 @@ export function CategoryCard({ stat }: { stat: CategoryStat }) {
           {/* Status breakdown: one line. In a narrow card the words give way
               to the status icons (screen readers still hear the words); a
               count too long even for that cuts the last entry short. */}
-          <div className="mt-3 flex flex-nowrap items-center gap-x-3 text-sm text-muted-foreground">
+          <div className={cn('mt-3 flex flex-nowrap items-center gap-x-3 text-sm text-muted-foreground', empty && 'hidden sm:flex')}>
             {STATUS_LINE.map(({ status, count, word }, i) => (
               <span key={status} className={i === STATUS_LINE.length - 1 ? 'min-w-0 truncate' : 'shrink-0'}>
                 <StatusIcon
@@ -379,7 +385,7 @@ export function CategoryCard({ stat }: { stat: CategoryStat }) {
           </div>
 
           {/* Avg rating */}
-          <div className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
+          <div className={cn('mt-2 flex items-center gap-1 text-sm text-muted-foreground', empty && 'hidden sm:flex')}>
             <Star
               className={cn(
                 'h-4 w-4',

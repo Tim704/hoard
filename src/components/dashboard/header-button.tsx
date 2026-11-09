@@ -24,6 +24,8 @@ interface HeaderButtonProps extends Omit<ButtonProps, 'children'> {
   label: string;
   /** The button's name and tooltip, when longer than the label (which it must contain). */
   name?: string;
+  /** Shown beside the icon on phones, where tooltips never open (defaults to `label`). */
+  short?: string;
 }
 
 /**
@@ -31,7 +33,7 @@ interface HeaderButtonProps extends Omit<ButtonProps, 'children'> {
  * an icon with a tooltip and an aria-label otherwise.
  */
 export const HeaderButton = forwardRef<HTMLButtonElement, HeaderButtonProps>(function HeaderButton(
-  { icon: Icon, label, name = label, className, ...props },
+  { icon: Icon, label, name = label, short = label, className, ...props },
   ref,
 ) {
   const labelled = useLayout().toolbar === 'labelled';
@@ -47,13 +49,16 @@ export const HeaderButton = forwardRef<HTMLButtonElement, HeaderButtonProps>(fun
           aria-label={name}
           className={cn(
             'shrink-0',
-            // Icon buttons match the section toolbar's: 40px on phones, 36px from md.
-            labelled ? ['h-10 w-10', at.button] : 'h-10 w-10 md:h-9 md:w-9',
+            // Phones: icon and a short label (the header gives the buttons their own row).
+            // From sm, icon buttons that match the section toolbar's: 40px, 36px from md.
+            'h-10 w-auto px-3 sm:w-10 sm:px-0',
+            labelled ? at.button : 'md:h-9 md:w-9',
             className,
           )}
           {...props}
         >
           <Icon className={cn('h-4 w-4', labelled && at.icon)} aria-hidden />
+          <span className="sm:hidden">{short}</span>
           {labelled && <span className={at.text}>{label}</span>}
         </Button>
       </TooltipTrigger>

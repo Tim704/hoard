@@ -141,7 +141,7 @@ export const TILE_LABELS: Record<TileId, string> = {
   'cat:movies': CATEGORIES.movies.label,
   'cat:anime': CATEGORIES.anime.label,
   'cat:games': CATEGORIES.games.label,
-  overview: 'Overview',
+  overview: 'Your hoard',
   'cat:tv': CATEGORIES.tv.label,
   'cat:manga': CATEGORIES.manga.label,
   'cat:music': CATEGORIES.music.label,

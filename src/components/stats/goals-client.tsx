@@ -37,7 +37,8 @@ export function GoalBar({ goal }: { goal: GoalProgress }) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2 text-sm">
-        <span className="min-w-0 truncate">{goalTitle(goal)}</span>
+        {/* The count on the right names the metric: the label says only where. */}
+        <span className="min-w-0 truncate">{goal.category ? CATEGORIES[goal.category].label : 'All sections'}</span>
         <span className="shrink-0 tabular-nums text-muted-foreground">
           <span className="font-semibold text-foreground">{goal.value.toLocaleString('en-US')}</span> /{' '}
           {goal.target.toLocaleString('en-US')} {goalUnit(goal.metric, goal.category, goal.target)}

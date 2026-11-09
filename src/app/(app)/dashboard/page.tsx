@@ -8,6 +8,7 @@ import {
   OverviewCard,
   TILE_GAP,
 } from '@/components/dashboard/tiles';
+import { WelcomeCard } from '@/components/dashboard/welcome-card';
 import { RecommendAcrossButton } from '@/components/recommend-across';
 import { getDashboardStats, getFavourites, getNowConsuming } from '@/lib/data';
 import { getCurrentPrefs } from '@/lib/data-prefs';
@@ -57,11 +58,12 @@ export default async function DashboardPage() {
               items={allConsuming.items}
               total={allConsuming.total}
               titleLanguage={prefs.titleLanguage}
+              defaultOrder={defaultOrder}
             />
           )
         );
       case 'coming-up':
-        return comingUp && <ComingUpCard key={id} items={comingUp} />;
+        return comingUp && <ComingUpCard key={id} items={comingUp} defaultOrder={defaultOrder} />;
       case 'goals':
         return goals && goals.goals.length > 0 && <GoalsCard key={id} year={goals.year} goals={goals.goals} />;
       case 'favourites': {
@@ -76,19 +78,24 @@ export default async function DashboardPage() {
     }
   }
   const shown = tiles.map(tile).filter(Boolean);
+  // A brand-new account: a welcome with the two ways in, before the (empty) tiles.
+  const fresh = allStats != null && allStats.every((s) => s.total === 0);
 
   return (
     <div className="mx-auto max-w-6xl px-[var(--page-pad)] py-6 sm:py-10">
-      {/* One line that never wraps: the greeting truncates beside the buttons
-          (icons where a label wouldn't leave it room, see HeaderButton). */}
-      <header data-dashboard-header="" className="mb-6 flex items-end justify-between gap-3 sm:mb-8">
+      {/* From sm, one line that never wraps: the greeting truncates beside the
+          buttons (icons where a label wouldn't leave it room, see HeaderButton).
+          On phones the greeting has the full width and the labelled buttons
+          sit under it. */}
+      <header data-dashboard-header="" className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-bold tracking-tight sm:text-3xl">
-            Welcome back{user ? `, ${user.username}` : ''} 👋
+          <h1 className="break-words text-2xl font-bold tracking-tight sm:truncate sm:text-3xl">
+            {fresh ? 'Welcome' : 'Welcome back'}
+            {user ? `, ${user.username}` : ''} 👋
           </h1>
-          <p className="mt-1 text-muted-foreground">
+          <p className="mt-1 hidden text-muted-foreground sm:block">
             {allStats && stats?.length === allStats.length
-              ? 'Your hoard at a glance — across all seven domains.'
+              ? 'Your hoard at a glance — across all seven sections.'
               : 'Your hoard at a glance.'}
           </p>
         </div>
@@ -98,11 +105,14 @@ export default async function DashboardPage() {
         </div>
       </header>
 
+      {fresh && <WelcomeCard />}
+
       {shown.length > 0 ? (
         // One grid for every tile, in the user's order: the section tiles, the
         // overview and Now consuming take a cell; Coming up, Goals and
-        // Favourites span the row. 3 columns on desktop, 2 at sm, 1 on phones.
-        <div data-dashboard-tiles="" className={cn('grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3', TILE_GAP)}>
+        // Favourites span the row. 3 columns on desktop, 2 from phones up (on
+        // phones the overview and Now consuming span both).
+        <div data-dashboard-tiles="" className={cn('grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3', TILE_GAP)}>
           {shown}
         </div>
       ) : (

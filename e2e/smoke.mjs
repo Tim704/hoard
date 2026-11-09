@@ -234,9 +234,10 @@ async function gameId() {
 
 /**
  * The dashboard at the current width: nothing scrolls sideways, the header
- * is one row (the greeting beside Recommend and Customize, both named in
- * every layout), and every section tile's status line is one row that
- * doesn't spill.
+ * is one row from sm (the greeting beside Recommend and Customize, both
+ * named in every layout; on phones the greeting has its own row, uncut, and
+ * the buttons sit under it), and every section tile's status line is one row
+ * that doesn't spill.
  */
 async function checkDashboard(where) {
   await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
@@ -251,7 +252,10 @@ async function checkDashboard(where) {
     const tops = (el) => new Set([...el.children].map((c) => Math.round(c.getBoundingClientRect().top))).size;
     const right = (el) => Math.max(...[...el.children].map((c) => c.getBoundingClientRect().right));
     return {
-      oneRow: buttons.top < greeting.bottom && buttons.left >= greeting.right - 1,
+      oneRow:
+        window.innerWidth < 640
+          ? buttons.top >= greeting.bottom - 1 && document.querySelector('[data-dashboard-header] h1').scrollWidth <= greeting.width + 1
+          : buttons.top < greeting.bottom && buttons.left >= greeting.right - 1,
       lines: lines.length,
       wrapped: lines.filter((el) => tops(el) > 1).length,
       spilled: lines.filter((el) => right(el) > el.getBoundingClientRect().right + 1).length,
@@ -1122,7 +1126,7 @@ if (failures.length === 0) {
     const customize = async () => {
       await page.getByRole('button', { name: 'Customize dashboard', exact: true }).click();
       const dialog = page.getByRole('dialog', { name: 'Customize dashboard' });
-      await dialog.getByRole('checkbox', { name: 'Show Overview' }).waitFor({ timeout: 15_000 });
+      await dialog.getByRole('checkbox', { name: 'Show Your hoard' }).waitFor({ timeout: 15_000 });
       return dialog;
     };
     try {
@@ -1132,13 +1136,13 @@ if (failures.length === 0) {
       if (!start.includes('Your hoard') || coming < 1) throw new Error(`the dashboard starts with ${start.join(', ')}`);
 
       let dialog = await customize();
-      await dialog.getByRole('checkbox', { name: 'Show Overview' }).uncheck();
+      await dialog.getByRole('checkbox', { name: 'Show Your hoard' }).uncheck();
       await page.keyboard.press('Escape');
       await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
       dialog = await customize();
-      if (!(await dialog.getByRole('checkbox', { name: 'Show Overview' }).isChecked())) throw new Error('closing the dialog kept a change');
+      if (!(await dialog.getByRole('checkbox', { name: 'Show Your hoard' }).isChecked())) throw new Error('closing the dialog kept a change');
 
-      await dialog.getByRole('checkbox', { name: 'Show Overview' }).uncheck();
+      await dialog.getByRole('checkbox', { name: 'Show Your hoard' }).uncheck();
       await dialog.getByRole('button', { name: 'Move Coming up up', exact: true }).click();
       const focused = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'));
       if (focused !== 'Move Coming up up') throw new Error(`after Move up, focus is on ${focused}`);
