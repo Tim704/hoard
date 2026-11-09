@@ -107,6 +107,21 @@ describe('parsePrefs', () => {
   });
 });
 
+describe('notification settings patch', () => {
+  const stored = { ...DEFAULT_PREFS, notify: { ntfyUrl: 'https://ntfy.sh/new-topic', discordWebhook: null, kinds: [] } };
+
+  it('a kind toggle from a tab left open changes the kinds only, never the push URLs', () => {
+    const patch = PrefsPatchSchema.parse({ notify: { kinds: ['releases'] } });
+    expect(applyPrefsPatch(stored, patch).notify).toEqual({ ntfyUrl: 'https://ntfy.sh/new-topic', discordWebhook: null, kinds: ['releases'] });
+  });
+
+  it('saving the URLs leaves the kinds as stored', () => {
+    const withKinds = { ...stored, notify: { ...stored.notify, kinds: ['friends'] } };
+    const patch = PrefsPatchSchema.parse({ notify: { ntfyUrl: null, discordWebhook: null } });
+    expect(applyPrefsPatch(withKinds, patch).notify).toEqual({ ntfyUrl: null, discordWebhook: null, kinds: ['friends'] });
+  });
+});
+
 describe('PrefsPatchSchema', () => {
   it('accepts a partial patch and rejects invalid values', () => {
     expect(PrefsPatchSchema.safeParse({ scoreFormat: 'five' }).success).toBe(true);

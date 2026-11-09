@@ -51,17 +51,20 @@ export function SettingsNotifications({ initial }: { initial: NotifySettings }) 
   const dirty =
     (ntfyUrl.trim() || null) !== saved.ntfyUrl || (discordWebhook.trim() || null) !== saved.discordWebhook;
 
-  /** Save URLs + kinds. `onFail` rolls back optimistic local state. */
+  /**
+   * Save the URLs or the kinds, only the part that changed: a tab left open
+   * must not put back what another device saved. `onFail` rolls back
+   * optimistic local state.
+   */
   function persist(
-    urls: Pick<NotifySettings, 'ntfyUrl' | 'discordWebhook'>,
-    nextKinds: PushKind[],
+    patch: Partial<Pick<NotifySettings, 'ntfyUrl' | 'discordWebhook'>> & { kinds?: PushKind[] },
     onFail?: () => void,
   ) {
-    const notify = { ...urls, kinds: nextKinds.length === NOTIFY_KINDS.length ? [] : nextKinds };
+    const notify = patch.kinds && patch.kinds.length === NOTIFY_KINDS.length ? { ...patch, kinds: [] } : patch;
     startTransition(async () => {
       const res = await settle(updatePrefs({ notify }));
       if (res.ok) {
-        setSaved(notify);
+        setSaved((s) => ({ ...s, ...notify }));
         toast.success('Notification settings saved.');
       } else {
         onFail?.();
@@ -78,8 +81,8 @@ export function SettingsNotifications({ initial }: { initial: NotifySettings }) 
     }
     const before = kinds;
     setKinds(next);
-    // Kind toggles save on their own, with the already-saved URLs.
-    persist(saved, next, () => setKinds(before));
+    // Kind toggles save on their own: the kinds only.
+    persist({ kinds: next }, () => setKinds(before));
   }
 
   function sendTest() {
@@ -105,10 +108,7 @@ export function SettingsNotifications({ initial }: { initial: NotifySettings }) 
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
-            persist(
-              { ntfyUrl: ntfyUrl.trim() || null, discordWebhook: discordWebhook.trim() || null },
-              kinds,
-            );
+            persist({ ntfyUrl: ntfyUrl.trim() || null, discordWebhook: discordWebhook.trim() || null });
           }}
         >
           <div className="space-y-1.5">

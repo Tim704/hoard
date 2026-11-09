@@ -74,12 +74,18 @@ const NotifySchema = z.object({
   kinds: z.array(z.string().max(40)).max(50).catch([]),
 });
 
-/** The strict write form: invalid URLs are rejected, not silently cleared. */
-const NotifyPatchSchema = z.object({
-  ntfyUrl: httpsUrl.nullable(),
-  discordWebhook: httpsUrl.nullable(),
-  kinds: z.array(z.enum(NOTIFY_KINDS)).max(NOTIFY_KINDS.length),
-});
+/**
+ * The strict write form: invalid URLs are rejected, not silently cleared.
+ * Partial, merged field by field: a kind toggle from a tab left open must
+ * not put back the push URLs that tab last saw (and the other way round).
+ */
+const NotifyPatchSchema = z
+  .object({
+    ntfyUrl: httpsUrl.nullable(),
+    discordWebhook: httpsUrl.nullable(),
+    kinds: z.array(z.enum(NOTIFY_KINDS)).max(NOTIFY_KINDS.length),
+  })
+  .partial();
 
 /**
  * The dashboard's tiles: their order and the hidden ones. Read leniently: the
@@ -230,7 +236,14 @@ export function needsRegionDetection(p: Pick<Prefs, 'region' | 'regionDetected'>
  */
 export function applyPrefsPatch(current: Prefs, patch: z.output<typeof PrefsPatchSchema>): Prefs {
   const touchesRegion = 'region' in patch || 'timeZone' in patch;
-  return { ...current, ...patch, ...(touchesRegion ? { regionDetected: true } : {}) };
+  const { notify, ...rest } = patch;
+  return {
+    ...current,
+    ...rest,
+    // Field by field: a patch carries only what that save changed.
+    notify: notify ? { ...current.notify, ...notify } : current.notify,
+    ...(touchesRegion ? { regionDetected: true } : {}),
+  };
 }
 
 /**
