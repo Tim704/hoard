@@ -73,9 +73,19 @@ const PANEL =
  * them the field's own label wrapped in it (`headingLevel={2}`), so the
  * outline costs no change in looks.
  */
-function Panel({ className, children, label }: { className?: string; children: React.ReactNode; label: string }) {
+function Panel({
+  className,
+  children,
+  label,
+  id,
+}: {
+  className?: string;
+  children: React.ReactNode;
+  label: string;
+  id?: string;
+}) {
   return (
-    <section data-panel={label} className={cn(PANEL, 'empty:hidden', className)}>
+    <section id={id} data-panel={label} className={cn(PANEL, 'empty:hidden', className)}>
       {children}
     </section>
   );
@@ -202,6 +212,38 @@ export function TitlePage({
           </div>
         </header>
 
+        {/* What you came to update comes first: progress, seasons, format. Two
+            columns from md; panels that render nothing are hidden. */}
+        <div className="grid items-start gap-6 empty:hidden md:grid-cols-2">
+          {tracksProgress(slug) && (
+            <Panel label="Progress" className={cn(slug === 'tv' && 'md:col-span-2')}>
+              <TitleProgressField
+                activity={activity}
+                disabled={busy}
+                seasonTracked={seasonTracked}
+                onMarkFinished={() => {
+                  editor.setStatus('COMPLETED');
+                  void editor.save('COMPLETED');
+                }}
+                headingLevel={2}
+              />
+            </Panel>
+          )}
+
+          {slug === 'tv' && (
+            <Panel label="Seasons" className="scroll-mt-bar md:col-span-2" id="seasons">
+              <SeasonsField activity={activity} disabled={busy} onLoaded={setSeasonTracked} headingLevel={2} />
+            </Panel>
+          )}
+
+          {hasOwnership && (
+            <Panel label={slug === 'games' ? 'Owned on' : 'Format'}>
+              <OwnershipField key={`own:${activity.id}`} activity={activity} disabled={busy} headingLevel={2} />
+            </Panel>
+          )}
+
+        </div>
+
         <div className="grid gap-6 md:grid-cols-2">
           <Panel label="Notes">
             <NotesField activity={activity} value={editor.notes} onChange={editor.setNotes} rows={6} headingLevel={2} />
@@ -238,33 +280,6 @@ export function TitlePage({
 
         {/* Two columns from md; panels that render nothing are hidden. */}
         <div className="grid items-start gap-6 empty:hidden md:grid-cols-2">
-          {tracksProgress(slug) && (
-            <Panel label="Progress" className={cn(slug === 'tv' && 'md:col-span-2')}>
-              <TitleProgressField
-                activity={activity}
-                disabled={busy}
-                seasonTracked={seasonTracked}
-                onMarkFinished={() => {
-                  editor.setStatus('COMPLETED');
-                  void editor.save('COMPLETED');
-                }}
-                headingLevel={2}
-              />
-            </Panel>
-          )}
-
-          {slug === 'tv' && (
-            <Panel label="Seasons" className="md:col-span-2">
-              <SeasonsField activity={activity} disabled={busy} onLoaded={setSeasonTracked} headingLevel={2} />
-            </Panel>
-          )}
-
-          {hasOwnership && (
-            <Panel label={slug === 'games' ? 'Owned on' : 'Format'}>
-              <OwnershipField key={`own:${activity.id}`} activity={activity} disabled={busy} headingLevel={2} />
-            </Panel>
-          )}
-
           {slug === 'games' && log && (
             <Sessions
               activityId={activity.id}

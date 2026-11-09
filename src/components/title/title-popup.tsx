@@ -117,6 +117,7 @@ export function TitlePopup({ activity, onClose }: { activity: ActivityWithMedia 
             activity={activity}
             disabled={busy}
             seasonTracked={seasonTracked}
+            seasonsHref={`${href}#seasons`}
             onMarkFinished={() => {
               editor.setStatus('COMPLETED');
               void editor.save('COMPLETED');
@@ -127,7 +128,14 @@ export function TitlePopup({ activity, onClose }: { activity: ActivityWithMedia 
         </div>
 
         <div className="flex items-center gap-2 pt-2">
-          <Button type="button" variant="destructive" onClick={() => void editor.remove()} disabled={busy}>
+          {/* Quiet: Save is the one filled button in the thumb zone (Remove has Undo). */}
+          <Button
+            type="button"
+            variant="ghost"
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => void editor.remove()}
+            disabled={busy}
+          >
             {editor.removing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" aria-hidden />}
             Remove
           </Button>

@@ -261,7 +261,7 @@ export function PasteLinkField({ initialUrl = '' }: { initialUrl?: string }) {
                 void go(pasted);
               }
             }}
-            placeholder="Paste a link (TMDB, IMDb, AniList, Steam, Goodreads…)"
+            placeholder="Or paste a link…"
             aria-label="Paste a link"
             className="pl-8 text-base sm:text-sm"
             autoComplete="off"
@@ -293,7 +293,8 @@ export function SearchEverythingDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         onCloseAutoFocus={onCloseAutoFocus}
-        className="bottom-0 top-auto max-h-[92dvh] max-w-full translate-y-0 gap-3 overflow-y-auto rounded-t-2xl border-b-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:bottom-auto sm:top-[50%] sm:max-h-[90vh] sm:max-w-2xl sm:translate-y-[-50%] sm:gap-4 sm:border-b sm:p-6">
+        // Phones: a fixed-height sheet, so the field doesn't jump up under your thumb as results land.
+        className="bottom-0 top-auto flex h-[92dvh] max-h-[92dvh] max-w-full translate-y-0 flex-col gap-3 overflow-y-auto rounded-t-2xl border-b-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:bottom-auto sm:top-[50%] sm:grid sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:translate-y-[-50%] sm:gap-4 sm:border-b sm:p-6">
         <DialogHeader>
           <DialogTitle>Search everything</DialogTitle>
           <DialogDescription>Every section at once, or paste a link to add it.</DialogDescription>
@@ -301,8 +302,9 @@ export function SearchEverythingDialog({
         {/* Remounted per open (key), so each open starts fresh with its query. */}
         {open && (
           <div className="space-y-5">
-            <PasteLinkField />
+            {/* The search you came for first; a link field second. */}
             <SearchEverythingPanel key={initialQuery} initialQuery={initialQuery} autoFocus />
+            <PasteLinkField />
           </div>
         )}
       </DialogContent>

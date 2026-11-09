@@ -326,7 +326,8 @@ export function SearchDialog({
       </DialogTrigger>
       {/* Mobile: dock to the bottom edge as a sheet (full width, rounded top,
           safe-area padding); sm+ restores the centered dialog. */}
-      <DialogContent className="bottom-0 top-auto max-h-[92dvh] max-w-full translate-y-0 gap-3 rounded-t-2xl border-b-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] overflow-y-auto sm:bottom-auto sm:top-[50%] sm:max-h-[90vh] sm:max-w-lg sm:translate-y-[-50%] sm:gap-4 sm:border-b sm:p-6">
+      {/* Phones: a fixed height, so the field holds still as results arrive, and one scroll for the sheet. */}
+      <DialogContent className="bottom-0 top-auto flex h-[92dvh] max-h-[92dvh] max-w-full translate-y-0 flex-col gap-3 rounded-t-2xl border-b-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] overflow-y-auto sm:bottom-auto sm:top-[50%] sm:grid sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:translate-y-[-50%] sm:gap-4 sm:border-b sm:p-6">
         <DialogHeader>
           <DialogTitle>Add {singular}</DialogTitle>
           <DialogDescription>
@@ -334,7 +335,12 @@ export function SearchDialog({
               ? `Add a ${singular.toLowerCase()} by hand. Only the title is required.`
               : multi
                 ? 'Tick the results to add, then add them all at once.'
-                : 'Start typing to search. Use ↑/↓ and Enter to pick a result.'}
+                : (
+                  <>
+                    Start typing to search.
+                    <span className="hidden sm:inline"> Use ↑/↓ and Enter to pick a result.</span>
+                  </>
+                )}
           </DialogDescription>
         </DialogHeader>
 
@@ -423,8 +429,8 @@ export function SearchDialog({
                 title="Select several"
               >
                 <ListChecks className="h-4 w-4" />
-                <span className="ml-1.5 hidden sm:inline">Select several</span>
-                <span className="sr-only sm:hidden">Select several</span>
+                {/* Labelled on phones too: an icon alone doesn't say it turns on picking several. */}
+                <span className="ml-1.5">Select several</span>
               </Button>
             </div>
 
@@ -455,7 +461,7 @@ export function SearchDialog({
               role="listbox"
               aria-label="Search results"
               aria-multiselectable={multi || undefined}
-              className="max-h-[50dvh] space-y-2 overflow-y-auto pr-1 sm:max-h-[50vh]"
+              className="space-y-2 pr-1 sm:max-h-[50vh] sm:overflow-y-auto"
             >
               {loading && results.length === 0 && (
                 <div className="flex items-center justify-center py-8 text-muted-foreground">

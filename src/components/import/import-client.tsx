@@ -47,47 +47,8 @@ interface SourceInfo {
 /** Sources read in the browser from one or more files. */
 type FileSource = 'hoard' | 'letterboxd' | 'goodreads' | 'storygraph' | 'mal';
 
+// By how often people come from each: the common ones first, Hoard's own CSV (a restore) last.
 const SOURCES: SourceInfo[] = [
-  {
-    id: 'hoard',
-    name: 'Hoard CSV',
-    what: 'A library.csv exported from Hoard (this account or another one).',
-    how: [
-      'Settings → Data → Library (CSV).',
-      'Brings back statuses, scores, favorites, progress, tags, dates and notes. Tiers, Up next order and franchises are not restored.',
-    ],
-    input: 'file',
-    accept: '.csv,text/csv',
-  },
-  {
-    id: 'anilist',
-    name: 'AniList',
-    what: 'Your anime and manga lists, scores, progress and dates.',
-    how: ['Type your AniList username. The profile must be public (AniList → Settings → Account).'],
-    input: 'username',
-  },
-  {
-    id: 'steam',
-    name: 'Steam',
-    what: 'Every game you own on Steam, with its playtime.',
-    how: [
-      'Link your Steam account in Settings → Accounts, with your game details set to Public.',
-      'Played games are suggested as Playing, the rest as Unplayed. Nothing is marked Beaten.',
-    ],
-    input: 'account',
-  },
-  {
-    id: 'letterboxd',
-    name: 'Letterboxd',
-    what: 'Watched films, ratings, your diary and your watchlist.',
-    how: [
-      'letterboxd.com → Settings → Data → Export your data.',
-      'Upload the .zip as it is, or any of watched.csv, ratings.csv, diary.csv, reviews.csv and watchlist.csv.',
-    ],
-    input: 'file',
-    accept: '.zip,.csv,application/zip,text/csv',
-    multiple: true,
-  },
   {
     id: 'goodreads',
     name: 'Goodreads',
@@ -105,6 +66,32 @@ const SOURCES: SourceInfo[] = [
     accept: '.csv,text/csv',
   },
   {
+    id: 'letterboxd',
+    name: 'Letterboxd',
+    what: 'Watched films, ratings, your diary and your watchlist.',
+    how: [
+      'letterboxd.com → Settings → Data → Export your data.',
+      'Upload the .zip as it is, or any of watched.csv, ratings.csv, diary.csv, reviews.csv and watchlist.csv.',
+    ],
+    input: 'file',
+    accept: '.zip,.csv,application/zip,text/csv',
+    multiple: true,
+  },
+  {
+    id: 'trakt',
+    name: 'Trakt',
+    what: 'Watched movies and shows, ratings and your watchlist.',
+    how: ['Type your Trakt username or profile link. The profile must be public (Trakt → Settings → Privacy).'],
+    input: 'username',
+  },
+  {
+    id: 'anilist',
+    name: 'AniList',
+    what: 'Your anime and manga lists, scores, progress and dates.',
+    how: ['Type your AniList username. The profile must be public (AniList → Settings → Account).'],
+    input: 'username',
+  },
+  {
     id: 'mal',
     name: 'MyAnimeList',
     what: 'Your anime and manga lists, scores, episodes, chapters and dates.',
@@ -117,11 +104,21 @@ const SOURCES: SourceInfo[] = [
     multiple: true,
   },
   {
-    id: 'trakt',
-    name: 'Trakt',
-    what: 'Watched movies and shows, ratings and your watchlist.',
-    how: ['Type your Trakt username or profile link. The profile must be public (Trakt → Settings → Privacy).'],
-    input: 'username',
+    id: 'steam',
+    name: 'Steam',
+    what: 'Every game you own on Steam, with its playtime.',
+    how: [
+      'Link your Steam account in Settings → Accounts, with your game details set to Public.',
+      'Played games are suggested as Playing, the rest as Unplayed. Nothing is marked Beaten.',
+    ],
+    input: 'account',
+  },
+  {
+    id: 'ai',
+    name: 'Paste a list',
+    what: 'Any list as text or a screenshot, read by AI.',
+    how: ['Paste the list or choose an image (PNG, JPEG or WebP, up to 6 MB), then check the matches.'],
+    input: 'paste',
   },
   {
     id: 'generic',
@@ -135,11 +132,15 @@ const SOURCES: SourceInfo[] = [
     accept: '.csv,.tsv,text/csv',
   },
   {
-    id: 'ai',
-    name: 'Paste a list',
-    what: 'Any list as text or a screenshot, read by AI.',
-    how: ['Paste the list or choose an image (PNG, JPEG or WebP, up to 6 MB), then check the matches.'],
-    input: 'paste',
+    id: 'hoard',
+    name: 'Hoard CSV',
+    what: 'A library.csv exported from Hoard (this account or another one).',
+    how: [
+      'Settings → Data → Library (CSV).',
+      'Brings back statuses, scores, favorites, progress, tags, dates and notes. Tiers, Up next order and franchises are not restored.',
+    ],
+    input: 'file',
+    accept: '.csv,text/csv',
   },
 ];
 
@@ -372,17 +373,17 @@ export function ImportClient({ steamConfigured, steamLinked, autoStart, tmdbConf
             {s.id === 'letterboxd' && !tmdbConfigured && (
               <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                TMDB isn&apos;t configured on this server, so films can&apos;t be matched yet.
+                TMDB isn&apos;t set up on this Hoard yet, so films can&apos;t be matched.
               </p>
             )}
             {s.id === 'trakt' && !traktConfigured && (
-              <NotConfigured>Trakt isn&apos;t configured on this server (TRAKT_CLIENT_ID).</NotConfigured>
+              <NotConfigured>Trakt isn&apos;t set up on this Hoard yet.</NotConfigured>
             )}
             {s.id === 'steam' && !steamConfigured && (
-              <NotConfigured>Steam isn&apos;t configured on this server (STEAM_API_KEY).</NotConfigured>
+              <NotConfigured>Steam isn&apos;t set up on this Hoard yet.</NotConfigured>
             )}
             {s.id === 'ai' && !aiConfigured && (
-              <NotConfigured>The AI reader isn&apos;t configured on this server (GEMINI_API_KEY).</NotConfigured>
+              <NotConfigured>The AI reader isn&apos;t set up on this Hoard yet.</NotConfigured>
             )}
             {s.input === 'file' || s.input === 'mapped-csv' ? (
               <FilePick source={s} busy={busy === s.id} disabled={busy !== null} onFiles={(f) => void onFiles(s, f)} />

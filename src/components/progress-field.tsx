@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Check, ListChecks, Plus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -39,6 +40,8 @@ interface ProgressFieldProps {
   readOnlyHint?: string;
   /** The label is also its panel's heading (the title page). */
   headingLevel?: HeadingLevel;
+  /** With `readOnlyHint`: where the seasons are logged (the popup links to the full page's Seasons). */
+  seasonsHref?: string;
 }
 
 /**
@@ -46,7 +49,7 @@ interface ProgressFieldProps {
  * +1 button (rapid taps are batched), each saving straight away as one
  * `progress` event. Render with `key={activity.id}`.
  */
-export function ProgressField({ activity, disabled, onMarkFinished, readOnlyHint, headingLevel }: ProgressFieldProps) {
+export function ProgressField({ activity, disabled, onMarkFinished, readOnlyHint, headingLevel, seasonsHref }: ProgressFieldProps) {
   const router = useRouter();
   const slug = activity.category;
   const total = progressTotal(activity);
@@ -179,7 +182,13 @@ export function ProgressField({ activity, disabled, onMarkFinished, readOnlyHint
         {readOnlyHint ? (
           <span className="text-sm tabular-nums">
             {progressText(slug, value ?? 0, total)}
-            <span className="ml-2 text-xs text-muted-foreground">{readOnlyHint}</span>
+            {seasonsHref ? (
+              <Link href={seasonsHref} className="relative tap-area ml-2 text-sm font-medium text-primary underline-offset-2 hover:underline">
+                Log episodes →
+              </Link>
+            ) : (
+              <span className="ml-2 text-xs text-muted-foreground">{readOnlyHint}</span>
+            )}
           </span>
         ) : (
           <>

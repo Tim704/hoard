@@ -32,8 +32,8 @@ export default async function SeasonTiersPage({ params }: SeasonPageProps) {
         </TitleLink>
         <h1 className="mt-2 text-2xl font-bold tracking-tight">Tier the seasons of {data.show.title}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Every season you have watched episodes of (or scored) can go in a tier from S to F. The
-          Arena helps order a tier when you can&apos;t decide.
+          Every season you have watched episodes of (or scored) can go in a tier from S to F. Not sure?
+          Compare two seasons in the Arena below.
         </p>
       </div>
 

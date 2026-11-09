@@ -504,12 +504,15 @@ export function TitleProgressField({
   seasonTracked,
   onMarkFinished,
   headingLevel,
+  seasonsHref,
 }: {
   activity: ActivityWithMedia;
   disabled?: boolean;
   seasonTracked?: boolean;
   onMarkFinished: () => void;
   headingLevel?: HeadingLevel;
+  /** The popup: "Log episodes →" to the full page's Seasons instead of a bare hint. */
+  seasonsHref?: string;
 }) {
   return (
     // A stable wrapper, so the keyed remount below stays in place.
@@ -520,6 +523,7 @@ export function TitleProgressField({
         activity={activity}
         disabled={disabled}
         readOnlyHint={seasonTracked ? 'Tracked by seasons' : undefined}
+        seasonsHref={seasonTracked ? seasonsHref : undefined}
         onMarkFinished={onMarkFinished}
         headingLevel={headingLevel}
       />

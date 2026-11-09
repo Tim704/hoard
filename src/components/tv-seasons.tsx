@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronUp, Plus, Rows3 } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Plus, Rows3 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Heading, type HeadingLevel } from '@/components/heading';
@@ -261,7 +261,9 @@ function SeasonLine({
             className="shrink-0"
             disabled={disabled || watched >= total}
             onClick={() => onChange({ kind: 'all' })}
+            aria-label={`Mark all ${total} episodes of ${row.name} watched`}
           >
+            <Check className="mr-1 h-3.5 w-3.5" aria-hidden />
             All
           </Button>
         )}

@@ -81,7 +81,7 @@ export function AiPaste({ configured, onRows, onCancel }: AiPasteProps) {
         </p>
         {!configured && (
           <p className="text-sm text-amber-700 dark:text-amber-300">
-            The AI reader isn&apos;t configured on this server (GEMINI_API_KEY). Ask the owner to add it.
+            The AI reader isn&apos;t set up on this Hoard yet.
           </p>
         )}
       </div>

@@ -31,8 +31,8 @@ export default function AddPage({ searchParams }: AddPageProps) {
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">Add to Hoard</h1>
         <p className="text-sm text-muted-foreground">
-          Paste a link from TMDB, IMDb, AniList, MyAnimeList, IGDB, Steam, Goodreads, Letterboxd or
-          OpenLibrary, or search every section at once.
+          Search every section at once, or paste a link from TMDB, IMDb, AniList, Goodreads, Letterboxd and
+          more.
         </p>
       </header>
       {/* Keyed so a new shared link starts over. */}
