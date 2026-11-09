@@ -436,18 +436,23 @@ Everything here is off until you turn it on.
   last 30 days, with scores. Your own activity appears only if you turn on "Show my
   activity in the feed".
 - **Recommendations** (`/recommendations`): the same opt-in, for both people. From a
-  title's view, **Send to a friend** sends it to a friend with an optional note (up to
-  500 characters) and a hidden guess of how they will score it (0 to 10). The friend sees
-  it in their inbox with **Add** (to their list) or **Pass**; a title they already have
-  says "Already on your list". You can withdraw a pick until something has happened to it.
-  It is refused if they have already scored or dropped the title, and points you to
-  Compare instead. The verdict arrives when they score or drop the title: both of you then
-  see your guess next to their score. The notification names only who and which title.
-  Each person's record is kept per direction (sent and received), and both directions are
-  in the full JSON export (a received pick never includes the sender's guess). A nightly
-  `recommendations` job (05:50) catches scores that arrive through imports and sync.
-  Manual entries can't be sent. Turning the compare switch off hides recommendations from
-  both sides, with no notification; they return when it is switched back on.
+  title's view, **Send to a friend** (or **Send to <name>** with one friend) sends it with
+  an optional note (up to 500 characters) and a hidden guess of how they will score it
+  (0 to 10). If they have already scored or dropped the title, the form says so instead
+  of offering Send. The friend sees it in their inbox with **Add** (to their list) or
+  **Pass**; Pass has an Undo, and a passed pick keeps an **Undo pass** under Received. A
+  title they already have says "Already on your list" and opens when tapped. You can
+  take a pick back (it asks first) until something has happened to it. The verdict
+  arrives when they score or drop the title: both of you see their score, the guess and
+  the sender's own score side by side, and how far off the guess was. Adding a title
+  after passing on it, or scoring it anyway, counts as added. The notification names only
+  who and which title. Each person's record (sent, added, finished, passed, average
+  score, how far off the guesses were, best and worst pick) is kept per direction, and
+  both directions are in the full JSON export (a received pick never includes the
+  sender's guess). A nightly `recommendations` job (05:50) catches scores that arrive
+  through imports and sync. Manual entries can't be sent. Turning the compare switch off
+  hides recommendations from both sides, with no notification; they return when it is
+  switched back on.
 - These pages join the navigation once you opt in (the user menu; Organised's
   **Friends** group).
 

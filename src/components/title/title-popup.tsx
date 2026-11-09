@@ -123,7 +123,7 @@ export function TitlePopup({ activity, onClose }: { activity: ActivityWithMedia 
             }}
           />
           <NotesField activity={activity} value={editor.notes} onChange={editor.setNotes} />
-          <RecommendPanel activityId={activity.id} slug={activity.category} />
+          <RecommendPanel activityId={activity.id} />
         </div>
 
         <div className="flex items-center gap-2 pt-2">

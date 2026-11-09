@@ -1,6 +1,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 //  Settling recommendations after a recipient's library changed: PENDING turns
-//  ADDED when the title arrived after the pick did or a verdict exists, and the
+//  ADDED when the title arrived after the pick did or a verdict exists (PASSED
+//  too, when it arrived after the pass or a verdict exists), and the
 //  sender hears about the first verdict, once. With either switch off only the
 //  verdict's promotion happens (it changes the row's state and tells nobody), so
 //  a held verdict goes out when the switch comes back on.
@@ -60,6 +61,16 @@ async function settleRow(row: SettleRow): Promise<boolean> {
       data: { response: 'ADDED', respondedAt: row.respondedAt ?? new Date() },
     });
   }
+  // They passed, then changed their mind: added it after passing, or scored or
+  // dropped it anyway. It counts as added, not as passed as well.
+  const passedAt = (row.respondedAt ?? row.createdAt).getTime();
+  const addedAfterPass = recipient.createdAt.getTime() >= passedAt;
+  if (row.response === 'PASSED' && (verdict || (open && addedAfterPass))) {
+    await prisma.recommendation.updateMany({
+      where: { id: row.id, response: 'PASSED' },
+      data: { response: 'ADDED', respondedAt: new Date() },
+    });
+  }
 
   if (!open || !verdict || row.verdictNotifiedAt) return false;
 
@@ -67,20 +78,30 @@ async function settleRow(row: SettleRow): Promise<boolean> {
   if (!media) return false;
 
   // Whoever claims the row sends the news; clearing and re-scoring never does.
+  const claimedAt = new Date();
   const claim = await prisma.recommendation.updateMany({
     where: { id: row.id, verdictNotifiedAt: null },
-    data: { verdictNotifiedAt: new Date() },
+    data: { verdictNotifiedAt: claimedAt },
   });
   if (claim.count !== 1) return false;
 
   const title = displayTitle(media as never, parsePrefs(row.from.prefs).titleLanguage);
-  await notify(row.from.id, {
+  const sent = await notify(row.from.id, {
     kind: 'friends',
     title: `${row.to.username}'s verdict on ${title} is in`,
     body: 'Open Recommendations to see it.',
     url: '/recommendations',
     dedupeKey: `rec-verdict:${row.id}`,
   });
+  // The notification couldn't be saved at all: give the claim back, so the
+  // next save or the nightly job tries again (the dedupe key still stops a double).
+  if (!sent.id && !sent.duplicate) {
+    await prisma.recommendation.updateMany({
+      where: { id: row.id, verdictNotifiedAt: claimedAt },
+      data: { verdictNotifiedAt: null },
+    });
+    return false;
+  }
   return true;
 }
 

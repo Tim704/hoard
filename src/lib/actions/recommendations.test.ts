@@ -43,6 +43,8 @@ vi.mock('@/lib/prisma', () => ({
         activitySelects.push({ where, select });
         return project(activities.find((a) => matches(a, where)), select);
       },
+      findMany: async ({ where, select }: any) =>
+        activities.filter((a) => (where.OR as Row[]).some((w) => matches(a, w))).map((a) => project(a, select)),
     },
     recommendation: {
       findMany: async ({ where, select }: any) => recs.filter((r) => matches(r, where)).map((r) => project(r, select)),
@@ -74,9 +76,8 @@ vi.mock('@/lib/session', () => ({ requireUser: async () => currentUser }));
 vi.mock('@/lib/notify', () => ({ notify: (...args: unknown[]) => notifyMock(...args) }));
 vi.mock('next/cache', () => ({ revalidatePath: () => undefined }));
 
-const { loadRecommendContext, passRecommendation, sendRecommendation, withdrawRecommendation } = await import(
-  './recommendations'
-);
+const { loadRecommendContext, passRecommendation, sendRecommendation, unpassRecommendation, withdrawRecommendation } =
+  await import('./recommendations');
 
 const UNAVAILABLE = "That user isn't available.";
 const NOT_FOUND = { ok: false, error: 'Not found.' };
@@ -324,6 +325,41 @@ describe('passRecommendation and withdrawRecommendation', () => {
     expect(recs).toHaveLength(1);
   });
 
+  it('answers OK to a second Pass on a pick already passed (a double tap, or a second tab)', async () => {
+    recs.push(rec());
+    currentUser = { id: 'u2', username: 'sam' };
+    expect(await passRecommendation('r1')).toEqual({ ok: true });
+    expect(await passRecommendation('r1')).toEqual({ ok: true });
+    expect(recs[0].response).toBe('PASSED');
+  });
+
+  it('lets only the recipient undo a pass, back to PENDING, while there is no verdict', async () => {
+    recs.push(rec({ response: 'PASSED', respondedAt: new Date() }));
+    expect(await unpassRecommendation('r1')).toEqual(NOT_FOUND);
+    currentUser = { id: 'u3', username: 'olive' };
+    expect(await unpassRecommendation('r1')).toEqual(NOT_FOUND);
+    expect(recs[0].response).toBe('PASSED');
+
+    currentUser = { id: 'u2', username: 'sam' };
+    expect(await unpassRecommendation('r1')).toEqual({ ok: true });
+    expect(recs[0]).toMatchObject({ response: 'PENDING', respondedAt: null });
+    // Again: already back, nothing to do.
+    expect(await unpassRecommendation('r1')).toEqual({ ok: true });
+  });
+
+  it('will not undo a pass once they have scored it, or once it was added', async () => {
+    recs.push(rec({ response: 'PASSED', respondedAt: new Date() }));
+    activities.push(activity('a5', 'u2', 'b1', { status: 'COMPLETED', rating: 7 }));
+    currentUser = { id: 'u2', username: 'sam' };
+    expect((await unpassRecommendation('r1')).ok).toBe(false);
+    expect(recs[0].response).toBe('PASSED');
+
+    recs[0].response = 'ADDED';
+    activities.length = 0;
+    expect((await unpassRecommendation('r1')).ok).toBe(false);
+    expect(recs[0].response).toBe('ADDED');
+  });
+
   it('will not pass a pick already added', async () => {
     recs.push(rec({ response: 'ADDED' }));
     currentUser = { id: 'u2', username: 'sam' };
@@ -353,7 +389,7 @@ describe('loadRecommendContext', () => {
     expect(await loadRecommendContext('a1')).toEqual({
       ok: true,
       context: {
-        friends: [{ username: 'sam', alreadySent: false }],
+        friends: [{ username: 'sam', alreadySent: false, decided: false }],
         recommendedBy: [{ from: 'sam', note: 'for you' }],
       },
     });

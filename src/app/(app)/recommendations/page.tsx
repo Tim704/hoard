@@ -20,12 +20,14 @@ export default async function RecommendationsPage() {
           <Send className="h-6 w-6 text-violet-500" aria-hidden />
           Recommendations
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Titles friends think you’ll like, the ones you sent, and how they landed.
-        </p>
+        <p className="text-sm text-muted-foreground">Titles you pass along to each other, and how they landed.</p>
       </header>
 
-      {page.ok ? <RecommendationsClient page={page} /> : <CompareOffNotice />}
+      {page.ok ? (
+        <RecommendationsClient page={page} />
+      ) : (
+        <CompareOffNotice feature="Recommendations are off for you. They only work" />
+      )}
     </div>
   );
 }

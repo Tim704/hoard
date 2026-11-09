@@ -137,9 +137,17 @@ describe('settleRecommendationsForTitle: ADDED', () => {
     expect(recs[0].respondedAt).toBeNull();
   });
 
-  it('leaves a passed pick passed when they add it later', async () => {
-    recs.push(rec({ response: 'PASSED' }));
+  it('turns a pass into ADDED when they add the title after passing (they changed their mind)', async () => {
+    recs.push(rec({ response: 'PASSED', respondedAt: SENT_AT }));
     activities.push(theirActivity());
+    await settle();
+    expect(recs[0].response).toBe('ADDED');
+    expect(recs[0].respondedAt.getTime()).toBeGreaterThan(SENT_AT.getTime());
+  });
+
+  it('keeps a pass on a title they already had before passing, while it has no verdict', async () => {
+    recs.push(rec({ response: 'PASSED', respondedAt: AFTER }));
+    activities.push(theirActivity({ createdAt: BEFORE }));
     await settle();
     expect(recs[0].response).toBe('PASSED');
   });
@@ -266,12 +274,12 @@ describe('settleRecommendationsForTitle: the verdict notification', () => {
     expect(recs[0].verdictNotifiedAt).toBeNull();
   });
 
-  it('notifies on a verdict for a pick they had passed', async () => {
-    recs.push(rec({ response: 'PASSED' }));
-    activities.push(theirActivity({ rating: 2 }));
+  it('notifies on a verdict for a pick they had passed, which then counts as added', async () => {
+    recs.push(rec({ response: 'PASSED', respondedAt: AFTER }));
+    activities.push(theirActivity({ rating: 2, createdAt: BEFORE }));
     await settle();
     expect(notifyMock).toHaveBeenCalledTimes(1);
-    expect(recs[0].response).toBe('PASSED');
+    expect(recs[0].response).toBe('ADDED');
   });
 
   it('does not notify again after clearing and re-scoring', async () => {
@@ -313,6 +321,25 @@ describe('settleRecommendationsForTitle: the verdict notification', () => {
     await settle();
     expect(notifyMock).toHaveBeenCalledTimes(1);
     expect(recs[0].response).toBe('ADDED');
+  });
+
+  it('releases the claim when the notification could not be saved, so a later settle sends it', async () => {
+    recs.push(rec());
+    activities.push(theirActivity({ rating: 8 }));
+    notifyMock.mockResolvedValueOnce({ id: null, push: { sent: [], error: 'database is down' } });
+    await settle();
+    expect(recs[0].verdictNotifiedAt).toBeNull();
+    await settle();
+    expect(notifyMock).toHaveBeenCalledTimes(2);
+    expect(recs[0].verdictNotifiedAt).toBeInstanceOf(Date);
+  });
+
+  it('keeps the claim when the notification was a duplicate', async () => {
+    recs.push(rec());
+    activities.push(theirActivity({ rating: 8 }));
+    notifyMock.mockResolvedValueOnce({ id: null, push: { sent: [], error: null }, duplicate: true });
+    await settle();
+    expect(recs[0].verdictNotifiedAt).toBeInstanceOf(Date);
   });
 
   it('claims nothing when the catalogue title is gone', async () => {

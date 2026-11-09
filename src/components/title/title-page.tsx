@@ -23,6 +23,7 @@ import { ArrowLeft, ImageOff, ListPlus, Loader2, Trash2, type LucideIcon } from 
 
 import { useDisplayTitle, useLayout } from '@/components/prefs-provider';
 import { Button } from '@/components/ui/button';
+import type { RecommendContext } from '@/lib/data-recommendations';
 import { showsListenBadge } from '@/lib/lastfm-suggest';
 import { mediaSubtitle } from '@/lib/media-meta';
 import { formatOptions } from '@/lib/ownership';
@@ -94,11 +95,14 @@ export function TitlePage({
   activity,
   franchises,
   sectionLabel,
+  recommendContext,
 }: {
   activity: ActivityWithMedia;
   franchises: { id: string; name: string }[];
   /** The section's name, for the back link ("Books"). */
   sectionLabel: string;
+  /** The Friends panel's context, loaded with the page so it doesn't pop in. */
+  recommendContext?: RecommendContext | null;
 }) {
   const router = useRouter();
   const titleOf = useDisplayTitle();
@@ -226,7 +230,7 @@ export function TitlePage({
           </Panel>
         </div>
         <Panel label="Friends">
-          <RecommendPanel activityId={activity.id} slug={slug} headingLevel={2} />
+          <RecommendPanel activityId={activity.id} headingLevel={2} initial={recommendContext} />
         </Panel>
 
         {/* Two columns from md; panels that render nothing are hidden. */}

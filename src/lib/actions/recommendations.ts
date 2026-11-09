@@ -127,6 +127,8 @@ export async function passRecommendation(id: string): Promise<ActionResult> {
     const user = await requireUser();
     const rec = await loadMine(id, 'to', user.id);
     if (!rec) return NOT_FOUND;
+    // A double tap or a second tab: already passed is what they asked for.
+    if (rec.response === 'PASSED') return { ok: true };
     const { count } = await prisma.recommendation.updateMany({
       where: { id: rec.id, toId: user.id, response: 'PENDING' },
       data: { response: 'PASSED', respondedAt: new Date() },
@@ -136,6 +138,29 @@ export async function passRecommendation(id: string): Promise<ActionResult> {
     return { ok: true };
   } catch (err) {
     return { ok: false, error: publicError(err, 'Could not pass on it.') };
+  }
+}
+
+/** The recipient takes a pass back (Undo, or "Undo pass" later): PASSED → PENDING while there's no verdict. */
+export async function unpassRecommendation(id: string): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    const rec = await loadMine(id, 'to', user.id);
+    const cat = rec ? getCategory(rec.category) : undefined;
+    if (!rec || !cat) return NOT_FOUND;
+    if (rec.response === 'PENDING') return { ok: true };
+    const tooLate: ActionResult = { ok: false, error: "You've already answered this one." };
+    if (rec.response !== 'PASSED') return tooLate;
+    if (verdictOf(await readLibraryState(user.id, cat.slug, rec.mediaId))) return tooLate;
+    const { count } = await prisma.recommendation.updateMany({
+      where: { id: rec.id, toId: user.id, response: 'PASSED' },
+      data: { response: 'PENDING', respondedAt: null },
+    });
+    if (count !== 1) return tooLate;
+    revalidatePath('/recommendations');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: publicError(err, 'Could not undo that.') };
   }
 }
 

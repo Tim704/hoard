@@ -19,13 +19,18 @@ export const TOGETHER_LIMIT = 50;
 
 /** The usernames of every other user who opted in to comparing (alphabetical). */
 export async function comparableUsernames(meId: string): Promise<string[]> {
+  return (await comparableUsers(meId)).map((u) => u.username);
+}
+
+/** The same people, with their ids (for reads that need them, never for the client). */
+export async function comparableUsers(meId: string): Promise<{ id: string; username: string }[]> {
   const rows = await prisma.user.findMany({
     where: { id: { not: meId }, prefs: { path: ['compareOptIn'], equals: true } },
-    select: { username: true, prefs: true },
+    select: { id: true, username: true, prefs: true },
     orderBy: { username: 'asc' },
   });
   // Re-parse: only a real `true` counts (the same rule as everywhere else).
-  return rows.filter((r) => parsePrefs(r.prefs).compareOptIn === true).map((r) => r.username);
+  return rows.filter((r) => parsePrefs(r.prefs).compareOptIn === true).map((r) => ({ id: r.id, username: r.username }));
 }
 
 export interface TogetherItem {

@@ -168,7 +168,7 @@ describe('getRecommendationsPage: what the sender sees before a verdict', () => 
     const p = await page();
     const view = p.sent[0];
     expect(view.verdict).toBeNull();
-    expect(view.waiting).toBe('Reading');
+    expect(view.waiting).toBe('Reading now');
     expect(view.myActivityId).toBeNull();
     const json = JSON.stringify(p);
     expect(json).not.toContain('CONSUMING');
@@ -256,7 +256,7 @@ describe('getRecommendationsPage: verdicts', () => {
     theirs.rating = null;
     const cleared = (await page()).sent[0];
     expect(cleared.verdict).toBeNull();
-    expect(cleared.waiting).toBe('Unread');
+    expect(cleared.waiting).toBe('On their list');
 
     theirs.rating = 9;
     expect((await page()).sent[0].verdict?.recipientScore).toBe(9);
@@ -281,7 +281,7 @@ describe('getRecommendationsPage: a title the recipient already owned when it wa
     await settleRecommendationsForTitle('u2', 'books', 'b1');
     expect(recs[0].response).toBe('PENDING');
     const sender = (await page('u1')).sent[0];
-    expect(sender.waiting).toBe('Unread');
+    expect(sender.waiting).toBe('On their list');
     expect(sender.withdrawable).toBe(true);
     expect((await page('u2')).inbox.map((v) => v.id)).toEqual(['r1']);
   });
@@ -361,6 +361,7 @@ describe('getRecommendationsPage: the three lists and the record', () => {
       myActivityId: null,
       verdict: null,
       waiting: null,
+      when: expect.any(String),
       withdrawable: false,
       myGuess: null,
     });
@@ -407,7 +408,28 @@ describe('getRecommendationsPage: the three lists and the record', () => {
     const p = await page();
     expect(p.mine).toMatchObject({ sent: 2, added: 2, finished: 2, averageScore: 6, averageGuessMiss: 1, bestId: 'r1', worstId: 'r2' });
     expect(p.theirs).toMatchObject({ sent: 1, passed: 1, averageScore: null, bestId: null });
-    expect(p.bestWorst).toEqual({ r1: 'Paprika', r2: 'Solaris' });
+    expect(p.bestWorst).toEqual({ r1: { title: 'Paprika', score: 9 }, r2: { title: 'Solaris', score: 3 } });
+  });
+});
+
+describe('getRecommendationsPage: friends, dates and the recipient’s own line', () => {
+  it('counts the friends who can get a recommendation (both switches on)', async () => {
+    expect((await page()).friends).toBe(1);
+    users[1].prefs = { compareOptIn: false };
+    expect((await page()).friends).toBe(0);
+  });
+
+  it('says how long ago each pick was sent', async () => {
+    recs.push(rec('r1', 'u2', 'u1', 'b1', { createdAt: new Date(Date.now() - 3 * 86_400_000) }));
+    expect((await page()).inbox[0].when).toBe('3 days ago');
+  });
+
+  it('tells the recipient where an added pick stands on their own list', async () => {
+    recs.push(rec('r1', 'u2', 'u1', 'b1', { response: 'ADDED' }), rec('r2', 'u2', 'u1', 'b2', { response: 'PASSED' }));
+    activities.push(activity('m1', 'u1', 'b1', { status: 'PLANNED' }));
+    const p = await page();
+    expect(p.received.find((v) => v.id === 'r1')?.waiting).toBe('On your list');
+    expect(p.received.find((v) => v.id === 'r2')?.waiting).toBe('You passed');
   });
 });
 
@@ -488,11 +510,35 @@ describe('getRecommendContext', () => {
     );
     expect(await getRecommendContext('u1', 'mine')).toEqual({
       friends: [
-        { username: 'sam', alreadySent: true },
-        { username: 'zed', alreadySent: false },
+        { username: 'sam', alreadySent: true, decided: false },
+        { username: 'zed', alreadySent: false, decided: false },
       ],
       recommendedBy: [{ from: 'sam', note: 'for you' }],
     });
+  });
+
+  it('says which friends have already made up their mind (scored or dropped), so the form can say so up front', async () => {
+    activities.push(activity('mine', 'u1', 'b1'));
+    users.push(
+      { id: 'u4', username: 'zed', prefs: { compareOptIn: true } },
+      { id: 'u5', username: 'ada', prefs: { compareOptIn: true } },
+    );
+    activities.push(
+      activity('t2', 'u2', 'b1', { status: 'COMPLETED', rating: 8 }),
+      activity('t4', 'u4', 'b1', { status: 'DROPPED', rating: null }),
+      activity('t5', 'u5', 'b1', { status: 'CONSUMING', rating: null }),
+    );
+    const ctx = await getRecommendContext('u1', 'mine');
+    expect(ctx.friends).toEqual([
+      { username: 'sam', alreadySent: false, decided: true },
+      { username: 'zed', alreadySent: false, decided: true },
+      { username: 'ada', alreadySent: false, decided: false },
+    ]);
+    // Only status and rating are read from a friend's entry, never notes.
+    const read = activityReads.find((r) => r.select?.userId);
+    expect(read?.select).toMatchObject({ userId: true, status: true, rating: true });
+    expect(read?.select).not.toHaveProperty('notes');
+    expect(read?.select).not.toHaveProperty('tier');
   });
 
   it('is empty when I am off or the activity is not mine', async () => {

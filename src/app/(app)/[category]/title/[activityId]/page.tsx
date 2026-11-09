@@ -5,6 +5,8 @@ import { TitlePage } from '@/components/title/title-page';
 import { CATEGORIES } from '@/lib/categories';
 import { getActivity, getFranchiseOptions } from '@/lib/data';
 import { getCurrentPrefs } from '@/lib/data-prefs';
+import { getRecommendContext } from '@/lib/data-recommendations';
+import { requireUser } from '@/lib/session';
 import { displayTitle } from '@/lib/title';
 import { titlePageOutcome } from '@/lib/title-href';
 
@@ -27,8 +29,13 @@ export async function generateMetadata({ params }: TitleRouteProps): Promise<Met
  * someone else's, is a 404.
  */
 export default async function TitleRoute({ params }: TitleRouteProps) {
-  // Both at once: a 404 or a redirect wastes the (small) franchise query.
-  const [activity, franchises] = await Promise.all([getActivity(params.activityId), getFranchiseOptions()]);
+  // All at once: a 404 or a redirect wastes the (small) franchise and friends queries.
+  const user = await requireUser();
+  const [activity, franchises, recommendContext] = await Promise.all([
+    getActivity(params.activityId),
+    getFranchiseOptions(),
+    getRecommendContext(user.id, params.activityId).catch(() => null),
+  ]);
   const outcome = titlePageOutcome(params.category, activity ? { id: activity.id, category: activity.category } : null);
   if (outcome.kind === 'redirect') redirect(outcome.href);
   if (outcome.kind === 'not-found' || !activity) notFound();
@@ -39,6 +46,7 @@ export default async function TitleRoute({ params }: TitleRouteProps) {
       activity={activity}
       franchises={franchises}
       sectionLabel={CATEGORIES[activity.category].label}
+      recommendContext={recommendContext}
     />
   );
 }

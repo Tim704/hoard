@@ -61,12 +61,34 @@ export function visibleGuess(guess: number | null, verdict: Verdict | null): num
   return verdict ? guess : null;
 }
 
-/** The sender's line while there is no verdict yet. */
-export function waitingLabel(response: RecResponse, recipient: LibraryState | null, slug: CategorySlug): string {
-  if (response === 'PASSED') return 'Passed';
-  if (!recipient) return response === 'ADDED' ? 'Removed from their library' : 'Not answered yet';
-  if (recipient.status === 'COMPLETED' || recipient.status === 'RETIRED') return 'Finished, not scored yet';
-  return statusLabel(recipient.status, slug);
+/**
+ * Where a pick stands while there is no verdict yet, in plain words from the
+ * viewer's side: the sender reads about "their list", the recipient about
+ * "your list". Null when there is nothing to say (a recipient's open pick).
+ */
+export function waitingLabel(
+  response: RecResponse,
+  recipient: LibraryState | null,
+  slug: CategorySlug,
+  viewer: 'sender' | 'recipient' = 'sender',
+): string | null {
+  const their = viewer === 'sender';
+  if (response === 'PASSED') return their ? 'Passed' : 'You passed';
+  if (!recipient) {
+    if (response === 'ADDED') return their ? 'Removed from their library' : 'Removed from your library';
+    return their ? 'Not answered yet' : null;
+  }
+  switch (recipient.status) {
+    case 'COMPLETED':
+    case 'RETIRED':
+      return 'Finished, not scored yet';
+    case 'PLANNED':
+      return their ? 'On their list' : 'On your list';
+    case 'CONSUMING':
+      return `${statusLabel('CONSUMING', slug)} now`;
+    default:
+      return statusLabel(recipient.status, slug);
+  }
 }
 
 export interface RecordRow {

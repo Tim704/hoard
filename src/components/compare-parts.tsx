@@ -11,12 +11,12 @@ import { settingsHref } from '@/lib/settings-nav';
 // ───────────────────────────────────────────────────────────────────────────
 
 /** Shown while the viewer's own compare opt-in is off (reveals nothing about others). */
-export function CompareOffNotice() {
+export function CompareOffNotice({ feature = 'Comparing is off for you. It only works' }: { feature?: string } = {}) {
   return (
     <div className="space-y-3 rounded-xl border border-dashed border-border p-6 text-sm">
       <p>
-        Comparing is off for you. It only works between users who both turned on{' '}
-        <strong>Let other users of this Hoard compare with me</strong> in Settings.
+        {feature} between users who both turned on <strong>Let other users of this Hoard compare with me</strong> in
+        Settings.
       </p>
       <Button asChild variant="outline" size="sm">
         <Link href={settingsHref('sharing', 'compare')}>Open Settings</Link>

@@ -157,8 +157,8 @@ export function AddResultRow({
           : undefined
       }
       className={cn(
-        'flex items-center gap-3 rounded-md border border-border p-2',
-        fullTitle && 'flex-wrap',
+        'flex gap-3 rounded-md border border-border p-2',
+        fullTitle ? 'flex-wrap items-start' : 'items-center',
         highlighted && 'border-primary bg-accent/50',
         selectable && 'cursor-pointer',
         multi?.picked && 'border-primary/70 bg-primary/5',

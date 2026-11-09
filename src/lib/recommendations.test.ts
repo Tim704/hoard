@@ -53,13 +53,24 @@ describe('visibleGuess', () => {
 });
 
 describe('waitingLabel', () => {
-  it('describes where the pick stands', () => {
+  it('describes where the pick stands, for the sender', () => {
     expect(waitingLabel('PENDING', null, 'movies')).toBe('Not answered yet');
-    expect(waitingLabel('PENDING', { status: 'CONSUMING', rating: null }, 'movies')).toBe(statusLabel('CONSUMING', 'movies'));
+    expect(waitingLabel('PENDING', { status: 'CONSUMING', rating: null }, 'movies')).toBe('Watching now');
+    expect(waitingLabel('PENDING', { status: 'CONSUMING', rating: null }, 'books')).toBe('Reading now');
+    expect(waitingLabel('PENDING', { status: 'ON_HOLD', rating: null }, 'movies')).toBe(statusLabel('ON_HOLD', 'movies'));
     expect(waitingLabel('PASSED', null, 'movies')).toBe('Passed');
     expect(waitingLabel('ADDED', null, 'movies')).toBe('Removed from their library');
     expect(waitingLabel('ADDED', { status: 'COMPLETED', rating: null }, 'movies')).toBe('Finished, not scored yet');
-    expect(waitingLabel('ADDED', { status: 'PLANNED', rating: null }, 'movies')).toBe(statusLabel('PLANNED', 'movies'));
+    expect(waitingLabel('ADDED', { status: 'PLANNED', rating: null }, 'movies')).toBe('On their list');
+  });
+
+  it('speaks to the recipient about their own list', () => {
+    expect(waitingLabel('PENDING', null, 'movies', 'recipient')).toBeNull();
+    expect(waitingLabel('PASSED', null, 'movies', 'recipient')).toBe('You passed');
+    expect(waitingLabel('ADDED', null, 'movies', 'recipient')).toBe('Removed from your library');
+    expect(waitingLabel('ADDED', { status: 'PLANNED', rating: null }, 'movies', 'recipient')).toBe('On your list');
+    expect(waitingLabel('ADDED', { status: 'CONSUMING', rating: null }, 'games', 'recipient')).toBe('Playing now');
+    expect(waitingLabel('ADDED', { status: 'COMPLETED', rating: null }, 'movies', 'recipient')).toBe('Finished, not scored yet');
   });
 });
 

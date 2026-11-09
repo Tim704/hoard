@@ -1517,7 +1517,7 @@ if (failures.length === 0) {
       const text = await row.first().innerText();
       if (!text.includes(note)) throw new Error('b does not see the note');
       const html = await pb.content();
-      if (/guess/i.test(await row.first().innerHTML()) || /guess\\*"?:\s*8\b/.test(html)) throw new Error('b can see the guess before scoring');
+      if (/guess/i.test(await row.first().innerHTML()) || /guess\\*"?:\s*8\b/i.test(html)) throw new Error('b can see the guess before scoring');
       // The row names the title in full, with room to read it, at phone width and
       // beside the sidebar; nothing is pushed sideways.
       const inboxTitle = row.first().locator('[role="option"] p').first();
@@ -1542,7 +1542,36 @@ if (failures.length === 0) {
       // a sees the verdict: b's score and its own guess.
       await pa.goto(`${BASE_URL}/recommendations`, { waitUntil: 'networkidle' });
       const seen = await recRow(pa, pick, nameB).first().innerText();
-      if (!/score:\s*\S*6/.test(seen) || !/guess:\s*\S*8/.test(seen)) throw new Error(`a's verdict reads: ${seen.replace(/\s+/g, ' ')}`);
+      if (!/Their score\s*\S*6/.test(seen) || !/Your guess\s*\S*8/.test(seen)) throw new Error(`a's verdict reads: ${seen.replace(/\s+/g, ' ')}`);
+      // b's row opens the title it added.
+      await pb.goto(`${BASE_URL}/recommendations`, { waitUntil: 'networkidle' });
+      const opened = recRow(pb, pick, nameA).first().getByRole('link', { name: pick });
+      if ((await opened.count()) !== 1 || !/\/title\/|[?&]open=/.test((await opened.getAttribute('href')) ?? '')) {
+        throw new Error('b’s received row does not link to the title');
+      }
+
+      // A second pick: b passes, then takes the pass back with Undo; a then takes the pick back.
+      await pa.goto(`${BASE_URL}/compare/demo2`, { waitUntil: 'networkidle' });
+      await pa.locator('main a', { hasText: first }).first().click();
+      const dialog2 = pa.getByRole('dialog');
+      await dialog2.getByRole('button', { name: 'Send to a friend' }).click();
+      const friend2 = dialog2.getByLabel('Friend', { exact: true });
+      if ((await friend2.evaluate((el) => el.tagName)) === 'SELECT') await friend2.selectOption(nameB);
+      await dialog2.getByRole('button', { name: 'Send', exact: true }).click();
+      await pa.getByText(`Sent to ${nameB}.`).first().waitFor({ timeout: 15_000 });
+      await pa.keyboard.press('Escape');
+      await pb.goto(`${BASE_URL}/recommendations`, { waitUntil: 'networkidle' });
+      const second = recRow(pb, first, nameA).first();
+      await second.getByRole('button', { name: 'Pass', exact: true }).click();
+      await pb.getByText(`Passed on “${first}”.`).first().waitFor({ timeout: 15_000 });
+      await pb.getByRole('button', { name: 'Undo', exact: true }).first().click();
+      await pb.getByText(`“${first}” is back in your inbox.`).first().waitFor({ timeout: 15_000 });
+      await recRow(pb, first, nameA).first().getByRole('button', { name: 'Pass', exact: true }).waitFor({ timeout: 15_000 });
+      await pa.goto(`${BASE_URL}/recommendations`, { waitUntil: 'networkidle' });
+      const sentRow = recRow(pa, first, nameB).first();
+      await sentRow.getByRole('button', { name: 'Take back', exact: true }).click();
+      await sentRow.getByRole('button', { name: 'Yes, take it back', exact: true }).click();
+      await recRow(pa, first, nameB).first().waitFor({ state: 'detached', timeout: 15_000 });
 
       // b's switch off hides it from a.
       await compareSwitch(pb, false);

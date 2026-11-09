@@ -4,7 +4,8 @@
 //      row with someone switched off is hidden from both people (never deleted);
 //    - the other person's activity is read with catalogue key, status and score
 //      ONLY, never ids, notes, tiers or dates. Their status reaches a view only
-//      as the `waiting` line, their score only inside a verdict;
+//      as the `waiting` line, their score only inside a verdict (and, in the
+//      Send form, only as "has already scored this", which a send would say);
 //    - a sender's library isn't read at all for a recipient until a verdict
 //      exists, and the guess reaches the recipient only inside a verdict.
 // ───────────────────────────────────────────────────────────────────────────
@@ -13,7 +14,8 @@ import type { Prisma } from '@prisma/client';
 
 import { CATEGORIES, getCategory, type CategorySlug } from '@/lib/categories';
 import { catalogueFields, catalogueKeyOf, fkSelect, loadMedia, loadMediaRow, mediaKey, titleOf } from '@/lib/data-compare';
-import { comparableUsernames } from '@/lib/data-together';
+import { comparableUsers } from '@/lib/data-together';
+import { relativeTime } from '@/lib/feed';
 import { isManualId } from '@/lib/manual';
 import { parsePrefs } from '@/lib/prefs';
 import { prisma } from '@/lib/prisma';
@@ -49,8 +51,10 @@ export interface RecView {
   /** The viewer's OWN activity for this title. */
   myActivityId: string | null;
   verdict: { kind: Verdict['kind']; recipientScore: number | null; guess: number | null; senderScore: number | null } | null;
-  /** The sender's line while there is no verdict; always null for the recipient. */
+  /** Where it stands while there is no verdict, from the viewer's side ("On their list", "You passed"). */
   waiting: string | null;
+  /** When it was sent, relative to the page load ("3 days ago"). */
+  when: string;
   withdrawable: boolean;
   /** The guess I made, on rows I sent; always null on rows sent to me. */
   myGuess: number | null;
@@ -64,12 +68,16 @@ export type RecommendationsPage =
       sent: RecView[];
       mine: RecommendationRecord;
       theirs: RecommendationRecord;
-      bestWorst: Record<string, string>;
+      /** The best and worst picks' titles and the recipient's score, by recommendation id. */
+      bestWorst: Record<string, { title: string; score: number }>;
+      /** How many other people could get a recommendation now (both switches on). */
+      friends: number;
     }
   | { ok: false; reason: 'me-off' };
 
 export interface RecommendContext {
-  friends: { username: string; alreadySent: boolean }[];
+  /** `decided`: they've already scored or dropped this title, so a pick would be refused. */
+  friends: { username: string; alreadySent: boolean; decided: boolean }[];
   recommendedBy: { from: string; note: string | null }[];
 }
 
@@ -114,6 +122,8 @@ export async function getRecommendationsPage(meId: string): Promise<Recommendati
   const myPrefs = parsePrefs(me?.prefs);
   if (!me || !myPrefs.compareOptIn) return { ok: false, reason: 'me-off' };
 
+  const now = new Date();
+  const friends = (await comparableUsers(me.id)).length;
   const rows = await prisma.recommendation.findMany({
     where: { OR: [{ fromId: me.id }, { toId: me.id }] },
     orderBy: { createdAt: 'desc' },
@@ -172,6 +182,7 @@ export async function getRecommendationsPage(meId: string): Promise<Recommendati
   const myPicks: RecordRow[] = [];
   const theirPicks: RecordRow[] = [];
   const titles = new Map<string, string>();
+  const scores = new Map<string, number>();
 
   for (const r of visible) {
     const m = media.get(r.key);
@@ -189,6 +200,7 @@ export async function getRecommendationsPage(meId: string): Promise<Recommendati
     const shown = titleOf(r.slug, m, myPrefs);
 
     titles.set(r.id, shown.title);
+    if (verdict?.score != null) scores.set(r.id, verdict.score);
     (incoming ? theirPicks : myPicks).push({ id: r.id, response, guess: r.guess, recipient, createdAt: r.createdAt });
 
     const view: RecView = {
@@ -207,7 +219,8 @@ export async function getRecommendationsPage(meId: string): Promise<Recommendati
         guess: visibleGuess(r.guess, verdict),
         senderScore: sender?.rating ?? null,
       },
-      waiting: !incoming && !verdict ? waitingLabel(response, recipient, r.slug) : null,
+      waiting: verdict ? null : waitingLabel(response, recipient, r.slug, incoming ? 'recipient' : 'sender'),
+      when: relativeTime(r.createdAt, now),
       withdrawable: !incoming && canWithdraw(response, recipient),
       myGuess: incoming ? null : r.guess,
     };
@@ -218,13 +231,14 @@ export async function getRecommendationsPage(meId: string): Promise<Recommendati
 
   const mine = buildRecord(myPicks);
   const theirs = buildRecord(theirPicks);
-  const bestWorst: Record<string, string> = {};
+  const bestWorst: Record<string, { title: string; score: number }> = {};
   for (const id of [mine.bestId, mine.worstId, theirs.bestId, theirs.worstId]) {
     const title = id ? titles.get(id) : undefined;
-    if (id && title) bestWorst[id] = title;
+    const score = id ? scores.get(id) : undefined;
+    if (id && title && score != null) bestWorst[id] = { title, score };
   }
 
-  return { ok: true, inbox, received, sent, mine, theirs, bestWorst };
+  return { ok: true, inbox, received, sent, mine, theirs, bestWorst, friends };
 }
 
 /** What the title view's Send panel needs. Empty when I'm off or the activity isn't mine. */
@@ -243,8 +257,8 @@ export async function getRecommendContext(meId: string, activityId: string): Pro
   const media = await loadMediaRow(key.cat, key.mediaId);
   // A hand-made entry can't be sent, so offer no friends (the recommender still shows).
   const manual = !!media && isManualId(String(media.externalId));
-  const [usernames, sentRows, receivedRows] = await Promise.all([
-    comparableUsernames(me.id),
+  const [people, sentRows, receivedRows] = await Promise.all([
+    comparableUsers(me.id),
     prisma.recommendation.findMany({
       where: { fromId: me.id, ...title },
       select: { to: { select: { username: true } } },
@@ -256,8 +270,21 @@ export async function getRecommendContext(meId: string, activityId: string): Pro
     }),
   ]);
   const alreadySent = new Set(sentRows.map((r) => r.to.username));
+  // Who has already made up their mind: status and score only, never notes.
+  const decided = new Set<string>();
+  if (!manual && people.length > 0) {
+    const theirRows = await prisma.userMediaActivity.findMany({
+      where: { OR: people.map((p) => ({ userId: p.id, ...titleWhere(key.cat.slug, key.mediaId) })) },
+      select: { userId: true, status: true, rating: true },
+    });
+    for (const row of theirRows) {
+      if (verdictOf({ status: row.status as Status, rating: row.rating })) decided.add(row.userId);
+    }
+  }
   return {
-    friends: manual ? [] : usernames.map((username) => ({ username, alreadySent: alreadySent.has(username) })),
+    friends: manual
+      ? []
+      : people.map((p) => ({ username: p.username, alreadySent: alreadySent.has(p.username), decided: decided.has(p.id) })),
     recommendedBy: receivedRows
       .filter((r) => mutuallyOptedIn(me, r.from))
       .map((r) => ({ from: r.from.username, note: r.note })),
