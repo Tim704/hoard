@@ -92,7 +92,10 @@ export function SettingsSystem({
         <div className="space-y-2 text-sm">
           <p className="font-medium">Scheduled jobs</p>
           <ul className="divide-y divide-border rounded-md border border-border">
-            {jobs.map((j) => (
+            {/* In the order they run: startup first, then by time of day. */}
+            {[...jobs]
+              .sort((a, b) => (a.schedule === 'startup' ? '' : a.schedule).localeCompare(b.schedule === 'startup' ? '' : b.schedule))
+              .map((j) => (
               <li
                 key={j.name}
                 className="flex flex-col gap-0.5 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-4"

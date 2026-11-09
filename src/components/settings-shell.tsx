@@ -79,7 +79,7 @@ export function SettingsShell({
     <div className="mx-auto max-w-5xl px-[var(--page-pad)] py-4 sm:py-6">
       <header className="mb-4 space-y-1 lg:mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Changes save as you make them.</p>
+        <p className="text-sm text-muted-foreground">Most changes save as you make them.</p>
       </header>
       <div className="lg:flex lg:items-start lg:gap-8">
         {/* Sticks below the layout's sticky top bar, if any (--topbar-h). */}

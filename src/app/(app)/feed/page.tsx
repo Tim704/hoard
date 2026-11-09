@@ -122,7 +122,7 @@ function FeedRow({ item, now }: { item: FeedItem; now: Date }) {
             <span className="font-medium text-foreground">{item.isMe ? 'You' : item.username}</span> {verb(item)}
           </span>
         </p>
-        <p className="truncate font-medium">{item.title}</p>
+        <p className="line-clamp-2 break-words font-medium sm:line-clamp-none sm:truncate">{item.title}</p>
         <p className="text-xs text-muted-foreground">
           {[CATEGORIES[item.slug].singular, item.year, item.kind === 'finish' && item.rewatch ? 'again' : null]
             .filter(Boolean)
@@ -134,8 +134,11 @@ function FeedRow({ item, now }: { item: FeedItem; now: Date }) {
         </p>
       </div>
       {item.kind !== 's-tier' && item.rating !== null && (
-        <span className="shrink-0 text-sm font-semibold tabular-nums">
-          <Score value={item.rating} />
+        <span className="shrink-0 text-sm tabular-nums">
+          <span className="text-xs text-muted-foreground">scored </span>
+          <span className="font-semibold">
+            <Score value={item.rating} />
+          </span>
         </span>
       )}
     </li>

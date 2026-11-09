@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import Image from 'next/image';
 import { toast } from 'sonner';
-import { ImageOff, Loader2 } from 'lucide-react';
+import { Check, ImageOff, Loader2 } from 'lucide-react';
 
 import { TitleLink } from '@/components/title/title-link';
 import { Button } from '@/components/ui/button';
@@ -40,18 +40,25 @@ export function TogetherClient({ users, sections }: { users: string[]; sections:
   return (
     <div className="space-y-6">
       <div className="space-y-4 rounded-xl border border-border bg-card p-4">
-        <div className="space-y-1.5">
-          <label htmlFor="together-user" className="text-sm font-medium">
-            With
-          </label>
-          <select id="together-user" className={selectClass} value={other} onChange={(e) => setOther(e.target.value)}>
-            {users.map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </select>
-        </div>
+        {users.length === 1 ? (
+          // One friend: nothing to choose.
+          <p className="text-sm">
+            <span className="font-medium">With</span> {users[0]}
+          </p>
+        ) : (
+          <div className="space-y-1.5">
+            <label htmlFor="together-user" className="text-sm font-medium">
+              With
+            </label>
+            <select id="together-user" className={selectClass} value={other} onChange={(e) => setOther(e.target.value)}>
+              {users.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="space-y-1.5">
           <p className="text-sm font-medium">Sections</p>
           <div className="flex flex-wrap gap-2">
@@ -64,10 +71,13 @@ export function TogetherClient({ users, sections }: { users: string[]; sections:
                   aria-pressed={on}
                   onClick={() => setChosen((c) => (on ? c.filter((x) => x !== s) : [...c, s]))}
                   className={cn(
-                    'relative tap-area rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    on ? 'border-primary/40 bg-accent text-accent-foreground' : 'border-border text-muted-foreground hover:text-foreground',
+                    'relative tap-area inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    on
+                      ? 'border-primary/50 bg-accent font-medium text-accent-foreground'
+                      : 'border-dashed border-border text-muted-foreground hover:text-foreground',
                   )}
                 >
+                  {on && <Check className="h-3.5 w-3.5" aria-hidden />}
                   {CATEGORIES[s].label}
                 </button>
               );
@@ -109,7 +119,7 @@ export function TogetherClient({ users, sections }: { users: string[]; sections:
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{item.title}</p>
+                      <p className="line-clamp-2 break-words font-medium sm:line-clamp-none sm:truncate">{item.title}</p>
                       <p className="text-xs text-muted-foreground">
                         {[CATEGORIES[item.slug].singular, item.year].filter(Boolean).join(' · ')} · #{item.myPosition} in
                         your queue, #{item.theirPosition} in theirs

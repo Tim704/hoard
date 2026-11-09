@@ -8,7 +8,7 @@
 
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
-import { Send } from 'lucide-react';
+import { Check, Send } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -153,6 +153,9 @@ export function SettingsNotifications({ initial }: { initial: NotifySettings }) 
 
         <div className="space-y-1.5">
           <p className="text-sm font-medium">Push these</p>
+          {!saved.ntfyUrl && !saved.discordWebhook && (
+            <p className="text-xs text-muted-foreground">Add an ntfy or Discord URL above first: these choose what gets pushed there.</p>
+          )}
           <div className="flex flex-wrap gap-2">
             {NOTIFY_KINDS.map((k) => {
               const on = kinds.includes(k);
@@ -161,15 +164,16 @@ export function SettingsNotifications({ initial }: { initial: NotifySettings }) 
                   key={k}
                   type="button"
                   aria-pressed={on}
-                  disabled={isPending}
+                  disabled={isPending || (!saved.ntfyUrl && !saved.discordWebhook)}
                   onClick={() => toggleKind(k)}
                   className={cn(
-                    'relative tap-area inline-flex items-center rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
+                    'relative tap-area inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
                     on
-                      ? 'border-primary/40 bg-accent text-accent-foreground'
+                      ? 'border-primary/50 bg-accent font-medium text-accent-foreground'
                       : 'border-dashed border-border text-muted-foreground',
                   )}
                 >
+                  {on && <Check className="h-3.5 w-3.5" aria-hidden />}
                   {KIND_LABEL[k]}
                 </button>
               );

@@ -24,7 +24,11 @@ export function SettingsSharing({ links }: { links: MyShareLink[] }) {
   const [revoked, setRevoked] = useState<Set<string>>(new Set());
   const shown = links.filter((l) => !revoked.has(l.id));
 
+  // A revoked link answers "not found" for good: Revoke asks first.
+  const [confirming, setConfirming] = useState<string | null>(null);
+
   function revoke(link: MyShareLink) {
+    setConfirming(null);
     startTransition(async () => {
       const res = await settle(revokeShareLink(link.id));
       if (res.ok) {
@@ -68,21 +72,34 @@ export function SettingsSharing({ links }: { links: MyShareLink[] }) {
                   <p className="text-sm font-medium">{link.label}</p>
                   <p className="truncate text-xs text-muted-foreground">{link.url}</p>
                 </div>
-                <div data-actions="" className="flex shrink-0 gap-2">
-                  <Button variant="outline" size="sm" onClick={() => void copy(link.url)} aria-label={`Copy the ${link.label} link`}>
-                    <Copy className="h-4 w-4 sm:mr-2" aria-hidden />
-                    <span className="hidden sm:inline">Copy</span>
-                  </Button>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={new URL(link.url).pathname} target="_blank" rel="noreferrer" aria-label={`Open the ${link.label} link`}>
-                      <ExternalLink className="h-4 w-4" aria-hidden />
-                    </Link>
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => revoke(link)} disabled={isPending}>
-                    <Link2Off className="mr-2 h-4 w-4" aria-hidden />
-                    Revoke
-                  </Button>
-                </div>
+                {confirming === link.id ? (
+                  <div data-actions="" className="flex shrink-0 items-center gap-2">
+                    <span className="text-sm">Revoke for good?</span>
+                    <Button variant="destructive" size="sm" onClick={() => revoke(link)} disabled={isPending}>
+                      Revoke
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setConfirming(null)}>
+                      Keep
+                    </Button>
+                  </div>
+                ) : (
+                  <div data-actions="" className="flex shrink-0 gap-2">
+                    <Button variant="outline" size="sm" onClick={() => void copy(link.url)} aria-label={`Copy the ${link.label} link`}>
+                      <Copy className="h-4 w-4" aria-hidden />
+                      Copy
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={new URL(link.url).pathname} target="_blank" rel="noreferrer" aria-label={`Open the ${link.label} link`}>
+                        <ExternalLink className="h-4 w-4" aria-hidden />
+                        Open
+                      </Link>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setConfirming(link.id)} disabled={isPending}>
+                      <Link2Off className="h-4 w-4" aria-hidden />
+                      Revoke
+                    </Button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

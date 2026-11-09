@@ -57,10 +57,13 @@ export default async function CompareUserPage({ params }: { params: { username: 
             </h2>
             {view.compatibility.score !== null ? (
               <>
-                <p className="mt-1 text-4xl font-bold tabular-nums">{view.compatibility.score}%</p>
+                <p className="mt-1 flex items-baseline gap-2">
+                  <span className="text-4xl font-bold tabular-nums">{view.compatibility.score}%</span>
+                  <span className="text-sm font-medium">{alikeWord(view.compatibility.score)}</span>
+                </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   How closely your scores move together across the {view.compatibility.shared} titles you both
-                  scored (50% means no link either way).
+                  scored.
                 </p>
               </>
             ) : view.compatibility.reason === 'too-few' ? (
@@ -146,7 +149,7 @@ function SharedRow({ item, them }: { item: SharedView; them: string }) {
       >
         <Cover src={item.imageUrl} alt={item.title} />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{item.title}</p>
+          <p className="line-clamp-2 break-words font-medium sm:line-clamp-none sm:truncate">{item.title}</p>
           <p className="text-xs text-muted-foreground">
             {[CATEGORIES[item.slug].singular, item.year].filter(Boolean).join(' · ')}
           </p>
@@ -164,4 +167,12 @@ function SharedRow({ item, them }: { item: SharedView; them: string }) {
       </TitleLink>
     </li>
   );
+}
+
+/** What a compatibility score means in words (50% is no link either way). */
+function alikeWord(score: number): string {
+  if (score >= 70) return 'Very alike';
+  if (score >= 55) return 'Somewhat alike';
+  if (score >= 45) return 'No clear pattern';
+  return 'Opposite tastes';
 }
