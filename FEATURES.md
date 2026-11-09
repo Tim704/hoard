@@ -102,12 +102,13 @@ The **Add** button on each section opens a search:
 
 ### Other ways in
 
-- **Search everything** (`/`, or **Search** in the user menu): searches every visible
-  section at once, grouped by section, with a 6 s limit per source.
-- **Command palette** (Cmd+K on a Mac, Ctrl+K elsewhere, or **Command palette** in the
-  user menu): jump to any title in your library or any page. On the highlighted title:
-  Enter opens it, Cmd/Ctrl+Enter marks it done, Alt+Enter moves it to the top of Up next.
-  Enter on no match runs Search everything.
+- **Search everything** (`/`, or **Add a title** in the user menu): searches every
+  visible section at once, grouped by section, with a 6 s limit per source.
+- **Find in my hoard**, the command palette (Cmd+K on a Mac, Ctrl+K elsewhere, the
+  search button in a phone's top bar, or **Find in my hoard** in the user menu): jump to
+  any title in your library or any page. On the highlighted title (on a touch screen,
+  every title): Enter opens it, Cmd/Ctrl+Enter marks it done, Alt+Enter moves it to the
+  top of Up next. Enter on no match runs Search everything.
 - **Add by link** (`/add`): paste a link from TMDB, IMDb, AniList, MyAnimeList, IGDB,
   Steam, Goodreads, Letterboxd or OpenLibrary. Other links are searched by their page
   title. On Android, sharing a link to the installed app opens this page.
@@ -519,14 +520,18 @@ button were removed on the owner's request with this update.
     Friends);
   - **Fresh:** a glass top bar with tabs for Home and the seven sections.
 - **User menu** (your avatar, or "Signed in as" in Classic's sidebar): **Notifications**
-  (an unread dot on the avatar), **Search** and **Command palette** (the phone's way in;
-  `/` and Cmd/Ctrl+K on a keyboard), the pages the layout keeps out of its sidebar or
-  tabs, Theme (not in Fresh), Settings and Log out. There is no bell or search button in
-  the header.
+  (an unread dot on the avatar), **Add a title** and **Find in my hoard** (`/` and
+  Cmd/Ctrl+K on a keyboard), the pages the layout keeps out of its sidebar or tabs,
+  Theme (not in Fresh), Settings and Log out. There is no bell in the header.
 - **Sidebar** (where there is one): collapses to an icon rail with Ctrl/Cmd+B, and that
   choice is remembered.
-- **Phones:** a slim top bar (menu drawer, logo, avatar; in Fresh a second line of
-  section chips), thumb-sized controls, and layouts checked at 375 px.
+- **Phones:** a slim top bar (menu drawer, logo, a search button for Find in my hoard,
+  avatar; in Fresh a second line of section chips). The drawer lists every page in
+  labelled groups, so the avatar menu keeps account things. Controls are at least 40 px
+  to tap, text boxes are 16 px (no zoom on iPhone), nothing is under 12 px, and every
+  page is checked at 360 and 375 px in all four layouts, plus an accessibility pass in
+  light and dark. Rows you can reorder get a ⋮ menu and a Reorder mode instead of tiny
+  arrows.
 - **Settings** (a side menu on desktop, a strip of tabs on phones: Themes, General,
   Accounts, Notifications, Sharing & privacy, Data, and System for the owner): time zone,
   score format, title language, week start, and sections to hide (they leave the
